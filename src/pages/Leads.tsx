@@ -58,7 +58,8 @@ export function Leads() {
                 filter === f ? 'bg-ink text-white' : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'
               }`}
             >
-              {f === 'todos' ? 'Todos' : `${STATUS_META[f].emoji} ${STATUS_META[f].label}`}
+              {f !== 'todos' && <span aria-hidden className={`mr-1.5 inline-block size-2 rounded-full ${STATUS_META[f].dot}`} />}
+              {f === 'todos' ? 'Todos' : STATUS_META[f].label}
               <span className="num ml-1.5 opacity-60">{counts[f] ?? 0}</span>
             </button>
           ))}
@@ -193,7 +194,7 @@ export function LeadDetail() {
           >
             {(Object.keys(STATUS_META) as LeadStatus[]).map((s) => (
               <option key={s} value={s}>
-                {STATUS_META[s].emoji} {STATUS_META[s].label}
+                {STATUS_META[s].label}
               </option>
             ))}
           </select>

@@ -122,7 +122,7 @@ export function generateLocalFollowup(lead: Lead, business: Business, analysis: 
   // Resposta a pergunta pendente: responde só com o que está cadastrado.
   if (analysis.objection === 'pergunta_sem_resposta') {
     const lastQuestion = [...lead.messages].reverse().find((m) => m.from === 'cliente')?.text ?? '';
-    const parts: string[] = [`Oi, ${n}! Tudo bem? Desculpa a demora 🙏`];
+    const parts: string[] = [`Oi, ${n}! Tudo bem? Desculpa a demora.`];
     const q = normalize(lastQuestion);
     if (product && /\b(quanto|preco|valor|custa|tem|voces tem|vcs tem)\b/.test(q)) {
       const ref = productRef(product.name);
@@ -138,8 +138,8 @@ export function generateLocalFollowup(lead: Lead, business: Business, analysis: 
   if (lead.followupsSent >= MAX_FOLLOWUPS - 1) {
     return pick(
       [
-        `Oi, ${n}! Não quero te incomodar 🙂 Só queria saber se ainda tem interesse em ${prod}. Se não for o momento, tudo bem — fico à disposição quando precisar.`,
-        `Oi, ${n}! Passando uma última vez sobre ${prod}. Se ainda fizer sentido pra você, é só me responder por aqui. Se não, sem problemas! 😊`,
+        `Oi, ${n}! Não quero te incomodar, só queria saber se ainda tem interesse em ${prod}. Se não for o momento, tudo bem — fico à disposição quando precisar.`,
+        `Oi, ${n}! Passando uma última vez sobre ${prod}. Se ainda fizer sentido pra você, é só me responder por aqui. Se não, sem problemas!`,
       ],
       variant,
     );
@@ -150,8 +150,8 @@ export function generateLocalFollowup(lead: Lead, business: Business, analysis: 
       const who = sharedDecisionPerson(lead);
       return pick(
         [
-          `Oi, ${n}! Tudo bem? 😊 Você tinha falado com a gente sobre ${prod}. Conseguiu conversar com ${who}? Se tiver alguma dúvida sobre o modelo ou pagamento, posso te ajudar.`,
-          `Oi, ${n}! Passando rapidinho pra saber se você e ${who} chegaram a uma decisão sobre ${prod}. Se quiserem mais fotos ou detalhes, é só me chamar 😊`,
+          `Oi, ${n}! Tudo bem? Você tinha falado com a gente sobre ${prod}. Conseguiu conversar com ${who}? Se tiver alguma dúvida sobre o modelo ou pagamento, posso te ajudar.`,
+          `Oi, ${n}! Passando rapidinho pra saber se você e ${who} chegaram a uma decisão sobre ${prod}. Se quiserem mais fotos ou detalhes, é só me chamar.`,
         ],
         variant,
       );
@@ -159,7 +159,7 @@ export function generateLocalFollowup(lead: Lead, business: Business, analysis: 
     case 'vai_pensar':
       return pick(
         [
-          `Oi, ${n}! Tudo bem? 😊 Ficou alguma dúvida sobre ${prod}? Se quiser, te mando mais detalhes pra ajudar na decisão.`,
+          `Oi, ${n}! Tudo bem? Ficou alguma dúvida sobre ${prod}? Se quiser, te mando mais detalhes pra ajudar na decisão.`,
           `Oi, ${n}! Passando pra saber se você conseguiu pensar sobre ${prod}. Qualquer dúvida, tô por aqui!`,
         ],
         variant,
@@ -171,14 +171,14 @@ export function generateLocalFollowup(lead: Lead, business: Business, analysis: 
           payment
             ? `Oi, ${n}! Tudo bem? Entendo, é um investimento. Só pra ajudar na decisão: ${ensurePeriod(payment.answer)} Quer que eu te explique as condições para ${prod}?`
             : `Oi, ${n}! Tudo bem? Entendo, é um investimento. Se quiser, posso te explicar as formas de pagamento ou te mostrar mais detalhes sobre ${prod}.`,
-          `Oi, ${n}! Fiquei pensando na sua mensagem sobre ${prod}. Se quiser, te ajudo a avaliar se ele atende ao que você precisa — sem compromisso 😊`,
+          `Oi, ${n}! Fiquei pensando na sua mensagem sobre ${prod}. Se quiser, te ajudo a avaliar se ele atende ao que você precisa — sem compromisso.`,
         ],
         variant,
       );
     case 'adiou':
       return pick(
         [
-          `Oi, ${n}! Tudo bem? 😊 Você tinha comentado que ia decidir sobre ${prod} mais pra frente. Se ainda tiver interesse, fico à disposição pra te ajudar.`,
+          `Oi, ${n}! Tudo bem? Você tinha comentado que ia decidir sobre ${prod} mais pra frente. Se ainda tiver interesse, fico à disposição pra te ajudar.`,
           `Oi, ${n}! Passando só pra lembrar de ${prod}, como você tinha comentado. Se surgir qualquer dúvida, é só chamar!`,
         ],
         variant,
@@ -187,7 +187,7 @@ export function generateLocalFollowup(lead: Lead, business: Business, analysis: 
       return pick(
         [
           `Oi, ${n}! Tudo bem? Vi que você perguntou sobre ${prod}. Ficou alguma dúvida que eu possa esclarecer?`,
-          `Oi, ${n}! Passando pra saber se as informações sobre ${prod} ajudaram. Se quiser fotos ou mais detalhes, me avisa 😊`,
+          `Oi, ${n}! Passando pra saber se as informações sobre ${prod} ajudaram. Se quiser fotos ou mais detalhes, me avisa.`,
         ],
         variant,
       );
@@ -208,7 +208,7 @@ Regras obrigatórias:
 - Nunca ofereça ou insinue descontos, promoções ou condições especiais que não estejam cadastrados.
 - Nunca prometa estoque, disponibilidade ou prazo de entrega que não esteja cadastrado.
 - Português do Brasil natural, como um atendente simpático escreveria no WhatsApp. Nada de linguagem robótica ou de telemarketing.
-- Seja breve: 1 a 3 frases curtas, no máximo 1 emoji.
+- Seja breve: 1 a 3 frases curtas. Não use emojis.
 - Trate o cliente pelo primeiro nome e retome o que ele disse na conversa (ex.: se ia falar com a esposa, pergunte se conseguiu).
 - Sem pressão, sem urgência artificial, sem "última chance". Se for o último contato permitido, deixe claro que tudo bem se não for o momento.
 - Se a situação exigir uma decisão humana (pedido de desconto, reclamação, pergunta sem resposta cadastrada), escreva uma mensagem neutra que não comprometa a empresa.
@@ -284,7 +284,8 @@ export async function generateFollowup(
       if (res.ok) {
         const data = (await res.json()) as { text?: string; configured?: boolean };
         if (data.configured === false) apiUnavailable = true;
-        const text = data.text?.trim();
+        // O produto não usa emojis; remove os que a IA externa colocar.
+        const text = data.text?.replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, '').replace(/ {2,}/g, ' ').trim();
         if (text && checkMessage(text, business).every((c) => c.id === 'tamanho' || c.ok)) {
           return { text, source: 'claude' };
         }

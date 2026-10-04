@@ -21,9 +21,9 @@ Na página inicial, **“Ver demonstração agora”** abre uma conta pronta com
 
 1. **Painel** — “Quanto o RecuperaAI recuperou para você?”, métricas, funil e prioridades do dia.
 2. **Recuperar vendas** — “Encontramos 7 clientes que demonstraram interesse e ainda não compraram.”
-3. Clique em **Recuperar cliente** no João Silva → diagnóstico (*Venda potencialmente perdida · 🔥 Lead quente · R$ 2.490 · Follow-up em até 24 horas*) com o **porquê**.
+3. Clique em **Recuperar cliente** no João Silva → diagnóstico (*Venda potencialmente perdida · Lead quente · R$ 2.490 · Follow-up em até 24 horas*) com o **porquê**.
 4. **Gerar follow-up com IA** → editar, copiar, abrir no WhatsApp, marcar como enviado ou **simular envio** (o cliente “responde” em 2s).
-5. **Simular venda recuperada** → status vira 🔵 Recuperado e o valor entra na receita recuperada do painel.
+5. **Simular venda recuperada** → status vira Recuperado e o valor entra na receita recuperada do painel.
 
 ## Como a “IA” funciona
 

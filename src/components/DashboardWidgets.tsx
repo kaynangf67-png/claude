@@ -1,4 +1,4 @@
-import { ArrowRight, TrendingUp } from 'lucide-react';
+import { AlertTriangle, ArrowRight, MessageCircle, Sparkles, TrendingUp, Wallet } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { formatBRL, formatBRLShort } from '../lib/format';
@@ -181,17 +181,17 @@ export function RecoveryFunnel({
 
 export function HowItWorks() {
   const steps = [
-    { emoji: '💬', title: 'Cliente', text: 'pergunta preço no WhatsApp' },
-    { emoji: '⚠️', title: 'Oportunidade perdida', text: '“vou pensar” e some' },
-    { emoji: '✨', title: 'Follow-up com IA', text: 'mensagem natural, na hora certa' },
-    { emoji: '💰', title: 'Venda recuperada', text: 'dinheiro que voltou pro caixa' },
+    { icon: MessageCircle, tone: 'bg-slate-100 text-slate-600', title: 'Cliente', text: 'pergunta preço no WhatsApp' },
+    { icon: AlertTriangle, tone: 'bg-orange-50 text-orange-600', title: 'Oportunidade perdida', text: '“vou pensar” e some' },
+    { icon: Sparkles, tone: 'bg-brand-50 text-brand-700', title: 'Follow-up com IA', text: 'mensagem natural, na hora certa' },
+    { icon: Wallet, tone: 'bg-blue-50 text-blue-600', title: 'Venda recuperada', text: 'dinheiro que voltou pro caixa' },
   ];
   return (
     <ol className="grid grid-cols-2 gap-2 sm:grid-cols-4">
       {steps.map((s, i) => (
         <li key={s.title} className="relative flex items-center gap-3 rounded-2xl bg-white px-3 py-3 ring-1 ring-slate-200/80">
-          <span className="text-xl" aria-hidden>
-            {s.emoji}
+          <span className={`flex size-9 shrink-0 items-center justify-center rounded-xl ${s.tone}`} aria-hidden>
+            <s.icon className="size-[18px]" />
           </span>
           <span className="min-w-0">
             <span className="block text-[13px] font-bold leading-tight text-ink">

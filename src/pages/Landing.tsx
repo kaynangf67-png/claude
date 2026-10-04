@@ -57,14 +57,14 @@ export function Landing() {
               <MessageCircleWarning className="size-5 shrink-0 text-orange-600" />
               <div className="flex-1 text-sm">
                 <p className="font-bold text-ink">Venda potencialmente perdida</p>
-                <p className="text-slate-600">🔥 Lead quente · R$ 2.490 · Follow-up em até 24h</p>
+                <p className="text-slate-600">Lead quente · R$ 2.490 · Follow-up em até 24h</p>
               </div>
             </div>
             <div className="rounded-xl border border-brand-200 bg-brand-50/50 px-3 py-2.5 text-sm">
               <p className="mb-1 flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-brand-700">
                 <Sparkles className="size-3" /> Follow-up sugerido
               </p>
-              Oi, João! Tudo bem? 😊 Você tinha falado com a gente sobre o sofá retrátil. Conseguiu conversar com sua esposa?
+              Oi, João! Tudo bem? Você tinha falado com a gente sobre o sofá retrátil. Conseguiu conversar com sua esposa?
             </div>
             <div className="flex items-center justify-between rounded-xl bg-ink px-4 py-3 text-white">
               <span className="flex items-center gap-2 text-sm"><TrendingUp className="size-4 text-brand-400" /> Receita recuperada</span>

@@ -123,7 +123,7 @@ export function buildDemoLeads(now = Date.now()): Lead[] {
           ['cliente', 'Beleza, vou ver aqui e te retorno', 72],
           [
             'empresa',
-            'Oi, Ricardo! Tudo bem? Ficou alguma dúvida sobre a poltrona reclinável? Se quiser, te mando mais fotos 😊',
+            'Oi, Ricardo! Tudo bem? Ficou alguma dúvida sobre a poltrona reclinável? Se quiser, te mando mais fotos.',
             20,
           ],
         ],
@@ -190,7 +190,7 @@ export function buildDemoLeads(now = Date.now()): Lead[] {
         [
           ['cliente', 'Quanto custa a cadeira de escritório ergonômica?', 8 * 24],
           ['empresa', 'Oi, Beatriz! Ela custa R$ 690.', 8 * 24 - 1],
-          ['empresa', 'Oi, Beatriz! Ficou alguma dúvida sobre a cadeira? 😊', 6 * 24],
+          ['empresa', 'Oi, Beatriz! Ficou alguma dúvida sobre a cadeira?', 6 * 24],
           ['cliente', 'Oi! Já comprei em outro lugar, obrigada.', 6 * 24 - 2],
         ],
         now,
@@ -213,12 +213,12 @@ export function buildDemoLeads(now = Date.now()): Lead[] {
           ['cliente', 'Vou falar com meu marido', 7 * 24 - 2],
           [
             'empresa',
-            'Oi, Ana Paula! Tudo bem? 😊 Conseguiu conversar com seu marido sobre o sofá retrátil? Se tiver dúvida sobre pagamento, posso te ajudar.',
+            'Oi, Ana Paula! Tudo bem? Conseguiu conversar com seu marido sobre o sofá retrátil? Se tiver dúvida sobre pagamento, posso te ajudar.',
             4 * 24,
           ],
           ['cliente', 'Conversei sim! Vamos levar. Pode parcelar em 10x?', 4 * 24 - 1],
           ['empresa', 'Pode sim! Em até 10x sem juros no cartão. Vou te mandar o link do pedido.', 4 * 24 - 1.5],
-          ['cliente', 'Paguei! Segue o comprovante 🙌', 3 * 24],
+          ['cliente', 'Paguei! Segue o comprovante.', 3 * 24],
         ],
         now,
         [3],
@@ -240,7 +240,7 @@ export function buildDemoLeads(now = Date.now()): Lead[] {
           ['cliente', 'Vou pensar', 9 * 24 - 2],
           [
             'empresa',
-            'Oi, Roberto! Passando pra saber se ficou alguma dúvida sobre o guarda-roupa. A montagem é por nossa conta 😊',
+            'Oi, Roberto! Passando pra saber se ficou alguma dúvida sobre o guarda-roupa. A montagem é por nossa conta.',
             6 * 24,
           ],
           ['cliente', 'Fechado, pode separar um pra mim', 5 * 24],

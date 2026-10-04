@@ -126,7 +126,7 @@ export const actions = {
     if (!lead || !state.business) return;
     const analysis = analyzeLead({ ...lead, messages: lead.messages.filter((m) => !m.isFollowup) }, state.business);
     const replies: Record<string, string> = {
-      decisao_compartilhada: 'Oi! Conversei sim, a gente gostou bastante 😊 Como faço pra fechar?',
+      decisao_compartilhada: 'Oi! Conversei sim, a gente gostou bastante. Como faço pra fechar?',
       vai_pensar: 'Oi! Pensei sim e gostei. Como faço pra fechar?',
       preco: 'Oi! Pensando melhor, acho que vale a pena. Como faço pra fechar?',
       adiou: 'Oi! Agora consigo ver isso sim. Como faço pra fechar?',

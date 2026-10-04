@@ -102,7 +102,7 @@ export function analyzeLead(lead: Lead, business: Business, now = Date.now()): A
         ...reasons,
         lead.recoveredAt ? `Compra confirmada ${relativeTime(lead.recoveredAt, now)}` : 'Compra confirmada',
       ],
-      recommendedAction: 'Nenhuma ação necessária. Venda concluída! 🎉',
+      recommendedAction: 'Nenhuma ação necessária. Venda concluída.',
       urgency: 'nenhuma',
       needsHuman: false,
       canFollowUp: false,

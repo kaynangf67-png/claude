@@ -70,7 +70,7 @@ export function PricingContent() {
       </div>
       <p className="mt-8 text-center text-xs text-slate-500">Preços em reais. Sem fidelidade. Nenhuma cobrança é feita nesta versão.</p>
 
-      <Modal open={!!chosen} onClose={() => setChosen(null)} title={<p className="text-base font-bold">Obrigado pelo interesse! 🙌</p>}>
+      <Modal open={!!chosen} onClose={() => setChosen(null)} title={<p className="text-base font-bold">Obrigado pelo interesse!</p>}>
         <div className="space-y-3 p-6 text-sm text-slate-600">
           <p>
             Você escolheu o <strong className="text-ink">{chosen}</strong>. O RecuperaAI está em fase de validação e ainda não

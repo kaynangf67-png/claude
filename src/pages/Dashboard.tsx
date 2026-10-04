@@ -22,7 +22,7 @@ export function Dashboard() {
   return (
     <>
       <PageHeader
-        title={`${greet}${user && user.name !== 'Você' ? `, ${user.name.split(' ')[0]}` : ''}! 👋`}
+        title={`${greet}${user && user.name !== 'Você' ? `, ${user.name.split(' ')[0]}` : ''}!`}
         subtitle={
           m.openCount > 0 ? (
             <>
@@ -97,7 +97,7 @@ export function Dashboard() {
             </Link>
           </div>
           {priorities.length === 0 ? (
-            <p className="py-10 text-center text-sm text-slate-500">Tudo em dia por aqui. 🎉</p>
+            <p className="py-10 text-center text-sm text-slate-500">Tudo em dia por aqui.</p>
           ) : (
             <ul className="divide-y divide-slate-100">
               {priorities.map(({ lead, analysis }) => (

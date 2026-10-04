@@ -129,7 +129,7 @@ export function FollowupComposer({
       setTimeout(() => {
         actions.simulateCustomerReply(lead.id);
         setAwaitingReply(false);
-        toast({ title: `${n} respondeu! 💬`, description: 'Veja a conversa e feche a venda.', tone: 'info' });
+        toast({ title: `${n} respondeu!`, description: 'Veja a conversa e feche a venda.', tone: 'info' });
       }, 2200);
     }
   }
@@ -146,7 +146,7 @@ export function FollowupComposer({
 
   function recover() {
     actions.setStatus(lead.id, 'recuperado');
-    toast({ title: `+${formatBRL(lead.value)} recuperados 🎉`, description: `${lead.name} comprou ${lead.productName}.` });
+    toast({ title: `+${formatBRL(lead.value)} recuperados`, description: `${lead.name} comprou ${lead.productName}.` });
     onRecovered?.();
   }
 
@@ -303,7 +303,7 @@ export function FollowupComposer({
       <div className={`rounded-2xl p-3 ${readyToClose ? 'bg-brand-600 text-white' : 'bg-slate-50 ring-1 ring-slate-200'}`}>
         {readyToClose && (
           <p className="mb-2 px-1 text-sm font-semibold">
-            🎯 {n} quer comprar! Registre a venda para ver o ROI no painel.
+            {n} quer comprar! Registre a venda para ver o ROI no painel.
           </p>
         )}
         <button

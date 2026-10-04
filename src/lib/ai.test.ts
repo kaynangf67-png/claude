@@ -78,7 +78,7 @@ describe('generateLocalFollowup', () => {
   it('reproduz a mensagem de referência para o João', () => {
     const l = byName('João Silva');
     expect(generateLocalFollowup(l, DEMO_BUSINESS, analyze(l), 0)).toBe(
-      'Oi, João! Tudo bem? 😊 Você tinha falado com a gente sobre o sofá retrátil 3 lugares. Conseguiu conversar com sua esposa? Se tiver alguma dúvida sobre o modelo ou pagamento, posso te ajudar.',
+      'Oi, João! Tudo bem? Você tinha falado com a gente sobre o sofá retrátil 3 lugares. Conseguiu conversar com sua esposa? Se tiver alguma dúvida sobre o modelo ou pagamento, posso te ajudar.',
     );
   });
 

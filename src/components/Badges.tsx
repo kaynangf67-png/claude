@@ -1,28 +1,29 @@
+import { Flame, Snowflake, Thermometer, type LucideIcon } from 'lucide-react';
 import type { Analysis, LeadStatus, Temperature } from '../lib/types';
 import { MAX_FOLLOWUPS } from '../lib/analyze';
 import { initials } from '../lib/format';
 
 const pill = 'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap ring-1 ring-inset';
 
-export const STATUS_META: Record<LeadStatus, { emoji: string; label: string; cls: string }> = {
-  novo: { emoji: '🟢', label: 'Novo', cls: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
-  interessado: { emoji: '🟡', label: 'Interessado', cls: 'bg-yellow-50 text-yellow-800 ring-yellow-200' },
-  followup: { emoji: '🟠', label: 'Follow-up', cls: 'bg-orange-50 text-orange-700 ring-orange-200' },
-  recuperado: { emoji: '🔵', label: 'Recuperado', cls: 'bg-blue-50 text-blue-700 ring-blue-200' },
-  perdido: { emoji: '🔴', label: 'Perdido', cls: 'bg-red-50 text-red-700 ring-red-200' },
+export const STATUS_META: Record<LeadStatus, { dot: string; label: string; cls: string }> = {
+  novo: { dot: 'bg-emerald-500', label: 'Novo', cls: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
+  interessado: { dot: 'bg-yellow-400', label: 'Interessado', cls: 'bg-yellow-50 text-yellow-800 ring-yellow-200' },
+  followup: { dot: 'bg-orange-500', label: 'Follow-up', cls: 'bg-orange-50 text-orange-700 ring-orange-200' },
+  recuperado: { dot: 'bg-blue-500', label: 'Recuperado', cls: 'bg-blue-50 text-blue-700 ring-blue-200' },
+  perdido: { dot: 'bg-red-500', label: 'Perdido', cls: 'bg-red-50 text-red-700 ring-red-200' },
 };
 
-export const TEMP_META: Record<Temperature, { emoji: string; label: string; cls: string }> = {
-  quente: { emoji: '🔥', label: 'Quente', cls: 'bg-orange-50 text-orange-700 ring-orange-200' },
-  morno: { emoji: '🟡', label: 'Morno', cls: 'bg-amber-50 text-amber-700 ring-amber-200' },
-  frio: { emoji: '❄️', label: 'Frio', cls: 'bg-sky-50 text-sky-700 ring-sky-200' },
+export const TEMP_META: Record<Temperature, { icon: LucideIcon; label: string; cls: string }> = {
+  quente: { icon: Flame, label: 'Quente', cls: 'bg-orange-50 text-orange-700 ring-orange-200' },
+  morno: { icon: Thermometer, label: 'Morno', cls: 'bg-amber-50 text-amber-700 ring-amber-200' },
+  frio: { icon: Snowflake, label: 'Frio', cls: 'bg-sky-50 text-sky-700 ring-sky-200' },
 };
 
 export function StatusBadge({ status }: { status: LeadStatus }) {
   const m = STATUS_META[status];
   return (
     <span className={`${pill} ${m.cls}`}>
-      <span aria-hidden className="text-[10px]">{m.emoji}</span>
+      <span aria-hidden className={`size-1.5 rounded-full ${m.dot}`} />
       {m.label}
     </span>
   );
@@ -32,7 +33,7 @@ export function TempBadge({ temperature, long }: { temperature: Temperature; lon
   const m = TEMP_META[temperature];
   return (
     <span className={`${pill} ${m.cls}`}>
-      <span aria-hidden>{m.emoji}</span>
+      <m.icon aria-hidden className="size-3.5" />
       {long ? `Lead ${m.label.toLowerCase()}` : m.label}
     </span>
   );
