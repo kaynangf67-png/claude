@@ -41,9 +41,16 @@ O modo Claude usa `claude-opus-5-5` com esforço `low` e o fallback de servidor 
 
 - **Sem backend/banco:** conta e dados ficam no `localStorage` do navegador. Não há autenticação real.
 - **Sem integração com WhatsApp:** nada é enviado automaticamente. “Abrir no WhatsApp” só abre o `wa.me` com o texto pronto.
-- **Sem pagamento:** “Quero testar” só registra o interesse na tela.
+- **Pagamento pela Cakto, ativação manual:** “Quero testar” no Plano Inicial abre o checkout da Cakto com nome, e-mail e telefone preenchidos. O app não recebe a confirmação do pagamento (não há servidor de dados nem webhook ainda): acompanhe as vendas no painel da Cakto e ative cada cliente manualmente. O Plano Profissional mostra “lista de espera” até ganhar um link.
 - O diagnóstico é baseado em padrões de texto em português; frases fora dos padrões caem em “sem resposta”/“em atendimento”.
 - Os dados de exemplo são de uma loja de móveis, mesmo que o usuário cadastre outro segmento.
+
+## Pagamento (Cakto)
+
+- Links das ofertas em `src/lib/checkout.ts`, substituíveis por `VITE_CAKTO_CHECKOUT_INICIAL` e `VITE_CAKTO_CHECKOUT_PROFISSIONAL` (veja `.env.example`).
+- Antes de pagar, o cliente vê o que está comprando: acesso antecipado, WhatsApp ainda sem integração direta, ativação em até 24h.
+- `#/obrigado` é a página de pós-compra. Se a sua oferta na Cakto permitir uma URL de redirecionamento, aponte para `https://SEU-DOMINIO/#/obrigado`.
+- Próxima etapa: banco de dados + login real + webhook da Cakto (`purchase_approved`, `subscription_canceled`, `subscription_renewed`…) liberando e bloqueando o acesso pelo e-mail do comprador.
 
 ## Deploy
 

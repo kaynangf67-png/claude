@@ -119,3 +119,25 @@ describe('checkMessage', () => {
     expect(checkMessage('O sofá custa R$ 2.490,00.', DEMO_BUSINESS).every((c) => c.ok)).toBe(true);
   });
 });
+
+describe('buildCheckoutUrl', () => {
+  it('preenche nome, e-mail e telefone no link da Cakto', async () => {
+    const { buildCheckoutUrl } = await import('./checkout');
+    const url = new URL(
+      buildCheckoutUrl('https://pay.cakto.com.br/ct947fn_1173605', {
+        name: 'Ana Souza',
+        email: 'ana@loja.com',
+        phone: '(11) 98765-4321',
+      }),
+    );
+    expect(url.origin + url.pathname).toBe('https://pay.cakto.com.br/ct947fn_1173605');
+    expect(url.searchParams.get('name')).toBe('Ana Souza');
+    expect(url.searchParams.get('email')).toBe('ana@loja.com');
+    expect(url.searchParams.get('confirmEmail')).toBe('ana@loja.com');
+    expect(url.searchParams.get('phone')).toBe('5511987654321');
+  });
+  it('não adiciona parâmetros vazios', async () => {
+    const { buildCheckoutUrl } = await import('./checkout');
+    expect(buildCheckoutUrl('https://pay.cakto.com.br/x', {})).toBe('https://pay.cakto.com.br/x');
+  });
+});
