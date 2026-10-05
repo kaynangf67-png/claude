@@ -1,6 +1,7 @@
 import { ArrowRight, CheckCircle2, MessageCircleWarning, Sparkles, TrendingUp } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Logo } from '../components/ui';
+import { LegalFooter } from './Legal';
 import { actions } from '../lib/store';
 
 export function Landing() {
@@ -94,6 +95,9 @@ export function Landing() {
           Ideal para lojas de móveis e roupas, salões de beleza, clínicas odontológicas, oficinas e prestadores de serviço.
         </p>
       </section>
+      <footer className="border-t border-slate-100 bg-canvas pb-10">
+        <LegalFooter className="mt-0 pt-6" />
+      </footer>
     </div>
   );
 }

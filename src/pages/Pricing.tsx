@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { Logo, Modal } from '../components/ui';
 import { buildCheckoutUrl, checkoutLink, type PlanId } from '../lib/checkout';
 import { useAppState } from '../lib/store';
+import { LegalFooter } from './Legal';
 
 const PLANS: {
   id: PlanId;
@@ -89,6 +90,17 @@ function CheckoutDialog({ plan }: { plan: (typeof PLANS)[number] }) {
         <Lock className="size-3.5" />
         Pagamento seguro processado pela Cakto. O RecuperaAI não vê nem guarda dados do seu cartão.
       </p>
+      <p className="-mt-2 text-center text-xs text-slate-500">
+        Ao continuar, você concorda com os{' '}
+        <a href="#/termos" target="_blank" rel="noopener noreferrer" className="underline hover:text-ink">
+          Termos de uso
+        </a>{' '}
+        e a{' '}
+        <a href="#/privacidade" target="_blank" rel="noopener noreferrer" className="underline hover:text-ink">
+          Política de privacidade
+        </a>
+        .
+      </p>
     </form>
   );
 }
@@ -151,7 +163,8 @@ export function PricingContent() {
           );
         })}
       </div>
-      <p className="mt-8 text-center text-xs text-slate-500">Preços em reais. Sem fidelidade.</p>
+      <p className="mt-8 text-center text-xs text-slate-500">Preços em reais. Sem fidelidade. Arrependimento em até 7 dias com reembolso integral.</p>
+      <LegalFooter />
 
       <Modal
         open={!!chosen}

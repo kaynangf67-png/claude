@@ -4,6 +4,7 @@ import { Toaster } from './components/ui';
 import { Onboarding, Signup } from './pages/Auth';
 import { Dashboard } from './pages/Dashboard';
 import { Landing } from './pages/Landing';
+import { Privacy, Terms } from './pages/Legal';
 import { LeadDetail, Leads } from './pages/Leads';
 import { Pricing, PublicPricing, ThankYou } from './pages/Pricing';
 import { Recover } from './pages/Recover';
@@ -25,6 +26,8 @@ export default function App() {
         <Route path="/onboarding" element={<Onboarding />} />
         <Route path="/planos" element={<PublicPricing />} />
         <Route path="/obrigado" element={<ThankYou />} />
+        <Route path="/termos" element={<Terms />} />
+        <Route path="/privacidade" element={<Privacy />} />
         <Route path="/app" element={<AppLayout />}>
           <Route index element={<Dashboard />} />
           <Route path="recuperar" element={<Recover />} />
