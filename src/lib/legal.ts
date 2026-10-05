@@ -2,11 +2,11 @@
 // Preencha antes de divulgar o site: páginas legais sem contato não protegem ninguém.
 export const LEGAL = {
   /** Nome completo ou razão social. */
-  operator: '',
+  operator: 'Kaynan Gomes Fernandes de Souza',
   /** CPF ou CNPJ (opcional, mas recomendado para quem cobra assinatura). */
   document: '',
   /** E-mail para cancelamento, reembolso e pedidos sobre dados pessoais. */
-  email: '',
+  email: 'vitrinewebcompany@gmail.com',
   updatedAt: '5 de outubro de 2026',
 };
 
