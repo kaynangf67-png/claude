@@ -49,6 +49,20 @@ function el(className: string, html = '') {
   return d;
 }
 
+/** câmera de navegação (estilo Waze) */
+const NAV_ZOOM = 18;
+const NAV_PITCH = 60;
+
+/** rumo do carro: o do GPS quando andando; parado/sem rumo, a direção da rota logo à frente */
+function navBearing(s: AppState): number {
+  const nav = s.nav!;
+  const pos = s.gps.pos!;
+  if ((s.gps.speed ?? 0) > 2 && s.gps.heading !== null) return s.gps.heading;
+  const r = nav.route;
+  const ahead = r.line[r.cum.findIndex((c) => c > nav.progress.alongM + 25)] ?? r.line[r.line.length - 1];
+  return bearingTo(pos, ahead);
+}
+
 const styleUrl = (t: ResolvedTheme) => (t === 'dark' ? config.mapStyleDark : config.mapStyleLight);
 
 export default function MapView() {
@@ -64,6 +78,7 @@ export default function MapView() {
       style: styleUrl(theme),
       center: start,
       zoom: 15,
+      maxPitch: 65,
       attributionControl: { compact: true, customAttribution: '© colaboradores do OpenStreetMap' },
       pitchWithRotate: false,
       dragRotate: false,
@@ -95,8 +110,9 @@ export default function MapView() {
     });
 
     // marcadores DOM (poucos, sem depender das fontes do mapa)
-    const meEl = el('mk-me', '<div class="mk-me-arrow"></div>');
-    const me = new Marker({ element: meEl, rotationAlignment: 'map' });
+    // posição do usuário: bolinha no mapa; na navegação vira a seta do carro (estilo Waze), deitada no chão
+    const meEl = el('mk-me', '<div class="mk-me-arrow"></div><svg class="mk-car" viewBox="0 0 48 48" aria-hidden="true"><path d="M24 3 42 43 24 33 6 43Z"/></svg>');
+    const me = new Marker({ element: meEl, rotationAlignment: 'map', pitchAlignment: 'map' });
     const dest = new Marker({ element: el('mk-dest', '<span>📍</span>'), anchor: 'bottom' });
     const parked = new Marker({ element: el('mk-parked', '🚗'), anchor: 'center' });
     const navTarget = new Marker({ element: el('mk-target', 'P'), anchor: 'center' });
@@ -119,7 +135,10 @@ export default function MapView() {
       if (!usingFallback) styleOk = true;
       clearTimeout(fallbackTimer);
       // mapa plano e limpo: sem prédios 3D
-      for (const l of map.getStyle().layers ?? []) if (l.type === 'fill-extrusion') map.removeLayer(l.id);
+      // mapa limpo: sem prédios/casas (nem 3D nem contorno), só ruas
+      for (const l of map.getStyle().layers ?? []) {
+        if (l.type === 'fill-extrusion' || ('source-layer' in l && l['source-layer'] === 'building')) map.removeLayer(l.id);
+      }
       map.setPitch(0);
       addLayers();
     });
@@ -192,7 +211,8 @@ export default function MapView() {
       const s = getState();
       if (s.gps.pos) {
         me.setLngLat(s.gps.pos).addTo(map);
-        me.setRotation(s.gps.heading ?? 0);
+        me.setRotation(s.nav ? navBearing(s) : (s.gps.heading ?? 0));
+        meEl.classList.toggle('nav', Boolean(s.nav));
         meEl.classList.toggle('has-heading', s.gps.heading !== null);
         meEl.classList.toggle('weak', s.gps.status === 'weak');
         if (!centeredOnGps && !s.dest) {
@@ -237,20 +257,20 @@ export default function MapView() {
       if (s.nav && s.gps.pos) {
         if (!lastNav) userMovedAt = 0;
         if (Date.now() - userMovedAt > 8000) {
-          // rumo do GPS; parado/sem rumo, usa a direção da rota logo à frente
-          const r = s.nav.route;
-          const ahead = r.line[r.cum.findIndex((c) => c > s.nav!.progress.alongM + 25)] ?? r.line[r.line.length - 1];
-          const heading = (s.gps.speed ?? 0) > 2 ? s.gps.heading : null;
+          // estilo Waze: bem perto, inclinada, rota para cima e o carro no terço de baixo da tela
+          const h = map.getContainer().clientHeight;
           map.easeTo({
             center: s.gps.pos,
-            bearing: heading ?? bearingTo(s.gps.pos, ahead),
-            zoom: 17,
-            padding: wide ? { top: 120, bottom: 40, left: 440, right: 40 } : { top: 170, bottom: 190, left: 0, right: 0 },
-            duration: 800,
+            bearing: navBearing(s),
+            zoom: NAV_ZOOM,
+            pitch: NAV_PITCH,
+            padding: wide ? { top: Math.round(h * 0.4), bottom: 40, left: 440, right: 40 } : { top: Math.round(h * 0.42), bottom: 170, left: 0, right: 0 },
+            duration: lastNav ? 900 : 1200,
           });
         }
       } else if (lastNav && !s.nav) {
-        map.easeTo({ bearing: 0, duration: 500, padding: { top: 0, bottom: 0, left: 0, right: 0 } });
+        // fim da navegação: volta ao mapa plano, norte para cima
+        map.easeTo({ bearing: 0, pitch: 0, duration: 600, padding: { top: 0, bottom: 0, left: 0, right: 0 } });
       }
       if (s.dest && !s.nav && s.dest.pos !== flewToDest && !s.forecast) {
         // mostra o destino na hora, antes da previsão chegar

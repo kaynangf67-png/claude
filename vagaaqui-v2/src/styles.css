@@ -944,3 +944,29 @@ button {
   color: var(--danger-text);
   border-color: var(--danger-text);
 }
+/* seta do carro na navegação (estilo Waze) */
+.mk-car {
+  display: none;
+  width: 46px;
+  height: 46px;
+  filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.45));
+}
+.mk-car path {
+  fill: #2f7bff;
+  stroke: #fff;
+  stroke-width: 3;
+  stroke-linejoin: round;
+}
+.mk-me.nav {
+  width: 46px;
+  height: 46px;
+  background: none;
+  border: 0;
+  box-shadow: none;
+}
+.mk-me.nav .mk-car {
+  display: block;
+}
+.mk-me.nav .mk-me-arrow {
+  display: none !important;
+}

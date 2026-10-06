@@ -4,7 +4,7 @@ MVP de micro SaaS para motoristas. Você digita o destino e, em segundos, o app 
 
 Feito do zero, simples e rápido: mapa 2D (MapLibre), app instalável pelo navegador (PWA), sem 3D.
 
-**Tema claro (padrão, mapa branco e plano, sem 3D) e escuro**, com o mapa acompanhando. Também há o modo "automático", que segue o celular (Configurações → Aparência).
+**Tema claro (padrão, mapa branco, só ruas: sem prédios nem casas) e escuro**, com o mapa acompanhando. Também há o modo "automático", que segue o celular (Configurações → Aparência).
 
 ## Como funciona
 
@@ -17,7 +17,7 @@ Feito do zero, simples e rápido: mapa 2D (MapLibre), app instalável pelo naveg
 4. **Navegar dentro do app** (ou abrir no Waze/Google Maps, se preferir):
    - rota desenhada no mapa;
    - manobra em destaque ("Vire à direita na Rua X — 120 m") e instruções por voz em português;
-   - câmera seguindo o carro;
+   - câmera estilo Waze só durante a navegação: bem perto (zoom 18), inclinada (60°), rota para cima e a seta do carro no terço de baixo; ao terminar, o mapa volta plano;
    - recalcula sozinho quando você sai da rota;
    - termina com a pergunta de chegada.
 5. **Lista as 3 melhores ruas diferentes**, ordenadas por *menor tempo total esperado* = caminhada + (1 − chance) × 8 min rodando procurando.

@@ -197,7 +197,6 @@ function say(text: string) {
 export function setVoice(on: boolean) {
   if (!on) voice.stop();
   setState({ settings: { ...getState().settings, voice: on } });
-  if (on) say('Voz ligada');
 }
 
 export function testVoice() {
