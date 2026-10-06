@@ -64,6 +64,8 @@ export interface AppState {
   qualityOverride: 'auto' | QualityTier;
   detectedTier: QualityTier;
   voice: boolean;
+  /** '2d' (padrão, leve) ou '3d' (mais bonito, mais pesado) */
+  mapMode: '2d' | '3d';
   /** prédios 3D (desligado por padrão: o mapa mostra só ruas, vagas e carros) */
   showBuildings: boolean;
   simSpeed: 1 | 2 | 4;
@@ -113,6 +115,7 @@ export const appStore = createStore<AppState>({
   detectedTier: 'medium',
   voice: prefs.voice ?? true,
   showBuildings: prefs.showBuildings ?? false,
+  mapMode: prefs.mapMode ?? '2d',
   simSpeed: prefs.simSpeed ?? 1,
   locationSource: 'simulada',
   gps: { status: 'off', accuracy: null },
@@ -136,6 +139,7 @@ function savePrefs() {
         voice: s.voice,
         simSpeed: s.simSpeed,
         showBuildings: s.showBuildings,
+        mapMode: s.mapMode,
       }),
     );
   } catch {
@@ -416,6 +420,11 @@ export const actions = {
 
   setQuality(q: AppState['qualityOverride']) {
     set({ qualityOverride: q });
+    savePrefs();
+  },
+
+  setMapMode(mapMode: '2d' | '3d') {
+    set({ mapMode, cameraMode: 'follow' });
     savePrefs();
   },
 

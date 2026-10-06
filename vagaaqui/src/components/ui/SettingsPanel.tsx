@@ -30,6 +30,7 @@ export function SettingsPanel() {
   const tier = useApp(effectiveTier);
   const voice = useApp((s) => s.voice);
   const showBuildings = useApp((s) => s.showBuildings);
+  const mapMode = useApp((s) => s.mapMode);
   const simSpeed = useApp((s) => s.simSpeed);
   const locationSource = useApp((s) => s.locationSource);
   const gps = useApp((s) => s.gps);
@@ -114,7 +115,16 @@ export function SettingsPanel() {
         {city.fetchedAt ? ` · dados de ${new Date(city.fetchedAt).toLocaleDateString('pt-BR')}` : ''} · {city.edges.size} trechos,{' '}
         {city.buildings.length} prédios. {city.source === 'osm' ? 'Alturas sem tag no OSM são estimadas.' : ''}
       </p>
-      <label className="switch-row">
+      <div className="segmented">
+        <button className={mapMode === '2d' ? 'active' : ''} onClick={() => actions.setMapMode('2d')}>
+          Mapa 2D leve
+        </button>
+        <button className={mapMode === '3d' ? 'active' : ''} onClick={() => actions.setMapMode('3d')}>
+          Mapa 3D
+        </button>
+      </div>
+      <p className="muted small">O 2D roda liso em qualquer celular. O 3D é mais bonito, mas pesa em aparelhos simples.</p>
+      <label className="switch-row" style={{ display: mapMode === '3d' ? undefined : 'none' }}>
         <span>Prédios 3D (o mapa limpo mostra só ruas, vagas e carros)</span>
         <input type="checkbox" checked={showBuildings} onChange={actions.toggleBuildings} />
       </label>

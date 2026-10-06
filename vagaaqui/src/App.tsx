@@ -14,8 +14,10 @@ import { UserConfirmation } from './components/ui/UserConfirmation';
 import { UserProfile } from './components/ui/UserProfile';
 import { actions, useApp } from './store/appStore';
 
+// mapa 3D: baixado só se o usuário escolher (o padrão é o 2D leve)
 const loadMap = () => import('./components/map/Map3D');
 const Map3D = lazy(loadMap);
+const Map2D = lazy(() => import('./components/map2d/Map2D'));
 // sensor de câmera: carregado só quando aberto (MediaPipe fica fora do bundle inicial)
 const CameraSensor = lazy(() => import('./components/ui/CameraSensor'));
 
@@ -44,15 +46,21 @@ export default function App() {
   const navStatus = useApp((s) => s.navStatus);
   const cameraSensorOpen = useApp((s) => s.cameraSensorOpen);
   const cityReady = useApp((s) => s.cityStatus === 'ready');
+  const mapMode = useApp((s) => s.mapMode);
   const cityStatusText = useApp((s) => s.cityStatusText);
   const [mapReady, setMapReady] = useState(false);
   const mapLayer = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     void actions.init();
-    // pré-carrega o bundle 3D enquanto a abertura anima
-    loadMap().then(() => setMapReady(true));
   }, []);
+
+  // pré-carrega o mapa escolhido enquanto a abertura anima
+  useEffect(() => {
+    setMapReady(false);
+    const load = mapMode === '3d' ? loadMap() : import('./components/map2d/Map2D');
+    load.then(() => setMapReady(true));
+  }, [mapMode]);
 
   useEffect(() => {
     if (phase === 'map' && mapLayer.current) {
@@ -62,12 +70,12 @@ export default function App() {
   }, [phase]);
 
   return (
-    <div className={`app ${driverMode ? 'driver-on' : ''} ${navStatus === 'navigating' ? 'nav-on' : ''}`}>
+    <div className={`app map-${mapMode} ${driverMode ? 'driver-on' : ''} ${navStatus === 'navigating' ? 'nav-on' : ''}`}>
       <div ref={mapLayer} className="map-layer" style={{ opacity: phase === 'map' ? 1 : 0 }}>
         {mapReady && cityReady && (
           <MapErrorBoundary>
             <Suspense fallback={null}>
-              <Map3D />
+              {mapMode === '3d' ? <Map3D /> : <Map2D />}
             </Suspense>
           </MapErrorBoundary>
         )}

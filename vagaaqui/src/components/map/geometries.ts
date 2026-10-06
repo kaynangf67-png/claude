@@ -51,4 +51,4 @@ export const sharedCarBody = () => (body ??= createCarBodyGeometry());
 export const sharedCarDark = () => (dark ??= createCarDarkGeometry());
 
 /** Cores de carros reais (predominam prata, branco, preto e cinza no Brasil). */
-export const CAR_COLORS = ['#c4c8ce', '#e9eaec', '#1c1e22', '#6f747c', '#9aa0a8', '#7a1d24', '#1f3d68', '#e3e4e6', '#3a3d42', '#b9b2a6'];
+export { CAR_COLORS } from './mapStyle';

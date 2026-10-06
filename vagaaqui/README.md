@@ -37,7 +37,7 @@ Nenhuma chave de API é necessária. Variáveis opcionais estão em `.env.exampl
 
 ## Jornada demonstrada
 
-Abrir app → animação do logo → **ENCONTRAR VAGA** → mapa 3D aparece → ver localização → explorar (Preview 3D) → vagas com % → **MELHOR OPÇÃO** com motivos → **IR ATÉ A VAGA** → câmera de GPS segue o carro, rota animada no chão, manobras e voz → pergunta "Você viu uma vaga aqui?" ao passar → chegada: **SIM, ESTÁ LIVRE / NÃO, ESTÁ OCUPADA / EU ESTACIONEI AQUI** → vaga vira 🔴 "confirmada há 5 s" → pontos, nível, precisão → **SAÍ DA VAGA** libera a vaga para os outros.
+Abrir app → animação do logo → **ENCONTRAR VAGA** → mapa aparece → ver localização → explorar (Preview 3D) → vagas com % → **MELHOR OPÇÃO** com motivos → **IR ATÉ A VAGA** → câmera de GPS segue o carro, rota animada no chão, manobras e voz → pergunta "Você viu uma vaga aqui?" ao passar → chegada: **SIM, ESTÁ LIVRE / NÃO, ESTÁ OCUPADA / EU ESTACIONEI AQUI** → vaga vira 🔴 "confirmada há 5 s" → pontos, nível, precisão → **SAÍ DA VAGA** libera a vaga para os outros.
 
 Se a vaga estiver ocupada na chegada, o app agradece, dá os pontos e já recalcula a próxima melhor opção.
 
@@ -74,7 +74,19 @@ Nos últimos ~200 m, a câmera desce e se aproxima do carro, numa visão do ento
 
 **Limitações conhecidas:** ladeiras, celular inclinado, entradas de garagem, faixas onde é proibido estacionar, chuva e noite. O detector reconhece **veículos**, não "vaga válida". Para o modelo de 4,6 MB, o primeiro uso precisa de internet. O backend de GPU do MediaPipe deu zero detecções numa GPU emulada nos testes, então o padrão é CPU. Para usar GPU: `localStorage['vagaaqui.detector.delegate'] = 'GPU'`.
 
-## Visual do mapa
+## Mapa 2D leve (padrão) e mapa 3D (opcional)
+
+O app abre no **mapa 2D leve** (Canvas 2D, sem WebGL), feito para rodar liso em celular simples. Mostra ruas, vagas com a chance, alguns carros, a rota e o seu carro, com o mapa girando conforme o rumo, como nos apps de navegação.
+
+- **Tiles pré-desenhados** (`src/components/map2d/tiles.ts`): ruas, calçadas, faixas e carros parados são desenhados uma vez em imagens de 512 px por nível de zoom (índice espacial + cache LRU, no máximo 2 tiles novos por quadro). Enquanto um tile sai, aparece o nível mais grosso, que é desenhado para a cidade inteira na abertura, então o mapa nunca fica com buracos.
+- **Por quadro** só se desenha o que muda: vagas coloridas, carros nas vagas monitoradas, trânsito, rota, etiquetas e o seu carro. Gasta ~2 ms de JavaScript por quadro.
+- **Medido** (Chromium sem GPU, cidade grande de teste): **60 fps** no celular (390×844 @2x) e no desktop. O mapa 3D anterior dava 6 fps no mesmo cenário com GPU emulada.
+- **Gestos:** 1 dedo arrasta, pinça dá zoom, 2 dedos giram; no desktop, roda do mouse dá zoom e botão direito gira.
+- Os painéis não usam mais `backdrop-filter` (desfoque), que pesava em todo quadro no celular.
+
+O mapa 3D continua disponível em **Configurações → Mapa → Mapa 3D**.
+
+## Visual do mapa 3D
 
 Estilo de mapa de navegação realista, **sem prédios por padrão**. O mapa mostra só ruas, vagas e alguns carros.
 
@@ -133,6 +145,7 @@ A **confiabilidade** é separada da probabilidade: frescor da última confirmaç
 ```
 src/
   components/
+    map2d/      Map2D (padrão), tiles, camera2d, layers
     map/        Map3D, City, Vehicle, ParkingSpot, ParkingSpotMarker, ParkingSpotsLayer,
                 NavigationRoute, LocationIndicator, CameraRig, TrafficCars, ParkingLots,
                 PointsOfInterest, Particles, shaders, geometries
@@ -169,7 +182,7 @@ Ativas na demonstração (simuladas): confirmações dos usuários e APIs de est
 - Detecção de capacidade (núcleos, memória, GPU via `WEBGL_debug_renderer_info`, celular, movimento reduzido) → perfis Leve/Equilibrada/Máxima, ajustáveis em Configurações.
 - Perfis reduzem prédios, carros estacionados, trânsito, partículas, estrelas, sombras, antialias e resolução; `PerformanceMonitor` baixa a resolução se o FPS cair.
 - Prédios, ruas, carros e árvores são `InstancedMesh` (poucas draw calls); janelas são procedurais em shader (sem texturas).
-- O bundle 3D (three + R3F + drei, ~258 kB gzip) é carregado com `React.lazy` **durante** a animação de abertura.
+- O bundle 3D (three + R3F + drei, ~258 kB gzip) só é baixado se o mapa 3D for escolhido; o mapa 2D é carregado com `React.lazy` durante a animação de abertura.
 
 ## Limitações honestas deste MVP
 

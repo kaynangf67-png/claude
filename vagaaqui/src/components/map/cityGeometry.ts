@@ -1,6 +1,9 @@
 import * as THREE from 'three';
+import { sidewalkWidth } from './mapStyle';
 import type { Vec2 } from '../../types';
 import { PARKING, type Building, type CityData, type CityEdge } from '../../world/cityTypes';
+
+export { sidewalkWidth };
 
 /** Largura da faixa de estacionamento junto ao meio-fio (m). */
 export const PARKING_LANE = 2.4;
@@ -15,11 +18,6 @@ export function laneLayout(e: CityEdge) {
 }
 
 /** Largura da calçada por classe da via. */
-export function sidewalkWidth(e: CityEdge) {
-  if (['primary', 'secondary', 'trunk'].includes(e.highway)) return 3.5;
-  if (e.highway.endsWith('_link') || e.highway === 'motorway') return 0.8;
-  return 2.6;
-}
 
 /**
  * Geometrias da cidade montadas a partir do CityData (OSM ou procedural).

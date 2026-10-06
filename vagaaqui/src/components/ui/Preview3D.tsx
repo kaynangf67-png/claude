@@ -8,6 +8,7 @@ const isTouch = () => typeof window !== 'undefined' && ('ontouchstart' in window
 /** Modo de exploração livre (estilo mapa 3D) com guia de gestos para celular e computador. */
 export function Preview3D() {
   const mode = useApp((s) => s.cameraMode);
+  const is3d = useApp((s) => s.mapMode === '3d');
   const [showHelp, setShowHelp] = useState(true);
   const ref = useRef<HTMLDivElement>(null);
   const touch = isTouch();
@@ -24,7 +25,7 @@ export function Preview3D() {
   return (
     <div ref={ref} className="preview-overlay">
       <div className="preview-badge">
-        <Box size={16} /> PREVIEW 3D · toque nas vagas
+        <Box size={16} /> {is3d ? 'PREVIEW 3D' : 'EXPLORAR'} · toque nas vagas
         <button className="icon-btn ghost" onClick={() => actions.setCameraMode('follow')} aria-label="Sair do Preview 3D">
           <X size={18} />
         </button>
@@ -39,8 +40,8 @@ export function Preview3D() {
               <ul>
                 <li><Hand size={14} /> 1 dedo: arrastar para mover</li>
                 <li>Pinçar: zoom</li>
-                <li>2 dedos para cima/baixo: inclinar</li>
-                <li>2 dedos para os lados: girar</li>
+                {is3d && <li>2 dedos para cima/baixo: inclinar</li>}
+                <li>{is3d ? '2 dedos para os lados: girar' : '2 dedos: girar'}</li>
               </ul>
             </>
           ) : (
@@ -51,7 +52,7 @@ export function Preview3D() {
               <ul>
                 <li><MousePointer2 size={14} /> Arrastar: mover</li>
                 <li>Scroll: zoom (no ponto do cursor)</li>
-                <li>Botão direito + arrastar: girar e inclinar</li>
+                <li>Botão direito + arrastar: {is3d ? 'girar e inclinar' : 'girar'}</li>
                 <li>Clique numa vaga: detalhes</li>
               </ul>
             </>
