@@ -74,6 +74,8 @@ function writeCache(data: CompactOsm) {
 }
 
 async function readSnapshot(): Promise<CompactOsm | null> {
+  // aberto como arquivo local (build de arquivo único): não há snapshot para buscar
+  if (typeof location !== 'undefined' && location.protocol === 'file:') return null;
   try {
     const res = await fetch(`${import.meta.env.BASE_URL}osm/area.json`, { cache: 'no-cache' });
     if (!res.ok || !(res.headers.get('content-type') ?? '').includes('json')) return null;
