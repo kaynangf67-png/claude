@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { addFavorite, clearDestination, navigate, openArrival, setArriveAt } from '../app/controller';
+import { addFavorite, clearDestination, navigate, openArrival, setArriveAt, startNavigation } from '../app/controller';
 import { isPro } from '../app/plan';
 import { setState, useApp } from '../app/state';
 import { distance } from '../lib/geo';
@@ -15,14 +15,14 @@ export function ForecastCard() {
   const loading = useApp((s) => s.loading);
   const error = useApp((s) => s.error);
   const lots = useApp((s) => s.lots);
-  const streetSource = useApp((s) => s.streetSource);
   const selectedId = useApp((s) => s.selectedSegmentId);
   const plan = useApp((s) => s.plan);
   const target = useApp((s) => s.arriveAtTarget);
   const demo = useApp((s) => s.settings.demo);
   const [saving, setSaving] = useState(false);
   const [pickTime, setPickTime] = useState(false);
-  if (!dest) return null;
+  const navigating = useApp((s) => Boolean(s.nav));
+  if (!dest || navigating) return null;
 
   const pro = isPro(plan);
   const nearLots = lots
@@ -61,7 +61,7 @@ export function ForecastCard() {
           <div className="verdict" style={{ borderColor: LEVEL_COLOR[f.level] }}>
             <div className="verdict-q">{isHere ? 'Chance de vaga agora, perto de você' : `Chance de vaga quando você chegar${f.etaMin ? ` (em ${f.etaMin} min)` : ''}`}</div>
             <div className="verdict-row">
-              <span className="verdict-level" style={{ color: LEVEL_COLOR[f.level] }}>
+              <span className={`verdict-level tx-${f.level}`}>
                 {LEVEL_LABEL[f.level]}
               </span>
               <span className="verdict-pct">{range(f.overallLow, f.overallHigh)}</span>
@@ -73,7 +73,6 @@ export function ForecastCard() {
               <span>{f.sourcesText}</span>
               {f.dataIsEstimate && <span className="tag">estimativa</span>}
               {simulated && demo && <span className="tag tag-warn">inclui relatos simulados (demo)</span>}
-              {streetSource === 'demo' && <span className="tag tag-warn">ruas simuladas — sem conexão com o OpenStreetMap</span>}
             </div>
           </div>
 
@@ -90,7 +89,7 @@ export function ForecastCard() {
                         {b.newestReportAgeMin !== null ? ` · relato há ${b.newestReportAgeMin} min` : ''}
                       </span>
                     </span>
-                    <span className="best-p" style={{ color: LEVEL_COLOR[b.level] }}>
+                    <span className={`best-p tx-${b.level}`}>
                       {pct(b.p)}
                     </span>
                   </button>
@@ -111,7 +110,7 @@ export function ForecastCard() {
             <div className="planb">
               <small>PLANO B · ESTACIONAMENTOS</small>
               {nearLots.map(({ l, d }) => (
-                <button key={l.id} className="lot-row" onClick={() => navigate('google', l.pos)}>
+                <button key={l.id} className="lot-row" onClick={() => void startNavigation(l.pos, l.name)}>
                   <span className="lot-p">P</span>
                   <span className="best-main">
                     <b>{l.name}</b>
@@ -126,9 +125,12 @@ export function ForecastCard() {
             </div>
           )}
 
+          <button className="btn primary big go-btn" onClick={() => void startNavigation()}>
+            ➤ NAVEGAR ATÉ {selected ? 'ESTE TRECHO' : 'A MELHOR VAGA'}
+          </button>
           <div className="actions">
-            <button className="btn primary" onClick={() => navigate('waze', selected?.segment.mid ?? f.best[0]?.segment.mid ?? dest.pos)}>
-              IR com Waze
+            <button className="btn" onClick={() => navigate('waze', selected?.segment.mid ?? f.best[0]?.segment.mid ?? dest.pos)}>
+              Abrir no Waze
             </button>
             <button className="btn" onClick={() => navigate('google', selected?.segment.mid ?? f.best[0]?.segment.mid ?? dest.pos)}>
               Google Maps

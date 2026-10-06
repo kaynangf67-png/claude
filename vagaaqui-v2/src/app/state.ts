@@ -5,6 +5,7 @@ import type { StreetSource } from '../data/streets';
 import type { GpsState } from '../services/gps';
 import type { Eta } from '../services/route';
 import type { Place } from '../services/geocode';
+import type { NavProgress, NavRoute } from '../model/nav';
 import type { Plan } from './plan';
 
 export interface Favorite {
@@ -18,11 +19,25 @@ export interface Parked {
   at: number;
 }
 
+export type Theme = 'light' | 'dark' | 'auto';
+
 export interface Settings {
   radiusM: number;
   autoDetect: boolean;
   /** relatos simulados para demonstração (só sem servidor) */
   demo: boolean;
+  theme: Theme;
+  /** instruções de navegação faladas */
+  voice: boolean;
+}
+
+export interface NavState {
+  route: NavRoute;
+  target: LonLat;
+  targetName: string;
+  progress: NavProgress;
+  rerouting: boolean;
+  startedAt: number;
 }
 
 export type Screen = 'map' | 'account' | 'settings' | 'metrics';
@@ -45,6 +60,8 @@ export interface AppState {
   parked: Parked | null;
   settings: Settings;
   favorites: Favorite[];
+  recent: Place[];
+  nav: NavState | null;
   plan: Plan;
   screen: Screen;
   toast: string | null;
@@ -56,7 +73,7 @@ const PREFS = 'vq2.prefs';
 function loadPrefs(): Partial<AppState> {
   try {
     const p = JSON.parse(localStorage.getItem(PREFS) || '{}') as Partial<AppState>;
-    return { settings: p.settings, favorites: p.favorites, plan: p.plan, parked: p.parked };
+    return { settings: p.settings, favorites: p.favorites, plan: p.plan, parked: p.parked, recent: p.recent };
   } catch {
     return {};
   }
@@ -79,8 +96,10 @@ let state: AppState = {
   arrivalOpen: false,
   answeredDestKey: null,
   parked: prefs.parked ?? null,
-  settings: { radiusM: 400, autoDetect: false, demo: true, ...prefs.settings },
+  settings: { radiusM: 400, autoDetect: false, demo: true, theme: 'light', voice: true, ...prefs.settings },
   favorites: prefs.favorites ?? [],
+  recent: prefs.recent ?? [],
+  nav: null,
   plan: { proUntil: 0, reports: 0, waitlisted: false, ...prefs.plan },
   screen: 'map',
   toast: null,
@@ -93,9 +112,9 @@ export const getState = () => state;
 
 export function setState(patch: Partial<AppState>) {
   state = { ...state, ...patch };
-  if ('settings' in patch || 'favorites' in patch || 'plan' in patch || 'parked' in patch) {
+  if ('settings' in patch || 'favorites' in patch || 'plan' in patch || 'parked' in patch || 'recent' in patch) {
     try {
-      localStorage.setItem(PREFS, JSON.stringify({ settings: state.settings, favorites: state.favorites, plan: state.plan, parked: state.parked }));
+      localStorage.setItem(PREFS, JSON.stringify({ settings: state.settings, favorites: state.favorites, plan: state.plan, parked: state.parked, recent: state.recent }));
     } catch {
       /* ignore */
     }

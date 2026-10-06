@@ -1,46 +1,43 @@
 import { Map as MlMap, Marker, setWorkerUrl, type GeoJSONSource, type StyleSpecification } from 'maplibre-gl';
+import 'maplibre-gl/dist/maplibre-gl.css';
 // O MapLibre 6 roda o processamento do mapa num worker separado: o Vite empacota esse
 // worker (com as dependências) num arquivo próprio e passamos o endereço dele.
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url';
-import 'maplibre-gl/dist/maplibre-gl.css';
 import { useEffect, useRef } from 'react';
 import { getState, setState, subscribe, toast, type AppState } from '../app/state';
+import { resolveTheme, type ResolvedTheme } from '../app/theme';
 import { config } from '../config';
-import { bboxAround } from '../lib/geo';
+import { bboxAround, bearing as bearingTo } from '../lib/geo';
 import { levelOf } from '../model/forecast';
 import { LEVEL_COLOR } from './colors';
 
 /** Estilo mínimo embutido: usado se o servidor de mapas não responder (rede bloqueada/offline). */
-const FALLBACK_STYLE: StyleSpecification = {
+const fallbackStyle = (t: ResolvedTheme): StyleSpecification => ({
   version: 8,
   sources: {},
-  layers: [{ id: 'bg', type: 'background', paint: { 'background-color': '#0f1318' } }],
-};
+  layers: [{ id: 'bg', type: 'background', paint: { 'background-color': t === 'dark' ? '#0f1318' : '#eef1f4' } }],
+});
 
 const EMPTY: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 
+/** Só os trechos dentro do raio de caminhada, coloridos pela chance (sem "grade" de ruas). */
 function segmentsGeoJSON(s: AppState): GeoJSON.FeatureCollection {
   const f = s.forecast;
-  if (!f) {
-    return {
-      type: 'FeatureCollection',
-      features: s.segments.map((seg) => ({ type: 'Feature', properties: { id: seg.id, color: '#3a4250', w: 3, sel: 0 }, geometry: { type: 'LineString', coordinates: seg.line } })),
-    };
-  }
-  const byId = new Map(f.all.map((x) => [x.segment.id, x]));
+  if (!f) return EMPTY;
   const bestIds = new Set(f.best.map((b) => b.segment.id));
   return {
     type: 'FeatureCollection',
-    features: s.segments.map((seg) => {
-      const fc = byId.get(seg.id);
-      const color = seg.noParking ? '#3a2a2e' : fc ? LEVEL_COLOR[levelOf(fc.p, fc.confidence)] : '#2c333d';
-      return {
-        type: 'Feature',
-        properties: { id: seg.id, color, w: bestIds.has(seg.id) ? 9 : fc ? 5 : 3, sel: seg.id === s.selectedSegmentId ? 1 : 0, op: fc ? 0.95 : 0.6 },
-        geometry: { type: 'LineString', coordinates: seg.line },
-      };
-    }),
+    features: f.all.map((fc) => ({
+      type: 'Feature',
+      properties: { id: fc.segment.id, color: LEVEL_COLOR[levelOf(fc.p, fc.confidence)], w: bestIds.has(fc.segment.id) ? 9 : 6, sel: fc.segment.id === s.selectedSegmentId ? 1 : 0 },
+      geometry: { type: 'LineString', coordinates: fc.segment.line },
+    })),
   };
+}
+
+function routeGeoJSON(s: AppState): GeoJSON.FeatureCollection {
+  if (!s.nav) return EMPTY;
+  return { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: s.nav.route.line } }] };
 }
 
 function el(className: string, html = '') {
@@ -50,16 +47,19 @@ function el(className: string, html = '') {
   return d;
 }
 
+const styleUrl = (t: ResolvedTheme) => (t === 'dark' ? config.mapStyleDark : config.mapStyleLight);
+
 export default function MapView() {
   const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setWorkerUrl(workerUrl);
     const s0 = getState();
+    let theme = resolveTheme();
     const start = s0.gps.pos ?? config.defaultCenter;
     const map = new MlMap({
       container: box.current!,
-      style: config.mapStyleUrl,
+      style: styleUrl(theme),
       center: start,
       zoom: 15,
       attributionControl: { compact: true, customAttribution: '© colaboradores do OpenStreetMap' },
@@ -70,39 +70,47 @@ export default function MapView() {
     map.touchZoomRotate.disableRotation();
     (window as unknown as { __vqMap?: MlMap }).__vqMap = map;
 
+    // mapa de fundo: se o servidor não responder, cai para o estilo mínimo
     let styleOk = false;
     let usingFallback = false;
+    let fallbackTimer: ReturnType<typeof setTimeout> | undefined;
     const fallback = () => {
       if (styleOk || usingFallback) return;
       usingFallback = true;
-      map.setStyle(FALLBACK_STYLE);
+      map.setStyle(fallbackStyle(theme), { diff: false });
       toast('Mapa de fundo indisponível — mostrando só as vagas');
     };
-    const fallbackTimer = setTimeout(fallback, 8000);
+    const loadStyle = (t: ResolvedTheme) => {
+      styleOk = false;
+      usingFallback = false;
+      clearTimeout(fallbackTimer);
+      fallbackTimer = setTimeout(fallback, 8000);
+      map.setStyle(styleUrl(t), { diff: false });
+    };
+    fallbackTimer = setTimeout(fallback, 8000);
     map.on('error', (e) => {
       if (!styleOk && !usingFallback && /style|Failed to fetch|NetworkError|404|403/i.test(String(e.error?.message ?? e.error))) fallback();
     });
 
-    // marcadores DOM (poucos, sem fontes do mapa)
+    // marcadores DOM (poucos, sem depender das fontes do mapa)
     const meEl = el('mk-me', '<div class="mk-me-arrow"></div>');
     const me = new Marker({ element: meEl, rotationAlignment: 'map' });
     const dest = new Marker({ element: el('mk-dest', '<span>📍</span>'), anchor: 'bottom' });
     const parked = new Marker({ element: el('mk-parked', '🚗'), anchor: 'center' });
+    const navTarget = new Marker({ element: el('mk-target', 'P'), anchor: 'center' });
     let rankMarkers: Marker[] = [];
     let lotMarkers: Marker[] = [];
 
     const addLayers = () => {
       if (map.getSource('segments')) return;
+      const casing = theme === 'dark' ? '#05070a' : '#ffffff';
+      map.addSource('route', { type: 'geojson', data: EMPTY });
+      map.addLayer({ id: 'route-casing', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': theme === 'dark' ? '#0b1a3a' : '#1d3f8f', 'line-width': 12 } });
+      map.addLayer({ id: 'route', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#4f8cff', 'line-width': 7 } });
       map.addSource('segments', { type: 'geojson', data: EMPTY });
-      map.addLayer({ id: 'seg-casing', type: 'line', source: 'segments', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#05070a', 'line-width': ['+', ['get', 'w'], 3], 'line-opacity': 0.85 } });
-      map.addLayer({
-        id: 'seg',
-        type: 'line',
-        source: 'segments',
-        layout: { 'line-cap': 'round', 'line-join': 'round' },
-        paint: { 'line-color': ['get', 'color'], 'line-width': ['get', 'w'], 'line-opacity': ['coalesce', ['get', 'op'], 0.9] },
-      });
-      map.addLayer({ id: 'seg-sel', type: 'line', source: 'segments', filter: ['==', ['get', 'sel'], 1], layout: { 'line-cap': 'round' }, paint: { 'line-color': '#ffffff', 'line-width': ['+', ['get', 'w'], 6], 'line-opacity': 0.35 } }, 'seg-casing');
+      map.addLayer({ id: 'seg-sel', type: 'line', source: 'segments', filter: ['==', ['get', 'sel'], 1], layout: { 'line-cap': 'round' }, paint: { 'line-color': theme === 'dark' ? '#ffffff' : '#111827', 'line-width': ['+', ['get', 'w'], 9], 'line-opacity': 0.35 } });
+      map.addLayer({ id: 'seg-casing', type: 'line', source: 'segments', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': casing, 'line-width': ['+', ['get', 'w'], 4] } });
+      map.addLayer({ id: 'seg', type: 'line', source: 'segments', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': ['get', 'color'], 'line-width': ['get', 'w'] } });
       sync(true);
     };
     map.on('style.load', () => {
@@ -117,16 +125,24 @@ export default function MapView() {
     map.on('mouseenter', 'seg', () => (map.getCanvas().style.cursor = 'pointer'));
     map.on('mouseleave', 'seg', () => (map.getCanvas().style.cursor = ''));
 
+    // durante a navegação a câmera segue o carro; se o usuário mexer no mapa, pausa 8 s
+    let userMovedAt = 0;
+    map.on('dragstart', () => (userMovedAt = Date.now()));
+    map.on('zoomstart', (e) => {
+      if ((e as { originalEvent?: Event }).originalEvent) userMovedAt = Date.now();
+    });
+
     let lastForecast: AppState['forecast'] = null;
-    let lastSegments: AppState['segments'] | null = null;
     let lastSel: string | null = null;
     let lastLots: AppState['lots'] | null = null;
+    let lastNav: AppState['nav'] = null;
+    let lastRoute: unknown = null;
     let centeredOnGps = Boolean(s0.gps.pos);
-    let destPosFramed: unknown = null;
+    let framedDest: unknown = null;
+    let flewToDest: unknown = null;
 
     const sync = (force = false) => {
       const s = getState();
-      // posição do usuário
       if (s.gps.pos) {
         me.setLngLat(s.gps.pos).addTo(map);
         me.setRotation(s.gps.heading ?? 0);
@@ -141,10 +157,12 @@ export default function MapView() {
       else dest.remove();
       if (s.parked) parked.setLngLat(s.parked.pos).addTo(map);
       else parked.remove();
+      if (s.nav) navTarget.setLngLat(s.nav.target).addTo(map);
+      else navTarget.remove();
 
-      const src = map.getSource('segments') as GeoJSONSource | undefined;
-      if (src && (force || s.forecast !== lastForecast || s.segments !== lastSegments || s.selectedSegmentId !== lastSel)) {
-        src.setData(segmentsGeoJSON(s));
+      const segSrc = map.getSource('segments') as GeoJSONSource | undefined;
+      if (segSrc && (force || s.forecast !== lastForecast || s.selectedSegmentId !== lastSel)) {
+        segSrc.setData(segmentsGeoJSON(s));
         rankMarkers.forEach((m) => m.remove());
         rankMarkers = (s.forecast?.best ?? []).map((b, i) => {
           const m = new Marker({ element: el(`mk-rank lv-${b.level}`, String(i + 1)) }).setLngLat(b.segment.mid).addTo(map);
@@ -155,39 +173,82 @@ export default function MapView() {
           return m;
         });
       }
+      const routeSrc = map.getSource('route') as GeoJSONSource | undefined;
+      const routeKey = s.nav?.route ?? null;
+      if (routeSrc && (force || routeKey !== lastRoute)) {
+        routeSrc.setData(routeGeoJSON(s));
+        lastRoute = routeKey;
+      }
       if (force || s.lots !== lastLots || s.forecast !== lastForecast) {
         lotMarkers.forEach((m) => m.remove());
-        lotMarkers = s.dest ? s.lots.slice(0, 30).map((l) => new Marker({ element: el('mk-lot', 'P') }).setLngLat(l.pos).addTo(map)) : [];
+        lotMarkers = s.dest && s.forecast ? s.lots.slice(0, 30).map((l) => new Marker({ element: el('mk-lot', 'P') }).setLngLat(l.pos).addTo(map)) : [];
         lastLots = s.lots;
       }
-      // enquadra destino + trechos quando chega uma previsão nova para outro destino
-      if (s.forecast && s.dest && s.dest.pos !== destPosFramed) {
-        destPosFramed = s.dest.pos;
+
+      // câmera
+      const wide = window.innerWidth >= 760;
+      if (s.nav && s.gps.pos) {
+        if (!lastNav) userMovedAt = 0;
+        if (Date.now() - userMovedAt > 8000) {
+          // rumo do GPS; parado/sem rumo, usa a direção da rota logo à frente
+          const r = s.nav.route;
+          const ahead = r.line[r.cum.findIndex((c) => c > s.nav!.progress.alongM + 25)] ?? r.line[r.line.length - 1];
+          const heading = (s.gps.speed ?? 0) > 2 ? s.gps.heading : null;
+          map.easeTo({
+            center: s.gps.pos,
+            bearing: heading ?? bearingTo(s.gps.pos, ahead),
+            zoom: 17,
+            padding: wide ? { top: 120, bottom: 40, left: 440, right: 40 } : { top: 170, bottom: 190, left: 0, right: 0 },
+            duration: 800,
+          });
+        }
+      } else if (lastNav && !s.nav) {
+        map.easeTo({ bearing: 0, duration: 500, padding: { top: 0, bottom: 0, left: 0, right: 0 } });
+      }
+      if (s.dest && !s.nav && s.dest.pos !== flewToDest && !s.forecast) {
+        // mostra o destino na hora, antes da previsão chegar
+        flewToDest = s.dest.pos;
+        map.easeTo({ center: s.dest.pos, zoom: 16, bearing: 0, duration: 500 });
+      }
+      if (s.forecast && s.dest && !s.nav && s.dest.pos !== framedDest) {
+        framedDest = s.dest.pos;
         const b = bboxAround(s.dest.pos, s.settings.radiusM + 60);
         map.fitBounds(
           [
             [b.west, b.south],
             [b.east, b.north],
           ],
-          { padding: window.innerWidth >= 760 ? { top: 90, bottom: 30, left: 460, right: 30 } : { top: 90, bottom: Math.round(window.innerHeight * 0.6), left: 16, right: 16 }, duration: 600, maxZoom: 17 },
+          { padding: wide ? { top: 90, bottom: 30, left: 460, right: 30 } : { top: 90, bottom: Math.round(window.innerHeight * 0.6), left: 16, right: 16 }, duration: 600, maxZoom: 17, bearing: 0 },
         );
       }
+      if (!s.dest) {
+        framedDest = null;
+        flewToDest = null;
+      }
       lastForecast = s.forecast;
-      lastSegments = s.segments;
       lastSel = s.selectedSegmentId;
+      lastNav = s.nav;
     };
     const unsub = subscribe(() => sync());
     const onRecenter = () => {
+      userMovedAt = 0;
       const p = getState().gps.pos ?? config.defaultCenter;
-      map.easeTo({ center: p, zoom: Math.max(map.getZoom(), 15.5), duration: 500 });
+      if (getState().nav) sync();
+      else map.easeTo({ center: p, zoom: Math.max(map.getZoom(), 15.5), duration: 500 });
+    };
+    const onTheme = (e: Event) => {
+      theme = (e as CustomEvent<ResolvedTheme>).detail;
+      loadStyle(theme);
     };
     window.addEventListener('vq:recenter', onRecenter);
+    window.addEventListener('vq:theme', onTheme);
     sync();
 
     return () => {
       unsub();
       clearTimeout(fallbackTimer);
       window.removeEventListener('vq:recenter', onRecenter);
+      window.removeEventListener('vq:theme', onTheme);
       map.remove();
     };
   }, []);

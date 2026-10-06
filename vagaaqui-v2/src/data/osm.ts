@@ -20,7 +20,7 @@ export const ROAD_TYPES = ['primary', 'secondary', 'tertiary', 'unclassified', '
 
 export function overpassQuery(center: LonLat, radiusM: number) {
   const around = `around:${Math.round(radiusM)},${center[1].toFixed(6)},${center[0].toFixed(6)}`;
-  return `[out:json][timeout:25];
+  return `[out:json][timeout:10];
 way["highway"~"^(${ROAD_TYPES.join('|')})$"](${around});
 out geom;
 nwr["amenity"="parking"](${around});

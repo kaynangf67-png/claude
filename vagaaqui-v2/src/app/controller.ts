@@ -3,6 +3,8 @@ import { demoReports } from '../data/demoReports';
 import { nearestSegment } from '../data/osm';
 import { getStore } from '../data/store';
 import { loadStreets, STREET_RADIUS_M } from '../data/streets';
+import { formatDistance, routeProgress } from '../model/nav';
+import { fetchRoute } from '../services/router';
 import { bboxAround, distance, type LonLat } from '../lib/geo';
 import { ParkingDetector, type Fix } from '../model/detector';
 import { forecastDestination, MODEL } from '../model/forecast';
@@ -35,6 +37,7 @@ export function init() {
   const stop = watchGps(
     (gps) => {
       setState({ gps });
+      updateNav();
       checkArrival();
     },
     (fix) => onFix(fix),
@@ -65,7 +68,8 @@ function onFix(fix: Fix) {
 /** Escolheu o destino: busca ruas, tempo de viagem e relatos, e calcula a previsão. */
 export async function selectDestination(place: Place) {
   if (getState().dest?.id !== place.id) setState({ answeredDestKey: null });
-  setState({ dest: place, selectedSegmentId: null, error: null, screen: 'map' });
+  const recent = place.id.startsWith('here-') ? getState().recent : [place, ...getState().recent.filter((r) => r.id !== place.id && r.name !== place.name)].slice(0, 8);
+  setState({ dest: place, selectedSegmentId: null, error: null, screen: 'map', forecast: null, loading: true, recent });
   baseEta = null;
   startedFar = distance(origin(), place.pos) > ARRIVAL_RADIUS_M + 100;
   await runForecast(true);
@@ -82,6 +86,7 @@ export async function forecastHere() {
 export function clearDestination() {
   inflight?.abort();
   clearInterval(refreshTimer);
+  stopNavigation();
   setState({ dest: null, forecast: null, eta: null, selectedSegmentId: null, arrivalOpen: false, error: null, loading: false, arriveAtTarget: null });
 }
 
@@ -99,21 +104,26 @@ export async function runForecast(full: boolean) {
     // ruas (cache → OSM → demonstração)
     let { segments, lots, streetSource } = s;
     const haveArea = segments.length && segments.some((x) => distance(x.mid, dest.pos) < 300);
-    if (full || !haveArea) {
-      const data = await loadStreets(dest.pos, ctrl.signal);
+    // ruas e tempo de viagem em paralelo
+    const streetsP = full || !haveArea ? loadStreets(dest.pos) : null;
+    const etaP = !baseEta || full ? driveEta(from, dest.pos, ctrl.signal) : null;
+    if (streetsP) {
+      const data = await streetsP;
       segments = data.segments;
       lots = data.lots;
       streetSource = data.source;
     }
     // tempo de viagem: rota uma vez, depois proporcional à distância restante
     let eta: Eta;
-    if (!baseEta || full) {
-      eta = await driveEta(from, dest.pos, ctrl.signal);
+    if (etaP) {
+      eta = await etaP;
       baseEta = { eta, from };
+    } else if (getState().nav) {
+      eta = { minutes: Math.max(0, Math.round(getState().nav!.progress.remainingS / 60)), meters: getState().nav!.progress.remainingM, source: 'route' };
     } else {
-      const total = distance(baseEta.from, dest.pos) || 1;
+      const total = distance(baseEta!.from, dest.pos) || 1;
       const left = distance(from, dest.pos);
-      eta = baseEta.eta.source === 'route' ? { ...baseEta.eta, minutes: Math.max(0, Math.round((baseEta.eta.minutes * left) / total)) } : estimateEta(from, dest.pos);
+      eta = baseEta!.eta.source === 'route' ? { ...baseEta!.eta, minutes: Math.max(0, Math.round((baseEta!.eta.minutes * left) / total)) } : estimateEta(from, dest.pos);
     }
     if (distance(from, dest.pos) < ARRIVAL_RADIUS_M) eta = { ...eta, minutes: 0 };
 
@@ -151,7 +161,107 @@ function checkArrival() {
   if (!s.dest || !s.forecast || s.arrivalOpen || !s.gps.pos) return;
   if (s.answeredDestKey === destKey(s.dest)) return;
   if (s.dest.id.startsWith('here-') || !startedFar) return;
-  if (distance(s.gps.pos, s.dest.pos) <= ARRIVAL_RADIUS_M) setState({ arrivalOpen: true });
+  const nearDest = distance(s.gps.pos, s.dest.pos) <= ARRIVAL_RADIUS_M;
+  const navDone = s.nav && (s.nav.progress.remainingM < 40 || distance(s.gps.pos, s.nav.target) < 40);
+  if (nearDest || navDone) {
+    if (s.nav) {
+      say('Você chegou. Achou vaga?');
+      stopNavigation();
+    }
+    setState({ arrivalOpen: true });
+  }
+}
+
+// ---------------- navegação dentro do app ----------------
+
+let navAbort: AbortController | null = null;
+let offRouteCount = 0;
+let lastReroute = 0;
+let spokenNear = -1;
+
+function say(text: string) {
+  if (!getState().settings.voice || !('speechSynthesis' in window)) return;
+  try {
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'pt-BR';
+    u.rate = 1.05;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(u);
+  } catch {
+    /* sem voz neste aparelho */
+  }
+}
+
+/** Navega até o trecho escolhido (ou o melhor) sem sair do app. */
+export async function startNavigation(to?: LonLat, name?: string) {
+  const s = getState();
+  const pick = s.forecast?.all.find((f) => f.segment.id === s.selectedSegmentId) ?? s.forecast?.best[0];
+  const target = to ?? pick?.segment.mid ?? s.dest?.pos;
+  if (!target) return;
+  const targetName = name ?? pick?.segment.name ?? s.dest?.name ?? 'Destino';
+  navAbort?.abort();
+  const ctrl = new AbortController();
+  navAbort = ctrl;
+  toast('Calculando a rota…');
+  try {
+    const route = await fetchRoute(origin(), target, ctrl.signal);
+    if (ctrl.signal.aborted) return;
+    const progress = routeProgress(route, origin());
+    spokenNear = -1;
+    offRouteCount = 0;
+    startedFar = startedFar || distance(origin(), target) > ARRIVAL_RADIUS_M + 100;
+    setState({ nav: { route, target, targetName, progress, rerouting: false, startedAt: Date.now() }, toast: null });
+    getStore().track({ name: 'navigate', at: Date.now(), props: { app: 'inapp' } });
+    const first = progress.next ?? route.steps[0];
+    if (first) say(`${formatDistance(route.distanceM)} até ${targetName}. ${first.text}.`);
+  } catch {
+    if (ctrl.signal.aborted) return;
+    toast('Não consegui calcular a rota agora — use Waze ou Google Maps');
+  }
+}
+
+export function stopNavigation() {
+  navAbort?.abort();
+  if (getState().nav) setState({ nav: null });
+  try {
+    window.speechSynthesis?.cancel();
+  } catch {
+    /* ignore */
+  }
+}
+
+function updateNav() {
+  const s = getState();
+  const nav = s.nav;
+  if (!nav || !s.gps.pos) return;
+  const progress = routeProgress(nav.route, s.gps.pos, nav.progress.alongM);
+  // instruções faladas: ao chegar perto da manobra
+  if (progress.next && progress.nextIndex !== spokenNear && progress.toNextM <= 150) {
+    spokenNear = progress.nextIndex;
+    say(`Em ${formatDistance(progress.toNextM)}, ${progress.next.text.charAt(0).toLowerCase()}${progress.next.text.slice(1)}`);
+  }
+  // saiu da rota: recalcula (no máximo a cada 15 s)
+  const acc = s.gps.accuracy ?? 20;
+  if (progress.offRouteM > Math.max(45, acc * 1.5)) offRouteCount++;
+  else offRouteCount = 0;
+  setState({ nav: { ...nav, progress } });
+  if (offRouteCount >= 3 && Date.now() - lastReroute > 15000 && !nav.rerouting) {
+    lastReroute = Date.now();
+    offRouteCount = 0;
+    setState({ nav: { ...nav, progress, rerouting: true } });
+    say('Recalculando a rota');
+    void (async () => {
+      try {
+        const route = await fetchRoute(s.gps.pos!, nav.target);
+        const cur = getState().nav;
+        if (!cur) return;
+        setState({ nav: { ...cur, route, progress: routeProgress(route, getState().gps.pos ?? s.gps.pos!), rerouting: false } });
+      } catch {
+        const cur = getState().nav;
+        if (cur) setState({ nav: { ...cur, rerouting: false } });
+      }
+    })();
+  }
 }
 
 export function openArrival() {

@@ -1,9 +1,9 @@
 import { config } from '../config';
-import { fromLocal, type LonLat } from '../lib/geo';
+import type { LonLat } from '../lib/geo';
 import type { ParkingLot, Segment } from '../model/types';
 import { buildSegments, overpassQuery, type OverpassElement } from './osm';
 
-export type StreetSource = 'osm' | 'cache' | 'demo';
+export type StreetSource = 'osm' | 'cache';
 
 export interface StreetData {
   segments: Segment[];
@@ -13,27 +13,38 @@ export interface StreetData {
 
 const CACHE_PREFIX = 'vq2.streets.';
 const CACHE_DAYS = 7;
-const CACHE_MAX = 8;
-export const STREET_RADIUS_M = 800;
+const CACHE_MAX = 12;
+/** raio baixado: o maior raio de caminhada (600 m) + folga */
+export const STREET_RADIUS_M = 700;
+const TIMEOUT_MS = 9000;
 
-/** chave da área: grade de ~500 m, para destinos vizinhos reaproveitarem o download */
+/** chave da área: grade de ~250 m, para destinos vizinhos reaproveitarem o download */
 function areaKey(c: LonLat) {
-  return `${(Math.round(c[0] * 200) / 200).toFixed(3)},${(Math.round(c[1] * 200) / 200).toFixed(3)}`;
+  return `${(Math.round(c[0] * 400) / 400).toFixed(4)},${(Math.round(c[1] * 400) / 400).toFixed(4)}`;
 }
 
+/** cache em memória (instantâneo) na frente do localStorage */
+const memory = new Map<string, StreetData>();
+const pending = new Map<string, Promise<StreetData>>();
+
 function readCache(key: string): StreetData | null {
+  const m = memory.get(key);
+  if (m) return m;
   try {
     const raw = localStorage.getItem(CACHE_PREFIX + key);
     if (!raw) return null;
     const v = JSON.parse(raw) as { at: number; segments: Segment[]; lots: ParkingLot[] };
     if (Date.now() - v.at > CACHE_DAYS * 86400000) return null;
-    return { segments: v.segments, lots: v.lots, source: 'cache' };
+    const data: StreetData = { segments: v.segments, lots: v.lots, source: 'cache' };
+    memory.set(key, data);
+    return data;
   } catch {
     return null;
   }
 }
 
 function writeCache(key: string, data: StreetData) {
+  memory.set(key, data);
   try {
     const keys = Object.keys(localStorage).filter((k) => k.startsWith(CACHE_PREFIX));
     if (keys.length >= CACHE_MAX) {
@@ -44,81 +55,81 @@ function writeCache(key: string, data: StreetData) {
     }
     localStorage.setItem(CACHE_PREFIX + key, JSON.stringify({ at: Date.now(), segments: data.segments, lots: data.lots }));
   } catch {
-    /* sem espaço / modo privado: segue sem cache */
+    /* sem espaço / modo privado: segue só com o cache em memória */
   }
-}
-
-async function fetchOverpass(center: LonLat, signal?: AbortSignal): Promise<OverpassElement[]> {
-  const body = 'data=' + encodeURIComponent(overpassQuery(center, STREET_RADIUS_M));
-  let lastErr: unknown = null;
-  for (const url of config.overpassUrls) {
-    try {
-      const ctrl = new AbortController();
-      const timer = setTimeout(() => ctrl.abort(), 12000);
-      signal?.addEventListener('abort', () => ctrl.abort());
-      const res = await fetch(url, { method: 'POST', body, headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, signal: ctrl.signal });
-      clearTimeout(timer);
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = (await res.json()) as { elements: OverpassElement[] };
-      return json.elements;
-    } catch (e) {
-      lastErr = e;
-      if (signal?.aborted) throw e;
-    }
-  }
-  throw lastErr ?? new Error('Overpass indisponível');
 }
 
 /**
- * Ruas em volta de um ponto: cache local → OpenStreetMap (Overpass) → grade de
- * demonstração (só se tudo falhar, e o app avisa que as ruas são simuladas).
+ * Pede ao servidor principal; se ele não responder em 1,5 s, pede também ao
+ * próximo (e assim por diante) e fica com o primeiro que chegar. Rápido quando um
+ * servidor está lento, sem triplicar a carga nos servidores públicos.
  */
-export async function loadStreets(center: LonLat, signal?: AbortSignal): Promise<StreetData> {
-  const key = areaKey(center);
-  const cached = readCache(key);
-  if (cached && cached.segments.length) return cached;
+const HEDGE_MS = 1500;
+async function fetchOverpass(center: LonLat): Promise<OverpassElement[]> {
+  const body = 'data=' + encodeURIComponent(overpassQuery(center, STREET_RADIUS_M));
+  const ctrls = config.overpassUrls.map(() => new AbortController());
+  const timers: ReturnType<typeof setTimeout>[] = [];
+  const overall = setTimeout(() => ctrls.forEach((c) => c.abort()), TIMEOUT_MS);
+  let failed = 0;
   try {
-    const { segments, lots } = buildSegments(await fetchOverpass(center, signal));
-    if (segments.length) {
-      const data: StreetData = { segments, lots, source: 'osm' };
-      writeCache(key, data);
-      return data;
-    }
-  } catch (e) {
-    if (signal?.aborted) throw e;
+    return await new Promise<OverpassElement[]>((resolve, reject) => {
+      let done = false;
+      const launched = new Set<number>();
+      const launch = (i: number) => {
+        if (done || i >= config.overpassUrls.length || launched.has(i)) return;
+        launched.add(i);
+        // próximo servidor entra se este demorar
+        timers.push(setTimeout(() => launch(i + 1), HEDGE_MS));
+        fetch(config.overpassUrls[i], { method: 'POST', body, headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, signal: ctrls[i].signal })
+          .then(async (res) => {
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const json = (await res.json()) as { elements?: OverpassElement[] };
+            if (!json.elements) throw new Error('resposta inválida');
+            if (done) return;
+            done = true;
+            ctrls.forEach((c, j) => j !== i && c.abort());
+            resolve(json.elements);
+          })
+          .catch(() => {
+            failed++;
+            if (done) return;
+            if (failed >= config.overpassUrls.length) reject(new Error('todos falharam'));
+            else launch(i + 1); // falhou: não espera, tenta o próximo já
+          });
+      };
+      launch(0);
+    });
+  } catch {
+    throw new Error('Não consegui baixar as ruas do OpenStreetMap agora. Verifique a internet e tente de novo.');
+  } finally {
+    clearTimeout(overall);
+    timers.forEach(clearTimeout);
   }
-  return { ...demoGrid(center), source: 'demo' };
 }
 
-/** Grade de quarteirões de 100 m em volta do ponto (fallback de demonstração). */
-export function demoGrid(center: LonLat): { segments: Segment[]; lots: ParkingLot[] } {
-  const segments: Segment[] = [];
-  const N = 6;
-  const step = 100;
-  const name = (axis: 'h' | 'v', i: number) => (axis === 'h' ? `Rua Demonstração ${i + N + 1}` : `Avenida Demonstração ${i + N + 1}`);
-  for (let i = -N; i <= N; i++) {
-    for (let j = -N; j < N; j++) {
-      for (const axis of ['h', 'v'] as const) {
-        const a = axis === 'h' ? fromLocal(center, j * step, i * step) : fromLocal(center, i * step, j * step);
-        const b = axis === 'h' ? fromLocal(center, (j + 1) * step, i * step) : fromLocal(center, i * step, (j + 1) * step);
-        const main = i % 3 === 0;
-        segments.push({
-          id: `demo-${axis}${i}_${j}`,
-          name: name(axis, i),
-          line: [a, b],
-          mid: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2],
-          lengthM: step,
-          capacity: 30,
-          profile: main ? 'commercial' : (i + j) % 2 ? 'mixed' : 'residential',
-          noParking: false,
-          paid: main,
-        });
-      }
-    }
-  }
-  const lots: ParkingLot[] = [
-    { id: 'demo-lot-1', name: 'Estacionamento Central (demonstração)', pos: fromLocal(center, 150, 50), fee: 'yes', capacity: 120 },
-    { id: 'demo-lot-2', name: 'Garagem Shopping (demonstração)', pos: fromLocal(center, -250, -150), fee: 'yes', capacity: 400 },
-  ];
-  return { segments, lots };
+/**
+ * Ruas em volta de um ponto: memória → aparelho (7 dias) → OpenStreetMap.
+ * Downloads da mesma área são compartilhados (pré-carregamento + seleção não baixam duas vezes).
+ */
+export function loadStreets(center: LonLat): Promise<StreetData> {
+  const key = areaKey(center);
+  const cached = readCache(key);
+  if (cached && cached.segments.length) return Promise.resolve(cached);
+  const inflight = pending.get(key);
+  if (inflight) return inflight;
+  const p = fetchOverpass(center)
+    .then((elements) => {
+      const { segments, lots } = buildSegments(elements);
+      const data: StreetData = { segments, lots, source: 'osm' };
+      if (segments.length) writeCache(key, data);
+      return data;
+    })
+    .finally(() => pending.delete(key));
+  pending.set(key, p);
+  return p;
+}
+
+/** Começa a baixar as ruas de um lugar antes do toque (ex.: 1º resultado da busca). */
+export function prefetchStreets(center: LonLat) {
+  loadStreets(center).catch(() => undefined);
 }

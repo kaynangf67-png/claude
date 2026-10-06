@@ -106,6 +106,31 @@ export function SettingsScreen() {
   const set = (patch: Partial<typeof settings>) => setState({ settings: { ...getState().settings, ...patch } });
   return (
     <Screen title="Configurações">
+      <h4>Aparência</h4>
+      <div className="segmented" role="radiogroup" aria-label="Tema">
+        {(
+          [
+            ['light', '☀ Claro'],
+            ['dark', '☾ Escuro'],
+            ['auto', 'Automático'],
+          ] as const
+        ).map(([t, label]) => (
+          <button key={t} role="radio" aria-checked={settings.theme === t} className={settings.theme === t ? 'on' : ''} onClick={() => set({ theme: t })}>
+            {label}
+          </button>
+        ))}
+      </div>
+      <small className="muted">Automático segue o tema do celular. O mapa acompanha o tema.</small>
+
+      <h4>Navegação</h4>
+      <label className="toggle">
+        <input type="checkbox" checked={settings.voice} onChange={(e) => set({ voice: e.target.checked })} />
+        <span>
+          Instruções por voz
+          <small>"Em 100 metros, vire à direita…" — para não precisar olhar a tela.</small>
+        </span>
+      </label>
+
       <h4>Quanto você aceita andar</h4>
       <div className="segmented" role="radiogroup" aria-label="Raio de caminhada">
         {[200, 400, 600].map((r) => (

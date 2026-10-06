@@ -33,7 +33,8 @@ export function ParkedBar() {
   const parked = useApp((s) => s.parked);
   const dest = useApp((s) => s.dest);
   const plan = useApp((s) => s.plan);
-  if (!parked || dest) return null;
+  const navigating = useApp((s) => Boolean(s.nav));
+  if (!parked || dest || navigating) return null;
   const min = Math.max(1, Math.round((Date.now() - parked.at) / 60000));
   const pro = isPro(plan);
   return (

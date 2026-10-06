@@ -2,17 +2,28 @@
 
 MVP de micro SaaS para motoristas. Você digita o destino e, em segundos, o app responde: **"Chance de vaga quando você chegar (em 14 min): ALTA 70–85%"**. Junto vêm os **3 melhores quarteirões** a pé do destino, um **estacionamento como plano B** e o botão **IR** (abre o Waze ou o Google Maps).
 
-Feito do zero, simples e rápido: mapa 2D (MapLibre), app instalável pelo navegador (PWA), sem 3D e sem navegação própria.
+Feito do zero, simples e rápido: mapa 2D (MapLibre), app instalável pelo navegador (PWA), sem 3D.
+
+**Tema claro (padrão) e escuro**, com o mapa acompanhando. Também há o modo "automático", que segue o celular (Configurações → Aparência).
 
 ## Como funciona
 
 1. **Abre na sua localização** (GPS contínuo). A busca aparece em ~0,3 s.
-2. **Para onde você vai?** Busca de endereço (Photon/OSM), favoritos Casa/Trabalho e o botão "Vagas aqui perto".
+2. **Para onde você vai?** Busca de endereço (Photon/OSM).
+   - Favoritos e destinos recentes aparecem na hora, sem internet.
+   - A busca pela internet começa com 2 letras e responde em ~0,2 s (repetidas vêm do cache).
+   - Enquanto você escolhe, o app já baixa as ruas do 1º resultado: o toque mostra a previsão em ~0,1 s.
 3. **Previsão para a hora da chegada** (agora + tempo de viagem), por **trecho de rua** (quarteirão), nunca por vaga individual.
-4. **Lista as 3 melhores ruas diferentes**, ordenadas por *menor tempo total esperado* = caminhada + (1 − chance) × 8 min rodando procurando.
-5. **Mostra de onde vem o número**: "12 relatos recentes (o mais novo há 3 min) + histórico do horário". Sem dados, aparece o selo **estimativa**.
-6. **Chegou** (GPS a até 150 m do destino): **"Achou vaga?" → SIM, NA RUA / NÃO, LOTADO / FUI PARA ESTACIONAMENTO**.
-7. **Foi embora**: **ESTOU SAINDO DA VAGA** libera a vaga para quem está chegando. É o dado mais valioso do app.
+4. **Navegar dentro do app** (ou abrir no Waze/Google Maps, se preferir):
+   - rota desenhada no mapa;
+   - manobra em destaque ("Vire à direita na Rua X — 120 m") e instruções por voz em português;
+   - câmera seguindo o carro;
+   - recalcula sozinho quando você sai da rota;
+   - termina com a pergunta de chegada.
+5. **Lista as 3 melhores ruas diferentes**, ordenadas por *menor tempo total esperado* = caminhada + (1 − chance) × 8 min rodando procurando.
+6. **Mostra de onde vem o número**: "12 relatos recentes (o mais novo há 3 min) + histórico do horário". Sem dados, aparece o selo **estimativa**.
+7. **Chegou** (GPS a até 150 m do destino): **"Achou vaga?" → SIM, NA RUA / NÃO, LOTADO / FUI PARA ESTACIONAMENTO**.
+8. **Foi embora**: **ESTOU SAINDO DA VAGA** libera a vaga para quem está chegando. É o dado mais valioso do app.
 
 ### De onde vêm os dados
 | Fonte | Peso | Situação neste MVP |
@@ -87,7 +98,7 @@ O app registra (Menu → Painel do piloto; no servidor, `metrics_overview`):
   - worker do mapa: 511 kB sem compressão.
 
 ## Testes
-- **Unitários (37)** cobrem:
+- **Unitários (47)** cobrem:
   - modelo: decaimento, projeção para a chegada, limites 3–95%, ranking, ruas diferentes;
   - histórico;
   - detector de estacionar: semáforo, ficar no carro, ônibus, leituras imprecisas;
@@ -95,7 +106,9 @@ O app registra (Menu → Painel do piloto; no servidor, `metrics_overview`):
   - perfil comercial;
   - plano Pro;
   - métricas;
-  - links do Waze e Google.
+  - links do Waze e Google;
+  - navegação: instruções em português, progresso na rota, saída da rota;
+  - download das ruas: servidor reserva, erro, sem baixar duas vezes.
 - **Ponta a ponta (Playwright, celular e desktop):** busca → previsão → Waze → recurso Pro bloqueado → lista de espera → favorito → chegada pelo GPS → "Sim, na rua" → "Estou saindo da vaga" → os relatos mudam a próxima previsão → "Vagas aqui perto" → painel. Ruas e busca vêm de fixtures; mapa de fundo bloqueado (testa o modo reserva).
 - **SQL**, testado em Postgres 16 local, com papéis e `auth.uid()` imitando o Supabase:
   - migração idempotente;
@@ -113,5 +126,7 @@ O app registra (Menu → Painel do piloto; no servidor, `metrics_overview`):
   - o login com Google e o Supabase pela internet (o SQL foi testado localmente, o cliente REST não);
   - o OpenRouteService;
   - o mapa de fundo da OpenFreeMap (a rede de teste bloqueia esses serviços).
-- **Photon e Overpass públicos têm limite de uso.** Com volume, hospede os seus.
+- **Photon, Overpass e OSRM públicos têm limite de uso.** O servidor público do OSRM é só de demonstração. Com volume, hospede os seus.
+- **A navegação não foi testada num carro de verdade**, só com GPS simulado. Ela é básica: não tem faixas, radares nem trânsito em tempo real. Para isso, o Waze continua a um toque.
+- **Ruas (Overpass):** o app pede ao servidor principal e, se ele não responder em 1,5 s, chama o reserva. Se todos falharem, aparece uma mensagem de erro. Não existe mais "cidade de demonstração".
 - **Push** (avisar "saia agora" com o app fechado) não está no MVP. Hoje o aviso aparece só com o app aberto.
