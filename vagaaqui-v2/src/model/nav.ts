@@ -93,6 +93,8 @@ export interface NavProgress {
   next: NavStep | null;
   nextIndex: number;
   toNextM: number;
+  /** ponto da rota mais próximo do GPS ("encaixado" na rua) */
+  snapped: LonLat;
 }
 
 /**
@@ -100,7 +102,7 @@ export interface NavProgress {
  * trecho paralelo da própria rota (ida e volta na mesma avenida).
  */
 export function routeProgress(r: NavRoute, pos: LonLat, hintM = 0): NavProgress {
-  let best = { d: Infinity, along: 0 };
+  let best = { d: Infinity, along: 0, pt: r.line[0] };
   for (let i = 0; i < r.line.length - 1; i++) {
     if (r.cum[i + 1] < hintM - 80) continue;
     const a = toLocal(pos, r.line[i]);
@@ -112,7 +114,7 @@ export function routeProgress(r: NavRoute, pos: LonLat, hintM = 0): NavProgress 
     const d = Math.hypot(a.x + t * dx, a.y + t * dy);
     // pequena preferência por continuar perto do progresso anterior
     const score = d + (r.cum[i] + t * (r.cum[i + 1] - r.cum[i]) < hintM - 20 ? 15 : 0);
-    if (score < best.d) best = { d, along: r.cum[i] + t * (r.cum[i + 1] - r.cum[i]) };
+    if (score < best.d) best = { d, along: r.cum[i] + t * (r.cum[i + 1] - r.cum[i]), pt: [r.line[i][0] + (r.line[i + 1][0] - r.line[i][0]) * t, r.line[i][1] + (r.line[i + 1][1] - r.line[i][1]) * t] };
   }
   const alongM = best.d === Infinity ? hintM : best.along;
   const remainingM = Math.max(0, r.distanceM - alongM);
@@ -126,7 +128,20 @@ export function routeProgress(r: NavRoute, pos: LonLat, hintM = 0): NavProgress 
     next,
     nextIndex,
     toNextM: next ? Math.max(0, next.atM - alongM) : remainingM,
+    snapped: best.pt,
   };
+}
+
+/**
+ * Onde desenhar o carro na navegação: encaixado na rota quando a distância é só
+ * imprecisão do GPS; com GPS muito ruim (ex.: computador, posição pela internet),
+ * também na rota — mostrar o carro no meio do mar não ajuda ninguém.
+ */
+export function displayPosition(p: NavProgress, gps: LonLat, accuracyM: number | null): { pos: LonLat; approximate: boolean } {
+  const acc = accuracyM ?? 20;
+  if (p.offRouteM <= Math.max(35, Math.min(acc, 80))) return { pos: p.snapped, approximate: false };
+  if (acc > 150) return { pos: p.snapped, approximate: true };
+  return { pos: gps, approximate: false };
 }
 
 export function formatDistance(m: number) {

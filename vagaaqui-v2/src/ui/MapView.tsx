@@ -11,6 +11,7 @@ import { setTileStreetProvider } from '../data/streets';
 import { segmentsFromTiles, type TilePoi, type TileRoad } from '../data/tileStreets';
 import { bboxAround, bearing as bearingTo, distance, type LonLat } from '../lib/geo';
 import { levelOf } from '../model/forecast';
+import { displayPosition } from '../model/nav';
 import { LEVEL_COLOR } from './colors';
 
 /** Estilo mínimo embutido: usado se o servidor de mapas não responder (rede bloqueada/offline). */
@@ -50,17 +51,26 @@ function el(className: string, html = '') {
 }
 
 /** câmera de navegação (estilo Waze) */
-const NAV_ZOOM = 18;
-const NAV_PITCH = 60;
+const NAV_ZOOM = 18.6;
+const NAV_PITCH = 45;
 
-/** rumo do carro: o do GPS quando andando; parado/sem rumo, a direção da rota logo à frente */
+/** posição do carro na navegação (encaixada na rota) */
+function navCarPos(s: AppState) {
+  return displayPosition(s.nav!.progress, s.gps.pos!, s.gps.accuracy);
+}
+
+/**
+ * rumo do carro na navegação: com o carro encaixado na rota, segue a direção da
+ * rua logo à frente (estável, como o Waze); só fora da rota usa o rumo do GPS.
+ */
 function navBearing(s: AppState): number {
   const nav = s.nav!;
-  const pos = s.gps.pos!;
-  if ((s.gps.speed ?? 0) > 2 && s.gps.heading !== null) return s.gps.heading;
+  const car = navCarPos(s).pos;
+  const onRoute = car === nav.progress.snapped;
+  if (!onRoute && (s.gps.speed ?? 0) > 2 && s.gps.heading !== null) return s.gps.heading;
   const r = nav.route;
   const ahead = r.line[r.cum.findIndex((c) => c > nav.progress.alongM + 25)] ?? r.line[r.line.length - 1];
-  return bearingTo(pos, ahead);
+  return bearingTo(car, ahead);
 }
 
 const styleUrl = (t: ResolvedTheme) => (t === 'dark' ? config.mapStyleDark : config.mapStyleLight);
@@ -123,8 +133,8 @@ export default function MapView() {
       if (map.getSource('segments')) return;
       const casing = theme === 'dark' ? '#05070a' : '#ffffff';
       map.addSource('route', { type: 'geojson', data: EMPTY });
-      map.addLayer({ id: 'route-casing', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': theme === 'dark' ? '#0b1a3a' : '#1d3f8f', 'line-width': 12 } });
-      map.addLayer({ id: 'route', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#4f8cff', 'line-width': 7 } });
+      map.addLayer({ id: 'route-casing', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': theme === 'dark' ? '#0b1a3a' : '#1d3f8f', 'line-width': ['interpolate', ['linear'], ['zoom'], 13, 8, 16, 14, 19, 30] } });
+      map.addLayer({ id: 'route', type: 'line', source: 'route', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': '#4f8cff', 'line-width': ['interpolate', ['linear'], ['zoom'], 13, 5, 16, 9, 19, 22] } });
       map.addSource('segments', { type: 'geojson', data: EMPTY });
       map.addLayer({ id: 'seg-sel', type: 'line', source: 'segments', filter: ['==', ['get', 'sel'], 1], layout: { 'line-cap': 'round' }, paint: { 'line-color': theme === 'dark' ? '#ffffff' : '#111827', 'line-width': ['+', ['get', 'w'], 9], 'line-opacity': 0.35 } });
       map.addLayer({ id: 'seg-casing', type: 'line', source: 'segments', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': casing, 'line-width': ['+', ['get', 'w'], 4] } });
@@ -210,7 +220,7 @@ export default function MapView() {
     const sync = (force = false) => {
       const s = getState();
       if (s.gps.pos) {
-        me.setLngLat(s.gps.pos).addTo(map);
+        me.setLngLat(s.nav ? navCarPos(s).pos : s.gps.pos).addTo(map);
         me.setRotation(s.nav ? navBearing(s) : (s.gps.heading ?? 0));
         meEl.classList.toggle('nav', Boolean(s.nav));
         meEl.classList.toggle('has-heading', s.gps.heading !== null);
@@ -260,11 +270,11 @@ export default function MapView() {
           // estilo Waze: bem perto, inclinada, rota para cima e o carro no terço de baixo da tela
           const h = map.getContainer().clientHeight;
           map.easeTo({
-            center: s.gps.pos,
+            center: navCarPos(s).pos,
             bearing: navBearing(s),
             zoom: NAV_ZOOM,
             pitch: NAV_PITCH,
-            padding: wide ? { top: Math.round(h * 0.4), bottom: 40, left: 440, right: 40 } : { top: Math.round(h * 0.42), bottom: 170, left: 0, right: 0 },
+            padding: wide ? { top: Math.round(h * 0.3), bottom: 40, left: 440, right: 40 } : { top: Math.round(h * 0.32), bottom: 170, left: 0, right: 0 },
             duration: lastNav ? 900 : 1200,
           });
         }

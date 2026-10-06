@@ -46,6 +46,15 @@ describe('progresso na rota', () => {
     expect(routeProgress(r, fromLocal(ORIGIN, 150, 120)).offRouteM).toBeGreaterThan(100);
   });
 
+  it('encaixa o carro na rua com erro normal de GPS; GPS muito ruim também; fora da rota de verdade, não', async () => {
+    const { displayPosition } = await import('./nav');
+    const near = routeProgress(r, fromLocal(ORIGIN, 100, 20));
+    expect(displayPosition(near, fromLocal(ORIGIN, 100, 20), 15).pos[1]).toBeCloseTo(fromLocal(ORIGIN, 100, 0)[1], 6);
+    const far = routeProgress(r, fromLocal(ORIGIN, 100, 300));
+    expect(displayPosition(far, fromLocal(ORIGIN, 100, 300), 10).pos[1]).toBeCloseTo(fromLocal(ORIGIN, 100, 300)[1], 6);
+    expect(displayPosition(far, fromLocal(ORIGIN, 100, 300), 3000)).toMatchObject({ approximate: true });
+  });
+
   it('formata distâncias para o motorista', () => {
     expect(formatDistance(1234)).toBe('1,2 km');
     expect(formatDistance(237)).toBe('240 m');

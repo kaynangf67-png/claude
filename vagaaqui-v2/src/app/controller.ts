@@ -249,8 +249,9 @@ function updateNav() {
     say(`Em ${formatDistance(progress.toNextM)}, ${progress.next.text.charAt(0).toLowerCase()}${progress.next.text.slice(1)}`);
   }
   // saiu da rota: recalcula (no máximo a cada 15 s)
-  const acc = s.gps.accuracy ?? 20;
-  if (progress.offRouteM > Math.max(45, acc * 1.5)) offRouteCount++;
+  // GPS ruim (centenas de metros) não pode impedir o recálculo para sempre
+  const acc = Math.min(s.gps.accuracy ?? 20, 100);
+  if (progress.offRouteM > Math.max(45, acc * 1.5) && (s.gps.accuracy ?? 20) <= 150) offRouteCount++;
   else offRouteCount = 0;
   setState({ nav: { ...nav, progress } });
   if (offRouteCount >= 3 && Date.now() - lastReroute > 15000 && !nav.rerouting) {

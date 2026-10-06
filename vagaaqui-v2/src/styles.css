@@ -970,3 +970,12 @@ button {
 .mk-me.nav .mk-me-arrow {
   display: none !important;
 }
+.nav-warn {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--warn-text);
+}
+.app .maplibregl-canvas {
+  outline: none;
+}

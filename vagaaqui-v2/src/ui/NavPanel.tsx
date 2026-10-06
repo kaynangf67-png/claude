@@ -24,6 +24,7 @@ export function NavPanel() {
   const nav = useApp((s) => s.nav);
   const forecast = useApp((s) => s.forecast);
   const voice = useApp((s) => s.settings.voice);
+  const gpsAcc = useApp((s) => s.gps.accuracy);
   if (!nav) return null;
   const p = nav.progress;
   const step = p.next ?? nav.route.steps[nav.route.steps.length - 1];
@@ -55,6 +56,7 @@ export function NavPanel() {
             <span>chance de vaga</span>
           </div>
         </div>
+        {(gpsAcc ?? 0) > 150 && <div className="nav-warn">📡 GPS impreciso (±{Math.round(gpsAcc!)} m) — posição aproximada na rota</div>}
         <div className="nav-target">🅿 {nav.targetName}</div>
         <div className="nav-actions">
           <button className="btn red" onClick={stopNavigation}>
