@@ -12,6 +12,8 @@ export interface QualitySettings {
   stars: boolean;
   /** fração dos carros estacionados renderizados */
   parkedCarsFraction: number;
+  /** teto absoluto de carros estacionados (bairros reais podem ter >10 mil vagas) */
+  parkedCarsMax: number;
   /** distância máxima (m) para desenhar marcadores de vaga */
   markerDistance: number;
 }
@@ -27,6 +29,7 @@ export const QUALITY_PRESETS: Record<QualityTier, QualitySettings> = {
     shadows: false,
     stars: false,
     parkedCarsFraction: 0.45,
+    parkedCarsMax: 1200,
     markerDistance: 420,
   },
   medium: {
@@ -39,6 +42,7 @@ export const QUALITY_PRESETS: Record<QualityTier, QualitySettings> = {
     shadows: false,
     stars: true,
     parkedCarsFraction: 0.8,
+    parkedCarsMax: 2600,
     markerDistance: 700,
   },
   high: {
@@ -51,6 +55,7 @@ export const QUALITY_PRESETS: Record<QualityTier, QualitySettings> = {
     shadows: true,
     stars: true,
     parkedCarsFraction: 1,
+    parkedCarsMax: 4500,
     markerDistance: 1200,
   },
 };

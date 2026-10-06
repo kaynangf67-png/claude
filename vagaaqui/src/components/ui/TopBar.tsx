@@ -32,6 +32,22 @@ export function TopBar() {
   );
 }
 
+/** Atribuição obrigatória pela licença ODbL quando o mapa usa dados do OpenStreetMap. */
+export function MapAttribution() {
+  const origin = useApp((s) => s.cityOrigin);
+  if (!origin || origin === 'procedural') {
+    return <div className="attribution">Cidade de demonstração (fictícia)</div>;
+  }
+  return (
+    <div className="attribution">
+      Ruas e prédios ©{' '}
+      <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
+        colaboradores do OpenStreetMap
+      </a>
+    </div>
+  );
+}
+
 export function NoticeBar() {
   const notice = useApp((s) => s.notice);
   if (!notice) return null;

@@ -20,10 +20,3 @@ export function sharedCarGeometry() {
 }
 
 export const CAR_COLORS = ['#c9ced8', '#2a2f3a', '#7d8696', '#e8e8ea', '#3b4a63', '#6b1f2a', '#1d3a5c', '#8a8f99'];
-
-/** Plano no chão (XZ) com UV em metros: u ao longo, v através. */
-export function createGroundPlane(length: number, width: number) {
-  const g = new THREE.PlaneGeometry(length, width);
-  g.rotateX(-Math.PI / 2);
-  return g;
-}

@@ -9,7 +9,7 @@ import { Preview3D } from './components/ui/Preview3D';
 import { RewardSystem } from './components/ui/RewardSystem';
 import { SearchBar } from './components/ui/SearchBar';
 import { SettingsPanel } from './components/ui/SettingsPanel';
-import { NoticeBar, TopBar } from './components/ui/TopBar';
+import { MapAttribution, NoticeBar, TopBar } from './components/ui/TopBar';
 import { UserConfirmation } from './components/ui/UserConfirmation';
 import { UserProfile } from './components/ui/UserProfile';
 import { actions, useApp } from './store/appStore';
@@ -40,6 +40,8 @@ export default function App() {
   const driverMode = useApp((s) => s.driverMode);
   const panel = useApp((s) => s.panel);
   const navStatus = useApp((s) => s.navStatus);
+  const cityReady = useApp((s) => s.cityStatus === 'ready');
+  const cityStatusText = useApp((s) => s.cityStatusText);
   const [mapReady, setMapReady] = useState(false);
   const mapLayer = useRef<HTMLDivElement>(null);
 
@@ -59,7 +61,7 @@ export default function App() {
   return (
     <div className={`app ${driverMode ? 'driver-on' : ''} ${navStatus === 'navigating' ? 'nav-on' : ''}`}>
       <div ref={mapLayer} className="map-layer" style={{ opacity: phase === 'map' ? 1 : 0 }}>
-        {mapReady && (
+        {mapReady && cityReady && (
           <MapErrorBoundary>
             <Suspense fallback={null}>
               <Map3D />
@@ -68,7 +70,9 @@ export default function App() {
         )}
       </div>
 
-      {phase === 'splash' && <SplashScreen ready={mapReady} onStart={() => void actions.enterMap()} />}
+      {phase === 'splash' && (
+        <SplashScreen ready={mapReady && cityReady} status={cityStatusText} onStart={() => void actions.enterMap()} />
+      )}
 
       {phase === 'map' && (
         <div className="hud">
@@ -97,6 +101,7 @@ export default function App() {
               </div>
             </>
           )}
+          <MapAttribution />
           <NoticeBar />
           <UserConfirmation />
           <RewardSystem />

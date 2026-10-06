@@ -11,6 +11,7 @@ import type { Destination, LevelName, Recommendation, RewardAction, RouteData, U
 import { levelFor } from '../domain/rewards';
 import { cameraBus } from './cameraBus';
 import { createStore } from './createStore';
+import { loadCity, type CityOrigin } from '../world/cityStore';
 
 export type CameraMode = 'follow' | 'free' | 'preview';
 export type NavStatus = 'idle' | 'navigating' | 'arrived' | 'parked';
@@ -40,6 +41,11 @@ export interface Notice {
 
 export interface AppState {
   phase: 'splash' | 'map';
+  cityStatus: 'loading' | 'ready';
+  cityStatusText: string;
+  cityOrigin: CityOrigin | null;
+  /** aviso a mostrar ao entrar no mapa (ex.: OSM indisponível) */
+  cityNote: string | null;
   cameraMode: CameraMode;
   navStatus: NavStatus;
   targetSpotId: string | null;
@@ -78,6 +84,10 @@ const prefs = loadPrefs();
 
 export const appStore = createStore<AppState>({
   phase: 'splash',
+  cityStatus: 'loading',
+  cityStatusText: 'Carregando mapa…',
+  cityOrigin: null,
+  cityNote: null,
   cameraMode: 'follow',
   navStatus: 'idle',
   targetSpotId: null,
@@ -142,6 +152,9 @@ export const actions = {
     set({ detectedTier: detectQualityTier() });
     const profile = await repository.loadProfile().catch(() => DEFAULT_PROFILE);
     set({ profile });
+    // a cidade precisa existir antes da simulação (vagas e trânsito dependem das ruas)
+    const result = await loadCity((text) => set({ cityStatusText: text }));
+    set({ cityStatus: 'ready', cityOrigin: result.origin, cityNote: result.note ?? null, cityStatusText: '' });
     const sim = getSimulation();
     sim.speedMultiplier = get().simSpeed;
     sim.onEvent((e) => {
@@ -152,6 +165,8 @@ export const actions = {
 
   async enterMap() {
     set({ phase: 'map' });
+    const note = get().cityNote;
+    if (note) window.setTimeout(() => notify(note, 'warn'), 600);
     if (env.useBrowserGps) {
       const loc = await requestBrowserLocation();
       if (loc.kind === 'gps' && getSimulation().placeVehicleAt(loc.position)) {
@@ -160,7 +175,7 @@ export const actions = {
       } else {
         notify(
           loc.kind === 'gps'
-            ? 'Você está fora da área de demonstração. Usando localização simulada em Vitória-ES.'
+            ? 'Você está fora da área do mapa. Usando localização simulada.'
             : `${loc.reason} Usando localização simulada.`,
           'warn',
         );

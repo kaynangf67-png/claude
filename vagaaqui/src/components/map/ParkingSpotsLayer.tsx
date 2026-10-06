@@ -25,7 +25,7 @@ export function ParkingSpotsLayer({ maxDistance }: { maxDistance: number }) {
     let i = 0;
     for (const spot of curbSpots) {
       if (!snapshot.occupiedVisible.has(spot.id)) continue;
-      tmp.position.set(spot.position.x, 0.02, spot.position.z);
+      tmp.position.set(spot.position.x, 0.07, spot.position.z);
       tmp.rotation.set(0, spot.heading, 0);
       tmp.updateMatrix();
       mesh.setMatrixAt(i, tmp.matrix);

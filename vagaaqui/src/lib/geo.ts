@@ -3,22 +3,31 @@ import type { Vec2 } from '../types';
 
 const M_PER_DEG_LAT = 110_574;
 
+/** Origem (0,0) do mundo 3D. Definida pelos dados de mapa carregados. */
+let origin = { ...env.mapCenter };
+export function setGeoOrigin(o: { lat: number; lon: number }) {
+  origin = { ...o };
+}
+export function getGeoOrigin() {
+  return origin;
+}
+
 function mPerDegLon(lat: number) {
   return 111_320 * Math.cos((lat * Math.PI) / 180);
 }
 
 /** Projeção equirretangular local: precisa o suficiente para alguns quilômetros. */
-export function latLonToWorld(lat: number, lon: number, origin = env.mapCenter): Vec2 {
+export function latLonToWorld(lat: number, lon: number, o = origin): Vec2 {
   return {
-    x: (lon - origin.lon) * mPerDegLon(origin.lat),
-    z: -(lat - origin.lat) * M_PER_DEG_LAT,
+    x: (lon - o.lon) * mPerDegLon(o.lat),
+    z: -(lat - o.lat) * M_PER_DEG_LAT,
   };
 }
 
-export function worldToLatLon(p: Vec2, origin = env.mapCenter): { lat: number; lon: number } {
+export function worldToLatLon(p: Vec2, o = origin): { lat: number; lon: number } {
   return {
-    lat: origin.lat - p.z / M_PER_DEG_LAT,
-    lon: origin.lon + p.x / mPerDegLon(origin.lat),
+    lat: o.lat - p.z / M_PER_DEG_LAT,
+    lon: o.lon + p.x / mPerDegLon(o.lat),
   };
 }
 

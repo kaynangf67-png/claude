@@ -26,13 +26,13 @@ export function TrafficCars({ count }: { count: number }) {
     if (!mesh || !halo) return;
     let h = 0;
     sim.agents.forEach((a, i) => {
-      tmp.position.set(a.position.x, 0.02, a.position.z);
+      tmp.position.set(a.position.x, 0.07, a.position.z);
       tmp.rotation.set(0, a.heading, 0);
       tmp.scale.set(1, 1, 1);
       tmp.updateMatrix();
       mesh.setMatrixAt(i, tmp.matrix);
       if (a.isUser) {
-        tmp.position.y = 0.1;
+        tmp.position.y = 0.12;
         tmp.rotation.set(-Math.PI / 2, 0, 0);
         tmp.updateMatrix();
         halo.setMatrixAt(h++, tmp.matrix);

@@ -1,6 +1,6 @@
 import { dist } from '../lib/geo';
 import type { RouteData, RouteInstruction, Vec2 } from '../types';
-import { GRID, edgePoint, type CityData, type CityEdge } from './cityGenerator';
+import { canTraverse, edgePoint, laneOffset, type CityData, type CityEdge } from './cityTypes';
 
 export interface EdgePosition {
   edgeId: string;
@@ -18,6 +18,7 @@ export interface ShortestPaths {
 export function nearestEdgePosition(city: CityData, p: Vec2): EdgePosition & { distance: number } {
   let best: EdgePosition & { distance: number } = { edgeId: '', s: 0, distance: Infinity };
   for (const e of city.edges.values()) {
+    if (!e.routable) continue;
     const a = city.nodes.get(e.a)!.position;
     const s = Math.max(0, Math.min(e.length, (p.x - a.x) * e.dir.x + (p.z - a.z) * e.dir.z));
     const q = edgePoint(city, e, s);
@@ -27,36 +28,72 @@ export function nearestEdgePosition(city: CityData, p: Vec2): EdgePosition & { d
   return best;
 }
 
-/** Dijkstra a partir de uma posição sobre uma aresta. A malha é pequena (81 nós). */
+/** Fila de prioridade mínima (heap binário) para o Dijkstra. */
+class MinHeap {
+  private items: [number, string][] = [];
+  get size() {
+    return this.items.length;
+  }
+  push(item: [number, string]) {
+    const a = this.items;
+    a.push(item);
+    let i = a.length - 1;
+    while (i > 0) {
+      const p = (i - 1) >> 1;
+      if (a[p][0] <= a[i][0]) break;
+      [a[p], a[i]] = [a[i], a[p]];
+      i = p;
+    }
+  }
+  pop(): [number, string] {
+    const a = this.items;
+    const top = a[0];
+    const last = a.pop()!;
+    if (a.length) {
+      a[0] = last;
+      let i = 0;
+      for (;;) {
+        const l = i * 2 + 1;
+        const r = l + 1;
+        let m = i;
+        if (l < a.length && a[l][0] < a[m][0]) m = l;
+        if (r < a.length && a[r][0] < a[m][0]) m = r;
+        if (m === i) break;
+        [a[m], a[i]] = [a[i], a[m]];
+        i = m;
+      }
+    }
+    return top;
+  }
+}
+
+/** Dijkstra dirigido (respeita mão única) a partir de uma posição sobre uma aresta. */
 export function shortestPaths(city: CityData, start: EdgePosition): ShortestPaths {
   const edge = city.edges.get(start.edgeId)!;
   const distMap = new Map<string, number>();
   const prev = new Map<string, string | null>();
   for (const id of city.nodes.keys()) distMap.set(id, Infinity);
-  distMap.set(edge.a, start.s);
+  const heap = new MinHeap();
   distMap.set(edge.b, edge.length - start.s);
-  prev.set(edge.a, null);
   prev.set(edge.b, null);
-
-  const visited = new Set<string>();
-  while (visited.size < city.nodes.size) {
-    let u: string | null = null;
-    let best = Infinity;
-    for (const [id, d] of distMap) {
-      if (!visited.has(id) && d < best) {
-        best = d;
-        u = id;
-      }
-    }
-    if (u === null) break;
-    visited.add(u);
+  heap.push([edge.length - start.s, edge.b]);
+  if (!edge.oneway) {
+    distMap.set(edge.a, start.s);
+    prev.set(edge.a, null);
+    heap.push([start.s, edge.a]);
+  }
+  while (heap.size) {
+    const [d, u] = heap.pop();
+    if (d > distMap.get(u)!) continue;
     for (const eid of city.nodes.get(u)!.edges) {
       const e = city.edges.get(eid)!;
+      if (!canTraverse(e, u)) continue;
       const v = e.a === u ? e.b : e.a;
-      const nd = best + e.length;
+      const nd = d + e.length;
       if (nd < distMap.get(v)!) {
         distMap.set(v, nd);
         prev.set(v, u);
+        heap.push([nd, v]);
       }
     }
   }
@@ -67,11 +104,12 @@ export function shortestPaths(city: CityData, start: EdgePosition): ShortestPath
 export function distanceTo(city: CityData, sp: ShortestPaths, target: EdgePosition): { distance: number; via: string | null } {
   const e = city.edges.get(target.edgeId)!;
   const viaA = sp.dist.get(e.a)! + target.s;
-  const viaB = sp.dist.get(e.b)! + (e.length - target.s);
+  const viaB = e.oneway ? Infinity : sp.dist.get(e.b)! + (e.length - target.s);
   let best = viaA <= viaB ? { distance: viaA, via: e.a as string | null } : { distance: viaB, via: e.b as string | null };
   if (sp.start.edgeId === target.edgeId) {
+    const forward = target.s >= sp.start.s;
     const direct = Math.abs(sp.start.s - target.s);
-    if (direct <= best.distance) best = { distance: direct, via: null };
+    if ((forward || !e.oneway) && direct <= best.distance) best = { distance: direct, via: null };
   }
   return best;
 }
@@ -87,22 +125,25 @@ function nodePath(sp: ShortestPaths, end: string): string[] {
 }
 
 function edgeBetween(city: CityData, a: string, b: string): CityEdge | undefined {
+  let best: CityEdge | undefined;
   for (const eid of city.nodes.get(a)!.edges) {
     const e = city.edges.get(eid)!;
-    if ((e.a === a && e.b === b) || (e.a === b && e.b === a)) return e;
+    if (!((e.a === a && e.b === b) || (e.a === b && e.b === a)) || !canTraverse(e, a)) continue;
+    if (!best || e.length < best.length) best = e;
   }
-  return undefined;
+  return best;
 }
 
 /** Desloca a polilinha para a faixa da direita, encontrando as quinas pela interseção das retas. */
-function offsetPolyline(points: Vec2[], offset: number): Vec2[] {
+function offsetPolyline(points: Vec2[], offsets: number[]): Vec2[] {
   if (points.length < 2) return points.slice();
   const segs = points.slice(0, -1).map((p, i) => {
     const q = points[i + 1];
     const len = Math.max(1e-6, dist(p, q));
     const d = { x: (q.x - p.x) / len, z: (q.z - p.z) / len };
+    const offset = offsets[i] ?? 0;
     const r = { x: -d.z * offset, z: d.x * offset };
-    return { p: { x: p.x + r.x, z: p.z + r.z }, d };
+    return { p: { x: p.x + r.x, z: p.z + r.z }, d, offset };
   });
   const out: Vec2[] = [segs[0].p];
   for (let i = 1; i < segs.length; i++) {
@@ -110,8 +151,8 @@ function offsetPolyline(points: Vec2[], offset: number): Vec2[] {
     const s1 = segs[i];
     const cross = s0.d.x * s1.d.z - s0.d.z * s1.d.x;
     const corner = points[i];
-    const r1 = { x: -s1.d.z * offset, z: s1.d.x * offset };
-    if (Math.abs(cross) < 1e-3) {
+    const r1 = { x: -s1.d.z * s1.offset, z: s1.d.x * s1.offset };
+    if (Math.abs(cross) < 0.05) {
       out.push({ x: corner.x + r1.x, z: corner.z + r1.z });
       continue;
     }
@@ -121,7 +162,7 @@ function offsetPolyline(points: Vec2[], offset: number): Vec2[] {
   }
   const last = segs[segs.length - 1];
   const end = points[points.length - 1];
-  out.push({ x: end.x - last.d.z * offset, z: end.z + last.d.x * offset });
+  out.push({ x: end.x - last.d.z * last.offset, z: end.z + last.d.x * last.offset });
   return out;
 }
 
@@ -177,26 +218,38 @@ export function buildRoute(
   const startEdge = city.edges.get(from.edge.edgeId)!;
   const targetEdge = city.edges.get(target.edgeId)!;
 
+  // pontos da linha central e a aresta de cada trecho entre eles
   const center: Vec2[] = [edgePoint(city, startEdge, from.edge.s)];
-  const streets: string[] = [startEdge.street];
-  let nodes: string[] = [];
+  const segEdges: CityEdge[] = [];
   if (via) {
-    nodes = nodePath(sp, via);
+    const nodes = nodePath(sp, via);
     for (let k = 0; k < nodes.length; k++) {
       center.push(city.nodes.get(nodes[k])!.position);
-      if (k > 0) streets.push(edgeBetween(city, nodes[k - 1], nodes[k])?.street ?? '');
+      segEdges.push(k === 0 ? startEdge : edgeBetween(city, nodes[k - 1], nodes[k]) ?? startEdge);
     }
-    streets.push(targetEdge.street);
+    segEdges.push(targetEdge);
+  } else {
+    segEdges.push(startEdge);
   }
   const targetCenter = edgePoint(city, targetEdge, target.s);
   center.push(targetCenter);
 
   // remove pontos duplicados (ex.: carro parado exatamente sobre um nó)
-  const dedup: Vec2[] = [];
-  for (const p of center) if (!dedup.length || dist(dedup[dedup.length - 1], p) > 0.5) dedup.push(p);
-  if (dedup.length < 2) dedup.push({ x: targetCenter.x + 0.6, z: targetCenter.z });
+  const dedup: Vec2[] = [center[0]];
+  const dedupEdges: CityEdge[] = [];
+  for (let k = 1; k < center.length; k++) {
+    if (dist(dedup[dedup.length - 1], center[k]) > 0.5) {
+      dedup.push(center[k]);
+      dedupEdges.push(segEdges[k - 1]);
+    }
+  }
+  if (dedup.length < 2) {
+    dedup.push({ x: targetCenter.x + targetEdge.dir.x * 0.6, z: targetCenter.z + targetEdge.dir.z * 0.6 });
+    dedupEdges.push(targetEdge);
+  }
+  const streets = dedupEdges.map((e) => e.street);
 
-  const lane = offsetPolyline(dedup, GRID.laneOffset);
+  const lane = offsetPolyline(dedup, dedupEdges.map(laneOffset));
   const raw = [from.position, ...lane.slice(1, -1)];
   // aproximação final: entra na vaga vindo da faixa de rolamento
   const laneEnd = lane[lane.length - 1];
@@ -220,6 +273,7 @@ export function buildRoute(
   const instructions: RouteInstruction[] = [
     { at: 0, type: 'start', text: `Siga pela ${streets[0]}`, street: streets[0] },
   ];
+  // curvas suaves de uma mesma rua não geram instrução; só conversões de verdade
   for (let k = 1; k < dedup.length - 1; k++) {
     const p0 = dedup[k - 1];
     const p1 = dedup[k];
@@ -232,7 +286,7 @@ export function buildRoute(
     const norm = Math.hypot(d1.x, d1.z) * Math.hypot(d2.x, d2.z) || 1;
     if (dot / norm < -0.7) {
       instructions.push({ at: centerCum[k] * scale, type: 'left', text: `Faça o retorno na ${nextStreet}`, street: nextStreet });
-    } else if (Math.abs(cross / norm) > 0.5) {
+    } else if (Math.abs(cross / norm) > (streets[k - 1] === nextStreet ? 0.8 : 0.5)) {
       const type = cross > 0 ? 'right' : 'left';
       instructions.push({
         at: centerCum[k] * scale,

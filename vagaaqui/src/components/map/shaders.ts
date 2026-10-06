@@ -4,37 +4,39 @@ import * as THREE from 'three';
 export function createBuildingMaterial() {
   return new THREE.ShaderMaterial({
     fog: true,
-    uniforms: THREE.UniformsUtils.merge([
-      THREE.UniformsLib.fog,
-      { uTime: { value: 0 } },
-    ]),
+    uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog]),
     vertexShader: /* glsl */ `
       attribute float aSeed;
+      attribute float aHeight;
+      attribute float aLocalY;
+      attribute float aWallU;
       varying vec3 vWorld;
       varying vec3 vNormal;
       varying float vSeed;
       varying float vLocalY;
       varying float vHeight;
+      varying float vWallU;
       #include <fog_pars_vertex>
       void main() {
-        vec4 wp = modelMatrix * instanceMatrix * vec4(position, 1.0);
+        vec4 wp = modelMatrix * vec4(position, 1.0);
         vWorld = wp.xyz;
-        vNormal = normalize(mat3(modelMatrix) * mat3(instanceMatrix) * normal);
-        vLocalY = position.y;
-        vHeight = length(instanceMatrix[1].xyz);
+        vNormal = normalize(mat3(modelMatrix) * normal);
+        vLocalY = aLocalY;
+        vHeight = aHeight;
         vSeed = aSeed;
+        vWallU = aWallU;
         vec4 mvPosition = viewMatrix * wp;
         gl_Position = projectionMatrix * mvPosition;
         #include <fog_vertex>
       }
     `,
     fragmentShader: /* glsl */ `
-      uniform float uTime;
       varying vec3 vWorld;
       varying vec3 vNormal;
       varying float vSeed;
       varying float vLocalY;
       varying float vHeight;
+      varying float vWallU;
       #include <fog_pars_fragment>
       float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       void main() {
@@ -42,11 +44,10 @@ export function createBuildingMaterial() {
         float roof = step(0.5, n.y);
         vec3 lightDir = normalize(vec3(-0.4, 0.8, 0.35));
         float diff = 0.55 + 0.45 * max(dot(n, lightDir), 0.0);
-        float hFrac = clamp(vWorld.y / max(vHeight, 1.0), 0.0, 1.0);
+        float hFrac = clamp(vLocalY, 0.0, 1.0);
         vec3 base = mix(vec3(0.045, 0.06, 0.11), vec3(0.09, 0.12, 0.2), hFrac) * diff;
-
-        float hcoord = abs(n.x) > 0.5 ? vWorld.z : vWorld.x;
-        vec2 cell = vec2(hcoord / 2.2, vWorld.y / 3.2);
+        float floorY = vLocalY * vHeight;
+        vec2 cell = vec2(vWallU / 2.4, floorY / 3.2);
         vec2 f = fract(cell);
         float win = step(0.24, f.x) * step(f.x, 0.76) * step(0.3, f.y) * step(f.y, 0.74);
         float r = hash(floor(cell) + vSeed * 13.7);
@@ -54,12 +55,12 @@ export function createBuildingMaterial() {
         vec3 warm = vec3(1.0, 0.78, 0.48);
         vec3 cool = vec3(0.55, 0.8, 1.0);
         vec3 winColor = mix(warm, cool, step(0.82, hash(floor(cell) * 1.7 + vSeed))) * (0.55 + 0.45 * r);
-        float aboveGround = step(4.2, vWorld.y);
+        float aboveGround = step(3.6, floorY) * step(floorY, vHeight - 1.0);
         vec3 color = base + win * aboveGround * (lit * winColor * 0.55 + (1.0 - lit) * vec3(0.035, 0.055, 0.1));
         // térreo iluminado
-        color += (1.0 - aboveGround) * (1.0 - roof) * vec3(0.12, 0.2, 0.3) * 0.6;
-        // aresta superior luminosa (identidade VagaAqui)
-        float rim = smoothstep(0.965, 1.0, vLocalY) * (1.0 - roof);
+        color += (1.0 - step(3.6, floorY)) * (1.0 - roof) * vec3(0.12, 0.2, 0.3) * 0.5;
+        // aresta superior luminosa (identidade VagaAqui), só em prédios altos
+        float rim = smoothstep(vHeight - 0.8, vHeight, floorY) * (1.0 - roof) * step(14.0, vHeight);
         color += rim * vec3(0.2, 0.55, 1.0) * 0.9;
         color = mix(color, vec3(0.07, 0.09, 0.15) * diff, roof);
         gl_FragColor = vec4(color, 1.0);
@@ -69,21 +70,22 @@ export function createBuildingMaterial() {
   });
 }
 
-/** Asfalto com faixas: u (0..1) ao longo de 90 m, v (0..1) através de 14 m. */
-export function createRoadMaterial(length: number, width: number) {
+/** Asfalto com faixas. aRoad = (ao longo, através, meia largura) em metros. */
+export function createRoadMaterial() {
   return new THREE.ShaderMaterial({
     fog: true,
-    uniforms: THREE.UniformsUtils.merge([
-      THREE.UniformsLib.fog,
-      { uLength: { value: length }, uWidth: { value: width } },
-    ]),
+    uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog]),
     vertexShader: /* glsl */ `
-      varying vec2 vUv;
+      attribute vec3 aRoad;
+      attribute vec3 aExtra;
+      varying vec3 vRoad;
+      varying vec3 vExtra;
       varying vec3 vWorld;
       #include <fog_pars_vertex>
       void main() {
-        vUv = uv;
-        vec4 wp = modelMatrix * instanceMatrix * vec4(position, 1.0);
+        vRoad = aRoad;
+        vExtra = aExtra;
+        vec4 wp = modelMatrix * vec4(position, 1.0);
         vWorld = wp.xyz;
         vec4 mvPosition = viewMatrix * wp;
         gl_Position = projectionMatrix * mvPosition;
@@ -91,64 +93,34 @@ export function createRoadMaterial(length: number, width: number) {
       }
     `,
     fragmentShader: /* glsl */ `
-      uniform float uLength;
-      uniform float uWidth;
-      varying vec2 vUv;
+      varying vec3 vRoad;
+      varying vec3 vExtra;
       varying vec3 vWorld;
       #include <fog_pars_fragment>
       float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
       void main() {
-        float along = vUv.x * uLength;
-        float across = (vUv.y - 0.5) * uWidth;
+        float along = vRoad.x;
+        float across = vRoad.y;
+        float hw = vRoad.z;
+        float oneway = vExtra.z;
         vec3 asphalt = vec3(0.035, 0.045, 0.07) + hash(floor(vWorld.xz * 2.0)) * 0.012;
-        // linha central tracejada
-        float dash = step(0.45, fract(along / 7.0));
-        float center = (1.0 - smoothstep(0.08, 0.16, abs(across))) * dash;
-        // divisória da faixa de estacionamento
-        float parkLine = 1.0 - smoothstep(0.05, 0.12, abs(abs(across) - 4.4));
-        float parkDash = step(0.5, fract(along / 6.0));
-        // meio-fio luminoso
-        float edge = 1.0 - smoothstep(0.0, 0.35, uWidth * 0.5 - abs(across));
         vec3 color = asphalt;
+        // faixa de pedestres junto aos cruzamentos
+        float zebraA = vExtra.x >= 0.0 ? step(vExtra.x, along) * step(along, vExtra.x + 3.0) : 0.0;
+        float zebraB = vExtra.y >= 0.0 ? step(vExtra.y - 3.0, along) * step(along, vExtra.y) : 0.0;
+        float zebraZone = max(zebraA, zebraB);
+        float stripes = step(0.5, fract(across / 1.1)) * step(abs(across), hw - 0.6);
+        color += zebraZone * stripes * vec3(0.55, 0.6, 0.7) * 0.35;
+        // linha central tracejada (só mão dupla)
+        float dash = step(0.45, fract(along / 7.0));
+        float center = (1.0 - smoothstep(0.08, 0.16, abs(across))) * dash * (1.0 - oneway) * (1.0 - zebraZone);
         color += center * vec3(0.95, 0.78, 0.35) * 0.55;
-        color += parkLine * parkDash * vec3(0.5, 0.6, 0.75) * 0.25;
+        // setas discretas de sentido em vias de mão única
+        float arrow = oneway * (1.0 - zebraZone) * step(abs(across), 0.9 - fract(along / 12.0) * 1.8) * step(fract(along / 12.0), 0.5) * step(0.25, fract(along / 12.0));
+        color += arrow * vec3(0.5, 0.6, 0.8) * 0.18;
+        // meio-fio luminoso
+        float edge = 1.0 - smoothstep(0.0, 0.35, hw - abs(across));
         color += edge * vec3(0.25, 0.55, 1.0) * 0.45;
-        gl_FragColor = vec4(color, 1.0);
-        #include <fog_fragment>
-      }
-    `,
-  });
-}
-
-export function createIntersectionMaterial(size: number) {
-  return new THREE.ShaderMaterial({
-    fog: true,
-    uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uSize: { value: size } }]),
-    vertexShader: /* glsl */ `
-      varying vec2 vUv;
-      #include <fog_pars_vertex>
-      void main() {
-        vUv = uv;
-        vec4 wp = modelMatrix * instanceMatrix * vec4(position, 1.0);
-        vec4 mvPosition = viewMatrix * wp;
-        gl_Position = projectionMatrix * mvPosition;
-        #include <fog_vertex>
-      }
-    `,
-    fragmentShader: /* glsl */ `
-      uniform float uSize;
-      varying vec2 vUv;
-      #include <fog_pars_fragment>
-      void main() {
-        vec2 p = (vUv - 0.5) * uSize;
-        vec3 color = vec3(0.04, 0.05, 0.08);
-        float band = uSize * 0.5 - 2.6;
-        float inX = step(band, abs(p.x)) * step(abs(p.y), band);
-        float inY = step(band, abs(p.y)) * step(abs(p.x), band);
-        float stripesX = step(0.5, fract(p.y / 1.2));
-        float stripesY = step(0.5, fract(p.x / 1.2));
-        float zebra = inX * stripesX + inY * stripesY;
-        color += zebra * vec3(0.55, 0.6, 0.7) * 0.35;
         gl_FragColor = vec4(color, 1.0);
         #include <fog_fragment>
       }

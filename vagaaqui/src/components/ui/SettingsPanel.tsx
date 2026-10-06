@@ -1,9 +1,17 @@
-import { Cpu, Database, Gauge, Volume2, X } from 'lucide-react';
+import { Cpu, Database, Gauge, Map as MapIcon, Volume2, X } from 'lucide-react';
 import { env } from '../../config/env';
 import { DATA_SOURCES } from '../../services/dataSources/registry';
 import { repository } from '../../services/repository';
 import { speechSupported } from '../../services/speech';
 import { actions, effectiveTier, useApp } from '../../store/appStore';
+import { clearCityCache, getCity } from '../../world/cityStore';
+
+const ORIGIN_LABEL = {
+  snapshot: 'OpenStreetMap (snapshot do projeto)',
+  cache: 'OpenStreetMap (cache deste aparelho)',
+  live: 'OpenStreetMap (baixado agora)',
+  procedural: 'cidade de demonstração (fictícia)',
+} as const;
 
 const TIER_LABEL = { low: 'Leve', medium: 'Equilibrada', high: 'Máxima' } as const;
 
@@ -14,6 +22,8 @@ export function SettingsPanel() {
   const voice = useApp((s) => s.voice);
   const simSpeed = useApp((s) => s.simSpeed);
   const locationSource = useApp((s) => s.locationSource);
+  const cityOrigin = useApp((s) => s.cityOrigin);
+  const city = getCity();
 
   return (
     <aside className="panel" role="dialog" aria-label="Configurações">
@@ -59,9 +69,27 @@ export function SettingsPanel() {
         ))}
       </div>
       <p className="muted small">
-        Localização: {locationSource === 'gps' ? 'GPS do aparelho' : 'simulada (Vitória-ES)'} · Backend:{' '}
+        Localização: {locationSource === 'gps' ? 'GPS do aparelho' : 'simulada'} · Backend:{' '}
         {repository.kind === 'http' ? env.apiUrl : 'mock local'}
       </p>
+
+      <h4 className="section-title">
+        <MapIcon size={16} /> Mapa
+      </h4>
+      <p className="muted small">
+        Ruas: {cityOrigin ? ORIGIN_LABEL[cityOrigin] : '—'}
+        {city.fetchedAt ? ` · dados de ${new Date(city.fetchedAt).toLocaleDateString('pt-BR')}` : ''} · {city.edges.size} trechos,{' '}
+        {city.buildings.length} prédios. {city.source === 'osm' ? 'Alturas sem tag no OSM são estimadas.' : ''}
+      </p>
+      <button
+        className="btn btn-ghost btn-block"
+        onClick={() => {
+          clearCityCache();
+          window.location.reload();
+        }}
+      >
+        Baixar o mapa novamente
+      </button>
 
       <h4 className="section-title">
         <Database size={16} /> Sistema de detecção — fontes de dados

@@ -2,7 +2,7 @@ import { historicalOccupancy } from '../domain/historical';
 import { worldToLatLon } from '../lib/geo';
 import { createRng } from '../lib/random';
 import type { ParkingLot, ParkingSpot, ReportKind, SpotReport, ZoneId } from '../types';
-import { CITY_SIZE, GRID, SPACING, edgePoint, zoneForBlock, type CityData, type CurbSlot } from '../world/cityGenerator';
+import { edgePoint, parkingOffset, type CityData, type CurbSlot } from '../world/cityTypes';
 
 /**
  * Dados simulados realistas. Em produção estes dados viriam do backend
@@ -20,14 +20,6 @@ const ZONE_DENSITY: Record<ZoneId, number> = {
   residencial: 0.022,
 };
 
-function blockIndexAt(v: number) {
-  const first = -CITY_SIZE / 2 + GRID.roadWidth / 2;
-  return Math.max(0, Math.min(GRID.blocks - 1, Math.floor((v - first) / SPACING)));
-}
-
-export function zoneAt(x: number, z: number): ZoneId {
-  return zoneForBlock(blockIndexAt(x), blockIndexAt(z));
-}
 
 export interface MockWorld {
   spots: ParkingSpot[];
@@ -50,7 +42,9 @@ export function createMockWorld(city: CityData, now = Date.now(), seed = 4021): 
     const key = `${s.edgeId}:${s.side}`;
     capacityBySide.set(key, (capacityBySide.get(key) ?? 0) + 1);
   }
-  const lotEdges = new Set(city.lots.map((l) => l.entryEdgeId));
+  // ~110 vagas monitoradas, qualquer que seja o tamanho da malha
+  const expected = city.slots.length * 0.034;
+  const densityScale = Math.min(1.2, 110 / Math.max(1, expected));
 
   const makeReports = (occupied: boolean): SpotReport[] => {
     const reports: SpotReport[] = [];
@@ -74,9 +68,9 @@ export function createMockWorld(city: CityData, now = Date.now(), seed = 4021): 
   };
 
   for (const slot of city.slots) {
-    const zone = zoneAt(slot.position.x, slot.position.z);
+    const zone = city.zoneAt(slot.position);
     const occupancy = historicalOccupancy(zone, date);
-    const tracked = rng.chance(ZONE_DENSITY[zone]) && !(lotEdges.has(slot.edgeId) && slot.side === 1);
+    const tracked = rng.chance(ZONE_DENSITY[zone] * densityScale);
     if (!tracked) {
       if (rng.chance(Math.min(0.92, occupancy + 0.1))) parkedSlots.push(slot);
       continue;
@@ -105,14 +99,14 @@ export function createMockWorld(city: CityData, now = Date.now(), seed = 4021): 
 
   const lots: ParkingLot[] = city.lots.map((def, index) => {
     const edge = city.edges.get(def.entryEdgeId)!;
-    const position = edgePoint(city, edge, edge.length / 2, GRID.parkingOffset);
+    const position = edgePoint(city, edge, def.entryS, def.entrySide * parkingOffset(edge));
     const { lat, lon } = worldToLatLon(position);
-    const zone = zoneAt(def.center.x, def.center.z);
+    const zone = city.zoneAt(def.center);
     const spotId = `vaga-est-${index + 1}`;
     const occupancy = historicalOccupancy(zone, date);
     const free = Math.max(0, Math.round(def.capacity * (1 - occupancy) * rng.range(0.5, 1.1)));
     // Um dos estacionamentos não tem integração de API: mostra como os dados degradam.
-    const integrated = index !== 2;
+    const integrated = index % 3 !== 2;
     spots.push({
       id: spotId,
       latitude: Number(lat.toFixed(6)),
@@ -120,7 +114,7 @@ export function createMockWorld(city: CityData, now = Date.now(), seed = 4021): 
       position,
       heading: Math.atan2(-edge.dir.z, edge.dir.x),
       edgeId: edge.id,
-      t: 0.5,
+      t: def.entryS / edge.length,
       streetName: edge.street,
       zone,
       type: 'lot',
@@ -133,7 +127,8 @@ export function createMockWorld(city: CityData, now = Date.now(), seed = 4021): 
       id: def.id,
       name: def.name,
       position: def.center,
-      size: { w: def.size, d: def.size },
+      polygon: def.polygon,
+      capacityMeasured: def.capacityMeasured,
       capacity: def.capacity,
       reportedFree: integrated ? free : null,
       reportedAt: integrated ? now - rng.range(10, 90) * 1000 : null,

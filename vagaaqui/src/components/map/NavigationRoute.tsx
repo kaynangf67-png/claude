@@ -23,7 +23,7 @@ function buildRibbon(route: RouteData, width: number) {
     tz /= len;
     const nx = -tz * (width / 2);
     const nz = tx * (width / 2);
-    positions.set([p.x + nx, 0.11, p.z + nz, p.x - nx, 0.11, p.z - nz], i * 6);
+    positions.set([p.x + nx, 0.13, p.z + nz, p.x - nx, 0.13, p.z - nz], i * 6);
     uvs.set([route.cumulative[i] / 10, 0, route.cumulative[i] / 10, 1], i * 4);
     dists[i * 2] = route.cumulative[i];
     dists[i * 2 + 1] = route.cumulative[i];
@@ -58,7 +58,7 @@ export function NavigationRoute() {
   return (
     <group>
       <mesh geometry={geometry} material={material} renderOrder={3} />
-      <mesh position={[end.x, 0.12, end.z]} rotation-x={-Math.PI / 2}>
+      <mesh position={[end.x, 0.14, end.z]} rotation-x={-Math.PI / 2}>
         <ringGeometry args={[3.2, 3.8, 40]} />
         <meshBasicMaterial color="#38f8b0" transparent opacity={0.9} toneMapped={false} depthWrite={false} />
       </mesh>

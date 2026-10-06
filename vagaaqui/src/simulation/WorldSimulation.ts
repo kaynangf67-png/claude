@@ -6,7 +6,8 @@ import { createMockWorld, type MockWorld } from '../data/mockSpots';
 import { dist } from '../lib/geo';
 import { createRng, uid } from '../lib/random';
 import type { ParkingLot, ParkingSpot, ReportKind, RouteData, SpotAssessment, Vec2 } from '../types';
-import { GRID, edgePoint, getCity, type CityData, type CityEdge } from '../world/cityGenerator';
+import { getCity } from '../world/cityStore';
+import { canTraverse, edgePoint, laneOffset, type CityData, type CityEdge } from '../world/cityTypes';
 import {
   buildRoute,
   distanceTo,
@@ -112,11 +113,11 @@ export class WorldSimulation {
     this.truth = new Map(this.world.initialTruth);
     this.lotFree = new Map(this.lots.map((l) => [l.id, l.reportedFree ?? Math.round(l.capacity * 0.2)]));
 
-    // Ponto de partida do usuário: Rua Jacarandá, perto da orla.
-    const startEdge = this.city.edges.get('h-5-2')!;
-    const startS = 30;
+    // Ponto de partida do usuário: definido pelos dados do mapa (perto do centro da área).
+    const startEdge = this.city.edges.get(this.city.start.edgeId)!;
+    const startS = this.city.start.s;
     this.vehicle = {
-      position: edgePoint(this.city, startEdge, startS, GRID.laneOffset),
+      position: edgePoint(this.city, startEdge, startS, laneOffset(startEdge)),
       heading: Math.atan2(-startEdge.dir.z, startEdge.dir.x),
       speed: 0,
       edge: { edgeId: startEdge.id, s: startS },
@@ -154,8 +155,14 @@ export class WorldSimulation {
     else this.spawnAgents(count - this.agents.length);
   }
 
+  private routableEdges: CityEdge[] | null = null;
+  private drivable() {
+    if (!this.routableEdges) this.routableEdges = [...this.city.edges.values()].filter((e) => e.routable);
+    return this.routableEdges;
+  }
+
   private spawnAgents(count: number) {
-    const edges = [...this.city.edges.values()];
+    const edges = this.drivable();
     for (let k = 0; k < count; k++) {
       const edge = this.rng.pick(edges);
       const isUser = this.rng.chance(0.35);
@@ -164,7 +171,7 @@ export class WorldSimulation {
       const agent: TrafficAgent = {
         id: this.agents.length,
         edgeId: edge.id,
-        forward: this.rng.chance(0.5),
+        forward: edge.oneway || this.rng.chance(0.5),
         s: this.rng.range(0, edge.length),
         speed: cruise,
         cruiseSpeed: cruise,
@@ -182,7 +189,7 @@ export class WorldSimulation {
 
   private placeAgent(a: TrafficAgent) {
     const e = this.city.edges.get(a.edgeId)!;
-    const lateral = a.forward ? GRID.laneOffset : -GRID.laneOffset;
+    const lateral = (a.forward ? 1 : -1) * laneOffset(e);
     a.position = edgePoint(this.city, e, a.s, lateral);
     a.heading = a.forward ? Math.atan2(-e.dir.z, e.dir.x) : Math.atan2(e.dir.z, -e.dir.x);
   }
@@ -190,7 +197,15 @@ export class WorldSimulation {
   private nextEdge(a: TrafficAgent, e: CityEdge) {
     const nodeIdAtEnd = a.forward ? e.b : e.a;
     const node = this.city.nodes.get(nodeIdAtEnd)!;
-    const options = node.edges.filter((id) => id !== e.id);
+    const options = node.edges.filter((id) => {
+      const cand = this.city.edges.get(id)!;
+      return id !== e.id && cand.routable && canTraverse(cand, nodeIdAtEnd);
+    });
+    // beco sem saída: retorna se a via for de mão dupla, senão reaparece em outro lugar
+    if (!options.length && e.oneway) {
+      this.respawnAgent(a);
+      return;
+    }
     const nextId = options.length ? this.rng.pick(options) : e.id;
     const next = this.city.edges.get(nextId)!;
     a.edgeId = nextId;
@@ -224,7 +239,8 @@ export class WorldSimulation {
       if (a.s > e.length || a.s < 0) {
         const overflow = a.s > e.length ? a.s - e.length : -a.s;
         this.nextEdge(a, e);
-        a.s += a.forward ? overflow : -overflow;
+        const ne = this.city.edges.get(a.edgeId)!;
+        a.s = Math.max(0, Math.min(ne.length, a.s + (a.forward ? overflow : -overflow)));
       }
       this.placeAgent(a);
     }
@@ -350,11 +366,10 @@ export class WorldSimulation {
   }
 
   private respawnAgent(a: TrafficAgent) {
-    const edges = [...this.city.edges.values()];
-    const edge = this.rng.pick(edges);
+    const edge = this.rng.pick(this.drivable());
     a.edgeId = edge.id;
     a.s = this.rng.range(0, edge.length);
-    a.forward = this.rng.chance(0.5);
+    a.forward = edge.oneway || this.rng.chance(0.5);
     a.lastReportAt.clear();
     this.placeAgent(a);
   }
@@ -421,23 +436,22 @@ export class WorldSimulation {
         const target = { edgeId: spot.edgeId, s: spot.t * this.city.edges.get(spot.edgeId)!.length };
         const { distance, via } = distanceTo(this.city, sp, target);
         let turns = 0;
-        if (via) {
-          // conta mudanças de eixo no caminho de nós
-          const path: string[] = [];
+        if (via && Number.isFinite(distance)) {
+          // conta mudanças de direção > 45° ao longo do caminho de nós
+          const pts: Vec2[] = [this.vehicle.position];
           let cur: string | null | undefined = via;
+          const path: Vec2[] = [];
           while (cur) {
-            path.unshift(cur);
+            path.unshift(this.city.nodes.get(cur)!.position);
             cur = sp.prev.get(cur);
           }
-          let lastAxis: 'h' | 'v' | null = this.city.edges.get(this.vehicle.edge.edgeId)!.axis;
-          for (let k = 1; k < path.length; k++) {
-            const a = this.city.nodes.get(path[k - 1])!;
-            const b = this.city.nodes.get(path[k])!;
-            const axis = a.j === b.j ? 'h' : 'v';
-            if (axis !== lastAxis) turns += 1;
-            lastAxis = axis;
+          pts.push(...path, spot.position);
+          for (let k = 1; k < pts.length - 1; k++) {
+            const d1 = { x: pts[k].x - pts[k - 1].x, z: pts[k].z - pts[k - 1].z };
+            const d2 = { x: pts[k + 1].x - pts[k].x, z: pts[k + 1].z - pts[k].z };
+            const n = Math.hypot(d1.x, d1.z) * Math.hypot(d2.x, d2.z);
+            if (n > 1 && Math.abs(d1.x * d2.z - d1.z * d2.x) / n > 0.7) turns += 1;
           }
-          if (this.city.edges.get(spot.edgeId)!.axis !== lastAxis) turns += 1;
         }
         return { spot, assessment: snapshot.assessments.get(spot.id)!, driveDistance: distance, turns };
       });
@@ -478,7 +492,7 @@ export class WorldSimulation {
     if (near.distance > 60) return false;
     const e = this.city.edges.get(near.edgeId)!;
     this.vehicle.edge = { edgeId: near.edgeId, s: near.s };
-    this.vehicle.position = edgePoint(this.city, e, near.s, GRID.laneOffset);
+    this.vehicle.position = edgePoint(this.city, e, near.s, laneOffset(e));
     this.vehicle.heading = Math.atan2(-e.dir.z, e.dir.x);
     return true;
   }
@@ -519,7 +533,7 @@ export class WorldSimulation {
     this.addReport(spot, 'left', 'self', 1, Date.now());
     const e = this.city.edges.get(spot.edgeId)!;
     const s = spot.t * e.length;
-    v.position = edgePoint(this.city, e, s, GRID.laneOffset);
+    v.position = edgePoint(this.city, e, s, laneOffset(e));
     v.mode = 'idle';
     v.targetSpotId = null;
     v.route = null;

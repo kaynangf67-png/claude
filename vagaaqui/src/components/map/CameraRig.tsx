@@ -7,7 +7,7 @@ import type { MapControls as MapControlsImpl } from 'three-stdlib';
 import { getSimulation } from '../../simulation/WorldSimulation';
 import { actions, appStore, useApp } from '../../store/appStore';
 import { cameraBus } from '../../store/cameraBus';
-import { CITY_SIZE } from '../../world/cityGenerator';
+import { getCity } from '../../world/cityStore';
 
 const desiredPos = new THREE.Vector3();
 const desiredTarget = new THREE.Vector3();
@@ -15,7 +15,6 @@ const forward = new THREE.Vector3();
 const offset = new THREE.Vector3();
 const spherical = new THREE.Spherical();
 
-const BOUND = CITY_SIZE / 2 + 220;
 
 /**
  * Câmera do VagaAqui.
@@ -132,11 +131,13 @@ export function CameraRig() {
             spherical.radius = cmd.distance ?? Math.min(spherical.radius, 220);
             spherical.phi = Math.min(spherical.phi, THREE.MathUtils.degToRad(60));
             break;
-          case 'overview':
-            target.set(0, 0, 40);
-            spherical.radius = 1050;
+          case 'overview': {
+            const b = getCity().bounds;
+            target.set((b.minX + b.maxX) / 2, 0, (b.minZ + b.maxZ) / 2);
+            spherical.radius = Math.min(1350, Math.max(500, Math.max(b.maxX - b.minX, b.maxZ - b.minZ) * 1.15));
             spherical.phi = THREE.MathUtils.degToRad(40);
             break;
+          }
         }
         const pos = new THREE.Vector3().setFromSpherical(spherical).add(target);
         tweenTo(pos, target, cmd.type === 'focus' || cmd.type === 'overview' ? 1.4 : 0.6);
@@ -156,8 +157,9 @@ export function CameraRig() {
       fog.density = baseFog.current * Math.min(1, 320 / Math.max(320, d));
     }
     if (mode !== 'follow') {
-      c.target.x = THREE.MathUtils.clamp(c.target.x, -BOUND, BOUND);
-      c.target.z = THREE.MathUtils.clamp(c.target.z, -BOUND, BOUND + 200);
+      const b = getCity().bounds;
+      c.target.x = THREE.MathUtils.clamp(c.target.x, b.minX - 200, b.maxX + 200);
+      c.target.z = THREE.MathUtils.clamp(c.target.z, b.minZ - 200, b.maxZ + 200);
       c.target.y = 0;
       return;
     }

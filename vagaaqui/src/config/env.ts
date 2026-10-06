@@ -4,11 +4,18 @@ function num(value: string | undefined, fallback: number): number {
   return value && Number.isFinite(n) ? n : fallback;
 }
 
+// fora do Vite (scripts Node) import.meta.env não existe
+const vars: Record<string, string | undefined> = (import.meta as unknown as { env?: Record<string, string> }).env ?? {};
+
 export const env = {
-  apiUrl: (import.meta.env.VITE_API_URL as string | undefined)?.trim() || '',
+  apiUrl: (vars.VITE_API_URL as string | undefined)?.trim() || '',
   mapCenter: {
-    lat: num(import.meta.env.VITE_MAP_CENTER_LAT as string | undefined, -20.329),
-    lon: num(import.meta.env.VITE_MAP_CENTER_LON as string | undefined, -40.292),
+    lat: num(vars.VITE_MAP_CENTER_LAT as string | undefined, -20.329),
+    lon: num(vars.VITE_MAP_CENTER_LON as string | undefined, -40.292),
   },
-  useBrowserGps: import.meta.env.VITE_USE_BROWSER_GPS === 'true',
+  /** 'osm' (padrão): ruas reais do OpenStreetMap; 'procedural': cidade fictícia de demonstração */
+  mapSource: ((vars.VITE_MAP_SOURCE as string | undefined) === 'procedural' ? 'procedural' : 'osm') as 'osm' | 'procedural',
+  /** raio (m) da área baixada do OpenStreetMap */
+  osmRadius: num(vars.VITE_OSM_RADIUS_M as string | undefined, 650),
+  useBrowserGps: vars.VITE_USE_BROWSER_GPS === 'true',
 };

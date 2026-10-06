@@ -53,8 +53,10 @@ export interface ParkingLot {
   id: string;
   name: string;
   position: Vec2;
-  size: { w: number; d: number };
+  polygon: Vec2[];
   capacity: number;
+  /** capacidade informada no OpenStreetMap (senão, estimada pela área) */
+  capacityMeasured: boolean;
   /** vagas livres informadas pela API do estacionamento (null = sem integração) */
   reportedFree: number | null;
   reportedAt: number | null;

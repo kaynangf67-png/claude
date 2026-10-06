@@ -39,7 +39,7 @@ export const ParkingSpot = memo(function ParkingSpot({ spot, assessment, selecte
     <group>
       <group position={[spot.position.x, 0, spot.position.z]} rotation-y={spot.heading}>
         <mesh
-          position={[0, 0.06, 0]}
+          position={[0, 0.1, 0]}
           rotation-x={-Math.PI / 2}
           onClick={(e) => {
             e.stopPropagation();
@@ -62,7 +62,7 @@ export const ParkingSpot = memo(function ParkingSpot({ spot, assessment, selecte
               <cylinderGeometry args={[1.4, 2.2, 28, 20, 1, true]} />
               <meshBasicMaterial color={color} transparent opacity={0.2} side={THREE.DoubleSide} depthWrite={false} toneMapped={false} blending={THREE.AdditiveBlending} />
             </mesh>
-            <mesh ref={ring} position={[0, 0.08, 0]} rotation-x={-Math.PI / 2}>
+            <mesh ref={ring} position={[0, 0.12, 0]} rotation-x={-Math.PI / 2}>
               <ringGeometry args={[2.6, 3.1, 40]} />
               <meshBasicMaterial color={color} transparent opacity={0.6} depthWrite={false} toneMapped={false} />
             </mesh>

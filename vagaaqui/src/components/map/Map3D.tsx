@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { QUALITY_PRESETS } from '../../hooks/deviceQuality';
 import { getSimulation } from '../../simulation/WorldSimulation';
 import { actions, effectiveTier, useApp } from '../../store/appStore';
+import { cameraBus } from '../../store/cameraBus';
 import { CameraRig } from './CameraRig';
 import { City } from './City';
 import { NavigationRoute } from './NavigationRoute';
@@ -40,6 +41,9 @@ function TestBridge() {
         };
       },
       sim: getSimulation(),
+      focus(x: number, z: number, distance = 160) {
+        cameraBus.emit({ type: 'focus', x, z, distance });
+      },
     };
   }, [camera, size, controls]);
   return null;
@@ -102,7 +106,12 @@ export default function Map3D() {
       <TestBridge />
       <Lights shadows={q.shadows} />
       <Suspense fallback={null}>
-        <City buildingFraction={q.buildingFraction} parkedCarsFraction={q.parkedCarsFraction} detailed={tier !== 'low'} />
+        <City
+          buildingFraction={q.buildingFraction}
+          parkedCarsFraction={q.parkedCarsFraction}
+          parkedCarsMax={q.parkedCarsMax}
+          detailed={tier !== 'low'}
+        />
         <ParkingLots />
         <TrafficCars count={q.traffic} />
         <ParkingSpotsLayer maxDistance={q.markerDistance} />

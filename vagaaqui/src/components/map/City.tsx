@@ -1,104 +1,92 @@
 import { useFrame } from '@react-three/fiber';
-import { useLayoutEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { getSimulation } from '../../simulation/WorldSimulation';
-import { CITY_SIZE, GRID, SPACING, getCity, streetCoord } from '../../world/cityGenerator';
 import { createRng } from '../../lib/random';
-import { CAR_COLORS, createGroundPlane, sharedCarGeometry } from './geometries';
+import { getSimulation } from '../../simulation/WorldSimulation';
+import { getCity } from '../../world/cityStore';
+import { pointInPolygon, polygonArea, type CityData } from '../../world/cityTypes';
 import {
-  createBuildingMaterial,
-  createGroundMaterial,
-  createIntersectionMaterial,
-  createRoadMaterial,
-  createWaterMaterial,
-} from './shaders';
+  buildBuildingGeometry,
+  buildFlatGeometry,
+  buildJunctionGeometry,
+  buildPolylineRibbon,
+  buildRoadGeometry,
+} from './cityGeometry';
+import { CAR_COLORS, sharedCarGeometry } from './geometries';
+import { labelTexture } from './markerTextures';
+import { createBuildingMaterial, createGroundMaterial, createRoadMaterial, createWaterMaterial } from './shaders';
 
 const tmp = new THREE.Object3D();
 
-function Ground() {
+/** Altura do "chão" das áreas: na grade procedural os quarteirões são elevados. */
+const surfaceY = (city: CityData) => (city.blocks.length ? 0.25 : 0);
+
+function useDisposable<T extends { dispose: () => void }>(factory: () => T, deps: unknown[]) {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const value = useMemo(factory, deps);
+  useEffect(() => () => value.dispose(), [value]);
+  return value;
+}
+
+function Ground({ city }: { city: CityData }) {
   const material = useMemo(() => createGroundMaterial(), []);
+  const cx = (city.bounds.minX + city.bounds.maxX) / 2;
+  const cz = (city.bounds.minZ + city.bounds.maxZ) / 2;
   return (
-    <mesh position={[0, -0.05, 0]} rotation-x={-Math.PI / 2} material={material}>
-      <planeGeometry args={[6000, 6000]} />
+    <mesh position={[cx, -0.05, cz]} rotation-x={-Math.PI / 2} material={material}>
+      <planeGeometry args={[8000, 8000]} />
     </mesh>
   );
 }
 
-function Roads() {
-  const city = getCity();
-  const segRef = useRef<THREE.InstancedMesh>(null);
-  const crossRef = useRef<THREE.InstancedMesh>(null);
-  const segLength = GRID.blockSize;
-  const segGeo = useMemo(() => createGroundPlane(segLength, GRID.roadWidth), [segLength]);
-  const crossGeo = useMemo(() => createGroundPlane(GRID.roadWidth, GRID.roadWidth), []);
-  const segMat = useMemo(() => createRoadMaterial(segLength, GRID.roadWidth), [segLength]);
-  const crossMat = useMemo(() => createIntersectionMaterial(GRID.roadWidth), []);
-  const edges = [...city.edges.values()];
-  const nodes = [...city.nodes.values()];
-
-  useLayoutEffect(() => {
-    const seg = segRef.current!;
-    edges.forEach((e, i) => {
-      const a = city.nodes.get(e.a)!.position;
-      const b = city.nodes.get(e.b)!.position;
-      tmp.position.set((a.x + b.x) / 2, 0.02, (a.z + b.z) / 2);
-      tmp.rotation.set(0, e.axis === 'h' ? 0 : Math.PI / 2, 0);
-      tmp.scale.set(1, 1, 1);
-      tmp.updateMatrix();
-      seg.setMatrixAt(i, tmp.matrix);
-    });
-    seg.instanceMatrix.needsUpdate = true;
-    const cross = crossRef.current!;
-    nodes.forEach((n, i) => {
-      tmp.position.set(n.position.x, 0.025, n.position.z);
-      tmp.rotation.set(0, 0, 0);
-      tmp.updateMatrix();
-      cross.setMatrixAt(i, tmp.matrix);
-    });
-    cross.instanceMatrix.needsUpdate = true;
-  }, [city, edges, nodes]);
-
+function Roads({ city }: { city: CityData }) {
+  const roads = useDisposable(() => buildRoadGeometry(city), [city]);
+  const junctions = useDisposable(() => buildJunctionGeometry(city), [city]);
+  const material = useMemo(() => createRoadMaterial(), []);
   return (
     <group>
-      <instancedMesh ref={segRef} args={[segGeo, segMat, edges.length]} frustumCulled={false} />
-      <instancedMesh ref={crossRef} args={[crossGeo, crossMat, nodes.length]} frustumCulled={false} />
+      <mesh geometry={junctions}>
+        <meshBasicMaterial color="#090b12" toneMapped={false} />
+      </mesh>
+      <mesh geometry={roads} material={material} />
     </group>
   );
 }
 
-function Blocks() {
-  const city = getCity();
+/** Calçadas e lotes dos quarteirões (só na cidade procedural). */
+function Blocks({ city }: { city: CityData }) {
   const sidewalks = useRef<THREE.InstancedMesh>(null);
   const plots = useRef<THREE.InstancedMesh>(null);
   const blocks = city.blocks;
   useLayoutEffect(() => {
-    const walk = sidewalks.current!;
-    const plot = plots.current!;
+    const walk = sidewalks.current;
+    const plot = plots.current;
+    if (!walk || !plot) return;
     const color = new THREE.Color();
-    const inner = GRID.blockSize - GRID.sidewalk * 2;
     blocks.forEach((b, i) => {
       tmp.rotation.set(0, 0, 0);
       tmp.position.set(b.center.x, 0.1, b.center.z);
-      tmp.scale.set(GRID.blockSize, 0.2, GRID.blockSize);
+      tmp.scale.set(b.size, 0.2, b.size);
       tmp.updateMatrix();
       walk.setMatrixAt(i, tmp.matrix);
       tmp.position.set(b.center.x, 0.12, b.center.z);
-      tmp.scale.set(inner, 0.24, inner);
+      tmp.scale.set(b.size - 8, 0.24, b.size - 8);
       tmp.updateMatrix();
       plot.setMatrixAt(i, tmp.matrix);
-      plot.setColorAt(i, color.set(b.kind === 'park' ? '#0b3326' : b.kind === 'lot' ? '#0b101c' : '#0c1220'));
+      plot.setColorAt(i, color.set(b.kind === 'park' ? '#0b3326' : '#0c1220'));
     });
     walk.instanceMatrix.needsUpdate = true;
     plot.instanceMatrix.needsUpdate = true;
     if (plot.instanceColor) plot.instanceColor.needsUpdate = true;
   }, [blocks]);
+  if (!blocks.length) return null;
   return (
     <group>
-      <instancedMesh ref={sidewalks} args={[undefined, undefined, blocks.length]} receiveShadow frustumCulled={false}>
+      <instancedMesh ref={sidewalks} args={[undefined, undefined, blocks.length]} frustumCulled={false}>
         <boxGeometry args={[1, 1, 1]} />
         <meshLambertMaterial color="#1c2538" emissive="#080d1a" />
       </instancedMesh>
-      <instancedMesh ref={plots} args={[undefined, undefined, blocks.length]} receiveShadow frustumCulled={false}>
+      <instancedMesh ref={plots} args={[undefined, undefined, blocks.length]} frustumCulled={false}>
         <boxGeometry args={[1, 1, 1]} />
         <meshLambertMaterial />
       </instancedMesh>
@@ -106,64 +94,109 @@ function Blocks() {
   );
 }
 
-function Buildings({ fraction }: { fraction: number }) {
-  const city = getCity();
-  const ref = useRef<THREE.InstancedMesh>(null);
-  const material = useMemo(() => createBuildingMaterial(), []);
-  const geometry = useMemo(() => {
-    const g = new THREE.BoxGeometry(1, 1, 1);
-    g.translate(0, 0.5, 0);
-    return g;
-  }, []);
+function Buildings({ city, fraction }: { city: CityData; fraction: number }) {
   const list = useMemo(() => {
     if (fraction >= 1) return city.buildings;
-    const rng = createRng(9);
-    // em aparelhos fracos mantemos o prédio principal de cada quarteirão
-    return city.buildings.filter((b) => b.primary || rng.next() < fraction - 0.25);
+    // em aparelhos fracos mantemos os maiores prédios (os que definem a silhueta)
+    const sorted = [...city.buildings].sort((a, b) => b.area * b.h - a.area * a.h);
+    return sorted.slice(0, Math.max(1, Math.round(sorted.length * fraction)));
   }, [city, fraction]);
-
-  useLayoutEffect(() => {
-    const mesh = ref.current!;
-    const seeds = new Float32Array(list.length);
-    list.forEach((b, i) => {
-      tmp.position.set(b.x, 0.24, b.z);
-      tmp.rotation.set(0, 0, 0);
-      tmp.scale.set(b.w, b.h, b.d);
-      tmp.updateMatrix();
-      mesh.setMatrixAt(i, tmp.matrix);
-      seeds[i] = (i * 0.618) % 1;
-    });
-    mesh.geometry.setAttribute('aSeed', new THREE.InstancedBufferAttribute(seeds, 1));
-    mesh.count = list.length;
-    mesh.instanceMatrix.needsUpdate = true;
-    mesh.computeBoundingSphere();
-  }, [list]);
-
-  return <instancedMesh key={list.length} ref={ref} args={[geometry, material, list.length]} castShadow />;
+  const geometry = useDisposable(() => buildBuildingGeometry(list, surfaceY(city)), [list, city]);
+  const material = useMemo(() => createBuildingMaterial(), []);
+  return <mesh geometry={geometry} material={material} castShadow receiveShadow />;
 }
 
-function Parks({ detailed }: { detailed: boolean }) {
-  const city = getCity();
+function lotSurfaceTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d')!;
+  ctx.fillStyle = '#0b101c';
+  ctx.fillRect(0, 0, 128, 128);
+  ctx.strokeStyle = 'rgba(160,190,230,0.4)';
+  ctx.lineWidth = 3;
+  for (let x = 8; x < 128; x += 26) {
+    ctx.beginPath();
+    ctx.moveTo(x, 10);
+    ctx.lineTo(x, 54);
+    ctx.moveTo(x, 74);
+    ctx.lineTo(x, 118);
+    ctx.stroke();
+  }
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+/** Parques, praias, praças, estacionamentos e água. */
+function Areas({ city }: { city: CityData }) {
+  const y = surfaceY(city);
+  const byKind = (kind: string) => city.areas.filter((a) => a.kind === kind).map((a) => a.polygon);
+  const parks = useDisposable(() => buildFlatGeometry(byKind('park'), y + 0.03), [city]);
+  const beaches = useDisposable(() => buildFlatGeometry(byKind('beach'), 0.025), [city]);
+  const plazas = useDisposable(() => buildFlatGeometry(byKind('plaza'), y + 0.035), [city]);
+  const lots = useDisposable(() => buildFlatGeometry(byKind('lot'), y + 0.04, 12), [city]);
+  const water = useDisposable(() => buildFlatGeometry(byKind('water'), -0.02), [city]);
+  const lotTex = useMemo(() => lotSurfaceTexture(), []);
+  const waterMat = useMemo(() => createWaterMaterial(), []);
+  useFrame((_, dt) => {
+    waterMat.uniforms.uTime.value += dt;
+  });
+  return (
+    <group>
+      <mesh geometry={water} material={waterMat} />
+      <mesh geometry={beaches}>
+        <meshBasicMaterial color="#2a2518" toneMapped={false} />
+      </mesh>
+      <mesh geometry={parks}>
+        <meshBasicMaterial color="#0b2a20" toneMapped={false} />
+      </mesh>
+      <mesh geometry={plazas}>
+        <meshBasicMaterial color="#141b2b" toneMapped={false} />
+      </mesh>
+      <mesh geometry={lots}>
+        <meshBasicMaterial map={lotTex} toneMapped={false} />
+      </mesh>
+    </group>
+  );
+}
+
+function Trees({ city, max }: { city: CityData; max: number }) {
   const ref = useRef<THREE.InstancedMesh>(null);
   const trees = useMemo(() => {
     const rng = createRng(31);
     const out: { x: number; z: number; s: number }[] = [];
-    for (const b of city.blocks.filter((bl) => bl.kind === 'park')) {
-      const n = detailed ? 38 : 14;
-      for (let k = 0; k < n; k++) {
-        out.push({
-          x: b.center.x + rng.range(-36, 36),
-          z: b.center.z + rng.range(-36, 36),
-          s: rng.range(0.8, 1.5),
-        });
+    const parks = city.areas.filter((a) => a.kind === 'park');
+    const totalArea = parks.reduce((sum, p) => sum + Math.abs(polygonArea(p.polygon)), 0) || 1;
+    for (const park of parks) {
+      const area = Math.abs(polygonArea(park.polygon));
+      const want = Math.min(400, Math.round((area / totalArea) * max), Math.round(area / 220));
+      let minX = Infinity;
+      let maxX = -Infinity;
+      let minZ = Infinity;
+      let maxZ = -Infinity;
+      for (const p of park.polygon) {
+        minX = Math.min(minX, p.x);
+        maxX = Math.max(maxX, p.x);
+        minZ = Math.min(minZ, p.z);
+        maxZ = Math.max(maxZ, p.z);
+      }
+      for (let tries = 0, n = 0; n < want && tries < want * 6; tries++) {
+        const p = { x: rng.range(minX, maxX), z: rng.range(minZ, maxZ) };
+        if (!pointInPolygon(p, park.polygon)) continue;
+        out.push({ ...p, s: rng.range(0.7, 1.4) });
+        n++;
       }
     }
     return out;
-  }, [city, detailed]);
+  }, [city, max]);
+  const y = surfaceY(city);
   useLayoutEffect(() => {
-    const mesh = ref.current!;
+    const mesh = ref.current;
+    if (!mesh) return;
     trees.forEach((t, i) => {
-      tmp.position.set(t.x, 0.24, t.z);
+      tmp.position.set(t.x, y, t.z);
       tmp.rotation.set(0, 0, 0);
       tmp.scale.set(t.s, t.s, t.s);
       tmp.updateMatrix();
@@ -171,12 +204,13 @@ function Parks({ detailed }: { detailed: boolean }) {
     });
     mesh.instanceMatrix.needsUpdate = true;
     mesh.computeBoundingSphere();
-  }, [trees]);
+  }, [trees, y]);
   const geometry = useMemo(() => {
-    const g = new THREE.ConeGeometry(2.6, 8, 6);
-    g.translate(0, 4.2, 0);
+    const g = new THREE.ConeGeometry(2.4, 7.5, 6);
+    g.translate(0, 4, 0);
     return g;
   }, []);
+  if (!trees.length) return null;
   return (
     <instancedMesh key={trees.length} ref={ref} args={[geometry, undefined, trees.length]}>
       <meshLambertMaterial color="#1f7a5a" emissive="#0a3326" />
@@ -185,19 +219,22 @@ function Parks({ detailed }: { detailed: boolean }) {
 }
 
 /** Carros estacionados em vagas não monitoradas: dão vida às ruas. */
-function ParkedCars({ fraction }: { fraction: number }) {
+function ParkedCars({ fraction, max }: { fraction: number; max: number }) {
   const sim = getSimulation();
   const ref = useRef<THREE.InstancedMesh>(null);
   const slots = useMemo(() => {
     const rng = createRng(5);
-    return sim.world.parkedSlots.filter(() => rng.next() < fraction);
-  }, [sim, fraction]);
+    const all = sim.world.parkedSlots;
+    const keep = Math.min(fraction, max / Math.max(1, all.length));
+    return all.filter(() => rng.next() < keep);
+  }, [sim, fraction, max]);
   useLayoutEffect(() => {
-    const mesh = ref.current!;
+    const mesh = ref.current;
+    if (!mesh) return;
     const rng = createRng(12);
     const color = new THREE.Color();
     slots.forEach((s, i) => {
-      tmp.position.set(s.position.x + rng.range(-0.3, 0.3), 0.02, s.position.z + rng.range(-0.3, 0.3));
+      tmp.position.set(s.position.x + rng.range(-0.25, 0.25), 0.07, s.position.z + rng.range(-0.25, 0.25));
       tmp.rotation.set(0, s.heading + (rng.chance(0.5) ? Math.PI : 0), 0);
       tmp.scale.set(1, 1, 1);
       tmp.updateMatrix();
@@ -208,6 +245,7 @@ function ParkedCars({ fraction }: { fraction: number }) {
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     mesh.computeBoundingSphere();
   }, [slots]);
+  if (!slots.length) return null;
   return (
     <instancedMesh key={slots.length} ref={ref} args={[sharedCarGeometry(), undefined, slots.length]}>
       <meshLambertMaterial />
@@ -215,75 +253,72 @@ function ParkedCars({ fraction }: { fraction: number }) {
   );
 }
 
-function Shore() {
-  const water = useMemo(() => createWaterMaterial(), []);
-  useFrame((_, dt) => {
-    water.uniforms.uTime.value += dt;
-  });
-  const half = CITY_SIZE / 2;
+function Coastline({ city }: { city: CityData }) {
+  const geometry = useDisposable(() => buildPolylineRibbon(city.coastlines, 2.4, 0.08), [city]);
+  if (!city.coastlines.length) return null;
   return (
-    <group>
-      {/* calçadão + areia */}
-      <mesh position={[0, 0.06, half + 12]}>
-        <boxGeometry args={[CITY_SIZE + 400, 0.12, 10]} />
-        <meshLambertMaterial color="#1b2233" emissive="#0a1226" />
-      </mesh>
-      <mesh position={[0, 0.03, half + 45]}>
-        <boxGeometry args={[CITY_SIZE + 400, 0.06, 56]} />
-        <meshLambertMaterial color="#3a3324" emissive="#120f08" />
-      </mesh>
-      <mesh position={[0, -0.02, half + 73 + 900]} rotation-x={-Math.PI / 2} material={water}>
-        <planeGeometry args={[6000, 1800]} />
-      </mesh>
+    <mesh geometry={geometry}>
+      <meshBasicMaterial color="#3fd0ff" transparent opacity={0.75} toneMapped={false} depthWrite={false} />
+    </mesh>
+  );
+}
+
+const labelPos = new THREE.Vector3();
+/** Nomes das ruas: aparecem quando a câmera está perto (confirma que são as ruas reais). */
+function StreetLabels({ city, max }: { city: CityData; max: number }) {
+  const group = useRef<THREE.Group>(null);
+  const labels = useMemo(
+    () =>
+      city.streetNames.slice(0, max).map((s) => {
+        const tex = labelTexture(s.name, '›', '#7fa2ff');
+        const img = tex.image as HTMLCanvasElement;
+        return { ...s, tex, aspect: img.width / img.height };
+      }),
+    [city, max],
+  );
+  useFrame(({ camera }) => {
+    const g = group.current;
+    if (!g) return;
+    const high = camera.position.y > 420;
+    g.children.forEach((child) => {
+      child.getWorldPosition(labelPos);
+      child.visible = !high && camera.position.distanceTo(labelPos) < 380;
+    });
+  });
+  return (
+    <group ref={group}>
+      {labels.map((l) => (
+        <sprite key={l.name} position={[l.position.x, 5, l.position.z]} scale={[4.2 * l.aspect, 4.2, 1]} renderOrder={4}>
+          <spriteMaterial map={l.tex} transparent opacity={0.85} depthWrite={false} toneMapped={false} />
+        </sprite>
+      ))}
     </group>
   );
 }
 
-/** Luminárias ao longo da avenida principal: ajudam na leitura de profundidade. */
-function StreetLights() {
-  const ref = useRef<THREE.InstancedMesh>(null);
-  const positions = useMemo(() => {
-    const out: { x: number; z: number }[] = [];
-    const avenueX = streetCoord(4);
-    const beachZ = streetCoord(GRID.blocks);
-    for (let k = -GRID.blocks / 2; k <= GRID.blocks / 2; k += 0.5) {
-      out.push({ x: avenueX - 8.5, z: k * SPACING + 20 });
-      out.push({ x: avenueX + 8.5, z: k * SPACING - 20 });
-      out.push({ x: k * SPACING, z: beachZ + 8.5 });
-    }
-    return out;
-  }, []);
-  useLayoutEffect(() => {
-    const mesh = ref.current!;
-    positions.forEach((p, i) => {
-      tmp.position.set(p.x, 6, p.z);
-      tmp.rotation.set(0, 0, 0);
-      tmp.scale.set(1, 1, 1);
-      tmp.updateMatrix();
-      mesh.setMatrixAt(i, tmp.matrix);
-    });
-    mesh.instanceMatrix.needsUpdate = true;
-    mesh.computeBoundingSphere();
-  }, [positions]);
-  return (
-    <instancedMesh ref={ref} args={[undefined, undefined, positions.length]}>
-      <sphereGeometry args={[0.5, 8, 8]} />
-      <meshBasicMaterial color="#9fd8ff" toneMapped={false} />
-    </instancedMesh>
-  );
-}
-
-export function City({ buildingFraction, parkedCarsFraction, detailed }: { buildingFraction: number; parkedCarsFraction: number; detailed: boolean }) {
+export function City({
+  buildingFraction,
+  parkedCarsFraction,
+  parkedCarsMax,
+  detailed,
+}: {
+  buildingFraction: number;
+  parkedCarsFraction: number;
+  parkedCarsMax: number;
+  detailed: boolean;
+}) {
+  const city = getCity();
   return (
     <group>
-      <Ground />
-      <Blocks />
-      <Roads />
-      <Buildings fraction={buildingFraction} />
-      <Parks detailed={detailed} />
-      <ParkedCars fraction={parkedCarsFraction} />
-      <Shore />
-      {detailed && <StreetLights />}
+      <Ground city={city} />
+      <Areas city={city} />
+      <Blocks city={city} />
+      <Roads city={city} />
+      <Coastline city={city} />
+      <Buildings city={city} fraction={buildingFraction} />
+      <Trees city={city} max={detailed ? 900 : 250} />
+      <ParkedCars fraction={parkedCarsFraction} max={parkedCarsMax} />
+      <StreetLabels city={city} max={detailed ? 60 : 25} />
     </group>
   );
 }

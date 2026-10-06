@@ -17,7 +17,7 @@ export function Vehicle({ shadows }: { shadows: boolean }) {
     const v = sim.vehicle;
     const g = group.current;
     if (!g) return;
-    g.position.set(v.position.x, 0, v.position.z);
+    g.position.set(v.position.x, 0.06, v.position.z);
     g.rotation.y = v.heading;
     // leve inclinação ao frear/acelerar
     const accel = v.speed - lastSpeed.current;
@@ -67,7 +67,7 @@ export function Vehicle({ shadows }: { shadows: boolean }) {
         )}
       </group>
       {/* luz dos faróis no asfalto */}
-      <mesh position={[8, 0.06, 0]} rotation-x={-Math.PI / 2}>
+      <mesh position={[8, 0.03, 0]} rotation-x={-Math.PI / 2}>
         <planeGeometry args={[11, 4]} />
         <meshBasicMaterial color="#cfe9ff" transparent opacity={0.07} depthWrite={false} toneMapped={false} />
       </mesh>

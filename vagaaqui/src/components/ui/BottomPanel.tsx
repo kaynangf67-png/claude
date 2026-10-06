@@ -33,7 +33,15 @@ function HomeCard() {
               <Target size={22} /> {Math.round(a.probability * 100)}%
             </div>
             <div className="home-info">
-              <strong>Vaga provável</strong>
+              <strong>
+                {a.status === 'likely_available'
+                  ? 'Vaga provável'
+                  : a.status === 'uncertain'
+                    ? 'Chance moderada'
+                    : a.status === 'stale'
+                      ? 'Informação antiga'
+                      : 'Chance baixa por perto'}
+              </strong>
               <span className="muted">
                 {formatDistance(best.driveDistance)} • {formatEta(best.etaSeconds)} · {getSimulation().spotsById.get(best.spotId)?.streetName}
               </span>

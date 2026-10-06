@@ -6,11 +6,12 @@ import { LogoMark } from '../ui/Logo';
 
 interface Props {
   ready: boolean;
+  status?: string;
   onStart: () => void;
 }
 
 /** Abertura: animação curta do logo → slogan → botão ENCONTRAR VAGA. */
-export function SplashScreen({ ready, onStart }: Props) {
+export function SplashScreen({ ready, status, onStart }: Props) {
   const root = useRef<HTMLDivElement>(null);
 
   useLayoutEffect(() => {
@@ -60,7 +61,7 @@ export function SplashScreen({ ready, onStart }: Props) {
         <p className="splash-slogan">{BRAND.slogan}</p>
         <button className="btn btn-primary btn-xl splash-cta" onClick={start} disabled={!ready}>
           <MapPin size={22} />
-          {ready ? 'ENCONTRAR VAGA' : 'Carregando mapa 3D…'}
+          {ready ? 'ENCONTRAR VAGA' : status || 'Carregando mapa 3D…'}
         </button>
         <p className="splash-foot">Probabilidades estimadas · nunca garantia de vaga · dados simulados nesta demonstração</p>
       </div>

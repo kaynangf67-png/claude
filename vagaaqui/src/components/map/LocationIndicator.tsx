@@ -17,20 +17,20 @@ export function LocationIndicator({ color = '#5b8cff' }: { color?: string }) {
   });
   return (
     <group>
-      <mesh position={[0, 0.07, 0]} rotation-x={-Math.PI / 2}>
+      <mesh position={[0, 0.1, 0]} rotation-x={-Math.PI / 2}>
         <circleGeometry args={[4.2, 40]} />
         <meshBasicMaterial color={color} transparent opacity={0.22} depthWrite={false} toneMapped={false} />
       </mesh>
-      <mesh ref={pulse} position={[0, 0.08, 0]} rotation-x={-Math.PI / 2}>
+      <mesh ref={pulse} position={[0, 0.11, 0]} rotation-x={-Math.PI / 2}>
         <ringGeometry args={[3.6, 4.1, 48]} />
         <meshBasicMaterial color={color} transparent depthWrite={false} toneMapped={false} />
       </mesh>
-      <mesh ref={pulse2} position={[0, 0.08, 0]} rotation-x={-Math.PI / 2}>
+      <mesh ref={pulse2} position={[0, 0.11, 0]} rotation-x={-Math.PI / 2}>
         <ringGeometry args={[3.6, 4.1, 48]} />
         <meshBasicMaterial color={color} transparent depthWrite={false} toneMapped={false} />
       </mesh>
       {/* feixe de direção à frente do carro */}
-      <mesh position={[1.5, 0.07, 0]} rotation-x={-Math.PI / 2}>
+      <mesh position={[1.5, 0.1, 0]} rotation-x={-Math.PI / 2}>
         <circleGeometry args={[10, 24, -0.42, 0.84]} />
         <meshBasicMaterial color={color} transparent opacity={0.16} depthWrite={false} toneMapped={false} />
       </mesh>

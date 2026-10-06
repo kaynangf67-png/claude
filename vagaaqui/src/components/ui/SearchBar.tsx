@@ -2,7 +2,7 @@ import { Crosshair, MapPin, Search, SquareParking, X } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import { actions, useApp } from '../../store/appStore';
 import type { Destination } from '../../types';
-import { EW_STREETS, NS_STREETS, getCity, streetCoord } from '../../world/cityGenerator';
+import { getCity } from '../../world/cityStore';
 
 function normalize(s: string) {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -11,10 +11,9 @@ function normalize(s: string) {
 function allDestinations(): Destination[] {
   const city = getCity();
   const pois = city.pois.map((p) => ({ id: p.id, label: p.name, position: p.position }));
-  const streets = [
-    ...NS_STREETS.map((name, i) => ({ id: `ns-${i}`, label: name, position: { x: streetCoord(i), z: 0 } })),
-    ...EW_STREETS.map((name, j) => ({ id: `ew-${j}`, label: name, position: { x: 0, z: streetCoord(j) } })),
-  ];
+  const streets = city.streetNames
+    .map((s, i) => ({ id: `street-${i}`, label: s.name, position: s.position }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
   return [...pois, ...streets];
 }
 
