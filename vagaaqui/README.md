@@ -4,9 +4,9 @@
 
 MVP web 3D que mostra onde há **maior probabilidade** de existir vaga de estacionamento, escolhe a melhor opção (não a mais próxima) e guia o motorista até ela, com confirmações colaborativas e recompensas.
 
-| Mapa 3D | Navegação | Preview 3D |
+| Mapa | Navegação | Visão geral |
 | --- | --- | --- |
-| ![Mapa](docs/screenshots/01-mapa.png) | ![Navegação](docs/screenshots/02-navegacao.png) | ![Preview 3D](docs/screenshots/03-preview-3d.png) |
+| ![Mapa](docs/screenshots/01-mapa.png) | ![Navegação](docs/screenshots/02-navegacao.png) | ![Visão geral](docs/screenshots/03-preview-3d.png) |
 | **Índice de Confiança** | **Chegada e confirmação** | **Celular** |
 | ![Índice](docs/screenshots/04-indice-confianca.png) | ![Chegada](docs/screenshots/06-chegada.png) | ![Mobile](docs/screenshots/05-mobile-navegacao.png) |
 
@@ -18,7 +18,7 @@ MVP web 3D que mostra onde há **maior probabilidade** de existir vaga de estaci
 cd vagaaqui
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 25 testes: Índice de Confiança, recomendação, rotas, importador OSM, simulação, geometria
+npm test           # 27 testes: Índice de Confiança, recomendação, rotas, importador OSM, simulação, geometria
 npm run build      # typecheck + build de produção em dist/
 npm run import-osm # grava um snapshot das ruas reais em public/osm/area.json (opcional)
 ```
@@ -38,6 +38,18 @@ Nenhuma chave de API é necessária. Variáveis opcionais estão em `.env.exampl
 Abrir app → animação do logo → **ENCONTRAR VAGA** → mapa 3D aparece → ver localização → explorar (Preview 3D) → vagas com % → **MELHOR OPÇÃO** com motivos → **IR ATÉ A VAGA** → câmera de GPS segue o carro, rota animada no chão, manobras e voz → pergunta "Você viu uma vaga aqui?" ao passar → chegada: **SIM, ESTÁ LIVRE / NÃO, ESTÁ OCUPADA / EU ESTACIONEI AQUI** → vaga vira 🔴 "confirmada há 5 s" → pontos, nível, precisão → **SAÍ DA VAGA** libera a vaga para os outros.
 
 Se a vaga estiver ocupada na chegada, o app agradece, dá os pontos e já recalcula a próxima melhor opção.
+
+## Visual do mapa
+
+Estilo de mapa de navegação realista, **sem prédios por padrão**. O mapa mostra só ruas, vagas e alguns carros.
+
+- **Asfalto e calçadas:** asfalto com granulação, manchas e desgaste; calçadas de concreto com juntas; cruzamentos recortados no formato das bocas das ruas.
+- **Sinalização no padrão brasileiro:** linha amarela separando os sentidos (dupla contínua em vias largas, tracejada nas estreitas), linhas brancas tracejadas entre faixas do mesmo sentido, linha de bordo, setas nas vias de mão única e faixas de pedestres.
+- **Vagas demarcadas no meio-fio:** os traços pintados ficam exatamente nas mesmas posições das vagas da simulação (há teste para isso). As vagas monitoradas aparecem coloridas entre carros estacionados.
+- **Carros, nomes de ruas e áreas:** carros com carroceria, vidros e rodas; nomes das ruas pintados no chão, alinhados com a via; parques com árvores, praia, água e litoral.
+- **Câmera no celular:** em tela vertical, a câmera de navegação se ajusta para o carro não ficar escondido atrás do painel inferior.
+
+Os prédios 3D ainda existem: dá para ligar em **Configurações → Mapa → Prédios 3D**.
 
 ## Ruas reais (OpenStreetMap)
 

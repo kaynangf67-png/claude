@@ -20,6 +20,7 @@ export function SettingsPanel() {
   const detected = useApp((s) => s.detectedTier);
   const tier = useApp(effectiveTier);
   const voice = useApp((s) => s.voice);
+  const showBuildings = useApp((s) => s.showBuildings);
   const simSpeed = useApp((s) => s.simSpeed);
   const locationSource = useApp((s) => s.locationSource);
   const cityOrigin = useApp((s) => s.cityOrigin);
@@ -81,6 +82,10 @@ export function SettingsPanel() {
         {city.fetchedAt ? ` · dados de ${new Date(city.fetchedAt).toLocaleDateString('pt-BR')}` : ''} · {city.edges.size} trechos,{' '}
         {city.buildings.length} prédios. {city.source === 'osm' ? 'Alturas sem tag no OSM são estimadas.' : ''}
       </p>
+      <label className="switch-row">
+        <span>Prédios 3D (o mapa limpo mostra só ruas, vagas e carros)</span>
+        <input type="checkbox" checked={showBuildings} onChange={actions.toggleBuildings} />
+      </label>
       <button
         className="btn btn-ghost btn-block"
         onClick={() => {

@@ -5,21 +5,29 @@ import { createRng } from '../../lib/random';
 import { getSimulation } from '../../simulation/WorldSimulation';
 import { getCity } from '../../world/cityStore';
 import { pointInPolygon, polygonArea, type CityData } from '../../world/cityTypes';
+import { CarFleet } from './CarFleet';
 import {
   buildBuildingGeometry,
   buildFlatGeometry,
   buildJunctionGeometry,
   buildPolylineRibbon,
   buildRoadGeometry,
+  buildSidewalkGeometry,
 } from './cityGeometry';
-import { CAR_COLORS, sharedCarGeometry } from './geometries';
-import { labelTexture } from './markerTextures';
-import { createBuildingMaterial, createGroundMaterial, createRoadMaterial, createWaterMaterial } from './shaders';
+import { CAR_COLORS } from './geometries';
+import { streetNameTexture } from './markerTextures';
+import {
+  createBuildingMaterial,
+  createGroundMaterial,
+  createRoadMaterial,
+  createSidewalkMaterial,
+  createWaterMaterial,
+} from './shaders';
 
 const tmp = new THREE.Object3D();
 
-/** Altura do "chão" das áreas: na grade procedural os quarteirões são elevados. */
-const surfaceY = (city: CityData) => (city.blocks.length ? 0.25 : 0);
+/** Altura do "chão" das áreas (o terreno é plano; as ruas ficam alguns cm acima). */
+const surfaceY = (_city: CityData) => 0;
 
 function useDisposable<T extends { dispose: () => void }>(factory: () => T, deps: unknown[]) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -42,54 +50,15 @@ function Ground({ city }: { city: CityData }) {
 function Roads({ city }: { city: CityData }) {
   const roads = useDisposable(() => buildRoadGeometry(city), [city]);
   const junctions = useDisposable(() => buildJunctionGeometry(city), [city]);
+  const sidewalks = useDisposable(() => buildSidewalkGeometry(city), [city]);
   const material = useMemo(() => createRoadMaterial(), []);
+  const sidewalkMat = useMemo(() => createSidewalkMaterial(), []);
   return (
     <group>
-      <mesh geometry={junctions}>
-        <meshBasicMaterial color="#090b12" toneMapped={false} />
-      </mesh>
+      <mesh geometry={sidewalks} material={sidewalkMat} />
+      {/* emendas das curvas: mesmo shader do asfalto, sem sinalização */}
+      <mesh geometry={junctions} material={material} />
       <mesh geometry={roads} material={material} />
-    </group>
-  );
-}
-
-/** Calçadas e lotes dos quarteirões (só na cidade procedural). */
-function Blocks({ city }: { city: CityData }) {
-  const sidewalks = useRef<THREE.InstancedMesh>(null);
-  const plots = useRef<THREE.InstancedMesh>(null);
-  const blocks = city.blocks;
-  useLayoutEffect(() => {
-    const walk = sidewalks.current;
-    const plot = plots.current;
-    if (!walk || !plot) return;
-    const color = new THREE.Color();
-    blocks.forEach((b, i) => {
-      tmp.rotation.set(0, 0, 0);
-      tmp.position.set(b.center.x, 0.1, b.center.z);
-      tmp.scale.set(b.size, 0.2, b.size);
-      tmp.updateMatrix();
-      walk.setMatrixAt(i, tmp.matrix);
-      tmp.position.set(b.center.x, 0.12, b.center.z);
-      tmp.scale.set(b.size - 8, 0.24, b.size - 8);
-      tmp.updateMatrix();
-      plot.setMatrixAt(i, tmp.matrix);
-      plot.setColorAt(i, color.set(b.kind === 'park' ? '#0b3326' : '#0c1220'));
-    });
-    walk.instanceMatrix.needsUpdate = true;
-    plot.instanceMatrix.needsUpdate = true;
-    if (plot.instanceColor) plot.instanceColor.needsUpdate = true;
-  }, [blocks]);
-  if (!blocks.length) return null;
-  return (
-    <group>
-      <instancedMesh ref={sidewalks} args={[undefined, undefined, blocks.length]} frustumCulled={false}>
-        <boxGeometry args={[1, 1, 1]} />
-        <meshLambertMaterial color="#1c2538" emissive="#080d1a" />
-      </instancedMesh>
-      <instancedMesh ref={plots} args={[undefined, undefined, blocks.length]} frustumCulled={false}>
-        <boxGeometry args={[1, 1, 1]} />
-        <meshLambertMaterial />
-      </instancedMesh>
     </group>
   );
 }
@@ -111,9 +80,9 @@ function lotSurfaceTexture() {
   canvas.width = 128;
   canvas.height = 128;
   const ctx = canvas.getContext('2d')!;
-  ctx.fillStyle = '#0b101c';
+  ctx.fillStyle = '#28292d';
   ctx.fillRect(0, 0, 128, 128);
-  ctx.strokeStyle = 'rgba(160,190,230,0.4)';
+  ctx.strokeStyle = 'rgba(225,226,222,0.75)';
   ctx.lineWidth = 3;
   for (let x = 8; x < 128; x += 26) {
     ctx.beginPath();
@@ -147,13 +116,13 @@ function Areas({ city }: { city: CityData }) {
     <group>
       <mesh geometry={water} material={waterMat} />
       <mesh geometry={beaches}>
-        <meshBasicMaterial color="#2a2518" toneMapped={false} />
+        <meshLambertMaterial color="#8a7a5a" />
       </mesh>
       <mesh geometry={parks}>
-        <meshBasicMaterial color="#0b2a20" toneMapped={false} />
+        <meshLambertMaterial color="#2f4a2c" />
       </mesh>
       <mesh geometry={plazas}>
-        <meshBasicMaterial color="#141b2b" toneMapped={false} />
+        <meshLambertMaterial color="#55575b" />
       </mesh>
       <mesh geometry={lots}>
         <meshBasicMaterial map={lotTex} toneMapped={false} />
@@ -205,52 +174,65 @@ function Trees({ city, max }: { city: CityData; max: number }) {
     mesh.instanceMatrix.needsUpdate = true;
     mesh.computeBoundingSphere();
   }, [trees, y]);
-  const geometry = useMemo(() => {
-    const g = new THREE.ConeGeometry(2.4, 7.5, 6);
-    g.translate(0, 4, 0);
+  const canopy = useMemo(() => {
+    const g = new THREE.IcosahedronGeometry(2.6, 1);
+    g.scale(1, 0.85, 1);
+    g.translate(0, 4.6, 0);
     return g;
   }, []);
+  const trunk = useMemo(() => {
+    const g = new THREE.CylinderGeometry(0.22, 0.3, 3, 6);
+    g.translate(0, 1.5, 0);
+    return g;
+  }, []);
+  const trunkRef = useRef<THREE.InstancedMesh>(null);
+  useLayoutEffect(() => {
+    const src = ref.current;
+    const dst = trunkRef.current;
+    if (!src || !dst) return;
+    dst.instanceMatrix.copy(src.instanceMatrix);
+    dst.instanceMatrix.needsUpdate = true;
+    dst.computeBoundingSphere();
+  }, [trees]);
   if (!trees.length) return null;
   return (
-    <instancedMesh key={trees.length} ref={ref} args={[geometry, undefined, trees.length]}>
-      <meshLambertMaterial color="#1f7a5a" emissive="#0a3326" />
-    </instancedMesh>
+    <group>
+      <instancedMesh key={`c${trees.length}`} ref={ref} args={[canopy, undefined, trees.length]} castShadow>
+        <meshLambertMaterial color="#3d6b35" flatShading />
+      </instancedMesh>
+      <instancedMesh key={`t${trees.length}`} ref={trunkRef} args={[trunk, undefined, trees.length]}>
+        <meshLambertMaterial color="#4a3a2a" />
+      </instancedMesh>
+    </group>
   );
 }
 
-/** Carros estacionados em vagas não monitoradas: dão vida às ruas. */
+/** Alguns carros estacionados nas vagas não monitoradas, para dar escala às ruas. */
 function ParkedCars({ fraction, max }: { fraction: number; max: number }) {
   const sim = getSimulation();
-  const ref = useRef<THREE.InstancedMesh>(null);
   const slots = useMemo(() => {
     const rng = createRng(5);
     const all = sim.world.parkedSlots;
     const keep = Math.min(fraction, max / Math.max(1, all.length));
     return all.filter(() => rng.next() < keep);
   }, [sim, fraction, max]);
-  useLayoutEffect(() => {
-    const mesh = ref.current;
-    if (!mesh) return;
-    const rng = createRng(12);
-    const color = new THREE.Color();
-    slots.forEach((s, i) => {
-      tmp.position.set(s.position.x + rng.range(-0.25, 0.25), 0.07, s.position.z + rng.range(-0.25, 0.25));
-      tmp.rotation.set(0, s.heading + (rng.chance(0.5) ? Math.PI : 0), 0);
-      tmp.scale.set(1, 1, 1);
-      tmp.updateMatrix();
-      mesh.setMatrixAt(i, tmp.matrix);
-      mesh.setColorAt(i, color.set(rng.pick(CAR_COLORS)));
-    });
-    mesh.instanceMatrix.needsUpdate = true;
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-    mesh.computeBoundingSphere();
-  }, [slots]);
-  if (!slots.length) return null;
-  return (
-    <instancedMesh key={slots.length} ref={ref} args={[sharedCarGeometry(), undefined, slots.length]}>
-      <meshLambertMaterial />
-    </instancedMesh>
+  const fill = useMemo(
+    () => (mesh: THREE.InstancedMesh) => {
+      const rng = createRng(12);
+      const color = new THREE.Color();
+      slots.forEach((s, i) => {
+        tmp.position.set(s.position.x + rng.range(-0.2, 0.2), 0.07, s.position.z + rng.range(-0.15, 0.15));
+        tmp.rotation.set(0, s.heading + (rng.chance(0.5) ? Math.PI : 0) + rng.range(-0.03, 0.03), 0);
+        tmp.scale.set(rng.range(0.92, 1.06), 1, 1);
+        tmp.updateMatrix();
+        mesh.setMatrixAt(i, tmp.matrix);
+        mesh.setColorAt(i, color.set(rng.pick(CAR_COLORS)));
+      });
+      return slots.length;
+    },
+    [slots],
   );
+  return <CarFleet capacity={slots.length} fill={fill} version={fill} />;
 }
 
 function Coastline({ city }: { city: CityData }) {
@@ -258,39 +240,55 @@ function Coastline({ city }: { city: CityData }) {
   if (!city.coastlines.length) return null;
   return (
     <mesh geometry={geometry}>
-      <meshBasicMaterial color="#3fd0ff" transparent opacity={0.75} toneMapped={false} depthWrite={false} />
+      <meshBasicMaterial color="#c9d6dd" transparent opacity={0.35} toneMapped={false} depthWrite={false} />
     </mesh>
   );
 }
 
 const labelPos = new THREE.Vector3();
-/** Nomes das ruas: aparecem quando a câmera está perto (confirma que são as ruas reais). */
+/** Nomes das ruas pintados no chão, alinhados com a via (como num mapa de navegação). */
 function StreetLabels({ city, max }: { city: CityData; max: number }) {
   const group = useRef<THREE.Group>(null);
-  const labels = useMemo(
-    () =>
-      city.streetNames.slice(0, max).map((s) => {
-        const tex = labelTexture(s.name, '›', '#7fa2ff');
+  const labels = useMemo(() => {
+    // trecho mais longo de cada rua, para o nome caber
+    const best = new Map<string, { x: number; z: number; angle: number; length: number; width: number }>();
+    for (const e of city.edges.values()) {
+      if (!e.street || e.street === 'Via sem nome' || e.length < 40) continue;
+      const cur = best.get(e.street);
+      if (cur && cur.length >= e.length) continue;
+      const a = city.nodes.get(e.a)!.position;
+      let angle = Math.atan2(-e.dir.z, e.dir.x);
+      // mantém o texto de pé para quem olha de cima (nunca de cabeça para baixo)
+      if (angle > Math.PI / 2) angle -= Math.PI;
+      if (angle < -Math.PI / 2) angle += Math.PI;
+      best.set(e.street, { x: a.x + (e.dir.x * e.length) / 2, z: a.z + (e.dir.z * e.length) / 2, angle, length: e.length, width: e.width });
+    }
+    return [...best.entries()]
+      .sort((p, q) => q[1].length - p[1].length)
+      .slice(0, max)
+      .map(([name, l]) => {
+        const tex = streetNameTexture(name);
         const img = tex.image as HTMLCanvasElement;
-        return { ...s, tex, aspect: img.width / img.height };
-      }),
-    [city, max],
-  );
+        const h = Math.min(3.2, l.width * 0.32);
+        const w = Math.min(l.length * 0.7, h * (img.width / img.height));
+        return { name, ...l, tex, w, h: w / (img.width / img.height) };
+      });
+  }, [city, max]);
   useFrame(({ camera }) => {
     const g = group.current;
     if (!g) return;
-    const high = camera.position.y > 420;
     g.children.forEach((child) => {
       child.getWorldPosition(labelPos);
-      child.visible = !high && camera.position.distanceTo(labelPos) < 380;
+      child.visible = camera.position.distanceTo(labelPos) < 320;
     });
   });
   return (
     <group ref={group}>
       {labels.map((l) => (
-        <sprite key={l.name} position={[l.position.x, 5, l.position.z]} scale={[4.2 * l.aspect, 4.2, 1]} renderOrder={4}>
-          <spriteMaterial map={l.tex} transparent opacity={0.85} depthWrite={false} toneMapped={false} />
-        </sprite>
+        <mesh key={l.name} position={[l.x, 0.09, l.z]} rotation={[-Math.PI / 2, 0, l.angle]} renderOrder={2}>
+          <planeGeometry args={[l.w, l.h]} />
+          <meshBasicMaterial map={l.tex} transparent depthWrite={false} toneMapped={false} />
+        </mesh>
       ))}
     </group>
   );
@@ -301,21 +299,22 @@ export function City({
   parkedCarsFraction,
   parkedCarsMax,
   detailed,
+  showBuildings,
 }: {
   buildingFraction: number;
   parkedCarsFraction: number;
   parkedCarsMax: number;
   detailed: boolean;
+  showBuildings: boolean;
 }) {
   const city = getCity();
   return (
     <group>
       <Ground city={city} />
       <Areas city={city} />
-      <Blocks city={city} />
       <Roads city={city} />
       <Coastline city={city} />
-      <Buildings city={city} fraction={buildingFraction} />
+      {showBuildings && <Buildings city={city} fraction={buildingFraction} />}
       <Trees city={city} max={detailed ? 900 : 250} />
       <ParkedCars fraction={parkedCarsFraction} max={parkedCarsMax} />
       <StreetLabels city={city} max={detailed ? 60 : 25} />

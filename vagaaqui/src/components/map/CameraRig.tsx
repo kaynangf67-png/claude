@@ -25,7 +25,7 @@ const spherical = new THREE.Spherical();
  * 2 dedos = girar (lateral) e inclinar (vertical) · botão direito = girar/inclinar.
  */
 export function CameraRig() {
-  const { camera } = useThree();
+  const { camera, size } = useThree();
   const controls = useRef<MapControlsImpl>(null);
   const mode = useApp((s) => s.cameraMode);
   const navStatus = useApp((s) => s.navStatus);
@@ -171,9 +171,12 @@ export function CameraRig() {
     heading.current += d * (1 - Math.exp(-dt * 2.2));
 
     const driving = navStatus === 'navigating';
-    const distance = (driving ? (driverMode ? 52 : 44) : driverMode ? 150 : 190) * zoom.current;
-    const pitch = THREE.MathUtils.degToRad(driving ? (driverMode ? 30 : 25) : 38);
-    const lookAhead = driving ? 10 + v.speed * 1.4 : 0;
+    // tela em pé (celular): mais distância e alvo mais à frente, para o carro não ficar sob o painel
+    const portrait = size.height > size.width * 1.1 ? 1.45 : 1;
+    const distance = (driving ? (driverMode ? 52 : 44) : driverMode ? 150 : 190) * zoom.current * (driving ? portrait : 1);
+    const pitch = THREE.MathUtils.degToRad((portrait > 1 && driving ? 9 : 0) + (driving ? (driverMode ? 30 : 25) : 38));
+    // em pé, mira atrás do carro para ele subir na tela (acima do painel inferior)
+    const lookAhead = driving ? (portrait > 1 ? 4 + v.speed * 0.6 : 10 + v.speed * 1.4) : 0;
 
     forward.set(Math.cos(heading.current), 0, -Math.sin(heading.current));
     desiredTarget.set(v.position.x, 0, v.position.z).addScaledVector(forward, lookAhead);

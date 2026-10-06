@@ -28,8 +28,8 @@ export const QUALITY_PRESETS: Record<QualityTier, QualitySettings> = {
     particles: 0,
     shadows: false,
     stars: false,
-    parkedCarsFraction: 0.45,
-    parkedCarsMax: 1200,
+    parkedCarsFraction: 0.3,
+    parkedCarsMax: 700,
     markerDistance: 420,
   },
   medium: {
@@ -41,8 +41,8 @@ export const QUALITY_PRESETS: Record<QualityTier, QualitySettings> = {
     particles: 140,
     shadows: false,
     stars: true,
-    parkedCarsFraction: 0.8,
-    parkedCarsMax: 2600,
+    parkedCarsFraction: 0.42,
+    parkedCarsMax: 1500,
     markerDistance: 700,
   },
   high: {
@@ -54,8 +54,8 @@ export const QUALITY_PRESETS: Record<QualityTier, QualitySettings> = {
     particles: 360,
     shadows: true,
     stars: true,
-    parkedCarsFraction: 1,
-    parkedCarsMax: 4500,
+    parkedCarsFraction: 0.5,
+    parkedCarsMax: 2400,
     markerDistance: 1200,
   },
 };

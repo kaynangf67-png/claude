@@ -123,3 +123,32 @@ export function spotPadTexture() {
   padTexture = new THREE.CanvasTexture(canvas);
   return padTexture;
 }
+
+const streetCache = new Map<string, THREE.CanvasTexture>();
+/** Nome de rua para pintar no chão: texto claro com contorno escuro, fundo transparente. */
+export function streetNameTexture(name: string) {
+  const hit = streetCache.get(name);
+  if (hit) return hit;
+  const font = '600 64px Sora, system-ui, sans-serif';
+  const measure = document.createElement('canvas').getContext('2d')!;
+  measure.font = font;
+  const w = Math.ceil(measure.measureText(name).width + 40);
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = 96;
+  const ctx = canvas.getContext('2d')!;
+  ctx.font = font;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = 12;
+  ctx.strokeStyle = 'rgba(20,22,26,0.85)';
+  ctx.strokeText(name, w / 2, 50);
+  ctx.fillStyle = 'rgba(232,236,242,0.92)';
+  ctx.fillText(name, w / 2, 50);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  streetCache.set(name, tex);
+  return tex;
+}

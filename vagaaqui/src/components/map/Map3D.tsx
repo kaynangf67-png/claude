@@ -1,4 +1,4 @@
-import { PerformanceMonitor, Stars } from '@react-three/drei';
+import { PerformanceMonitor } from '@react-three/drei';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Suspense, useEffect, useState } from 'react';
 import * as THREE from 'three';
@@ -11,7 +11,6 @@ import { City } from './City';
 import { NavigationRoute } from './NavigationRoute';
 import { ParkingLots } from './ParkingLots';
 import { ParkingSpotsLayer } from './ParkingSpotsLayer';
-import { Particles } from './Particles';
 import { PointsOfInterest } from './PointsOfInterest';
 import { TrafficCars } from './TrafficCars';
 import { Vehicle } from './Vehicle';
@@ -59,12 +58,13 @@ function SimulationDriver() {
 function Lights({ shadows }: { shadows: boolean }) {
   return (
     <>
-      <hemisphereLight args={['#6f8cff', '#0a0d16', 0.9]} />
-      <ambientLight intensity={0.35} />
+      {/* fim de tarde: luz quente baixa + céu frio, contraste suficiente para os marcadores */}
+      <hemisphereLight args={['#aebfd8', '#1a1d22', 1.15]} />
+      <ambientLight intensity={0.25} />
       <directionalLight
-        position={[-180, 320, 140]}
-        intensity={1.3}
-        color="#cfdcff"
+        position={[-220, 260, 160]}
+        intensity={1.6}
+        color="#ffe2c4"
         castShadow={shadows}
         shadow-mapSize={[1024, 1024]}
         shadow-camera-left={-500}
@@ -84,6 +84,7 @@ function Lights({ shadows }: { shadows: boolean }) {
 export default function Map3D() {
   const tier = useApp(effectiveTier);
   const q = QUALITY_PRESETS[tier];
+  const showBuildings = useApp((s) => s.showBuildings);
   const [dpr, setDpr] = useState(q.dpr[1]);
 
   return (
@@ -96,8 +97,8 @@ export default function Map3D() {
       camera={{ fov: 50, near: 1, far: 5000, position: [-300, 260, 520] }}
       onPointerMissed={() => actions.selectSpot(null)}
     >
-      <color attach="background" args={['#04060c']} />
-      <fogExp2 attach="fog" args={['#04060c', tier === 'low' ? 0.0022 : 0.0015]} />
+      <color attach="background" args={['#0d1116']} />
+      <fogExp2 attach="fog" args={['#0d1116', tier === 'low' ? 0.0022 : 0.0016]} />
       <PerformanceMonitor
         onDecline={() => setDpr((d) => Math.max(q.dpr[0], d - 0.25))}
         onIncline={() => setDpr((d) => Math.min(q.dpr[1], d + 0.25))}
@@ -111,6 +112,7 @@ export default function Map3D() {
           parkedCarsFraction={q.parkedCarsFraction}
           parkedCarsMax={q.parkedCarsMax}
           detailed={tier !== 'low'}
+          showBuildings={showBuildings}
         />
         <ParkingLots />
         <TrafficCars count={q.traffic} />
@@ -118,8 +120,6 @@ export default function Map3D() {
         <NavigationRoute />
         <Vehicle shadows={q.shadows} />
         <PointsOfInterest />
-        {q.particles > 0 && <Particles count={q.particles} />}
-        {q.stars && <Stars radius={1600} depth={300} count={1500} factor={18} fade speed={0.4} />}
       </Suspense>
       <CameraRig />
     </Canvas>

@@ -1,3 +1,4 @@
+import { useApp } from '../../store/appStore';
 import { getCity } from '../../world/cityStore';
 import { polygonCentroid } from '../../world/cityTypes';
 import type { PointOfInterest } from '../../types';
@@ -15,6 +16,7 @@ const ICON: Record<PointOfInterest['category'], { glyph: string; color: string }
 
 export function PointsOfInterest() {
   const city = getCity();
+  const showBuildings = useApp((s) => s.showBuildings);
   return (
     <group>
       {city.pois.map((poi) => {
@@ -22,7 +24,7 @@ export function PointsOfInterest() {
         const tex = labelTexture(poi.name, glyph, color);
         const img = tex.image as HTMLCanvasElement;
         const aspect = img.width / img.height;
-        const tall = city.buildings.reduce((h, b) => {
+        const tall = !showBuildings ? 8 : city.buildings.reduce((h, b) => {
           const c = polygonCentroid(b.footprint);
           return Math.abs(c.x - poi.position.x) < 45 && Math.abs(c.z - poi.position.z) < 45 ? Math.max(h, b.h) : h;
         }, 0);

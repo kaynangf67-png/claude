@@ -40,7 +40,7 @@ export function MapAttribution() {
   }
   return (
     <div className="attribution">
-      Ruas e prédios ©{' '}
+      Dados do mapa ©{' '}
       <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
         colaboradores do OpenStreetMap
       </a>

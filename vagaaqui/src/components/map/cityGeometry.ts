@@ -1,6 +1,25 @@
 import * as THREE from 'three';
 import type { Vec2 } from '../../types';
-import type { Building, CityData } from '../../world/cityTypes';
+import { PARKING, type Building, type CityData, type CityEdge } from '../../world/cityTypes';
+
+/** Largura da faixa de estacionamento junto ao meio-fio (m). */
+export const PARKING_LANE = 2.4;
+
+/** Faixas de rolamento e de estacionamento de um trecho (para pintar a sinalização). */
+export function laneLayout(e: CityEdge) {
+  const left = e.curbParking && e.routable && (e.parkingSides?.left ?? true) ? PARKING_LANE : 0;
+  const right = e.curbParking && e.routable && (e.parkingSides?.right ?? true) ? PARKING_LANE : 0;
+  const travel = Math.max(2.8, e.width - left - right);
+  const lanes = e.oneway ? Math.max(1, Math.round(travel / 3.3)) : Math.max(1, Math.round(travel / 2 / 3.3));
+  return { left, right, lanes };
+}
+
+/** Largura da calçada por classe da via. */
+export function sidewalkWidth(e: CityEdge) {
+  if (['primary', 'secondary', 'trunk'].includes(e.highway)) return 3.5;
+  if (e.highway.endsWith('_link') || e.highway === 'motorway') return 0.8;
+  return 2.6;
+}
 
 /**
  * Geometrias da cidade montadas a partir do CityData (OSM ou procedural).
@@ -13,6 +32,8 @@ export function buildRoadGeometry(city: CityData, y = 0.06) {
   const positions: number[] = [];
   const road: number[] = []; // along, across, halfWidth
   const extra: number[] = []; // início da faixa de pedestres no início/fim (-1 = nenhuma), mão única
+  const lane: number[] = []; // faixas por sentido (ou total, se mão única), estacionamento esq./dir.
+  const slots: number[] = []; // início e fim (ao longo) da área de vagas demarcadas
   const indices: number[] = [];
 
   const halfWidthAt = (nodeId: string, except: string) => {
@@ -32,6 +53,12 @@ export function buildRoadGeometry(city: CityData, y = 0.06) {
     const s1 = Math.max(e.length - trimB, e.length / 2);
     if (s1 - s0 < 0.3) continue;
     const hw = e.width / 2;
+    const layout = laneLayout(e);
+    // mesma regra de generateCurbSlots (cityTypes): margens junto aos cruzamentos
+    const margin = (deg: number) => (deg >= 3 ? e.width / 2 + PARKING.junctionClearance : deg === 1 ? 2 : 1);
+    const slotStart = margin(degA);
+    const slotCount = Math.max(0, Math.floor((e.length - margin(degB) - slotStart) / PARKING.slotLength));
+    const slotEnd = slotCount > 0 ? slotStart + slotCount * PARKING.slotLength : -1;
     const nx = -e.dir.z * hw;
     const nz = e.dir.x * hw;
     const base = positions.length / 3;
@@ -43,28 +70,116 @@ export function buildRoadGeometry(city: CityData, y = 0.06) {
       const zebraA = degA >= 3 ? s0 + 0.6 : -1;
       const zebraB = degB >= 3 ? s1 - 0.6 : -1;
       extra.push(zebraA, zebraB, e.oneway ? 1 : 0, zebraA, zebraB, e.oneway ? 1 : 0);
+      lane.push(layout.lanes, layout.left, layout.right, layout.lanes, layout.left, layout.right);
+      slots.push(slotStart, slotEnd, slotStart, slotEnd);
     }
     indices.push(base, base + 1, base + 2, base + 1, base + 3, base + 2);
   }
+
+  // Cruzamentos: polígono convexo pelas "bocas" das ruas, com o mesmo asfalto (sem sinalização)
+  for (const n of city.nodes.values()) {
+    if (n.edges.length < 3) continue;
+    const pts: Vec2[] = [];
+    for (const eid of n.edges) {
+      const e = city.edges.get(eid)!;
+      const out = e.a === n.id ? 1 : -1; // direção saindo do nó
+      const dx = e.dir.x * out;
+      const dz = e.dir.z * out;
+      const trim = Math.min(halfWidthAt(n.id, e.id) + 0.4, e.length / 2);
+      const hw = e.width / 2;
+      const cx = n.position.x + dx * trim;
+      const cz = n.position.z + dz * trim;
+      pts.push({ x: cx - dz * hw, z: cz + dx * hw }, { x: cx + dz * hw, z: cz - dx * hw });
+    }
+    const hull = convexHull(pts);
+    if (hull.length < 3) continue;
+    const base = positions.length / 3;
+    for (const p of hull) {
+      positions.push(p.x, y, p.z);
+      road.push(0, 0, 1000);
+      extra.push(-1, -1, 1);
+      lane.push(1, 0, 0);
+      slots.push(-1, -1);
+    }
+    for (const i of triangulate(hull)) indices.push(base + i);
+  }
+
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   g.setAttribute('aRoad', new THREE.Float32BufferAttribute(road, 3));
   g.setAttribute('aExtra', new THREE.Float32BufferAttribute(extra, 3));
+  g.setAttribute('aLane', new THREE.Float32BufferAttribute(lane, 3));
+  g.setAttribute('aSlots', new THREE.Float32BufferAttribute(slots, 2));
+  g.setIndex(indices);
+  g.computeBoundingSphere();
+  return g;
+}
+
+/** Fecho convexo (cadeia monótona de Andrew). */
+export function convexHull(points: Vec2[]): Vec2[] {
+  const pts = [...points].sort((a, b) => a.x - b.x || a.z - b.z);
+  if (pts.length < 3) return pts;
+  const cross = (o: Vec2, a: Vec2, b: Vec2) => (a.x - o.x) * (b.z - o.z) - (a.z - o.z) * (b.x - o.x);
+  const lower: Vec2[] = [];
+  for (const p of pts) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+    lower.push(p);
+  }
+  const upper: Vec2[] = [];
+  for (let i = pts.length - 1; i >= 0; i--) {
+    const p = pts[i];
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+    upper.push(p);
+  }
+  return lower.slice(0, -1).concat(upper.slice(0, -1));
+}
+
+/** Calçadas: faixa mais larga que a via, sob o asfalto, com discos nos cruzamentos. */
+export function buildSidewalkGeometry(city: CityData, y = 0.03) {
+  const positions: number[] = [];
+  const indices: number[] = [];
+  for (const e of city.edges.values()) {
+    const pa = city.nodes.get(e.a)!.position;
+    const hw = e.width / 2 + sidewalkWidth(e);
+    const nx = -e.dir.z * hw;
+    const nz = e.dir.x * hw;
+    const base = positions.length / 3;
+    for (const s of [0, e.length]) {
+      const cx = pa.x + e.dir.x * s;
+      const cz = pa.z + e.dir.z * s;
+      positions.push(cx - nx, y, cz - nz, cx + nx, y, cz + nz);
+    }
+    indices.push(base, base + 1, base + 2, base + 1, base + 3, base + 2);
+  }
+  const discs = buildJunctionGeometry(city, y, (e) => e.width / 2 + sidewalkWidth(e), 2);
+  const dp = discs.getAttribute('position').array as Float32Array;
+  const offset = positions.length / 3;
+  positions.push(...dp);
+  for (const i of discs.getIndex()!.array) indices.push(i + offset);
+  discs.dispose();
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(positions.map((_, i) => (i % 3 === 1 ? 1 : 0)), 3));
   g.setIndex(indices);
   g.computeBoundingSphere();
   return g;
 }
 
 /** Discos nos nós: preenchem cruzamentos e as emendas das curvas. */
-export function buildJunctionGeometry(city: CityData, y = 0.055) {
+export function buildJunctionGeometry(
+  city: CityData,
+  y = 0.055,
+  radiusOf: (e: CityEdge) => number = (e) => e.width / 2,
+  maxDegree = 2,
+) {
   const positions: number[] = [];
   const indices: number[] = [];
   const SEG = 14;
   for (const n of city.nodes.values()) {
     let r = 0;
-    for (const eid of n.edges) r = Math.max(r, city.edges.get(eid)!.width / 2);
-    if (r <= 0) continue;
-    if (n.edges.length >= 3) r *= 1.12;
+    for (const eid of n.edges) r = Math.max(r, radiusOf(city.edges.get(eid)!));
+    // cruzamentos (grau ≥ 3) são preenchidos por polígonos próprios; aqui só curvas e pontas
+    if (r <= 0 || n.edges.length > maxDegree) continue;
     const base = positions.length / 3;
     positions.push(n.position.x, y, n.position.z);
     for (let k = 0; k < SEG; k++) {
@@ -75,6 +190,12 @@ export function buildJunctionGeometry(city: CityData, y = 0.055) {
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  // atributos neutros para usar o shader do asfalto (sem sinalização)
+  const n = positions.length / 3;
+  g.setAttribute('aRoad', new THREE.Float32BufferAttribute(new Array(n).fill([0, 0, 1000]).flat(), 3));
+  g.setAttribute('aExtra', new THREE.Float32BufferAttribute(new Array(n).fill([-1, -1, 1]).flat(), 3));
+  g.setAttribute('aLane', new THREE.Float32BufferAttribute(new Array(n).fill([1, 0, 0]).flat(), 3));
+  g.setAttribute('aSlots', new THREE.Float32BufferAttribute(new Array(n).fill([-1, -1]).flat(), 2));
   g.setIndex(indices);
   g.computeBoundingSphere();
   return g;

@@ -70,7 +70,13 @@ export function createBuildingMaterial() {
   });
 }
 
-/** Asfalto com faixas. aRoad = (ao longo, através, meia largura) em metros. */
+/**
+ * Asfalto com sinalização horizontal no padrão brasileiro (CTB/Contran):
+ * amarelo separa sentidos opostos, branco separa faixas do mesmo sentido,
+ * vagas demarcadas junto ao meio-fio e faixas de pedestres nos cruzamentos.
+ * aRoad = (ao longo, através, meia largura) · aExtra = (faixa A, faixa B, mão única)
+ * aLane = (faixas, estacionamento esquerdo, estacionamento direito) — tudo em metros.
+ */
 export function createRoadMaterial() {
   return new THREE.ShaderMaterial({
     fog: true,
@@ -78,13 +84,19 @@ export function createRoadMaterial() {
     vertexShader: /* glsl */ `
       attribute vec3 aRoad;
       attribute vec3 aExtra;
+      attribute vec3 aLane;
+      attribute vec2 aSlots;
+      varying vec2 vSlots;
       varying vec3 vRoad;
       varying vec3 vExtra;
+      varying vec3 vLane;
       varying vec3 vWorld;
       #include <fog_pars_vertex>
       void main() {
         vRoad = aRoad;
         vExtra = aExtra;
+        vLane = aLane;
+        vSlots = aSlots;
         vec4 wp = modelMatrix * vec4(position, 1.0);
         vWorld = wp.xyz;
         vec4 mvPosition = viewMatrix * wp;
@@ -95,32 +107,98 @@ export function createRoadMaterial() {
     fragmentShader: /* glsl */ `
       varying vec3 vRoad;
       varying vec3 vExtra;
+      varying vec3 vLane;
+      varying vec2 vSlots;
       varying vec3 vWorld;
       #include <fog_pars_fragment>
       float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+      float noise(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
+      }
+      // linha de largura w (m) centrada em c, com antisserrilhado
+      float stripe(float x, float c, float w, float aa) {
+        return 1.0 - smoothstep(w * 0.5, w * 0.5 + aa, abs(x - c));
+      }
       void main() {
         float along = vRoad.x;
         float across = vRoad.y;
         float hw = vRoad.z;
         float oneway = vExtra.z;
-        vec3 asphalt = vec3(0.035, 0.045, 0.07) + hash(floor(vWorld.xz * 2.0)) * 0.012;
+        float lanes = vLane.x;
+        float L = -hw + vLane.y;
+        float R = hw - vLane.z;
+        float aa = max(fwidth(across), 0.02) * 1.2;
+        float aaAlong = max(fwidth(along), 0.02) * 1.2;
+
+        // asfalto: base + granulação + manchas + desgaste nas trilhas dos pneus
+        float grain = hash(floor(vWorld.xz * 6.0));
+        float patches = noise(vWorld.xz * 0.08);
+        vec3 asphalt = vec3(0.155, 0.16, 0.172) * (0.88 + 0.1 * grain + 0.14 * patches);
         vec3 color = asphalt;
-        // faixa de pedestres junto aos cruzamentos
+        float wear = 0.82 + 0.18 * noise(vWorld.xz * 0.9);
+        vec3 white = vec3(0.86, 0.87, 0.85) * wear;
+        vec3 yellow = vec3(0.86, 0.66, 0.16) * wear;
+
         float zebraA = vExtra.x >= 0.0 ? step(vExtra.x, along) * step(along, vExtra.x + 3.0) : 0.0;
         float zebraB = vExtra.y >= 0.0 ? step(vExtra.y - 3.0, along) * step(along, vExtra.y) : 0.0;
-        float zebraZone = max(zebraA, zebraB);
-        float stripes = step(0.5, fract(across / 1.1)) * step(abs(across), hw - 0.6);
-        color += zebraZone * stripes * vec3(0.55, 0.6, 0.7) * 0.35;
-        // linha central tracejada (só mão dupla)
-        float dash = step(0.45, fract(along / 7.0));
-        float center = (1.0 - smoothstep(0.08, 0.16, abs(across))) * dash * (1.0 - oneway) * (1.0 - zebraZone);
-        color += center * vec3(0.95, 0.78, 0.35) * 0.55;
-        // setas discretas de sentido em vias de mão única
-        float arrow = oneway * (1.0 - zebraZone) * step(abs(across), 0.9 - fract(along / 12.0) * 1.8) * step(fract(along / 12.0), 0.5) * step(0.25, fract(along / 12.0));
-        color += arrow * vec3(0.5, 0.6, 0.8) * 0.18;
-        // meio-fio luminoso
-        float edge = 1.0 - smoothstep(0.0, 0.35, hw - abs(across));
-        color += edge * vec3(0.25, 0.55, 1.0) * 0.45;
+        float zebra = max(zebraA, zebraB);
+        float markOn = 1.0 - zebra;
+        float mid = (L + R) * 0.5;
+
+        float whiteMask = 0.0;
+        float yellowMask = 0.0;
+        if (oneway < 0.5) {
+          // eixo: amarelo duplo contínuo em vias largas, simples tracejado nas estreitas
+          if (lanes >= 2.0) {
+            yellowMask += stripe(across, mid - 0.12, 0.1, aa) + stripe(across, mid + 0.12, 0.1, aa);
+          } else {
+            yellowMask += stripe(across, mid, 0.12, aa) * step(fract(along / 8.0), 0.5);
+          }
+          // divisórias brancas tracejadas dentro de cada sentido
+          for (int k = 1; k < 4; k++) {
+            if (float(k) >= lanes) break;
+            float t = float(k) / lanes;
+            float dash = step(fract(along / 9.0), 0.33);
+            whiteMask += (stripe(across, mid + (R - mid) * t, 0.1, aa) + stripe(across, mid - (mid - L) * t, 0.1, aa)) * dash;
+          }
+        } else {
+          for (int k = 1; k < 5; k++) {
+            if (float(k) >= lanes) break;
+            float dash = step(fract(along / 9.0), 0.33);
+            whiteMask += stripe(across, L + (R - L) * float(k) / lanes, 0.1, aa) * dash;
+          }
+          // setas de sentido no centro de cada faixa, a cada 40 m
+          float cyc = mod(along, 40.0);
+          float laneW = (R - L) / lanes;
+          float inLane = mod(across - L, laneW) - laneW * 0.5;
+          float shaft = step(abs(inLane), 0.12) * step(18.0, cyc) * step(cyc, 20.6);
+          float headT = (cyc - 20.6) / 1.6;
+          float head = step(0.0, headT) * step(headT, 1.0) * step(abs(inLane), 0.55 * (1.0 - headT));
+          whiteMask += (shaft + head) * step(L + 0.3, across) * step(across, R - 0.3);
+        }
+        // bordas: linha contínua onde não há estacionamento
+        if (vLane.y < 0.1) whiteMask += stripe(across, L + 0.3, 0.12, aa);
+        if (vLane.z < 0.1) whiteMask += stripe(across, R - 0.3, 0.12, aa);
+        // vagas demarcadas: limite da faixa de estacionamento + traços a cada 6 m
+        float inParking = step(across, L) * step(0.1, vLane.y) + step(R, across) * step(0.1, vLane.z);
+        // traços nos limites de cada vaga (mesmas posições das vagas da simulação)
+        float dBay = abs(mod(along - vSlots.x + 3.0, 6.0) - 3.0);
+        float inSlots = step(vSlots.x - 0.1, along) * step(along, vSlots.y + 0.1);
+        float bayTick = (1.0 - smoothstep(0.05, 0.05 + aaAlong, dBay)) * inSlots;
+        whiteMask += inParking * bayTick * 0.9;
+        if (vLane.y > 0.1) whiteMask += stripe(across, L, 0.1, aa) * 0.8;
+        if (vLane.z > 0.1) whiteMask += stripe(across, R, 0.1, aa) * 0.8;
+
+        color = mix(color, yellow, clamp(yellowMask, 0.0, 1.0) * markOn);
+        color = mix(color, white, clamp(whiteMask, 0.0, 1.0) * markOn);
+        // faixa de pedestres
+        float bars = step(0.5, fract(across / 1.0)) * step(abs(across), hw - 0.4);
+        color = mix(color, white, zebra * bars);
+        // meio-fio: leve escurecimento junto à calçada
+        color *= 1.0 - 0.35 * (1.0 - smoothstep(0.0, 0.3, hw - abs(across)));
         gl_FragColor = vec4(color, 1.0);
         #include <fog_fragment>
       }
@@ -128,7 +206,40 @@ export function createRoadMaterial() {
   });
 }
 
-/** Chão infinito com grade técnica que desaparece na distância. */
+/** Calçada de concreto com juntas de dilatação. */
+export function createSidewalkMaterial() {
+  return new THREE.ShaderMaterial({
+    fog: true,
+    uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog]),
+    vertexShader: /* glsl */ `
+      varying vec3 vWorld;
+      #include <fog_pars_vertex>
+      void main() {
+        vec4 wp = modelMatrix * vec4(position, 1.0);
+        vWorld = wp.xyz;
+        vec4 mvPosition = viewMatrix * wp;
+        gl_Position = projectionMatrix * mvPosition;
+        #include <fog_vertex>
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      varying vec3 vWorld;
+      #include <fog_pars_fragment>
+      float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+      void main() {
+        vec2 cell = vWorld.xz / 1.5;
+        vec2 g = abs(fract(cell) - 0.5);
+        float joint = 1.0 - smoothstep(0.46, 0.5, max(g.x, g.y));
+        float tone = hash(floor(cell));
+        vec3 color = vec3(0.33, 0.335, 0.34) * (0.92 + 0.12 * tone) * (0.86 + 0.14 * joint);
+        gl_FragColor = vec4(color, 1.0);
+        #include <fog_fragment>
+      }
+    `,
+  });
+}
+
+/** Chão (terreno entre as ruas): tom neutro com variação sutil, sem grade. */
 export function createGroundMaterial() {
   return new THREE.ShaderMaterial({
     fog: true,
@@ -147,10 +258,16 @@ export function createGroundMaterial() {
     fragmentShader: /* glsl */ `
       varying vec3 vWorld;
       #include <fog_pars_fragment>
+      float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+      float noise(vec2 p) {
+        vec2 i = floor(p);
+        vec2 f = fract(p);
+        f = f * f * (3.0 - 2.0 * f);
+        return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), f.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), f.x), f.y);
+      }
       void main() {
-        vec2 g = abs(fract(vWorld.xz / 52.0 - 0.5) - 0.5) / fwidth(vWorld.xz / 52.0);
-        float line = 1.0 - min(min(g.x, g.y), 1.0);
-        vec3 color = vec3(0.018, 0.024, 0.04) + line * vec3(0.06, 0.12, 0.22) * 0.5;
+        float n = noise(vWorld.xz * 0.03) * 0.6 + noise(vWorld.xz * 0.2) * 0.4;
+        vec3 color = mix(vec3(0.085, 0.095, 0.09), vec3(0.11, 0.12, 0.105), n);
         gl_FragColor = vec4(color, 1.0);
         #include <fog_fragment>
       }
@@ -181,7 +298,7 @@ export function createWaterMaterial() {
       void main() {
         float w = sin(vWorld.x * 0.05 + uTime * 0.8) * sin(vWorld.z * 0.07 - uTime * 0.6);
         float sparkle = smoothstep(0.85, 1.0, w);
-        vec3 color = vec3(0.01, 0.04, 0.08) + sparkle * vec3(0.1, 0.35, 0.55) * 0.5;
+        vec3 color = vec3(0.04, 0.09, 0.14) + sparkle * vec3(0.1, 0.25, 0.35) * 0.35;
         gl_FragColor = vec4(color, 1.0);
         #include <fog_fragment>
       }

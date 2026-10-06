@@ -64,6 +64,8 @@ export interface AppState {
   qualityOverride: 'auto' | QualityTier;
   detectedTier: QualityTier;
   voice: boolean;
+  /** prédios 3D (desligado por padrão: o mapa mostra só ruas, vagas e carros) */
+  showBuildings: boolean;
   simSpeed: 1 | 2 | 4;
   locationSource: 'simulada' | 'gps';
   parkedAt: number | null;
@@ -106,6 +108,7 @@ export const appStore = createStore<AppState>({
   qualityOverride: prefs.qualityOverride ?? 'auto',
   detectedTier: 'medium',
   voice: prefs.voice ?? true,
+  showBuildings: prefs.showBuildings ?? false,
   simSpeed: prefs.simSpeed ?? 1,
   locationSource: 'simulada',
   parkedAt: null,
@@ -121,7 +124,13 @@ function savePrefs() {
   try {
     localStorage.setItem(
       PREFS_KEY,
-      JSON.stringify({ driverMode: s.driverMode, qualityOverride: s.qualityOverride, voice: s.voice, simSpeed: s.simSpeed }),
+      JSON.stringify({
+        driverMode: s.driverMode,
+        qualityOverride: s.qualityOverride,
+        voice: s.voice,
+        simSpeed: s.simSpeed,
+        showBuildings: s.showBuildings,
+      }),
     );
   } catch {
     /* ignora */
@@ -340,6 +349,11 @@ export const actions = {
 
   setQuality(q: AppState['qualityOverride']) {
     set({ qualityOverride: q });
+    savePrefs();
+  },
+
+  toggleBuildings() {
+    set((s) => ({ showBuildings: !s.showBuildings }));
     savePrefs();
   },
 
