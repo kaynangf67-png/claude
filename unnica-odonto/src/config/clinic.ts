@@ -43,11 +43,10 @@ export interface FaqItem {
  * Número do WhatsApp no formato internacional, só dígitos:
  * 55 + DDD + número. Ex.: 5527999999999
  *
- * Observado na porta de vidro da clínica (com ícone de WhatsApp):
- *   (27) 99279-6863  e  (27) 99278-3120
- * Confirme com a clínica QUAL deles atende pelo WhatsApp antes de usar.
+ * (27) 99278-3120 — confirmado como WhatsApp da clínica.
+ * Na porta também aparece (27) 99279-6863.
  */
-export const WHATSAPP_NUMBER = '55XXXXXXXXXXX';
+export const WHATSAPP_NUMBER = '5527992783120';
 
 export const clinic = {
   /**

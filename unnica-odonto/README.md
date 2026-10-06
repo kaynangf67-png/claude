@@ -22,7 +22,6 @@ Nenhuma informação da clínica foi inventada.
 
 | Campo | Onde | Observação |
 |---|---|---|
-| `WHATSAPP_NUMBER` | clinic.ts | Na porta aparecem (27) 99279-6863 e (27) 99278-3120. Confirmar qual é o WhatsApp. |
 | Nome da marca | `clinic.name` | Fotos mostram **UNNICA** (dois N). Confirmar a grafia oficial. |
 | Tratamentos | `treatments` | 6 placeholders. Substituir pela lista oficial. |
 | Responsável técnico + CRO | `technicalLead`, `clinicRegistration` | Exigido pelo Código de Ética Odontológica na divulgação. |
