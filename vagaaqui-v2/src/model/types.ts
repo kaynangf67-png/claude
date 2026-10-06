@@ -46,6 +46,8 @@ export interface Report {
   trust: number;
   /** relato gerado pela demonstração (nunca enviado ao servidor) */
   simulated?: boolean;
+  /** onde foi feito — usado para ligar o relato ao trecho certo mesmo se o ID mudar */
+  pos?: LonLat;
 }
 
 export type ChanceLevel = 'high' | 'medium' | 'low' | 'unknown';

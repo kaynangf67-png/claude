@@ -139,11 +139,19 @@ export async function runForecast(full: boolean) {
     } catch {
       toast('Sem conexão com o servidor — usando só o histórico');
     }
+    // liga cada relato ao trecho onde ele foi feito (as ruas podem vir de fontes diferentes)
+    const ids = new Set(segments.map((x) => x.id));
+    reports = reports.flatMap((r) => {
+      if (ids.has(r.segmentId)) return [r];
+      const near = r.pos ? nearestSegment(segments, r.pos, 35) : null;
+      return near ? [{ ...r, segmentId: near.id }] : [];
+    });
     if (s.settings.demo && !hasBackend()) reports = reports.concat(demoReports(segments, now));
 
     const forecast = forecastDestination({ segments, reports, destination: dest.pos, now, etaMin, radiusM: s.settings.radiusM });
     if (ctrl.signal.aborted) return;
     setState({ segments, lots, streetSource, eta, forecast, loading: false, error: null });
+    (window as unknown as { __vqStreetSource?: string }).__vqStreetSource = streetSource ?? undefined; // diagnóstico/testes
     if (full) {
       const ms = Math.round(performance.now() - t0);
       getStore().track({ name: 'forecast_shown', at: now, props: { ms, sinceOpenMs: firstForecastTracked ? null : now - s.openedAt, level: forecast.level, p: +forecast.overall.toFixed(3), reports: forecast.best.reduce((n, b) => n + b.reportsUsed, 0), streets: streetSource } });

@@ -7,7 +7,9 @@ import { useEffect, useRef } from 'react';
 import { getState, setState, subscribe, toast, type AppState } from '../app/state';
 import { resolveTheme, type ResolvedTheme } from '../app/theme';
 import { config } from '../config';
-import { bboxAround, bearing as bearingTo } from '../lib/geo';
+import { setTileStreetProvider } from '../data/streets';
+import { segmentsFromTiles, type TilePoi, type TileRoad } from '../data/tileStreets';
+import { bboxAround, bearing as bearingTo, distance, type LonLat } from '../lib/geo';
 import { levelOf } from '../model/forecast';
 import { LEVEL_COLOR } from './colors';
 
@@ -116,7 +118,52 @@ export default function MapView() {
     map.on('style.load', () => {
       if (!usingFallback) styleOk = true;
       clearTimeout(fallbackTimer);
+      // mapa plano e limpo: sem prédios 3D
+      for (const l of map.getStyle().layers ?? []) if (l.type === 'fill-extrusion') map.removeLayer(l.id);
+      map.setPitch(0);
       addLayers();
+    });
+
+    // ---- ruas lidas das peças vetoriais do próprio mapa (instantâneo, sem Overpass) ----
+    const waitFor = (ev: 'idle' | 'style.load', ms: number) =>
+      new Promise<void>((res) => {
+        const t = setTimeout(res, ms);
+        map.once(ev, () => {
+          clearTimeout(t);
+          res();
+        });
+      });
+    const vectorSource = () => Object.entries(map.getStyle()?.sources ?? {}).find(([, src]) => src.type === 'vector')?.[0];
+    setTileStreetProvider(async (center) => {
+      if (!styleOk && !usingFallback) await waitFor('style.load', 4000);
+      if (usingFallback || !styleOk) return null;
+      const src = vectorSource();
+      if (!src) return null;
+      // enquadra a área toda de caminhada para o mapa carregar todas as peças em volta
+      const b = bboxAround(center, 650);
+      const want: [[number, number], [number, number]] = [
+        [b.west, b.south],
+        [b.east, b.north],
+      ];
+      const cur = map.getBounds();
+      if (!cur.contains([b.west, b.south]) || !cur.contains([b.east, b.north]) || distance([cur.getCenter().lng, cur.getCenter().lat], center) > 300) {
+        map.fitBounds(want, { animate: false, padding: 0, maxZoom: 15 });
+      }
+      await new Promise((r) => setTimeout(r, 0));
+      if (!map.areTilesLoaded()) await waitFor('idle', 6000);
+      const roads: TileRoad[] = [];
+      for (const f of map.querySourceFeatures(src, { sourceLayer: 'transportation_name' })) {
+        const g = f.geometry;
+        const lines = g.type === 'LineString' ? [g.coordinates as LonLat[]] : g.type === 'MultiLineString' ? (g.coordinates as LonLat[][]) : [];
+        const name = String(f.properties?.name ?? f.properties?.['name:latin'] ?? '');
+        roads.push({ name, cls: String(f.properties?.class ?? ''), lines });
+      }
+      const pois: TilePoi[] = [];
+      for (const f of map.querySourceFeatures(src, { sourceLayer: 'poi' })) {
+        if (f.geometry.type !== 'Point') continue;
+        pois.push({ cls: String(f.properties?.class ?? ''), name: f.properties?.name ? String(f.properties.name) : undefined, pos: f.geometry.coordinates as LonLat });
+      }
+      return segmentsFromTiles(roads, pois, center, 700);
     });
     map.on('click', 'seg', (e) => {
       const id = e.features?.[0]?.properties?.id as string | undefined;
@@ -208,7 +255,7 @@ export default function MapView() {
       if (s.dest && !s.nav && s.dest.pos !== flewToDest && !s.forecast) {
         // mostra o destino na hora, antes da previsão chegar
         flewToDest = s.dest.pos;
-        map.easeTo({ center: s.dest.pos, zoom: 16, bearing: 0, duration: 500 });
+        map.easeTo({ center: s.dest.pos, zoom: 15.5, bearing: 0, duration: 400 });
       }
       if (s.forecast && s.dest && !s.nav && s.dest.pos !== framedDest) {
         framedDest = s.dest.pos;
@@ -245,6 +292,7 @@ export default function MapView() {
     sync();
 
     return () => {
+      setTileStreetProvider(null);
       unsub();
       clearTimeout(fallbackTimer);
       window.removeEventListener('vq:recenter', onRecenter);

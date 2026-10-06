@@ -4,7 +4,7 @@ MVP de micro SaaS para motoristas. Você digita o destino e, em segundos, o app 
 
 Feito do zero, simples e rápido: mapa 2D (MapLibre), app instalável pelo navegador (PWA), sem 3D.
 
-**Tema claro (padrão) e escuro**, com o mapa acompanhando. Também há o modo "automático", que segue o celular (Configurações → Aparência).
+**Tema claro (padrão, mapa branco e plano, sem 3D) e escuro**, com o mapa acompanhando. Também há o modo "automático", que segue o celular (Configurações → Aparência).
 
 ## Como funciona
 
@@ -31,7 +31,7 @@ Feito do zero, simples e rápido: mapa 2D (MapLibre), app instalável pelo naveg
 | Relatos recentes (achei / lotado / saindo) | alto, decai com meia-vida de 6–15 min | ✅ no aparelho; compartilhado com Supabase |
 | Detecção automática de estacionar/sair (opt-in) | 60% de um relato manual | ✅ testada com trajetos simulados, não em carro real |
 | Histórico por hora × dia × tipo de área | equivale a 1 relato | ⚠️ **estimativa inicial**: precisa ser calibrada com o piloto |
-| Ruas, proibição de estacionar, Zona Azul, estacionamentos | — | ✅ OpenStreetMap (qualidade varia por cidade) |
+| Ruas, estacionamentos, comércio | — | ✅ lidos das peças do próprio mapa (OpenMapTiles/OpenFreeMap), instantâneo; reserva: OpenStreetMap via Overpass (também traz proibição de estacionar e Zona Azul) |
 | Comércio/serviços perto da rua (define rua comercial) | — | ✅ OpenStreetMap |
 
 ### Modelo (`src/model/forecast.ts`)
@@ -98,7 +98,7 @@ O app registra (Menu → Painel do piloto; no servidor, `metrics_overview`):
   - worker do mapa: 511 kB sem compressão.
 
 ## Testes
-- **Unitários (47)** cobrem:
+- **Unitários (52)** cobrem:
   - modelo: decaimento, projeção para a chegada, limites 3–95%, ranking, ruas diferentes;
   - histórico;
   - detector de estacionar: semáforo, ficar no carro, ônibus, leituras imprecisas;
@@ -128,5 +128,5 @@ O app registra (Menu → Painel do piloto; no servidor, `metrics_overview`):
   - o mapa de fundo da OpenFreeMap (a rede de teste bloqueia esses serviços).
 - **Photon, Overpass e OSRM públicos têm limite de uso.** O servidor público do OSRM é só de demonstração. Com volume, hospede os seus.
 - **A navegação não foi testada num carro de verdade**, só com GPS simulado. Ela é básica: não tem faixas, radares nem trânsito em tempo real. Para isso, o Waze continua a um toque.
-- **Ruas (Overpass):** o app pede ao servidor principal e, se ele não responder em 1,5 s, chama o reserva. Se todos falharem, aparece uma mensagem de erro. Não existe mais "cidade de demonstração".
+- **Ruas:** vêm do próprio mapa da tela (instantâneo, sem servidor extra). Nessa fonte não há as marcações de "proibido estacionar" e Zona Azul. Só se o mapa de fundo falhar o app usa o Overpass: pede ao servidor principal e, se ele não responder em 3 s, chama o reserva. Se todos falharem, aparece uma mensagem de erro. Não existe mais "cidade de demonstração".
 - **Push** (avisar "saia agora" com o app fechado) não está no MVP. Hoje o aviso aparece só com o app aberto.

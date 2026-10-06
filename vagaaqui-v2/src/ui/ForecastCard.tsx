@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { addFavorite, clearDestination, navigate, openArrival, setArriveAt, startNavigation } from '../app/controller';
+import { addFavorite, clearDestination, navigate, openArrival, runForecast, setArriveAt, startNavigation } from '../app/controller';
 import { isPro } from '../app/plan';
 import { setState, useApp } from '../app/state';
 import { distance } from '../lib/geo';
@@ -54,7 +54,14 @@ export function ForecastCard() {
           <p className="muted">Lendo as ruas e os relatos perto do destino…</p>
         </div>
       )}
-      {error && !f && <p className="error">Não foi possível calcular agora: {error}</p>}
+      {error && !f && (
+        <div className="error-box">
+          <p className="error">Não foi possível calcular agora: {error}</p>
+          <button className="btn primary big" onClick={() => void runForecast(true)}>
+            Tentar de novo
+          </button>
+        </div>
+      )}
 
       {f && (
         <>

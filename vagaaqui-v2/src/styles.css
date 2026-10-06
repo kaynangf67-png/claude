@@ -935,3 +935,7 @@ button {
 .mk-rank.lv-high {
   color: #06130a;
 }
+.error-box {
+  display: grid;
+  gap: 8px;
+}

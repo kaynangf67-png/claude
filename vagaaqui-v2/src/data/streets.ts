@@ -3,7 +3,7 @@ import type { LonLat } from '../lib/geo';
 import type { ParkingLot, Segment } from '../model/types';
 import { buildSegments, overpassQuery, type OverpassElement } from './osm';
 
-export type StreetSource = 'osm' | 'cache';
+export type StreetSource = 'map' | 'osm' | 'cache';
 
 export interface StreetData {
   segments: Segment[];
@@ -16,7 +16,7 @@ const CACHE_DAYS = 7;
 const CACHE_MAX = 12;
 /** raio baixado: o maior raio de caminhada (600 m) + folga */
 export const STREET_RADIUS_M = 700;
-const TIMEOUT_MS = 9000;
+const TIMEOUT_MS = 25000;
 
 /** chave da área: grade de ~250 m, para destinos vizinhos reaproveitarem o download */
 function areaKey(c: LonLat) {
@@ -64,7 +64,7 @@ function writeCache(key: string, data: StreetData) {
  * próximo (e assim por diante) e fica com o primeiro que chegar. Rápido quando um
  * servidor está lento, sem triplicar a carga nos servidores públicos.
  */
-const HEDGE_MS = 1500;
+const HEDGE_MS = 3000;
 async function fetchOverpass(center: LonLat): Promise<OverpassElement[]> {
   const body = 'data=' + encodeURIComponent(overpassQuery(center, STREET_RADIUS_M));
   const ctrls = config.overpassUrls.map(() => new AbortController());
@@ -107,8 +107,16 @@ async function fetchOverpass(center: LonLat): Promise<OverpassElement[]> {
   }
 }
 
+/** Leitor de ruas a partir do mapa na tela (registrado pelo MapView). */
+type TileProvider = (center: LonLat) => Promise<{ segments: Segment[]; lots: ParkingLot[] } | null>;
+let tileProvider: TileProvider | null = null;
+export function setTileStreetProvider(p: TileProvider | null) {
+  tileProvider = p;
+}
+
 /**
- * Ruas em volta de um ponto: memória → aparelho (7 dias) → OpenStreetMap.
+ * Ruas em volta de um ponto: memória → aparelho (7 dias) → peças do mapa na tela
+ * (instantâneo) → OpenStreetMap/Overpass (reserva, mais lento).
  * Downloads da mesma área são compartilhados (pré-carregamento + seleção não baixam duas vezes).
  */
 export function loadStreets(center: LonLat): Promise<StreetData> {
@@ -117,19 +125,30 @@ export function loadStreets(center: LonLat): Promise<StreetData> {
   if (cached && cached.segments.length) return Promise.resolve(cached);
   const inflight = pending.get(key);
   if (inflight) return inflight;
-  const p = fetchOverpass(center)
-    .then((elements) => {
-      const { segments, lots } = buildSegments(elements);
-      const data: StreetData = { segments, lots, source: 'osm' };
-      if (segments.length) writeCache(key, data);
-      return data;
-    })
-    .finally(() => pending.delete(key));
+  const p = (async (): Promise<StreetData> => {
+    if (tileProvider) {
+      try {
+        const fromMap = await tileProvider(center);
+        if (fromMap && fromMap.segments.length >= 3) {
+          const data: StreetData = { ...fromMap, source: 'map' };
+          memory.set(key, data); // não grava no aparelho: o mapa já tem cache próprio
+          return data;
+        }
+      } catch {
+        /* segue para o Overpass */
+      }
+    }
+    const { segments, lots } = buildSegments(await fetchOverpass(center));
+    const data: StreetData = { segments, lots, source: 'osm' };
+    if (segments.length) writeCache(key, data);
+    return data;
+  })().finally(() => pending.delete(key));
   pending.set(key, p);
   return p;
 }
 
-/** Começa a baixar as ruas de um lugar antes do toque (ex.: 1º resultado da busca). */
+/** Começa a baixar as ruas de um lugar antes do toque (ex.: 1º resultado da busca). Só via Overpass quando o mapa não tem as ruas. */
 export function prefetchStreets(center: LonLat) {
+  if (tileProvider) return; // o mapa lê as ruas na hora; não gasta o Overpass à toa
   loadStreets(center).catch(() => undefined);
 }

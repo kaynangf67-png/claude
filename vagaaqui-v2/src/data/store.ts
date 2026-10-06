@@ -111,7 +111,7 @@ export class SupabaseStore implements DataStore {
   }
   async getReports(b: BBox, sinceMs: number) {
     const q = new URLSearchParams();
-    q.set('select', 'id,segment_id,kind,created_at,trust');
+    q.set('select', 'id,segment_id,kind,created_at,trust,lat,lon');
     q.append('lon', `gte.${b.west}`);
     q.append('lon', `lte.${b.east}`);
     q.append('lat', `gte.${b.south}`);
@@ -120,15 +120,15 @@ export class SupabaseStore implements DataStore {
     q.set('limit', '2000');
     const res = await fetch(`${this.url}/rest/v1/reports?${q}`, { headers: this.headers() });
     if (!res.ok) throw new Error(`Supabase ${res.status}`);
-    const rows = (await res.json()) as { id: string; segment_id: string; kind: ReportKind; created_at: string; trust: number }[];
-    return rows.map((r) => ({ id: r.id, segmentId: r.segment_id, kind: r.kind, at: Date.parse(r.created_at), trust: r.trust }));
+    const rows = (await res.json()) as { id: string; segment_id: string; kind: ReportKind; created_at: string; trust: number; lat: number; lon: number }[];
+    return rows.map((r) => ({ id: r.id, segmentId: r.segment_id, kind: r.kind, at: Date.parse(r.created_at), trust: r.trust, pos: [r.lon, r.lat] as LonLat }));
   }
   async addReport(r: NewReport) {
     const body = { segment_id: r.segmentId, kind: r.kind, lon: r.pos[0], lat: r.pos[1], trust: r.trust, device_id: deviceId() };
     const res = await fetch(`${this.url}/rest/v1/reports`, { method: 'POST', headers: this.headers({ Prefer: 'return=representation' }), body: JSON.stringify(body) });
     if (!res.ok) throw new Error(`Supabase ${res.status}`);
     const [row] = (await res.json()) as { id: string; created_at: string }[];
-    return { id: row.id, segmentId: r.segmentId, kind: r.kind, at: Date.parse(row.created_at), trust: r.trust };
+    return { id: row.id, segmentId: r.segmentId, kind: r.kind, at: Date.parse(row.created_at), trust: r.trust, pos: r.pos };
   }
   track(e: MetricEvent) {
     this.local.track(e);

@@ -9,7 +9,7 @@ export const config = {
   /** centro usado quando o GPS não está disponível (padrão: Vitória-ES) */
   defaultCenter: [num(env.VITE_DEFAULT_LON, -40.2976), num(env.VITE_DEFAULT_LAT, -20.3155)] as LonLat,
   /** estilos do mapa de fundo por tema (MapLibre) */
-  mapStyleLight: (env.VITE_MAP_STYLE_LIGHT as string | undefined) || 'https://tiles.openfreemap.org/styles/liberty',
+  mapStyleLight: (env.VITE_MAP_STYLE_LIGHT as string | undefined) || 'https://tiles.openfreemap.org/styles/positron',
   mapStyleDark: (env.VITE_MAP_STYLE_DARK as string | undefined) || 'https://tiles.openfreemap.org/styles/dark',
   /** servidor de rotas OSRM (navegação dentro do app). O público é só para testes — em produção, hospede o seu. */
   routerUrl: (env.VITE_ROUTER_URL as string | undefined) || 'https://router.project-osrm.org',

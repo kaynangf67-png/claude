@@ -23,7 +23,7 @@ describe('download das ruas (Overpass)', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it('principal lento: o reserva entra depois de 1,5 s e vence', async () => {
+  it('principal lento: o reserva entra depois de 3 s e vence', async () => {
     vi.useFakeTimers();
     const calls: string[] = [];
     vi.stubGlobal('fetch', (url: string, init: RequestInit) => {
@@ -33,7 +33,7 @@ describe('download das ruas (Overpass)', () => {
     });
     const { loadStreets } = await import('./streets');
     const p = loadStreets([-40.31, -20.31]);
-    await vi.advanceTimersByTimeAsync(1000);
+    await vi.advanceTimersByTimeAsync(2500);
     expect(calls.length).toBe(1);
     await vi.advanceTimersByTimeAsync(600);
     const d = await p;
@@ -67,5 +67,21 @@ describe('download das ruas (Overpass)', () => {
     vi.stubGlobal('fetch', async () => new Response('down', { status: 503 }));
     const { loadStreets } = await import('./streets');
     await expect(loadStreets([-40.34, -20.34])).rejects.toThrow(/Não consegui baixar as ruas/);
+  });
+
+  it('com o mapa carregado, lê as ruas dele e NÃO chama o Overpass', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify(elements)));
+    vi.stubGlobal('fetch', fetchMock);
+    const { loadStreets, setTileStreetProvider } = await import('./streets');
+    const seg = (id: string) => ({ id, name: id, line: [[-40.3, -20.3], [-40.299, -20.3]] as [number, number][], mid: [-40.2995, -20.3] as [number, number], lengthM: 100, capacity: 10, profile: 'mixed' as const, noParking: false, paid: false });
+    setTileStreetProvider(async () => ({ segments: [seg('a'), seg('b'), seg('c')], lots: [] }));
+    const d = await loadStreets([-40.35, -20.35]);
+    expect(d.source).toBe('map');
+    expect(fetchMock).not.toHaveBeenCalled();
+    // mapa sem ruas (ex.: fundo indisponível) → cai para o Overpass
+    setTileStreetProvider(async () => null);
+    const d2 = await loadStreets([-40.36, -20.36]);
+    expect(d2.source).toBe('osm');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
