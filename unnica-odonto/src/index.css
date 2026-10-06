@@ -1,0 +1,147 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Manrope', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Instrument Serif', ui-serif, Georgia, 'Times New Roman', serif;
+
+  /* Azul da marca: parede da recepção (petróleo) e um navy de autoridade */
+  --color-navy-950: #061527;
+  --color-navy-900: #0b2540;
+  --color-navy-800: #12345a;
+  --color-navy-700: #1b4670;
+  --color-petrol-600: #1f5a78;
+  --color-petrol-500: #2d6f91;
+  --color-mist-100: #eef3f7;
+  --color-mist-50: #f6f9fb;
+
+  /* Madeira e areia: balcão, pilar e iluminação quente das fotos */
+  --color-wood-600: #8a5a36;
+  --color-wood-500: #a8724a;
+  --color-wood-300: #d9b997;
+  --color-sand-100: #f4efe8;
+  --color-sand-50: #faf8f4;
+
+  --color-ink: #0f1d2c;
+  --color-muted: #4f5f70;
+
+  --color-whatsapp: #0e7a45;
+  --color-whatsapp-hover: #0b6539;
+
+  --shadow-soft: 0 1px 2px rgb(11 37 64 / 0.04), 0 8px 24px -12px rgb(11 37 64 / 0.12);
+  --shadow-lift: 0 2px 4px rgb(11 37 64 / 0.05), 0 20px 40px -20px rgb(11 37 64 / 0.25);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-white font-sans text-ink antialiased;
+    overflow-x: clip;
+  }
+  ::selection {
+    background: var(--color-navy-900);
+    color: white;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-petrol-500);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+  img {
+    max-width: 100%;
+  }
+}
+
+@layer components {
+  .container-site {
+    @apply mx-auto w-full max-w-[1200px] px-5 sm:px-8;
+  }
+  .eyebrow {
+    @apply inline-flex items-center gap-3 text-[0.75rem] font-semibold tracking-[0.18em] text-petrol-600 uppercase;
+  }
+  .eyebrow::before {
+    content: '';
+    @apply h-px w-8 bg-wood-500;
+  }
+  .heading-xl {
+    @apply font-display text-[2.6rem] leading-[1.02] tracking-[-0.01em] sm:text-6xl lg:text-[4.4rem];
+  }
+  .heading-lg {
+    @apply font-display text-[2.2rem] leading-[1.06] tracking-[-0.005em] sm:text-5xl;
+  }
+  .lead {
+    @apply text-[1.05rem] leading-relaxed text-muted sm:text-lg;
+  }
+
+  .btn {
+    @apply inline-flex min-h-12 items-center justify-center gap-2.5 rounded-full px-6 text-[0.95rem] font-semibold transition-[background-color,color,box-shadow,transform] duration-200 ease-out;
+  }
+  .btn:active {
+    transform: translateY(1px);
+  }
+  .btn-whatsapp {
+    @apply bg-whatsapp text-white shadow-[0_8px_20px_-8px_rgb(14_122_69/0.5)] hover:bg-whatsapp-hover;
+  }
+  .btn-primary {
+    @apply bg-navy-900 text-white hover:bg-navy-800;
+  }
+  .btn-ghost {
+    @apply border border-navy-900/15 bg-white/60 text-navy-900 backdrop-blur hover:border-navy-900/30 hover:bg-white;
+  }
+  .btn-light {
+    @apply bg-white text-navy-900 hover:bg-sand-100;
+  }
+
+  /* Conteúdo aguardando preenchimento pela clínica */
+  .pending {
+    @apply rounded-[4px] bg-wood-300/25 px-1 text-wood-600 decoration-wood-500/60 decoration-dotted underline-offset-4;
+    text-decoration-line: underline;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+  .on-dark .pending {
+    @apply bg-white/10 text-wood-300 decoration-wood-300/60;
+  }
+}
+
+@media (max-width: 1023.98px) {
+  .hero .pending {
+    @apply bg-white/10 text-wood-300 decoration-wood-300/60;
+  }
+}
+
+/* Revelação ao rolar: só anima quando JS e movimento estão disponíveis */
+@media (prefers-reduced-motion: no-preference) {
+  .js .reveal {
+    opacity: 0;
+    transform: translateY(18px);
+    transition:
+      opacity 0.8s cubic-bezier(0.2, 0.7, 0.2, 1),
+      transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+  .js .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+dialog::backdrop {
+  background: rgb(6 21 39 / 0.55);
+  backdrop-filter: blur(4px);
+}
