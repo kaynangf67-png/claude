@@ -48,6 +48,13 @@ export interface FaqItem {
  */
 export const WHATSAPP_NUMBER = '5527992783120';
 
+/**
+ * Modo de revisão. false (apresentação/produção): campos ainda não
+ * preenchidos ficam ocultos e o site parece completo, sem inventar dados.
+ * true: mostra os marcadores "[a preencher]" para revisão interna.
+ */
+export const SHOW_PENDING = false;
+
 export const clinic = {
   /**
    * Nome exibido no site. Nas fotos (parede da recepção e porta)
@@ -181,7 +188,9 @@ export const faq: FaqItem[] = [
   { question: 'Quais formas de pagamento estão disponíveis?', answer: CONFIRM },
   {
     question: 'Como chegar até a clínica?',
-    answer: 'O endereço e o link para o mapa estão no rodapé desta página. ' + CONFIRM,
+    answer: clinic.address.street
+      ? 'O endereço e o link para o mapa estão no rodapé desta página. ' + CONFIRM
+      : 'Peça a localização pelo WhatsApp: nossa equipe envia o endereço e o link do mapa.',
   },
   {
     question: 'Preciso fazer uma avaliação antes de iniciar um tratamento?',

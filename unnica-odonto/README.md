@@ -15,8 +15,10 @@ npm run build     # gera dist/ (site estático, pronto para Vercel/Netlify/qualq
 responsável técnico, tratamentos, FAQ e mensagens do WhatsApp.
 Title, meta description, Open Graph e Schema.org são gerados no build a partir desse arquivo.
 
-Campos vazios aparecem no site com um marcador `[a preencher]` em tom de madeira.
-Nenhuma informação da clínica foi inventada.
+Nenhuma informação da clínica foi inventada. Campos vazios ficam **ocultos** (modo apresentação).
+Para revisar o que falta, mude `SHOW_PENDING` para `true` em `clinic.ts`: os campos vazios
+aparecem com o marcador `[a preencher]`. Enquanto não houver tratamentos confirmados, a seção
+Tratamentos mostra um convite para consultar pelo WhatsApp.
 
 ## Pendências antes de publicar
 
@@ -29,7 +31,7 @@ Nenhuma informação da clínica foi inventada.
 | Instagram, horários | `instagram`, `openingHours` | Na porta: "@unnicaodonto…" (parcialmente coberto). |
 | História e equipe | `history` | Seção "Conheça a Unnica Odonto". |
 | URL do site | `siteUrl` | Necessária para canonical, og:url e Schema.org. |
-| Autorização de imagem | `src/assets/atendimento.*` | A foto mostra um paciente. Usar só com termo de autorização assinado; senão, remover. |
+| Foto de atendimento | — | Removida porque mostra um paciente. Só volta com o termo de autorização de imagem assinado. |
 | Logo oficial | `Wordmark` em `src/components/ui.tsx` | Hoje é uma marca tipográfica provisória. Trocar por SVG oficial. |
 | Fotos em alta resolução | `src/assets/` | As atuais têm ~600 px de largura (capturas de tela). Fotos originais deixam o site visivelmente mais nítido. |
 

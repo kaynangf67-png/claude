@@ -1,5 +1,5 @@
 import { ArrowDown, MapPin } from 'lucide-react';
-import { clinic, whatsappMessages } from '../config/clinic';
+import { clinic, SHOW_PENDING, whatsappMessages } from '../config/clinic';
 import { photos } from '../lib/photos';
 import { Pending } from './Pending';
 import { Photo, WhatsAppLink } from './ui';
@@ -30,7 +30,7 @@ export function Hero() {
             {clinic.cityLabel ? (
               <span className="text-white/70 lg:text-muted"> · {clinic.cityLabel}</span>
             ) : (
-              <span className="normal-case tracking-normal">
+              SHOW_PENDING && <span className="normal-case tracking-normal">
                 · <Pending>[cidade]</Pending>
               </span>
             )}
@@ -54,6 +54,7 @@ export function Hero() {
             </a>
           </div>
 
+          {(clinic.address.street || SHOW_PENDING) && (
           <p className="reveal mt-6 flex items-start gap-2 text-sm text-white/75 lg:text-muted" style={{ ['--reveal-delay' as string]: '300ms' }}>
             <MapPin className="mt-0.5 size-4 shrink-0 text-wood-300 lg:text-wood-500" aria-hidden="true" />
             {clinic.address.street ? (
@@ -65,6 +66,7 @@ export function Hero() {
               <Pending>[Endereço da clínica]</Pending>
             )}
           </p>
+          )}
         </div>
 
         <div className="relative hidden lg:col-span-6 lg:block xl:col-span-6">

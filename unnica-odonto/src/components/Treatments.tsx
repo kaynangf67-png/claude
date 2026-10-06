@@ -10,8 +10,11 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react';
-import { treatments, whatsappMessages, type Treatment, type TreatmentIcon } from '../config/clinic';
-import { MaybePending } from './Pending';
+import { SHOW_PENDING, treatments, whatsappMessages, type Treatment, type TreatmentIcon } from '../config/clinic';
+import { isPlaceholder, MaybePending } from './Pending';
+
+// Em apresentação, só aparecem tratamentos confirmados (sem colchetes).
+const visibleTreatments = treatments.filter((t) => SHOW_PENDING || !isPlaceholder(t.name));
 import { SectionHeader, WhatsAppLink } from './ui';
 
 const icons: Record<TreatmentIcon, LucideIcon> = {
@@ -44,17 +47,40 @@ export function Treatments() {
             title="Tratamentos odontológicos"
             lead="Encontre o cuidado que você procura."
           />
-          <WhatsAppLink
+          {visibleTreatments.length > 0 && <WhatsAppLink
             message={whatsappMessages.general}
             cta="tratamentos-topo"
             className="btn btn-ghost reveal self-start lg:self-auto"
           >
             Tirar uma dúvida
-          </WhatsAppLink>
+          </WhatsAppLink>}
         </div>
 
+        {visibleTreatments.length === 0 ? (
+          <div className="reveal mt-14 grid items-center gap-8 rounded-3xl border border-navy-900/8 bg-white p-8 shadow-soft sm:p-12 lg:grid-cols-[1fr_auto]">
+            <div className="flex flex-col items-start gap-5 sm:flex-row">
+              <span className="inline-flex size-14 shrink-0 items-center justify-center rounded-2xl bg-navy-900 text-white">
+                <Stethoscope className="size-6" strokeWidth={1.5} aria-hidden="true" />
+              </span>
+              <div>
+                <h3 className="font-display text-[1.9rem] leading-tight text-navy-900">Conte o que você precisa</h3>
+                <p className="mt-2 max-w-xl text-[1rem] leading-relaxed text-muted">
+                  Fale com a nossa equipe pelo WhatsApp: explicamos as opções de tratamento disponíveis e
+                  orientamos o seu primeiro atendimento.
+                </p>
+              </div>
+            </div>
+            <WhatsAppLink
+              message={whatsappMessages.general}
+              cta="tratamentos-geral"
+              className="btn btn-whatsapp min-h-14 w-full px-7 text-base sm:w-auto"
+            >
+              Consultar tratamentos
+            </WhatsAppLink>
+          </div>
+        ) : (
         <ul className="mt-14 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {treatments.map((t, i) => {
+          {visibleTreatments.map((t, i) => {
             const Icon = icons[t.icon];
             return (
               <li
@@ -97,6 +123,7 @@ export function Treatments() {
             );
           })}
         </ul>
+        )}
       </div>
 
       <dialog
