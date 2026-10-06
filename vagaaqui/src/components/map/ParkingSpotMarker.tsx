@@ -29,7 +29,7 @@ export function ParkingSpotMarker({ position, status, probability, highlight, is
     s.getWorldPosition(worldPos);
     const d = camera.position.distanceTo(worldPos);
     s.visible = highlight || d < maxDistance;
-    const base = THREE.MathUtils.clamp(d * 0.05, 4.5, 30) * (highlight ? 1.35 : isLot ? 1.15 : 1);
+    const base = THREE.MathUtils.clamp(d * 0.05, 2.2, 30) * (highlight ? 1.35 : isLot ? 1.15 : 1);
     s.scale.set(base, base * 0.625, 1);
     s.position.y = position[1] + base * 0.32 + Math.sin(clock.elapsedTime * 2 + phase) * (highlight ? 0.6 : 0.15);
   });

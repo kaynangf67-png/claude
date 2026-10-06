@@ -327,3 +327,21 @@ export function sampleRoute(route: RouteData, s: number): { position: Vec2; head
 export function countTurns(route: RouteData) {
   return route.instructions.filter((i) => i.type === 'left' || i.type === 'right').length;
 }
+
+/** Projeta um ponto na rota, buscando só numa janela [fromS, toS] (evita saltar para outro trecho). */
+export function projectOnRoute(route: RouteData, p: Vec2, fromS = 0, toS = route.length): { s: number; distance: number } {
+  let best = { s: fromS, distance: Infinity };
+  const { points, cumulative } = route;
+  for (let i = 0; i < points.length - 1; i++) {
+    if (cumulative[i + 1] < fromS || cumulative[i] > toS) continue;
+    const a = points[i];
+    const b = points[i + 1];
+    const dx = b.x - a.x;
+    const dz = b.z - a.z;
+    const len2 = dx * dx + dz * dz || 1;
+    const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.z - a.z) * dz) / len2));
+    const d = Math.hypot(p.x - (a.x + dx * t), p.z - (a.z + dz * t));
+    if (d < best.distance) best = { s: cumulative[i] + t * (cumulative[i + 1] - cumulative[i]), distance: d };
+  }
+  return best;
+}

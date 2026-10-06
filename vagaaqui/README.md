@@ -18,9 +18,10 @@ MVP web 3D que mostra onde há **maior probabilidade** de existir vaga de estaci
 cd vagaaqui
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 27 testes: Índice de Confiança, recomendação, rotas, importador OSM, simulação, geometria
+npm test           # 36 testes: Índice de Confiança, recomendação, rotas, importador OSM, simulação, geometria
 npm run build      # typecheck + build de produção em dist/
 npm run import-osm # grava um snapshot das ruas reais em public/osm/area.json (opcional)
+npm run sensor-report -- log.json  # resume um log do sensor de câmera e gera CSV para conferência
 ```
 
 Nenhuma chave de API é necessária. Variáveis opcionais estão em `.env.example` (copie para `.env.local`):
@@ -31,13 +32,47 @@ Nenhuma chave de API é necessária. Variáveis opcionais estão em `.env.exampl
 | `VITE_MAP_CENTER_LAT` / `VITE_MAP_CENTER_LON` | Centro da área do mapa (padrão: -20.329, -40.292, Grande Vitória-ES). |
 | `VITE_OSM_RADIUS_M` | Raio (m) da área baixada do OpenStreetMap (padrão 650). |
 | `VITE_MAP_SOURCE` | `osm` (padrão, ruas reais) ou `procedural` (cidade fictícia de demonstração). |
-| `VITE_USE_BROWSER_GPS` | `true` tenta usar o GPS do aparelho; fora da área mapeada volta para a localização simulada e avisa o usuário. |
+| `VITE_DETECTOR_MODEL_URL` / `VITE_MEDIAPIPE_WASM_URL` | Opcional: hospedar o modelo e o WebAssembly do sensor de câmera em servidor próprio. |
+| `VITE_USE_BROWSER_GPS` | `true` liga o GPS contínuo ao abrir o mapa (também dá para ligar em Configurações). |
 
 ## Jornada demonstrada
 
 Abrir app → animação do logo → **ENCONTRAR VAGA** → mapa 3D aparece → ver localização → explorar (Preview 3D) → vagas com % → **MELHOR OPÇÃO** com motivos → **IR ATÉ A VAGA** → câmera de GPS segue o carro, rota animada no chão, manobras e voz → pergunta "Você viu uma vaga aqui?" ao passar → chegada: **SIM, ESTÁ LIVRE / NÃO, ESTÁ OCUPADA / EU ESTACIONEI AQUI** → vaga vira 🔴 "confirmada há 5 s" → pontos, nível, precisão → **SAÍ DA VAGA** libera a vaga para os outros.
 
 Se a vaga estiver ocupada na chegada, o app agradece, dá os pontos e já recalcula a próxima melhor opção.
+
+## Localização em tempo real (GPS)
+
+Em **Configurações → Localização em tempo real** (ou com `VITE_USE_BROWSER_GPS=true`), o carro do app passa a seguir o GPS do aparelho:
+
+- **Movimento do carro:** a posição é suavizada entre leituras e projetada na rota. Se você ficar mais de 4 s a mais de 35 m da rota, ela é recalculada sozinha.
+- **Velocidade e direção:** quando o aparelho não informa (muitos não informam), são calculadas pelas leituras consecutivas.
+- **Sinal fraco:** perder o sinal ou ficar parado não desliga o GPS. O indicador mostra "sinal fraco" e o carro fica no último ponto. Só uma permissão negada desliga.
+- **Fora do mapa:** fora da área carregada, o app volta para o carro simulado e avisa.
+- **Precisão:** o GPS de celular erra de 5 a 15 m na cidade. Ele mostra onde **você** está, mas não enxerga vagas.
+
+## Modo de chegada
+
+Nos últimos ~200 m, a câmera desce e se aproxima do carro, numa visão do entorno parecida com o painel de um carro moderno. Um aviso grande mostra **de que lado** está a vaga ("Vaga provável à direita · 40 m · 87%") e a voz anuncia uma vez. O Modo Motorista mostra o mesmo aviso em tamanho maior.
+
+## Sensor de câmera (protótipo)
+
+**Configurações → Sensor de câmera.** O celular preso no painel, com a câmera para a frente, vira um sensor de vagas:
+
+1. **Detecção no aparelho:** o MediaPipe Object Detector (EfficientDet-Lite0, Apache 2.0) roda no próprio celular, por WebAssembly, em ~5 quadros por segundo. **Nenhuma imagem sai do aparelho.**
+2. **Posição na rua:** cada veículo é posicionado no chão pela base da caixa, pela altura da câmera e pela linha do horizonte (modelo de rua plana), mais a posição e a direção do carro.
+3. **Parado ou andando:** um rastreamento entre quadros mede a velocidade de cada veículo no chão. Quem anda a mais de 2,5 m/s é "em movimento" e não conta como estacionado.
+4. **Votação por vaga:** cada vaga monitorada que passa no campo de visão (6 a 28 m) recebe votos ao longo de vários quadros. Só com o seu carro em movimento: num semáforo, o carro parado ao lado pareceria estacionado.
+5. **Peso no índice:** o resultado vira observação "livre" ou "ocupada" com **no máximo 55% do peso** de uma confirmação humana. Só é enviado com **GPS real** dentro do mapa. No modo demonstração, as observações aparecem na tela, mas não entram no índice.
+
+**Calibre antes de sair:** a linha tracejada precisa ficar sobre o horizonte da imagem. Nos testes, sem calibração, um carro a ~25 m foi estimado a 11 m.
+
+**Como medir se funciona (antes de prometer o recurso):**
+1. **Grave:** dirija com o sensor ligado e grave a tela ou um vídeo em paralelo.
+2. **Exporte:** use **Exportar log** e depois rode `npm run sensor-report -- arquivo.json`. O script gera um CSV com cada observação, horário e posição.
+3. **Confira:** marque na última coluna o que havia de verdade na rua. Precisão = acertos / total.
+
+**Limitações conhecidas:** ladeiras, celular inclinado, entradas de garagem, faixas onde é proibido estacionar, chuva e noite. O detector reconhece **veículos**, não "vaga válida". Para o modelo de 4,6 MB, o primeiro uso precisa de internet. O backend de GPU do MediaPipe deu zero detecções numa GPU emulada nos testes, então o padrão é CPU. Para usar GPU: `localStorage['vagaaqui.detector.delegate'] = 'GPU'`.
 
 ## Visual do mapa
 

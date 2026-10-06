@@ -1,4 +1,4 @@
-import { Cpu, Database, Gauge, Map as MapIcon, Volume2, X } from 'lucide-react';
+import { Camera, Cpu, Database, Gauge, LocateFixed, Map as MapIcon, Volume2, X } from 'lucide-react';
 import { env } from '../../config/env';
 import { DATA_SOURCES } from '../../services/dataSources/registry';
 import { repository } from '../../services/repository';
@@ -13,6 +13,15 @@ const ORIGIN_LABEL = {
   procedural: 'cidade de demonstração (fictícia)',
 } as const;
 
+const GPS_LABEL = {
+  off: 'Desligado — usando o carro simulado',
+  waiting: 'Aguardando sinal (GPS fraco ou parado)…',
+  ok: 'Ativo: o carro no mapa segue você',
+  outside: 'Você está fora da área do mapa (usando o carro simulado)',
+  denied: 'Permissão negada no navegador',
+  unavailable: 'GPS indisponível',
+} as const;
+
 const TIER_LABEL = { low: 'Leve', medium: 'Equilibrada', high: 'Máxima' } as const;
 
 export function SettingsPanel() {
@@ -23,6 +32,7 @@ export function SettingsPanel() {
   const showBuildings = useApp((s) => s.showBuildings);
   const simSpeed = useApp((s) => s.simSpeed);
   const locationSource = useApp((s) => s.locationSource);
+  const gps = useApp((s) => s.gps);
   const cityOrigin = useApp((s) => s.cityOrigin);
   const city = getCity();
 
@@ -49,6 +59,28 @@ export function SettingsPanel() {
           </button>
         ))}
       </div>
+
+      <h4 className="section-title">
+        <LocateFixed size={16} /> Localização em tempo real
+      </h4>
+      <label className="switch-row">
+        <span>
+          Usar o GPS do aparelho
+          <small className="muted small" style={{ display: 'block' }}>
+            {GPS_LABEL[gps.status]}
+            {gps.accuracy != null ? ` · precisão ±${Math.round(gps.accuracy)} m` : ''}
+          </small>
+        </span>
+        <input
+          type="checkbox"
+          checked={gps.status !== 'off' && gps.status !== 'denied' && gps.status !== 'unavailable'}
+          onChange={(e) => (e.target.checked ? actions.enableGps() : actions.disableGps())}
+        />
+      </label>
+      <p className="muted small">GPS de celular erra de 5 a 15 m na cidade: ele mostra onde você está, mas não enxerga as vagas.</p>
+      <button className="btn btn-secondary btn-block" onClick={() => actions.setCameraSensorOpen(true)}>
+        <Camera size={18} /> Sensor de câmera (protótipo)
+      </button>
 
       <h4 className="section-title">
         <Volume2 size={16} /> Voz

@@ -16,6 +16,8 @@ import { actions, useApp } from './store/appStore';
 
 const loadMap = () => import('./components/map/Map3D');
 const Map3D = lazy(loadMap);
+// sensor de câmera: carregado só quando aberto (MediaPipe fica fora do bundle inicial)
+const CameraSensor = lazy(() => import('./components/ui/CameraSensor'));
 
 class MapErrorBoundary extends Component<{ children: ReactNode }, { error: boolean }> {
   state = { error: false };
@@ -40,6 +42,7 @@ export default function App() {
   const driverMode = useApp((s) => s.driverMode);
   const panel = useApp((s) => s.panel);
   const navStatus = useApp((s) => s.navStatus);
+  const cameraSensorOpen = useApp((s) => s.cameraSensorOpen);
   const cityReady = useApp((s) => s.cityStatus === 'ready');
   const cityStatusText = useApp((s) => s.cityStatusText);
   const [mapReady, setMapReady] = useState(false);
@@ -108,6 +111,11 @@ export default function App() {
           {panel === 'profile' && <UserProfile />}
           {panel === 'settings' && <SettingsPanel />}
           {panel && <div className="panel-backdrop" onClick={() => actions.setPanel(null)} />}
+          {cameraSensorOpen && (
+            <Suspense fallback={null}>
+              <CameraSensor />
+            </Suspense>
+          )}
         </div>
       )}
     </div>

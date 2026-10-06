@@ -53,10 +53,14 @@ export const DATA_SOURCES: ParkingDataSource[] = [
     { perSpotOccupancy: true, aggregateCount: false, trafficFlow: false, typicalLatencyS: 10 },
     'Detectam ocupação por vaga com boa precisão, mas só onde a prefeitura/operador instalou sensores.',
   ),
-  planned(
-    'camera',
-    'Câmeras + visão computacional',
-    { perSpotOccupancy: true, aggregateCount: true, trafficFlow: true, typicalLatencyS: 15 },
-    'Exige câmera com ângulo sobre a rua, permissão de uso e tratamento de privacidade (LGPD). Oclusões e chuva reduzem a precisão.',
-  ),
+  {
+    id: 'camera',
+    name: 'Câmera do celular + visão computacional (protótipo)',
+    capabilities: { perSpotOccupancy: true, aggregateCount: false, trafficFlow: true, typicalLatencyS: 2 },
+    limitations:
+      'Detecta veículos no próprio aparelho (MediaPipe) e estima a posição assumindo rua plana e câmera nivelada. Erra com carros passando, garagens, faixas proibidas, chuva e noite. Peso máximo de 55% de uma confirmação humana. Nenhuma imagem sai do celular.',
+    enabled: true,
+    start: noop,
+    stop: noop,
+  },
 ];

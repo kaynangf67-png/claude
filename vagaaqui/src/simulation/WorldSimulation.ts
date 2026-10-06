@@ -5,13 +5,14 @@ import type { Candidate } from '../domain/recommendation';
 import { createMockWorld, type MockWorld } from '../data/mockSpots';
 import { dist } from '../lib/geo';
 import { createRng, uid } from '../lib/random';
-import type { ParkingLot, ParkingSpot, ReportKind, RouteData, SpotAssessment, Vec2 } from '../types';
+import type { ObservationSource, ParkingLot, ParkingSpot, ReportKind, RouteData, SpotAssessment, Vec2 } from '../types';
 import { getCity } from '../world/cityStore';
 import { canTraverse, edgePoint, laneOffset, type CityData, type CityEdge } from '../world/cityTypes';
 import {
   buildRoute,
   distanceTo,
   nearestEdgePosition,
+  projectOnRoute,
   sampleRoute,
   shortestPaths,
   type EdgePosition,
@@ -57,6 +58,18 @@ export interface VehicleState {
   targetSpotId: string | null;
   /** distância final onde o carro para (antes da vaga se ela estiver ocupada) */
   stopAt: number;
+  /** controlado pelo GPS real do aparelho (não anda sozinho) */
+  external: boolean;
+}
+
+export interface GpsFix {
+  position: Vec2;
+  /** rumo em radianos no padrão do mundo 3D, ou null se parado/desconhecido */
+  heading: number | null;
+  /** m/s */
+  speed: number;
+  accuracy: number;
+  at: number;
 }
 
 export interface SimulationSnapshot {
@@ -70,7 +83,8 @@ export interface SimulationSnapshot {
 
 export type SimulationEvent =
   | { type: 'arrived'; spotId: string; blocked: boolean }
-  | { type: 'passing'; spotId: string };
+  | { type: 'passing'; spotId: string }
+  | { type: 'offroute' };
 
 const USER_RADIUS = 150;
 const VEHICLE_CRUISE = 11;
@@ -126,6 +140,7 @@ export class WorldSimulation {
       routeS: 0,
       targetSpotId: null,
       stopAt: 0,
+      external: false,
     };
     this.spawnAgents(42);
     this.snapshot = this.computeSnapshot(now);
@@ -218,7 +233,8 @@ export class WorldSimulation {
   update(dtRaw: number) {
     const dt = Math.min(0.1, dtRaw) * this.speedMultiplier;
     this.updateAgents(dt);
-    this.updateVehicle(dt);
+    if (this.vehicle.external) this.updateExternalVehicle(Math.min(0.1, dtRaw));
+    else this.updateVehicle(dt);
     this.accumulator += dt;
     if (this.accumulator >= 1) {
       const steps = Math.floor(this.accumulator);
@@ -283,6 +299,75 @@ export class WorldSimulation {
       v.edge = { edgeId: near.edgeId, s: near.s };
       const spotId = v.targetSpotId!;
       this.emit({ type: 'arrived', spotId, blocked: v.stopAt < route.length });
+    }
+  }
+
+  // ---------- GPS real ----------
+  private gps: GpsFix | null = null;
+  private offRouteSince: number | null = null;
+
+  /** Recebe uma leitura do GPS real. Retorna false se estiver fora da área mapeada. */
+  applyGpsFix(fix: GpsFix) {
+    const near = nearestEdgePosition(this.city, fix.position);
+    if (near.distance > 80) return false;
+    const v = this.vehicle;
+    if (!v.external) {
+      // primeira leitura: teleporta (não anima do ponto simulado até o real)
+      v.position = { ...fix.position };
+      if (fix.heading != null) v.heading = fix.heading;
+    }
+    v.external = true;
+    this.gps = fix;
+    if (v.mode !== 'driving') v.edge = { edgeId: near.edgeId, s: near.s };
+    return true;
+  }
+
+  /** Volta para o carro simulado. */
+  releaseGps() {
+    this.vehicle.external = false;
+    this.gps = null;
+    this.offRouteSince = null;
+  }
+
+  private updateExternalVehicle(dt: number) {
+    const v = this.vehicle;
+    const fix = this.gps;
+    if (!fix) return;
+    // suaviza os saltos do GPS (≈1 Hz) para o carro andar de forma contínua na tela
+    const k = 1 - Math.exp(-dt * 3);
+    v.position = { x: v.position.x + (fix.position.x - v.position.x) * k, z: v.position.z + (fix.position.z - v.position.z) * k };
+    v.speed = fix.speed;
+    let target = fix.heading;
+    if (v.mode === 'driving' && v.route && (target == null || fix.speed < 1.5)) target = sampleRoute(v.route, v.routeS + 4).heading;
+    if (target != null) {
+      let d = target - v.heading;
+      while (d > Math.PI) d -= Math.PI * 2;
+      while (d < -Math.PI) d += Math.PI * 2;
+      v.heading += d * Math.min(1, dt * 4);
+    }
+    if (v.mode !== 'driving' || !v.route) return;
+    const route = v.route;
+    // progresso = projeção da posição real na rota (janela à frente, sem voltar)
+    const proj = projectOnRoute(route, fix.position, Math.max(0, v.routeS - 15), v.routeS + 120);
+    if (proj.distance < 35) {
+      v.routeS = Math.max(v.routeS, Math.min(route.length, proj.s));
+      this.offRouteSince = null;
+    } else if (fix.accuracy < 40) {
+      const now = Date.now();
+      this.offRouteSince ??= now;
+      if (now - this.offRouteSince > 4000) {
+        this.offRouteSince = null;
+        this.emit({ type: 'offroute' });
+        return;
+      }
+    }
+    this.checkPassingSpots();
+    if (route.length - v.routeS < 12 && dist(fix.position, route.points[route.points.length - 1]) < 18) {
+      v.mode = 'arrived';
+      v.speed = 0;
+      const near = nearestEdgePosition(this.city, v.position);
+      v.edge = { edgeId: near.edgeId, s: near.s };
+      this.emit({ type: 'arrived', spotId: v.targetSpotId!, blocked: false });
     }
   }
 
@@ -374,7 +459,7 @@ export class WorldSimulation {
     this.placeAgent(a);
   }
 
-  private addReport(spot: ParkingSpot, kind: ReportKind, source: 'crowd' | 'self', trust: number, now: number) {
+  private addReport(spot: ParkingSpot, kind: ReportKind, source: ObservationSource, trust: number, now: number) {
     spot.reports.push({ id: uid('rep'), kind, source, timestamp: now, trust });
     // mantém só a última hora
     while (spot.reports.length && now - spot.reports[0].timestamp > 3_600_000) spot.reports.shift();
@@ -463,7 +548,7 @@ export class WorldSimulation {
     const edge = this.city.edges.get(spot.edgeId)!;
     const v = this.vehicle;
     const from = { position: { ...v.position }, edge: v.edge };
-    if (v.mode === 'driving' || v.mode === 'arrived') {
+    if (v.mode === 'driving' || v.mode === 'arrived' || v.external) {
       const near = nearestEdgePosition(this.city, v.position);
       from.edge = { edgeId: near.edgeId, s: near.s };
     }
@@ -522,6 +607,17 @@ export class WorldSimulation {
     this.addReport(spot, kind, 'self', trust, now);
     this.publish(now);
     return accurate;
+  }
+
+  /**
+   * Observação automática do sensor de câmera (protótipo). Entra no Índice de Confiança
+   * como evidência com peso menor que uma confirmação humana.
+   */
+  submitCameraObservation(spotId: string, kind: 'available' | 'occupied', trust: number) {
+    const spot = this.spotsById.get(spotId);
+    if (!spot) return;
+    this.addReport(spot, kind, 'camera', trust, Date.now());
+    this.publish();
   }
 
   /** O usuário saiu da vaga em que estava estacionado. */

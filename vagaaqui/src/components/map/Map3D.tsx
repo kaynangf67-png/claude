@@ -6,6 +6,8 @@ import { QUALITY_PRESETS } from '../../hooks/deviceQuality';
 import { getSimulation } from '../../simulation/WorldSimulation';
 import { actions, effectiveTier, useApp } from '../../store/appStore';
 import { cameraBus } from '../../store/cameraBus';
+import { worldToLatLon } from '../../lib/geo';
+import { sampleRoute } from '../../world/roadGraph';
 import { CameraRig } from './CameraRig';
 import { City } from './City';
 import { NavigationRoute } from './NavigationRoute';
@@ -40,6 +42,27 @@ function TestBridge() {
         };
       },
       sim: getSimulation(),
+      /** navega até uma vaga de meio-fio a pelo menos `minDistance` m (testes) */
+      navigateToCurb(minDistance = 200) {
+        const c = getSimulation()
+          .candidates()
+          .filter((x) => x.spot.type === 'curb' && Number.isFinite(x.driveDistance) && x.driveDistance > minDistance)
+          .sort((a, b) => a.driveDistance - b.driveDistance)[0];
+        if (c) actions.navigateTo(c.spot.id);
+        return c?.spot.id ?? null;
+      },
+      vehicleLatLon() {
+        return worldToLatLon(getSimulation().vehicle.position);
+      },
+      /** pontos da rota atual a cada `step` m, em lat/lon (para simular GPS em testes) */
+      routeLatLon(step = 8) {
+        const route = getSimulation().vehicle.route;
+        if (!route) return [];
+        const out: { lat: number; lon: number }[] = [];
+        for (let s = 0; s <= route.length; s += step) out.push(worldToLatLon(sampleRoute(route, s).position));
+        out.push(worldToLatLon(route.points[route.points.length - 1]));
+        return out;
+      },
       focus(x: number, z: number, distance = 160) {
         cameraBus.emit({ type: 'focus', x, z, distance });
       },

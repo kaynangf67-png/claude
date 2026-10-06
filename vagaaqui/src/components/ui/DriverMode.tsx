@@ -4,6 +4,7 @@ import { useAssessment, useNavProgress } from '../../hooks/useSimulation';
 import { formatDistance, formatEta } from '../../lib/format';
 import { actions, useApp } from '../../store/appStore';
 import { ManeuverIcon } from './ManeuverIcon';
+import { ArrivalBanner } from './NavigationControls';
 
 /**
  * Modo Motorista: alto contraste, texto grande, no máximo duas ações por tela,
@@ -36,7 +37,19 @@ export function DriverMode() {
         </div>
       </div>
 
-      {navStatus === 'navigating' && progress && (
+      {navStatus === 'navigating' && progress?.arriving && (
+        <div className="driver-arrival">
+          <ArrivalBanner
+            large
+            remaining={progress.remaining}
+            side={progress.side}
+            percent={target ? Math.round(target.probability * 100) : null}
+            color={target ? STATUS_COLORS[target.status] : undefined}
+          />
+        </div>
+      )}
+
+      {navStatus === 'navigating' && progress && !progress.arriving && (
         <div className="driver-maneuver">
           <ManeuverIcon type={progress.next?.type} size={64} />
           <div>

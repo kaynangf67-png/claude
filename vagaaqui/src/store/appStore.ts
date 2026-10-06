@@ -3,7 +3,7 @@ import { recommend } from '../domain/recommendation';
 import { applyReward, DEFAULT_PROFILE, trustFor } from '../domain/rewards';
 import { detectQualityTier, type QualityTier } from '../hooks/deviceQuality';
 import { uid } from '../lib/random';
-import { requestBrowserLocation } from '../services/location/LocationProvider';
+import { startGpsTracking } from '../services/location/gpsTracker';
 import { repository } from '../services/repository';
 import { speak } from '../services/speech';
 import { getSimulation } from '../simulation/WorldSimulation';
@@ -68,12 +68,16 @@ export interface AppState {
   showBuildings: boolean;
   simSpeed: 1 | 2 | 4;
   locationSource: 'simulada' | 'gps';
+  /** GPS contínuo: off · aguardando 1ª leitura · ok · fora da área do mapa · negado/indisponível */
+  gps: { status: 'off' | 'waiting' | 'ok' | 'outside' | 'denied' | 'unavailable'; accuracy: number | null };
+  /** sensor de câmera (protótipo) aberto */
+  cameraSensorOpen: boolean;
   parkedAt: number | null;
   sessionPoints: number;
 }
 
 const PREFS_KEY = 'vagaaqui.prefs.v1';
-function loadPrefs(): Partial<AppState> {
+function loadPrefs(): Partial<AppState> & { gpsEnabled?: boolean } {
   try {
     const raw = localStorage.getItem(PREFS_KEY);
     if (raw) return JSON.parse(raw) as Partial<AppState>;
@@ -111,6 +115,8 @@ export const appStore = createStore<AppState>({
   showBuildings: prefs.showBuildings ?? false,
   simSpeed: prefs.simSpeed ?? 1,
   locationSource: 'simulada',
+  gps: { status: 'off', accuracy: null },
+  cameraSensorOpen: false,
   parkedAt: null,
   sessionPoints: 0,
 });
@@ -154,6 +160,18 @@ function say(text: string) {
 }
 
 let initialized = false;
+let stopGps: (() => void) | null = null;
+let gpsWatchdog: number | null = null;
+let lastFixAt = 0;
+function persistGpsPref(on: boolean) {
+  try {
+    const raw = localStorage.getItem(PREFS_KEY);
+    const p = raw ? JSON.parse(raw) : {};
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...p, gpsEnabled: on }));
+  } catch {
+    /* ignora */
+  }
+}
 export const actions = {
   async init() {
     if (initialized) return;
@@ -169,6 +187,13 @@ export const actions = {
     sim.onEvent((e) => {
       if (e.type === 'arrived') actions.handleArrival(e.spotId, e.blocked);
       if (e.type === 'passing') actions.handlePassing(e.spotId);
+      if (e.type === 'offroute') {
+        const target = get().targetSpotId;
+        if (target && get().navStatus === 'navigating') {
+          say('Recalculando a rota.');
+          actions.navigateTo(target, true);
+        }
+      }
     });
   },
 
@@ -176,20 +201,61 @@ export const actions = {
     set({ phase: 'map' });
     const note = get().cityNote;
     if (note) window.setTimeout(() => notify(note, 'warn'), 600);
-    if (env.useBrowserGps) {
-      const loc = await requestBrowserLocation();
-      if (loc.kind === 'gps' && getSimulation().placeVehicleAt(loc.position)) {
-        set({ locationSource: 'gps' });
-        notify('Localização real encontrada no mapa.');
-      } else {
-        notify(
-          loc.kind === 'gps'
-            ? 'Você está fora da área do mapa. Usando localização simulada.'
-            : `${loc.reason} Usando localização simulada.`,
-          'warn',
-        );
-      }
-    }
+    if (env.useBrowserGps || prefs.gpsEnabled) actions.enableGps();
+  },
+
+  /** Liga o GPS contínuo: o carro do app passa a seguir o carro real. */
+  enableGps() {
+    if (stopGps) return;
+    set({ gps: { status: 'waiting', accuracy: null } });
+    let announced = false;
+    stopGps = startGpsTracking(
+      (fix) => {
+        lastFixAt = Date.now();
+        const inside = getSimulation().applyGpsFix(fix);
+        set({ gps: { status: inside ? 'ok' : 'outside', accuracy: fix.accuracy }, locationSource: inside ? 'gps' : 'simulada' });
+        if (!inside) getSimulation().releaseGps();
+        if (!announced) {
+          announced = true;
+          if (inside) {
+            notify(`GPS ativo (±${Math.round(fix.accuracy)} m). O carro no mapa segue você.`);
+            cameraBus.emit({ type: 'focus', x: fix.position.x, z: fix.position.z, distance: 160 });
+            set({ cameraMode: 'follow' });
+          } else {
+            notify('Você está fora da área do mapa. Usando o carro simulado.', 'warn');
+          }
+        }
+      },
+      (e) => {
+        if (e === 'weak') {
+          // temporário: mantém o rastreamento e o último ponto conhecido
+          if (get().gps.status !== 'waiting') set((s) => ({ gps: { ...s.gps, status: 'waiting' } }));
+          return;
+        }
+        set({ gps: { status: e === 'denied' ? 'denied' : 'unavailable', accuracy: null } });
+        notify(e === 'denied' ? 'Permissão de localização negada.' : 'Este navegador não oferece GPS.', 'warn');
+        actions.disableGps(false);
+      },
+    );
+    // vigia: sem leitura nova por 15 s → "sinal fraco" (o carro fica parado no último ponto)
+    gpsWatchdog = window.setInterval(() => {
+      if (get().gps.status === 'ok' && Date.now() - lastFixAt > 15_000) set((s) => ({ gps: { ...s.gps, status: 'waiting' } }));
+    }, 5000);
+    persistGpsPref(true);
+  },
+
+  disableGps(clearPref = true) {
+    stopGps?.();
+    stopGps = null;
+    if (gpsWatchdog) window.clearInterval(gpsWatchdog);
+    gpsWatchdog = null;
+    getSimulation().releaseGps();
+    set((s) => ({ gps: { status: s.gps.status === 'denied' ? 'denied' : 'off', accuracy: null }, locationSource: 'simulada' }));
+    if (clearPref) persistGpsPref(false);
+  },
+
+  setCameraSensorOpen(open: boolean) {
+    set({ cameraSensorOpen: open, panel: null });
   },
 
   findParking(destination: Destination | null = get().destination) {
@@ -217,7 +283,7 @@ export const actions = {
     actions.findParking(destination);
   },
 
-  navigateTo(spotId: string) {
+  navigateTo(spotId: string, reroute = false) {
     const sim = getSimulation();
     if (get().navStatus === 'parked') sim.leaveParking();
     const spot = sim.spotsById.get(spotId);
@@ -235,6 +301,7 @@ export const actions = {
       prompt: null,
       parkedAt: null,
     });
+    if (reroute) return;
     const a = sim.getSnapshot().assessments.get(spotId);
     say(`${route.instructions[0]?.text ?? 'Siga a rota'}. ${a ? Math.round(a.probability * 100) : ''} por cento de chance de vaga.`);
   },

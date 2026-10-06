@@ -8,6 +8,7 @@ import { getSimulation } from '../../simulation/WorldSimulation';
 import { actions, appStore, useApp } from '../../store/appStore';
 import { cameraBus } from '../../store/cameraBus';
 import { getCity } from '../../world/cityStore';
+import { ARRIVAL_DISTANCE } from '../../hooks/useSimulation';
 
 const desiredPos = new THREE.Vector3();
 const desiredTarget = new THREE.Vector3();
@@ -173,8 +174,12 @@ export function CameraRig() {
     const driving = navStatus === 'navigating';
     // tela em pé (celular): mais distância e alvo mais à frente, para o carro não ficar sob o painel
     const portrait = size.height > size.width * 1.1 ? 1.45 : 1;
-    const distance = (driving ? (driverMode ? 52 : 44) : driverMode ? 150 : 190) * zoom.current * (driving ? portrait : 1);
-    const pitch = THREE.MathUtils.degToRad((portrait > 1 && driving ? 9 : 0) + (driving ? (driverMode ? 30 : 25) : 38));
+    // modo de chegada: nos últimos ~200 m a câmera desce e se aproxima (visão do entorno)
+    const remaining = v.route ? v.stopAt - v.routeS : Infinity;
+    const arrive = driving ? THREE.MathUtils.smoothstep(ARRIVAL_DISTANCE - remaining, 0, 120) : 0;
+    const baseDistance = (driving ? (driverMode ? 52 : 44) : driverMode ? 150 : 190) * zoom.current * (driving ? portrait : 1);
+    const distance = THREE.MathUtils.lerp(baseDistance, baseDistance * 0.6, arrive);
+    const pitch = THREE.MathUtils.degToRad(-8 * arrive + (portrait > 1 && driving ? 9 : 0) + (driving ? (driverMode ? 30 : 25) : 38));
     // em pé, mira atrás do carro para ele subir na tela (acima do painel inferior)
     const lookAhead = driving ? (portrait > 1 ? 4 + v.speed * 0.6 : 10 + v.speed * 1.4) : 0;
 

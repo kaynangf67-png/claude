@@ -17,5 +17,10 @@ export const env = {
   mapSource: ((vars.VITE_MAP_SOURCE as string | undefined) === 'procedural' ? 'procedural' : 'osm') as 'osm' | 'procedural',
   /** raio (m) da área baixada do OpenStreetMap */
   osmRadius: num(vars.VITE_OSM_RADIUS_M as string | undefined, 650),
+  /** sensor de câmera: modelo de detecção (EfficientDet-Lite0, Apache 2.0) e WebAssembly do MediaPipe */
+  detectorModelUrl:
+    vars.VITE_DETECTOR_MODEL_URL ||
+    'https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/int8/1/efficientdet_lite0.tflite',
+  mediapipeWasmUrl: vars.VITE_MEDIAPIPE_WASM_URL || '',
   useBrowserGps: vars.VITE_USE_BROWSER_GPS === 'true',
 };

@@ -10,9 +10,11 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "import-osm": "tsx scripts/import-osm.ts",
-    "build:single": "tsc -b && vite build --config vite.single.config.ts && node -e \"require('fs').renameSync('dist-single/index.html','dist-single/vagaaqui.html')\""
+    "build:single": "tsc -b && vite build --config vite.single.config.ts && node -e \"require('fs').renameSync('dist-single/index.html','dist-single/vagaaqui.html')\"",
+    "sensor-report": "tsx scripts/sensor-report.ts"
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "^1.0.1",
     "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.1",
     "gsap": "^3.15.0",

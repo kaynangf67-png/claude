@@ -128,6 +128,14 @@ h1, h2, h3, h4, p { margin: 0; }
 }
 .level-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; box-shadow: 0 0 10px currentColor; }
 
+.gps-chip {
+  height: 42px; padding: 0 10px; display: flex; align-items: center; gap: 5px; border-radius: 13px; font-size: 12px; font-weight: 700;
+  background: var(--panel); border: 1px solid var(--border); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+}
+.gps-chip.ok { color: var(--brand-2); border-color: rgba(56, 248, 176, 0.4); }
+.gps-chip.warn { color: var(--mid); }
+@media (max-width: 420px) { .gps-chip span { display: none; } .gps-chip { width: 40px; justify-content: center; padding: 0; height: 40px; } }
+
 /* busca */
 .search { position: relative; }
 .search-field {
@@ -250,6 +258,25 @@ h1, h2, h3, h4, p { margin: 0; }
 .nav-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .sim-tag { margin-left: auto; font-size: 11px; color: var(--muted); }
 
+/* modo de chegada */
+.arrival-banner {
+  position: absolute; top: calc(var(--safe-top) + 68px); left: var(--gutter); right: var(--gutter); max-width: 520px;
+  display: flex; align-items: center; gap: 16px; padding: 14px 18px; border-radius: 22px;
+  background: rgba(6, 10, 18, 0.92); border: 2px solid var(--status); box-shadow: 0 0 40px color-mix(in srgb, var(--status) 35%, transparent);
+  animation: arrival-in 0.45s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes arrival-in { from { transform: translateY(-12px) scale(0.97); opacity: 0; } }
+.arrival-arrow { width: 64px; height: 64px; border-radius: 18px; display: grid; place-items: center; background: var(--status); color: #031018; flex-shrink: 0; }
+.arrival-banner > div:last-child { display: flex; flex-direction: column; min-width: 0; }
+.arrival-kicker { font-size: 11px; font-weight: 800; letter-spacing: 0.16em; color: var(--status); }
+.arrival-banner strong { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; }
+.arrival-meta { font-size: 15px; color: #d4dcf2; font-weight: 600; }
+.arrival-banner.large { position: static; max-width: none; border-width: 3px; background: #000; padding: 18px 20px; }
+.arrival-banner.large .arrival-arrow { width: 96px; height: 96px; border-radius: 22px; }
+.arrival-banner.large strong { font-size: 32px; }
+.arrival-banner.large .arrival-meta { font-size: 22px; color: #fff; }
+.driver-arrival { margin: 12px var(--gutter) 0; max-width: 640px; }
+
 /* preview 3D */
 .preview-overlay { position: absolute; top: calc(var(--safe-top) + 190px); left: var(--gutter); display: grid; gap: 10px; max-width: 340px; justify-items: start; }
 .preview-badge {
@@ -342,6 +369,31 @@ h1, h2, h3, h4, p { margin: 0; }
 .attribution a { color: #b5c4ea; }
 @media (max-width: 520px) { .attribution { bottom: var(--safe-bottom); right: 50%; transform: translateX(50%); font-size: 9px; padding: 0 6px; white-space: nowrap; background: transparent; } }
 .driver-on .attribution { bottom: 2px; top: auto; }
+
+/* sensor de câmera (protótipo) */
+.sensor { position: absolute; inset: 0; z-index: 60; background: #000; pointer-events: auto; overflow: hidden; }
+.sensor-video, .sensor-canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.sensor-top { position: absolute; top: calc(var(--safe-top) + 12px); left: var(--gutter); right: var(--gutter); display: flex; justify-content: space-between; align-items: center; }
+.sensor-badge { display: inline-flex; gap: 8px; align-items: center; font-size: 12px; font-weight: 800; letter-spacing: 0.08em; padding: 8px 12px; border-radius: 12px; background: #ffd60a; color: #000; }
+.sensor-intro {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(92vw, 520px); max-height: 80dvh; overflow: auto;
+  padding: 22px; border-radius: 24px; background: var(--panel-solid); border: 1px solid var(--border-strong); display: grid; gap: 12px;
+}
+.sensor-intro h2 { font-size: 22px; font-weight: 800; }
+.sensor-intro ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14px; }
+.sensor-privacy { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; padding: 10px 12px; border-radius: 12px; background: rgba(56, 248, 176, 0.08); color: #bff8e2; }
+.sensor-error { font-size: 14px; color: #ffb3bb; padding: 10px 12px; border-radius: 12px; background: rgba(255, 77, 94, 0.12); }
+.sensor-stats { position: absolute; top: calc(var(--safe-top) + 62px); left: var(--gutter); display: grid; gap: 4px; font-size: 12px; font-weight: 600; }
+.sensor-stats span, .sensor-feed { background: rgba(4, 6, 12, 0.72); padding: 4px 10px; border-radius: 8px; width: fit-content; }
+.sensor-feed { position: absolute; right: var(--gutter); top: calc(var(--safe-top) + 62px); display: grid; gap: 4px; max-width: min(46vw, 380px); font-size: 12px; padding: 10px 12px; border-radius: 12px; }
+.sensor-feed .obs { padding-left: 8px; border-left: 3px solid var(--mid); }
+.sensor-feed .obs.available { border-color: var(--free); }
+.sensor-feed .obs.occupied { border-color: var(--busy); }
+.sensor-actions { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(var(--safe-bottom) + 16px); display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.sensor-calib { position: absolute; left: var(--gutter); right: var(--gutter); bottom: calc(var(--safe-bottom) + 80px); max-width: 420px; margin: 0 auto; display: grid; gap: 10px; padding: 14px; border-radius: 16px; background: rgba(4, 6, 12, 0.85); font-size: 13px; }
+.sensor-calib label { display: grid; gap: 4px; }
+.sensor-calib input { width: 100%; accent-color: var(--brand-2); }
+@media (max-width: 520px) { .sensor-feed { top: auto; bottom: calc(var(--safe-bottom) + 76px); left: var(--gutter); right: var(--gutter); max-width: none; } }
 
 /* ---------- Modo Motorista: alto contraste, alvos grandes ---------- */
 .driver { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; pointer-events: none; }

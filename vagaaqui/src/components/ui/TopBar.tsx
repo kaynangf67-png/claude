@@ -1,7 +1,23 @@
-import { Car, Settings, User } from 'lucide-react';
+import { Car, LocateFixed, Settings, User } from 'lucide-react';
 import { actions, useApp } from '../../store/appStore';
 import { LogoMark, Wordmark } from './Logo';
 import { PointsChip } from './RewardSystem';
+
+function GpsChip() {
+  const gps = useApp((s) => s.gps);
+  if (gps.status === 'off') return null;
+  const ok = gps.status === 'ok';
+  return (
+    <button
+      className={`gps-chip ${ok ? 'ok' : 'warn'}`}
+      onClick={() => actions.setPanel('settings')}
+      aria-label={ok ? `GPS ativo, precisão ${Math.round(gps.accuracy ?? 0)} metros` : 'GPS sem posição no mapa'}
+    >
+      <LocateFixed size={16} />
+      <span>{ok ? `±${Math.round(gps.accuracy ?? 0)} m` : gps.status === 'waiting' ? '…' : 'fora'}</span>
+    </button>
+  );
+}
 
 export function TopBar() {
   const driverMode = useApp((s) => s.driverMode);
@@ -12,6 +28,7 @@ export function TopBar() {
         <Wordmark className="brand-name" />
       </div>
       <div className="topbar-actions">
+        <GpsChip />
         <PointsChip />
         <button
           className={`icon-btn ${driverMode ? 'active' : ''}`}
