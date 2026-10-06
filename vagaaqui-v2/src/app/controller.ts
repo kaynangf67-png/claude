@@ -5,6 +5,7 @@ import { getStore } from '../data/store';
 import { loadStreets, STREET_RADIUS_M } from '../data/streets';
 import { formatDistance, routeProgress } from '../model/nav';
 import { fetchRoute } from '../services/router';
+import * as voice from '../services/voice';
 import { bboxAround, distance, type LonLat } from '../lib/geo';
 import { ParkingDetector, type Fix } from '../model/detector';
 import { forecastDestination, MODEL } from '../model/forecast';
@@ -188,16 +189,19 @@ let lastReroute = 0;
 let spokenNear = -1;
 
 function say(text: string) {
-  if (!getState().settings.voice || !('speechSynthesis' in window)) return;
-  try {
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'pt-BR';
-    u.rate = 1.05;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(u);
-  } catch {
-    /* sem voz neste aparelho */
-  }
+  if (!getState().settings.voice) return;
+  void voice.speak(text);
+}
+
+/** Liga/desliga a voz. Desligar corta a fala que estiver tocando na hora. */
+export function setVoice(on: boolean) {
+  if (!on) voice.stop();
+  setState({ settings: { ...getState().settings, voice: on } });
+  if (on) say('Voz ligada');
+}
+
+export function testVoice() {
+  void voice.speak('Em 200 metros, vire à direita na Rua Sete de Setembro. A chance de vaga é alta.');
 }
 
 /** Navega até o trecho escolhido (ou o melhor) sem sair do app. */
@@ -220,6 +224,7 @@ export async function startNavigation(to?: LonLat, name?: string) {
     startedFar = startedFar || distance(origin(), target) > ARRIVAL_RADIUS_M + 100;
     setState({ nav: { route, target, targetName, progress, rerouting: false, startedAt: Date.now() }, toast: null });
     getStore().track({ name: 'navigate', at: Date.now(), props: { app: 'inapp' } });
+    voice.warm(['Recalculando a rota', 'Você chegou. Achou vaga?']);
     const first = progress.next ?? route.steps[0];
     if (first) say(`${formatDistance(route.distanceM)} até ${targetName}. ${first.text}.`);
   } catch {
@@ -231,11 +236,7 @@ export async function startNavigation(to?: LonLat, name?: string) {
 export function stopNavigation() {
   navAbort?.abort();
   if (getState().nav) setState({ nav: null });
-  try {
-    window.speechSynthesis?.cancel();
-  } catch {
-    /* ignore */
-  }
+  voice.stop();
 }
 
 function updateNav() {

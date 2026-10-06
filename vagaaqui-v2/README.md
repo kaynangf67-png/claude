@@ -71,6 +71,20 @@ npm run build                # gera dist/
 - relatos guardados só no aparelho;
 - relatos **simulados** para demonstração, avisados na tela e desligáveis em Configurações.
 
+### Voz humanizada (opcional)
+A navegação fala por uma função do servidor (`api/tts.ts`). A chave do provedor fica só no Vercel, nunca no celular.
+1. **Google Cloud Text-to-Speech** (recomendado: 1 milhão de caracteres/mês grátis nas vozes Chirp 3 HD).
+   - No Google Cloud, ative a API *Cloud Text-to-Speech*.
+   - Crie uma chave de API e restrinja ela a essa API.
+   - No Vercel, em Settings → Environment Variables, crie `GOOGLE_TTS_API_KEY`. `GOOGLE_TTS_VOICE` é opcional; o padrão é `pt-BR-Chirp3-HD-Aoede`, e se o nome não existir o app usa a voz padrão pt-BR.
+2. **Ou ElevenLabs:** `ELEVENLABS_API_KEY` (e `ELEVENLABS_VOICE_ID`, opcional).
+
+Sem chave, o app usa a melhor voz em português instalada no celular: as "Natural" do Edge, a do Google no Android ou a Luciana no iPhone.
+
+**Custo:** cada frase vira o mesmo MP3, guardado em cache de 1 ano na CDN do Vercel. Frases repetidas ("Recalculando a rota") não gastam cota de novo.
+
+**Proteção da cota:** a função recusa textos com mais de 220 caracteres ou com caracteres estranhos, e recusa pedidos vindos de outros sites.
+
 ### Supabase (relatos compartilhados + login)
 1. Crie um projeto e rode `supabase/migrations/001_init.sql` no SQL Editor.
 2. Ponha `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` no ambiente.
@@ -98,7 +112,7 @@ O app registra (Menu → Painel do piloto; no servidor, `metrics_overview`):
   - worker do mapa: 511 kB sem compressão.
 
 ## Testes
-- **Unitários (52)** cobrem:
+- **Unitários (60)** cobrem:
   - modelo: decaimento, projeção para a chegada, limites 3–95%, ranking, ruas diferentes;
   - histórico;
   - detector de estacionar: semáforo, ficar no carro, ônibus, leituras imprecisas;
@@ -108,6 +122,7 @@ O app registra (Menu → Painel do piloto; no servidor, `metrics_overview`):
   - métricas;
   - links do Waze e Google;
   - navegação: instruções em português, progresso na rota, saída da rota;
+  - voz: função do servidor (Google, ElevenLabs, sem chave, proteção da cota) e escolha da voz do celular;
   - download das ruas: servidor reserva, erro, sem baixar duas vezes.
 - **Ponta a ponta (Playwright, celular e desktop):** busca → previsão → Waze → recurso Pro bloqueado → lista de espera → favorito → chegada pelo GPS → "Sim, na rua" → "Estou saindo da vaga" → os relatos mudam a próxima previsão → "Vagas aqui perto" → painel. Ruas e busca vêm de fixtures; mapa de fundo bloqueado (testa o modo reserva).
 - **SQL**, testado em Postgres 16 local, com papéis e `auth.uid()` imitando o Supabase:

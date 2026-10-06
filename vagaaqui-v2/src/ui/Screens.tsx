@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { currentSession, signInWithGoogle, signOut } from '../app/auth';
-import { clearMyData, removeFavorite, subscribeClick } from '../app/controller';
+import { clearMyData, removeFavorite, setVoice, subscribeClick, testVoice } from '../app/controller';
 import { computeMetrics } from '../app/metrics';
 import { isPro, proDaysLeft, REPORTS_PER_PRO_DAY } from '../app/plan';
 import { getState, setState, useApp } from '../app/state';
@@ -124,12 +124,15 @@ export function SettingsScreen() {
 
       <h4>Navegação</h4>
       <label className="toggle">
-        <input type="checkbox" checked={settings.voice} onChange={(e) => set({ voice: e.target.checked })} />
+        <input type="checkbox" checked={settings.voice} onChange={(e) => setVoice(e.target.checked)} />
         <span>
           Instruções por voz
-          <small>"Em 100 metros, vire à direita…" — para não precisar olhar a tela.</small>
+          <small>Voz humanizada quando o servidor tem uma configurada; senão, a melhor voz em português do celular.</small>
         </span>
       </label>
+      <button className="btn" onClick={testVoice}>
+        ▶ Testar a voz
+      </button>
 
       <h4>Quanto você aceita andar</h4>
       <div className="segmented" role="radiogroup" aria-label="Raio de caminhada">

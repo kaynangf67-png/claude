@@ -1,5 +1,5 @@
-import { stopNavigation } from '../app/controller';
-import { getState, setState, useApp } from '../app/state';
+import { setVoice, stopNavigation } from '../app/controller';
+import { useApp } from '../app/state';
 import { formatDistance, type NavStep } from '../model/nav';
 import { LEVEL_LABEL } from './colors';
 
@@ -60,7 +60,7 @@ export function NavPanel() {
           <button className="btn red" onClick={stopNavigation}>
             Encerrar
           </button>
-          <button className="btn" aria-label={voice ? 'Desligar voz' : 'Ligar voz'} onClick={() => setState({ settings: { ...getState().settings, voice: !voice } })}>
+          <button className={`btn ${voice ? '' : 'muted-on'}`} aria-label={voice ? 'Silenciar voz' : 'Ligar voz'} aria-pressed={!voice} onClick={() => setVoice(!voice)}>
             {voice ? '🔊 Voz' : '🔇 Mudo'}
           </button>
           <button className="btn" onClick={() => window.dispatchEvent(new Event('vq:recenter'))}>

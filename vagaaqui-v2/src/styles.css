@@ -939,3 +939,8 @@ button {
   display: grid;
   gap: 8px;
 }
+.btn.muted-on {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  border-color: var(--danger-text);
+}
