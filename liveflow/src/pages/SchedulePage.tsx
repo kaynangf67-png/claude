@@ -16,7 +16,7 @@ import {
   startOfWeek,
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { CalendarClock, ChevronLeft, ChevronRight, Copy, Eye, Plus, Repeat, XCircle } from 'lucide-react';
+import { CalendarClock, ChevronLeft, ChevronRight, Copy, Eye, Plus, Repeat, Send, XCircle } from 'lucide-react';
 import { PageHeader } from '@/components/app/page';
 import { LIVE_EVENT_CLASS, LiveStatusBadge } from '@/components/app/status';
 import { RescheduleDialog } from '@/components/app/live-actions';
@@ -26,10 +26,11 @@ import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/misc';
 import { useServices } from '@/contexts/services';
-import { qk, useAction, useLives, usePlan, useProducts } from '@/hooks/queries';
+import { qk, useAction, useLives, usePlan, usePosts, useProducts } from '@/hooks/queries';
+import { isOverdue } from '@/services/domain/posts';
 import { formatMinutes, formatTime } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import type { Live } from '@/types/domain';
+import type { Live, Post } from '@/types/domain';
 
 type View = 'month' | 'week' | 'day';
 const WEEK_OPTS = { weekStartsOn: 0 as const, locale: ptBR };
@@ -48,6 +49,27 @@ function EventChip({ live, onClick, compact }: { live: Live; onClick: () => void
       {live.status === 'running' && <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-current" />}
       <span className="tabular shrink-0 opacity-80">{formatTime(live.starts_at)}</span>
       {!compact && <span className="truncate">{live.title}</span>}
+    </button>
+  );
+}
+
+function PostChip({ post, productName, onClick }: { post: Post; productName: string; onClick: () => void }) {
+  const overdue = isOverdue(post);
+  return (
+    <button
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      className={cn(
+        'flex w-full min-w-0 items-center gap-1 truncate rounded-md border px-1.5 py-0.5 text-left text-[11px] font-medium transition-opacity hover:opacity-80',
+        post.status === 'published' ? 'border-chart-3/30 bg-chart-3/12 text-chart-3' : overdue ? 'border-destructive/40 bg-destructive/10 text-destructive' : 'border-chart-2/30 bg-chart-2/12 text-chart-2',
+      )}
+      title={`Publicação · ${productName}`}
+    >
+      <Send className="size-3 shrink-0" />
+      <span className="tabular shrink-0 opacity-80">{formatTime(post.scheduled_at!)}</span>
+      <span className="truncate">{productName}</span>
     </button>
   );
 }
@@ -104,6 +126,8 @@ function EventDialog({ live, onClose, onReschedule }: { live: Live | null; onClo
 
 export default function SchedulePage() {
   const lives = useLives();
+  const posts = usePosts();
+  const products = useProducts();
   const navigate = useNavigate();
   const [view, setView] = useState<View>(() => (typeof window !== 'undefined' && window.innerWidth < 640 ? 'day' : 'month'));
   const [cursor, setCursor] = useState(() => startOfDay(new Date()));
@@ -122,6 +146,19 @@ export default function SchedulePage() {
     return map;
   }, [visible]);
   const eventsOn = (d: Date) => byDay.get(format(d, 'yyyy-MM-dd')) ?? [];
+  const postsByDay = useMemo(() => {
+    const map = new Map<string, Post[]>();
+    for (const p of posts.data ?? []) {
+      if (!p.scheduled_at || (p.status === 'cancelled' && !showCancelled) || p.status === 'draft') continue;
+      const k = format(new Date(p.scheduled_at), 'yyyy-MM-dd');
+      (map.get(k) ?? map.set(k, []).get(k)!).push(p);
+    }
+    for (const list of map.values()) list.sort((a, b) => a.scheduled_at!.localeCompare(b.scheduled_at!));
+    return map;
+  }, [posts.data, showCancelled]);
+  const postsOn = (d: Date) => postsByDay.get(format(d, 'yyyy-MM-dd')) ?? [];
+  const productName = (id: string | null) => (id ? products.data?.find((p) => p.id === id)?.name : null) ?? 'Sem produto';
+  const openPosts = () => navigate('/publicacoes');
 
   const move = (dir: 1 | -1) =>
     setCursor((c) => (view === 'month' ? addMonths(c, dir) : view === 'week' ? addWeeks(c, dir) : addDays(c, dir)));
@@ -133,7 +170,7 @@ export default function SchedulePage() {
         ? `${format(startOfWeek(cursor, WEEK_OPTS), 'dd MMM', { locale: ptBR })} – ${format(endOfWeek(cursor, WEEK_OPTS), 'dd MMM yyyy', { locale: ptBR })}`
         : format(cursor, "EEEE, dd 'de' MMMM", { locale: ptBR });
 
-  const newLiveOn = (d: Date) => navigate(`/lives/nova?data=${format(d, 'yyyy-MM-dd')}`);
+  const newLiveOn = (d: Date) => navigate(`/publicacoes?nova=1&data=${format(d, 'yyyy-MM-dd')}`);
 
   const monthDays = useMemo(
     () => eachDayOfInterval({ start: startOfWeek(startOfMonth(cursor), WEEK_OPTS), end: endOfWeek(endOfMonth(cursor), WEEK_OPTS) }),
@@ -145,10 +182,10 @@ export default function SchedulePage() {
     <div className="animate-in">
       <PageHeader
         title="Agenda"
-        description="Todas as suas lives no calendário."
+        description="Publicações e lives no calendário."
         actions={
           <Button asChild variant="brand">
-            <Link to="/lives/nova"><Plus /> Nova live</Link>
+            <Link to="/publicacoes?nova=1"><Plus /> Nova publicação</Link>
           </Button>
         }
       />
@@ -185,6 +222,10 @@ export default function SchedulePage() {
           <div className="grid grid-cols-7">
             {monthDays.map((d) => {
               const events = eventsOn(d);
+              const dayPosts = postsOn(d);
+              const total = events.length + dayPosts.length;
+              const shownPosts = dayPosts.slice(0, 3);
+              const shownLives = events.slice(0, Math.max(0, 3 - shownPosts.length));
               return (
                 <div
                   key={d.toISOString()}
@@ -208,20 +249,24 @@ export default function SchedulePage() {
                         newLiveOn(d);
                       }}
                       className="hidden size-5 place-items-center rounded text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-muted sm:grid"
-                      aria-label="Criar live neste dia"
+                      aria-label="Criar publicação neste dia"
                     >
                       <Plus className="size-3.5" />
                     </button>
                   </div>
                   {/* mobile: pontos */}
                   <div className="flex flex-wrap gap-0.5 sm:hidden">
-                    {events.slice(0, 4).map((l) => (
+                    {dayPosts.slice(0, 4).map((p) => (
+                      <span key={p.id} className={cn('size-1.5 rounded-full', p.status === 'published' ? 'bg-chart-3' : isOverdue(p) ? 'bg-destructive' : 'bg-chart-2')} />
+                    ))}
+                    {events.slice(0, 2).map((l) => (
                       <span key={l.id} className={cn('size-1.5 rounded-full', l.status === 'running' || l.status === 'error' ? 'bg-destructive' : l.status === 'finished' ? 'bg-success' : 'bg-primary')} />
                     ))}
                   </div>
                   <div className="hidden gap-0.5 sm:grid">
-                    {events.slice(0, 3).map((l) => <EventChip key={l.id} live={l} onClick={() => setSelected(l)} />)}
-                    {events.length > 3 && (
+                    {shownPosts.map((p) => <PostChip key={p.id} post={p} productName={productName(p.product_id)} onClick={openPosts} />)}
+                    {shownLives.map((l) => <EventChip key={l.id} live={l} onClick={() => setSelected(l)} />)}
+                    {total > 3 && (
                       <button
                         className="text-left text-[11px] font-medium text-muted-foreground hover:text-foreground"
                         onClick={(e) => {
@@ -230,7 +275,7 @@ export default function SchedulePage() {
                           setView('day');
                         }}
                       >
-                        +{events.length - 3} mais
+                        +{total - 3} mais
                       </button>
                     )}
                   </div>
@@ -252,7 +297,8 @@ export default function SchedulePage() {
                   <span className={cn('text-lg font-semibold', isToday(d) && 'text-primary')}>{format(d, 'dd')}</span>
                 </button>
                 <div className="grid gap-1">
-                  {events.length === 0 && <p className="px-1 text-xs text-muted-foreground/70 md:hidden">Sem lives</p>}
+                  {events.length === 0 && postsOn(d).length === 0 && <p className="px-1 text-xs text-muted-foreground/70 md:hidden">Nada programado</p>}
+                  {postsOn(d).map((p) => <PostChip key={p.id} post={p} productName={productName(p.product_id)} onClick={openPosts} />)}
                   {events.map((l) => (
                     <button key={l.id} onClick={() => setSelected(l)} className={cn('rounded-lg border p-2 text-left text-xs transition-opacity hover:opacity-80', LIVE_EVENT_CLASS[l.status])}>
                       <p className="tabular font-semibold">{formatTime(l.starts_at)}</p>
@@ -261,7 +307,7 @@ export default function SchedulePage() {
                   ))}
                 </div>
                 <Button variant="ghost" size="sm" className="mt-auto hidden text-muted-foreground md:inline-flex" onClick={() => newLiveOn(d)}>
-                  <Plus /> Live
+                  <Plus /> Publicação
                 </Button>
               </Card>
             );
@@ -269,6 +315,11 @@ export default function SchedulePage() {
         </div>
       )}
 
+      {view === 'day' && postsOn(cursor).length > 0 && (
+        <div className="mb-3 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
+          {postsOn(cursor).map((p) => <PostChip key={p.id} post={p} productName={productName(p.product_id)} onClick={openPosts} />)}
+        </div>
+      )}
       {view === 'day' && (
         <Card className="overflow-hidden">
           <div className="relative max-h-[70vh] overflow-y-auto" key={format(cursor, 'yyyy-MM-dd')} ref={(el) => {
@@ -312,11 +363,13 @@ export default function SchedulePage() {
               })}
             </div>
           </div>
-          {eventsOn(cursor).length === 0 && <p className="border-t p-4 text-center text-sm text-muted-foreground">Nenhuma live neste dia. Toque em um horário para criar.</p>}
+          {eventsOn(cursor).length === 0 && <p className="border-t p-4 text-center text-sm text-muted-foreground">Nenhuma live neste dia.</p>}
         </Card>
       )}
 
       <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
+        <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-sm border border-chart-2/30 bg-chart-2/12" />Publicação programada</span>
+        <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-sm border border-chart-3/30 bg-chart-3/12" />Publicada</span>
         {(['scheduled', 'running', 'finished', 'draft', 'error'] as const).map((s) => (
           <span key={s} className="inline-flex items-center gap-1.5">
             <span className={cn('size-2.5 rounded-sm border', LIVE_EVENT_CLASS[s])} />

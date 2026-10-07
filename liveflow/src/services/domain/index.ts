@@ -3,6 +3,7 @@ import { accountService } from './account';
 import { aiService } from './ai';
 import type { ServiceContext } from './context';
 import { livesService } from './lives';
+import { postsService } from './posts';
 import { productsService } from './products';
 import { videosService } from './videos';
 
@@ -14,6 +15,7 @@ export function createServices(ctx: ServiceContext, user: AuthUser) {
     products: productsService(ctx),
     videos: videosService(ctx),
     lives: livesService(ctx),
+    posts: postsService(ctx),
     ai: aiService(ctx),
     account: accountService(ctx, { email: user.email, fullName: user.fullName }),
     analytics: {

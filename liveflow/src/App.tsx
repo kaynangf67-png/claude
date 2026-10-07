@@ -15,6 +15,7 @@ const DashboardPage = lazy(() => import('@/pages/DashboardPage'));
 const ProductsPage = lazy(() => import('@/pages/products/ProductsPage'));
 const ProductDetailPage = lazy(() => import('@/pages/products/ProductDetailPage'));
 const VideosPage = lazy(() => import('@/pages/videos/VideosPage'));
+const PostsPage = lazy(() => import('@/pages/posts/PostsPage'));
 const LivesPage = lazy(() => import('@/pages/lives/LivesPage'));
 const LiveWizardPage = lazy(() => import('@/pages/lives/LiveWizardPage'));
 const LiveDetailPage = lazy(() => import('@/pages/lives/LiveDetailPage'));
@@ -89,6 +90,7 @@ export default function App() {
             <Route path="produtos" element={<Suspense fallback={<PageLoader />}><ProductsPage /></Suspense>} />
             <Route path="produtos/:id" element={<Suspense fallback={<PageLoader />}><ProductDetailPage /></Suspense>} />
             <Route path="videos" element={<Suspense fallback={<PageLoader />}><VideosPage /></Suspense>} />
+            <Route path="publicacoes" element={<Suspense fallback={<PageLoader />}><PostsPage /></Suspense>} />
             <Route path="lives" element={<Suspense fallback={<PageLoader />}><LivesPage /></Suspense>} />
             <Route path="lives/nova" element={<Suspense fallback={<PageLoader />}><LiveWizardPage /></Suspense>} />
             <Route path="lives/:id" element={<Suspense fallback={<PageLoader />}><LiveDetailPage /></Suspense>} />

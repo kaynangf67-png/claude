@@ -17,16 +17,20 @@ import {
   Workflow,
   AlertTriangle,
   XCircle,
+  Send,
+  BellRing,
 } from 'lucide-react';
 import { PageHeader, SectionTitle, EmptyState } from '@/components/app/page';
 import { StatCard } from '@/components/app/stat-card';
-import { LiveStatusBadge } from '@/components/app/status';
 import { ProductImage } from '@/components/app/media';
 import { PerformanceChart, type SeriesKey } from '@/components/charts/performance-chart';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton, Tabs, TabsList, TabsTrigger } from '@/components/ui/misc';
-import { useAnalytics, useLives, useNotifications, useProducts, useProfile, useVideos } from '@/hooks/queries';
+import { useAnalytics, useNotifications, usePosts, useProducts, useProfile, useVideos } from '@/hooks/queries';
+import { PostStatusBadge } from '@/components/app/post-status';
+import { isOverdue } from '@/services/domain/posts';
+import { POST_FORMATS } from '@/services/formats';
 import { useDemoSeed } from '@/hooks/use-demo-seed';
 import { formatCompact, formatCurrency, formatDate, formatNumber, formatRelative, formatTime } from '@/lib/format';
 import { computeTotals, dailySeries, inRange, percentChange, presetToRange, previousRange, rankBy } from '@/services/analytics';
@@ -40,6 +44,8 @@ const ACTIVITY_ICON: Record<NotificationType, typeof Activity> = {
   live_cancelled: XCircle,
   automation_created: Workflow,
   live_error: AlertTriangle,
+  post_scheduled: CalendarClock,
+  post_published: Send,
   system: Activity,
 };
 
@@ -56,7 +62,7 @@ export default function DashboardPage() {
   const analytics = useAnalytics(wide);
   const products = useProducts();
   const videos = useVideos();
-  const lives = useLives();
+  const posts = usePosts();
   const notifications = useNotifications();
   const seed = useDemoSeed();
   const [metric, setMetric] = useState<SeriesKey>('views');
@@ -67,9 +73,11 @@ export default function DashboardPage() {
   const series = useMemo(() => dailySeries(rows, range), [rows, range]);
   const productMap = useMemo(() => new Map((products.data ?? []).map((p) => [p.id, p])), [products.data]);
 
-  const allLives = lives.data ?? [];
-  const running = allLives.filter((l) => l.status === 'running');
-  const upcoming = allLives.filter((l) => l.status === 'scheduled' && new Date(l.starts_at) > new Date()).slice(0, 5);
+  const allPosts = posts.data ?? [];
+  const overduePosts = allPosts.filter((p) => isOverdue(p));
+  const nextPosts = [...overduePosts, ...allPosts.filter((p) => p.status === 'scheduled' && !isOverdue(p))].slice(0, 6);
+  const todayKey = new Date().toDateString();
+  const postsToday = allPosts.filter((p) => p.status === 'scheduled' && p.scheduled_at && new Date(p.scheduled_at).toDateString() === todayKey).length + overduePosts.filter((p) => new Date(p.scheduled_at!).toDateString() !== todayKey).length;
   const activeProducts = (products.data ?? []).filter((p) => p.status === 'active').length;
   const availableVideos = (videos.data ?? []).filter((v) => v.status !== 'archived').length;
   const top = rankBy(rows.filter((r) => inRange(r, range)), 'product_id', 'revenue', 4);
@@ -91,8 +99,8 @@ export default function DashboardPage() {
               </Link>
             </Button>
             <Button asChild variant="brand" size="sm">
-              <Link to="/lives/nova">
-                <Plus /> Nova live
+              <Link to="/publicacoes?nova=1">
+                <Plus /> Nova publicação
               </Link>
             </Button>
           </>
@@ -130,8 +138,8 @@ export default function DashboardPage() {
 
       <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
         {[
-          { label: 'Lives ativas', value: running.length, icon: Radio, to: '/lives', live: running.length > 0 },
-          { label: 'Lives programadas', value: allLives.filter((l) => l.status === 'scheduled').length, icon: CalendarClock, to: '/agenda' },
+          { label: 'Para postar hoje', value: postsToday, icon: BellRing, to: '/publicacoes', live: overduePosts.length > 0 },
+          { label: 'Publicações programadas', value: allPosts.filter((p) => p.status === 'scheduled').length, icon: CalendarClock, to: '/agenda' },
           { label: 'Produtos ativos', value: activeProducts, icon: Package, to: '/produtos' },
           { label: 'Vídeos disponíveis', value: availableVideos, icon: Clapperboard, to: '/videos' },
         ].map((s) => (
@@ -208,38 +216,36 @@ export default function DashboardPage() {
         <div className="xl:col-span-2">
           <SectionTitle
             action={
-              <Link to="/agenda" className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
-                Abrir agenda <ArrowRight className="size-3.5" />
+              <Link to="/publicacoes" className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline">
+                Ver todas <ArrowRight className="size-3.5" />
               </Link>
             }
           >
-            Próximas Lives
+            Próximas publicações
           </SectionTitle>
           <Card className="overflow-hidden">
-            {lives.isLoading ? (
+            {posts.isLoading ? (
               <div className="grid gap-2 p-4">
                 {[0, 1, 2].map((i) => <Skeleton key={i} className="h-12" />)}
               </div>
-            ) : upcoming.length === 0 && running.length === 0 ? (
-              <EmptyState icon={CalendarClock} title="Nenhuma live programada" description="Transforme um vídeo em live e programe o horário." action={<Button asChild size="sm"><Link to="/lives/nova">Criar live</Link></Button>} className="m-4 border-0" />
+            ) : nextPosts.length === 0 ? (
+              <EmptyState icon={Send} title="Nenhuma publicação programada" description="Programe vídeos curtos com legenda e produto prontos." action={<Button asChild size="sm"><Link to="/publicacoes?nova=1">Nova publicação</Link></Button>} className="m-4 border-0" />
             ) : (
               <ul className="divide-y">
-                {[...running, ...upcoming].slice(0, 6).map((l) => {
-                  const p = l.product_id ? productMap.get(l.product_id) : null;
+                {nextPosts.map((p) => {
+                  const product = p.product_id ? productMap.get(p.product_id) : null;
                   return (
-                    <li key={l.id}>
-                      <Link to={`/lives/${l.id}`} className="flex items-center gap-3 px-4 py-3 hover:bg-muted/40 sm:px-5">
+                    <li key={p.id}>
+                      <Link to="/publicacoes" className="flex items-center gap-3 px-4 py-3 hover:bg-muted/40 sm:px-5">
                         <div className="w-12 shrink-0 text-center">
-                          <p className="text-[11px] uppercase text-muted-foreground">{formatDate(l.starts_at, 'EEE')}</p>
-                          <p className="tabular text-lg leading-tight font-semibold">{formatDate(l.starts_at, 'dd')}</p>
+                          <p className="text-[11px] uppercase text-muted-foreground">{formatDate(p.scheduled_at!, 'EEE')}</p>
+                          <p className="tabular text-lg leading-tight font-semibold">{formatTime(p.scheduled_at!)}</p>
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">{l.title}</p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {p?.name ?? 'Sem produto'} · {formatTime(l.starts_at)}
-                          </p>
+                          <p className="truncate text-sm font-medium">{product?.name ?? 'Sem produto'}</p>
+                          <p className="truncate text-xs text-muted-foreground">{POST_FORMATS[p.format].label} · {formatDate(p.scheduled_at!, 'dd/MM')}</p>
                         </div>
-                        <LiveStatusBadge status={l.status} />
+                        <PostStatusBadge post={p} />
                       </Link>
                     </li>
                   );

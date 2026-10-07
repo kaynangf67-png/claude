@@ -6,6 +6,7 @@ const LIMIT_KEYS: Partial<Record<TableName, LimitKey>> = {
   products: 'products',
   videos: 'videos',
   lives: 'livesPerMonth',
+  posts: 'postsPerMonth',
   ai_generations: 'aiGenerationsPerMonth',
 };
 

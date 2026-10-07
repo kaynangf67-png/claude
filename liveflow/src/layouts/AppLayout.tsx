@@ -163,10 +163,10 @@ export function AppLayout() {
           <SidebarNav />
         </div>
         <div className="m-3 rounded-xl border bg-card p-3.5">
-          <p className="text-[13px] font-medium">Transforme seus vídeos em uma operação inteligente de Lives.</p>
+          <p className="text-[13px] font-medium">Venda sem aparecer: vídeos curtos com o produto no carrinho.</p>
           <Button asChild variant="brand" size="sm" className="mt-3 w-full">
-            <Link to="/lives/nova">
-              <Plus /> Nova live
+            <Link to="/publicacoes?nova=1">
+              <Plus /> Nova publicação
             </Link>
           </Button>
         </div>
@@ -185,8 +185,8 @@ export function AppLayout() {
             </Badge>
           )}
           <Button asChild size="sm" variant="brand" className="mr-1 hidden sm:inline-flex lg:hidden">
-            <Link to="/lives/nova">
-              <Plus /> Nova live
+            <Link to="/publicacoes?nova=1">
+              <Plus /> Nova publicação
             </Link>
           </Button>
           <Button variant="ghost" size="icon" onClick={toggle} aria-label="Alternar tema">
@@ -233,8 +233,8 @@ export function AppLayout() {
         <DialogContent title="Menu" side="sheet">
           <SidebarNav onNavigate={() => setMoreOpen(false)} />
           <Button asChild variant="brand" className="mt-5 w-full" onClick={() => setMoreOpen(false)}>
-            <Link to="/lives/nova">
-              <Plus /> Nova live
+            <Link to="/publicacoes?nova=1">
+              <Plus /> Nova publicação
             </Link>
           </Button>
         </DialogContent>

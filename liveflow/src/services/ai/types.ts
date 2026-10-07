@@ -1,3 +1,5 @@
+import type { PostFormat } from '@/types/domain';
+
 export type ScriptObjective = 'vender' | 'engajar' | 'lancamento' | 'promocao';
 
 export interface ScriptInput {
@@ -6,6 +8,8 @@ export interface ScriptInput {
   benefits: string;
   audience: string;
   objective: ScriptObjective;
+  /** Formato sem rosto. Ausente = roteiro genérico. */
+  format?: PostFormat;
 }
 
 export interface Script {

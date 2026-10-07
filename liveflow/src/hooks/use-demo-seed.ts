@@ -15,7 +15,7 @@ export function useDemoSeed() {
     },
     onSuccess: async (r) => {
       await Promise.all(ALL_DATA_KEYS.map((key) => queryClient.invalidateQueries({ queryKey: key })));
-      toast.success(`Dados de demonstração carregados: ${r.products} produtos, ${r.videos} vídeos e ${r.lives} lives.`);
+      toast.success(`Dados de demonstração carregados: ${r.products} produtos, ${r.videos} vídeos e ${r.posts} publicações.`);
     },
     onError: (err) => toast.error(errorMessage(err)),
   });

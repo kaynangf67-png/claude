@@ -111,6 +111,7 @@ export interface AnalyticsRow extends BaseRecord {
   product_id: ID | null;
   video_id: ID | null;
   live_id: ID | null;
+  post_id?: ID | null;
   views: number;
   clicks: number;
   conversions: number;
@@ -121,6 +122,23 @@ export interface AnalyticsRow extends BaseRecord {
   source: 'manual' | 'demo' | 'tiktok';
 }
 
+/** Formatos de vídeo curto que não exigem mostrar o rosto. */
+export type PostFormat = 'maos' | 'unboxing' | 'antes_depois' | 'comparativo' | 'pov_texto' | 'narracao';
+export type PostStatus = 'draft' | 'scheduled' | 'published' | 'failed' | 'cancelled';
+
+export interface Post extends BaseRecord {
+  video_id: ID | null;
+  product_id: ID | null;
+  caption: string;
+  hashtags: string[];
+  format: PostFormat;
+  scheduled_at: string | null;
+  status: PostStatus;
+  published_url: string | null;
+  published_at: string | null;
+  notes: string;
+}
+
 export type NotificationType =
   | 'product_created'
   | 'video_uploaded'
@@ -129,6 +147,8 @@ export type NotificationType =
   | 'live_cancelled'
   | 'automation_created'
   | 'live_error'
+  | 'post_scheduled'
+  | 'post_published'
   | 'system';
 
 export interface AppNotification extends BaseRecord {

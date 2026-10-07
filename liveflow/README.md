@@ -2,11 +2,18 @@
 
 > Transforme seus vídeos em uma operação inteligente de Lives.
 
-Plataforma web para organizar **produtos, vídeos, lives, agenda, automações e analytics** de uma operação de TikTok Shop — com IA para roteiros e um copiloto que conhece seus números. Feita para uso pessoal, com arquitetura pronta para virar SaaS.
+Plataforma web para **vender no TikTok Shop sem aparecer**: organize produtos e vídeos, programe **publicações de vídeos curtos sem rosto** (mãos, unboxing, antes/depois, comparativo, POV, narração) com legenda e produto prontos, e acompanhe o que vende — com IA para roteiros e um copiloto que conhece seus números. Lives com apresentador real continuam suportadas. Feita para uso pessoal, com arquitetura pronta para virar SaaS.
+
+### Publicação assistida (por quê)
+
+- A **Content Posting API** oficial do TikTok só publica em modo privado (`SELF_ONLY`) enquanto o app não passa pela **auditoria** do TikTok, e limita a poucos usuários por dia.
+- O **link de produto (cestinha)** é adicionado no app do TikTok ao postar; não encontramos suporte a isso na API de publicação.
+
+Por isso o fluxo é: o LiveFlow prepara (vídeo, legenda, hashtags, produto), programa e **avisa na hora**; você posta pelo app (≈1 min) e cola o link do vídeo para registrar. `TikTokService.publishVideo()` já existe na interface para quando o app for auditado.
 
 ## ⚠️ Leia antes de usar: o que o LiveFlow faz (e não faz)
 
-- **O LiveFlow não transmite nada no TikTok.** Não existe API pública oficial para criar ou iniciar uma LIVE no TikTok/TikTok Shop. O app organiza, agenda e mede — a execução da live é sua.
+- **O LiveFlow não transmite lives e não publica sozinho no TikTok.** Não existe API pública oficial para criar ou iniciar uma LIVE no TikTok/TikTok Shop. O app organiza, agenda e mede — a execução da live é sua.
 - **As regras de LIVE do TikTok Shop restringem conteúdo pré-gravado apresentado como ao vivo** (áudio pré-gravado, vídeo em loop, falta de interação em tempo real). Isso pode gerar desmonetização, perda de recomendação e penalidades na conta. Use os vídeos como roteiro, apoio ou conteúdo de vídeo curto — não como substituto de uma live.
 - A integração com o TikTok é uma **camada abstrata com implementação MOCK** (`src/services/tiktok`). Nada de scraping, automação de navegador, endpoints não documentados ou armazenamento de senha.
 
@@ -15,7 +22,7 @@ Plataforma web para organizar **produtos, vídeos, lives, agenda, automações e
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 24 testes (recorrência, analytics, validação, regras de domínio, IA local)
+npm test           # 31 testes (recorrência, analytics, validação, publicações, legendas, regras de domínio, IA local)
 npm run build
 ```
 
@@ -26,7 +33,7 @@ Sem variáveis de ambiente o app roda em **modo demonstração**: autenticação
 ## Usando com Supabase (modo real)
 
 1. Crie um projeto no Supabase.
-2. Aplique a migration: `supabase db push` (ou cole `supabase/migrations/20261007000000_init.sql` no SQL Editor).
+2. Aplique as migrations: `supabase db push` (ou cole, em ordem, os arquivos de `supabase/migrations/` no SQL Editor).
 3. Em *Authentication → URL Configuration*, adicione `http://localhost:5173` e sua URL de produção, incluindo `/redefinir-senha`.
 4. Copie `.env.example` para `.env.local` e preencha `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`.
 5. (Opcional, IA generativa) `supabase secrets set ANTHROPIC_API_KEY=...`, `supabase functions deploy ai-generate` e `VITE_AI_MODE=remote`.
@@ -66,7 +73,7 @@ Componentes não falam com o banco: chamam `services.*` (domínio), que usam `Da
 
 ### Modelo de dados
 
-`profiles` (1:1 com `auth.users` — não duplicamos uma tabela `users`), `products`, `videos`, `live_schedules` (regra de recorrência), `automations` (ativa/pausa uma agenda), `lives` (cada ocorrência), `analytics` (métricas diárias por produto/vídeo/live), `notifications` (também “Atividade recente”), `ai_generations`, `integrations` (metadados) + `integration_secrets` (tokens, inacessível ao browser), `plan_limits` e `subscriptions` (SaaS).
+`profiles` (1:1 com `auth.users` — não duplicamos uma tabela `users`), `products`, `videos`, `posts` (publicações de vídeo curto, com formato, legenda, hashtags, horário e link publicado), `live_schedules` (regra de recorrência), `automations` (ativa/pausa uma agenda), `lives` (cada ocorrência), `analytics` (métricas diárias por produto/vídeo/live), `notifications` (também “Atividade recente”), `ai_generations`, `integrations` (metadados) + `integration_secrets` (tokens, inacessível ao browser), `plan_limits` e `subscriptions` (SaaS).
 
 ### Segurança
 
@@ -85,7 +92,7 @@ Uma automação mantém lives materializadas para os próximos **30 dias**. Hoje
 ## Limitações conhecidas / próximos passos
 
 - Upload de vídeo usa upload simples; para arquivos grandes, trocar por upload resumável (TUS) no Supabase.
-- Notificações são in-app; e-mail/push exigem Edge Function + provedor.
+- Notificações são in-app; o lembrete "hora de postar" só aparece com o app aberto. E-mail/push exigem Edge Function + provedor — é o próximo passo para a publicação assistida funcionar no dia a dia.
 - Analytics são inseridos via seed/manual. Não há fonte real até existir integração oficial (ex.: dados de pedidos/afiliados pelo TikTok Shop Partner API, se sua conta tiver acesso).
 - Pagamentos: contrato `BillingProvider` e tabela `subscriptions` prontos; checkout/webhook ainda não implementados.
 - O cálculo de “Taxa de conversão” usa pedidos ÷ cliques; ROI = (comissão − custo) ÷ custo, e só aparece se houver custo registrado.

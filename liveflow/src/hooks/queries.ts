@@ -10,6 +10,7 @@ export const qk = {
   products: ['products'] as const,
   videos: ['videos'] as const,
   lives: ['lives'] as const,
+  posts: ['posts'] as const,
   schedules: ['schedules'] as const,
   automations: ['automations'] as const,
   analytics: (r: DateRange) => ['analytics', r.from, r.to] as const,
@@ -42,6 +43,11 @@ export function useVideos() {
 export function useLives() {
   const s = useServices();
   return useQuery({ queryKey: qk.lives, queryFn: () => s.lives.list() });
+}
+
+export function usePosts() {
+  const s = useServices();
+  return useQuery({ queryKey: qk.posts, queryFn: () => s.posts.list() });
 }
 
 export function useSchedules() {
@@ -109,4 +115,4 @@ export function useAction<TArgs, TResult>(
   });
 }
 
-export const ALL_DATA_KEYS = [qk.products, qk.videos, qk.lives, qk.schedules, qk.automations, ['analytics'], qk.notifications, qk.integration, qk.profile] as const;
+export const ALL_DATA_KEYS = [qk.products, qk.videos, qk.lives, qk.posts, qk.schedules, qk.automations, ['analytics'], qk.notifications, qk.integration, qk.profile] as const;

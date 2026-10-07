@@ -1,6 +1,7 @@
 import { addDays, addMinutes, format, setHours, setMinutes, startOfDay, subDays } from 'date-fns';
 import type { DataRepository, Insert, TableName } from '@/services/data/types';
-import type { LiveStatus, Product, Video } from '@/types/domain';
+import type { LiveStatus, PostFormat, Product, Video } from '@/types/domain';
+import { buildCaption } from '@/services/caption';
 import { uuid } from '@/lib/utils';
 
 /** PRNG determinístico (mulberry32): mesmos dados a cada seed. */
@@ -42,6 +43,7 @@ const DEMO_VIDEOS: { name: string; product: number; duration: number }[] = [
 ];
 
 export interface SeedResult {
+  posts: number;
   products: number;
   videos: number;
   lives: number;
@@ -59,7 +61,7 @@ export async function seedDemoData(repo: DataRepository, now = new Date()): Prom
   const today = startOfDay(now);
 
   // Ordem respeita as FKs.
-  const wipe: TableName[] = ['analytics', 'notifications', 'ai_generations', 'automations', 'lives', 'live_schedules', 'videos', 'products', 'integrations'];
+  const wipe: TableName[] = ['analytics', 'notifications', 'ai_generations', 'posts', 'automations', 'lives', 'live_schedules', 'videos', 'products', 'integrations'];
   for (const t of wipe) await repo.removeWhere(t, {});
 
   const products: Product[] = await repo.insertMany(
@@ -215,6 +217,69 @@ export async function seedDemoData(repo: DataRepository, now = new Date()): Prom
       source: 'demo',
     });
   }
+  // Publicações de vídeos curtos sem rosto.
+  const formats: PostFormat[] = ['maos', 'antes_depois', 'unboxing', 'comparativo', 'pov_texto', 'narracao'];
+  const activeVideoIdx = [0, 1, 2, 3, 4, 5, 7];
+  const postRows: Insert<'posts'>[] = [];
+  const postAnalytics: { id: string; date: string; videoIdx: number }[] = [];
+  const makePost = (i: number, when: Date, status: Insert<'posts'>['status']) => {
+    const videoIdx = activeVideoIdx[i % activeVideoIdx.length];
+    const v = DEMO_VIDEOS[videoIdx];
+    const meta = DEMO_PRODUCTS[v.product];
+    const fmt = formats[i % formats.length];
+    const { caption, hashtags } = buildCaption({ productName: meta.name, price: meta.promo ?? meta.price, category: meta.category, format: fmt });
+    const id = uuid();
+    postRows.push({
+      id,
+      video_id: videos[videoIdx].id,
+      product_id: products[v.product].id,
+      caption,
+      hashtags,
+      format: fmt,
+      scheduled_at: when.toISOString(),
+      status,
+      published_url: status === 'published' ? `https://www.tiktok.com/@minhaloja.demo/video/74${String(1000000000000000 + i * 7919).slice(0, 16)}` : null,
+      published_at: status === 'published' ? when.toISOString() : null,
+      notes: '',
+    });
+    if (status === 'published') postAnalytics.push({ id, date: format(when, 'yyyy-MM-dd'), videoIdx });
+  };
+  let pi = 0;
+  for (let d = 13; d >= 1; d--) {
+    makePost(pi++, at(subDays(today, d), 12), 'published');
+    if (d % 2 === 0) makePost(pi++, at(subDays(today, d), 19), 'published');
+  }
+  makePost(pi++, addMinutes(now, -90), 'scheduled'); // atrasada: lembrar de postar
+  for (let d = 0; d < 6; d++) {
+    makePost(pi++, at(addDays(today, d + 1), 12), 'scheduled');
+    makePost(pi++, at(addDays(today, d + 1), 19), 'scheduled');
+  }
+  makePost(pi++, at(addDays(today, 8), 12), 'draft');
+  await repo.insertMany('posts', postRows);
+
+  for (const pa of postAnalytics) {
+    const v = DEMO_VIDEOS[pa.videoIdx];
+    const meta = DEMO_PRODUCTS[v.product];
+    const views = Math.round(between(800, 6000) * (0.5 + meta.popularity / 2));
+    const clicks = Math.round(views * between(0.02, 0.06));
+    const conversions = Math.round(clicks * between(0.03, 0.09));
+    const revenue = +(conversions * (meta.promo ?? meta.price)).toFixed(2);
+    rows.push({
+      date: pa.date,
+      product_id: products[v.product].id,
+      video_id: videos[pa.videoIdx].id,
+      live_id: null,
+      post_id: pa.id,
+      views,
+      clicks,
+      conversions,
+      units_sold: conversions,
+      revenue,
+      commission: +(revenue * (meta.commission / 100)).toFixed(2),
+      cost: 0,
+      source: 'demo',
+    });
+  }
   await repo.insertMany('analytics', rows);
 
   const ago = (minutes: number) => new Date(now.getTime() - minutes * 60_000).toISOString();
@@ -227,5 +292,5 @@ export async function seedDemoData(repo: DataRepository, now = new Date()): Prom
     { type: 'live_created', title: 'Live criada', body: liveRows[16].title, entity_type: 'live', entity_id: liveRows[16].id ?? null, read_at: ago(60), created_at: ago(60 * 30) },
   ]);
 
-  return { products: products.length, videos: videos.length, lives: lives.length, analytics: rows.length };
+  return { posts: postRows.length, products: products.length, videos: videos.length, lives: lives.length, analytics: rows.length };
 }

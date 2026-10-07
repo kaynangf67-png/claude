@@ -1,5 +1,5 @@
 import { uuid } from '@/lib/utils';
-import type { CapabilityInfo, ExternalLiveState, LiveRequest, TikTokService } from './types';
+import type { CapabilityInfo, ExternalLiveState, LiveRequest, PublishRequest, TikTokService } from './types';
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -15,6 +15,7 @@ export class MockTikTokService implements TikTokService {
     return [
       { capability: 'authenticate', available: true, note: 'Simulado — nenhuma conta real é conectada.' },
       { capability: 'getProducts', available: true, note: 'Simulado — retorna catálogo fictício.' },
+      { capability: 'publishVideo', available: false, note: 'Publicação assistida: você posta pelo app (com link do produto). API oficial exige auditoria; sem ela, só posts privados.' },
       { capability: 'createLive', available: true, note: 'Simulado — nada é transmitido.' },
       { capability: 'scheduleLive', available: true, note: 'Simulado — o agendamento existe só no LiveFlow.' },
       { capability: 'getLiveStatus', available: true, note: 'Simulado — status derivado do horário.' },
@@ -37,6 +38,12 @@ export class MockTikTokService implements TikTokService {
       { externalId: 'mock-1', title: 'Garrafa Térmica Inox 1L', price: 89.9, imageUrl: null, url: null },
       { externalId: 'mock-2', title: 'Ring Light 26cm com Tripé', price: 129.9, imageUrl: null, url: null },
     ];
+  }
+
+  async publishVideo(req: PublishRequest) {
+    void req;
+    await wait(300);
+    return { publishId: `mock_pub_${uuid().slice(0, 8)}` };
   }
 
   async createLive(req: LiveRequest) {

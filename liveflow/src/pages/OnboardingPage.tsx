@@ -2,7 +2,9 @@ import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { addDays, format } from 'date-fns';
-import { ArrowRight, CalendarClock, CheckCircle2, Clapperboard, Package, PartyPopper, Radio, Sparkles, UploadCloud } from 'lucide-react';
+import { ArrowRight, CalendarClock, CheckCircle2, Clapperboard, Package, PartyPopper, Send, Sparkles, UploadCloud } from 'lucide-react';
+import { buildCaption } from '@/services/caption';
+import { combineDateTime } from '@/services/recurrence';
 import { toast } from 'sonner';
 import { Logo } from '@/components/app/brand';
 import { ProductForm } from '@/components/app/product-form';
@@ -19,7 +21,7 @@ import { validateVideoFile, VIDEO_MIME_TYPES } from '@/lib/validation';
 import { cn } from '@/lib/utils';
 import type { Product, Video } from '@/types/domain';
 
-const STEPS = ['Boas-vindas', 'Produto', 'Vídeo', 'Live', 'Pronto'];
+const STEPS = ['Boas-vindas', 'Produto', 'Vídeo', 'Publicação', 'Pronto'];
 
 export default function OnboardingPage() {
   const services = useServices();
@@ -32,7 +34,7 @@ export default function OnboardingPage() {
   const [product, setProduct] = useState<Product | null>(null);
   const [video, setVideo] = useState<Video | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [live, setLive] = useState({ title: '', date: format(addDays(new Date(), 1), 'yyyy-MM-dd'), time: '20:00' });
+  const [live, setLive] = useState({ title: '', date: format(addDays(new Date(), 1), 'yyyy-MM-dd'), time: '12:00' });
   const [creatingLive, setCreatingLive] = useState(false);
   const [liveCreated, setLiveCreated] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -69,19 +71,21 @@ export default function OnboardingPage() {
     if (!video || !product) return;
     setCreatingLive(true);
     try {
-      await services.lives.create(
+      const { caption, hashtags } = buildCaption({ productName: product.name, price: Number(product.promo_price ?? product.price), category: product.category, format: 'maos' });
+      await services.posts.create(
         {
           video_id: video.id,
           product_id: product.id,
-          title: live.title || `${product.name} — ao vivo`,
-          description: '',
-          duration_minutes: 60,
-          recurrence: { frequency: 'none', time: live.time, startDate: live.date },
+          format: 'maos',
+          caption: live.title.trim() ? `${live.title.trim()}\n\n${caption}` : caption,
+          hashtags,
+          notes: '',
+          scheduled_at: combineDateTime(live.date, live.time).toISOString(),
         },
-        { plan },
+        plan,
       );
       setLiveCreated(true);
-      queryClient.invalidateQueries({ queryKey: qk.lives });
+      queryClient.invalidateQueries({ queryKey: qk.posts });
       setStep(4);
     } catch (err) {
       toast.error(errorMessage(err));
@@ -116,12 +120,12 @@ export default function OnboardingPage() {
                 <Sparkles className="size-6" />
               </span>
               <h1 className="mt-5 text-2xl font-semibold tracking-tight">Bem-vindo ao LiveFlow</h1>
-              <p className="mt-2 text-muted-foreground">Transforme seus vídeos em uma operação inteligente de Lives. Vamos configurar o essencial em 3 passos.</p>
+              <p className="mt-2 text-muted-foreground">Transforme seus vídeos em uma operação inteligente de Lives. Venda sem aparecer: vamos configurar o essencial em 3 passos.</p>
               <div className="mt-6 grid gap-2 text-left text-sm">
                 {[
                   { icon: Package, t: 'Cadastre um produto' },
                   { icon: Clapperboard, t: 'Envie um vídeo' },
-                  { icon: Radio, t: 'Programe sua primeira live' },
+                  { icon: Send, t: 'Programe sua primeira publicação' },
                 ].map(({ icon: Icon, t }) => (
                   <div key={t} className="flex items-center gap-3 rounded-xl border p-3">
                     <Icon className="size-4 text-primary" /> {t}
@@ -203,13 +207,13 @@ export default function OnboardingPage() {
           {step === 3 && (
             <div>
               <CalendarClock className="size-6 text-primary" />
-              <h1 className="mt-3 text-xl font-semibold tracking-tight">Crie sua primeira Live</h1>
+              <h1 className="mt-3 text-xl font-semibold tracking-tight">Programe sua primeira publicação</h1>
               <p className="mt-1 mb-5 text-sm text-muted-foreground">
                 Com <strong>{video?.name}</strong> e <strong>{product?.name}</strong>.
               </p>
               <div className="grid gap-4">
-                <Field label="Título" htmlFor="ob-title">
-                  <Input id="ob-title" value={live.title} placeholder={`${product?.name ?? 'Produto'} — ao vivo`} onChange={(e) => setLive({ ...live, title: e.target.value })} />
+                <Field label="Gancho da legenda (opcional)" htmlFor="ob-title" hint="Legenda e hashtags são geradas automaticamente; dá para editar depois.">
+                  <Input id="ob-title" value={live.title} placeholder="Ex.: Isso mudou minha rotina" onChange={(e) => setLive({ ...live, title: e.target.value })} />
                 </Field>
                 <div className="grid grid-cols-2 gap-3">
                   <Field label="Data" htmlFor="ob-date"><Input id="ob-date" type="date" value={live.date} min={format(new Date(), 'yyyy-MM-dd')} onChange={(e) => setLive({ ...live, date: e.target.value })} /></Field>
@@ -218,7 +222,7 @@ export default function OnboardingPage() {
               </div>
               <div className="mt-6 flex justify-between">
                 <Button variant="ghost" onClick={() => setStep(4)}>Pular</Button>
-                <Button onClick={createLive} loading={creatingLive}>Programar live <ArrowRight /></Button>
+                <Button onClick={createLive} loading={creatingLive}>Programar publicação <ArrowRight /></Button>
               </div>
             </div>
           )}
@@ -228,13 +232,13 @@ export default function OnboardingPage() {
               <PartyPopper className="mx-auto size-10 text-primary" />
               <h1 className="mt-4 text-2xl font-semibold tracking-tight">Pronto.</h1>
               <p className="mt-2 text-muted-foreground">
-                {liveCreated ? 'Sua primeira live está programada.' : 'Sua conta está configurada.'} Agora é acompanhar tudo pelo dashboard.
+                {liveCreated ? 'Sua primeira publicação está programada — o LiveFlow te lembra na hora de postar.' : 'Sua conta está configurada.'} Agora é acompanhar tudo pelo dashboard.
               </p>
               <ul className="mx-auto mt-5 grid max-w-xs gap-2 text-left text-sm">
                 {[
                   { ok: Boolean(product), t: 'Produto cadastrado' },
                   { ok: Boolean(video), t: 'Vídeo enviado' },
-                  { ok: liveCreated, t: 'Live programada' },
+                  { ok: liveCreated, t: 'Publicação programada' },
                 ].map((i) => (
                   <li key={i.t} className={cn('flex items-center gap-2', !i.ok && 'text-muted-foreground')}>
                     <CheckCircle2 className={cn('size-4', i.ok ? 'text-success' : 'text-muted-foreground/40')} /> {i.t}

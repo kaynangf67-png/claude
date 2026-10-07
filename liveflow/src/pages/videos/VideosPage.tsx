@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, type DragEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Archive, Clapperboard, Copy, Link2, MoreVertical, Pencil, Play, Radio, Search, Trash2, UploadCloud } from 'lucide-react';
+import { Archive, Clapperboard, Copy, Link2, MoreVertical, Pencil, Play, Radio, Search, Send, Trash2, UploadCloud } from 'lucide-react';
 import { EmptyState, PageHeader } from '@/components/app/page';
 import { VideoThumb } from '@/components/app/media';
 import { VideoStatusBadge } from '@/components/app/status';
@@ -205,7 +205,10 @@ export default function VideosPage() {
                     <DropdownMenuContent>
                       <DropdownMenuItem onSelect={() => openPlayer(v.id)}><Play /> Visualizar</DropdownMenuItem>
                       <DropdownMenuItem asChild>
-                        <Link to={`/lives/nova?video=${v.id}`}><Radio /> Criar live com este vídeo</Link>
+                        <Link to={`/publicacoes?nova=1&video=${v.id}${v.product_id ? `&produto=${v.product_id}` : ''}`}><Send /> Programar publicação</Link>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to={`/lives/nova?video=${v.id}`}><Radio /> Usar numa live</Link>
                       </DropdownMenuItem>
                       <DropdownMenuItem onSelect={() => setEdit({ kind: 'rename', video: v })}><Pencil /> Renomear</DropdownMenuItem>
                       <DropdownMenuItem onSelect={() => setEdit({ kind: 'product', video: v })}><Link2 /> Associar produto</DropdownMenuItem>

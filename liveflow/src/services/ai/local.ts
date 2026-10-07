@@ -1,6 +1,7 @@
 import { addDays, format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatCurrency, formatPercent } from '@/lib/format';
+import { POST_FORMATS } from '@/services/formats';
 import type { AIProvider, ChatMessage, CopilotContext, Script, ScriptInput } from './types';
 
 /**
@@ -57,7 +58,7 @@ const CTAS: Record<ScriptInput['objective'], string[]> = {
 };
 
 export function buildScript(input: ScriptInput, variant = 0): Script {
-  const seed = hashString(`${input.productName}|${input.audience}|${input.objective}`) + variant * 7919;
+  const seed = hashString(`${input.productName}|${input.audience}|${input.objective}|${input.format ?? ''}`) + variant * 7919;
   const audience = input.audience.trim() || 'quem quer praticidade';
   const price = input.price != null && input.price > 0 ? formatCurrency(input.price) : 'um preço que cabe no bolso';
   const benefits = splitBenefits(input.benefits);
@@ -66,14 +67,28 @@ export function buildScript(input: ScriptInput, variant = 0): Script {
   const proof = pick(PROOFS, seed >> 3);
   const cta = pick(CTAS[input.objective], seed >> 5);
 
-  const script = [
-    `[0–3s] GANCHO: "${hook}"`,
-    `[3–8s] PROBLEMA: Mostre a dor de ${audience} sem o produto. Fala direto pra câmera.`,
-    `[8–20s] SOLUÇÃO: Apresente ${input.productName} em uso. Destaque: ${benefits.slice(0, 2).join(' e ').toLowerCase()}.`,
-    `[20–30s] PROVA: ${proof}`,
-    `[30–35s] OFERTA: "Hoje sai por ${price}${input.objective === 'promocao' ? ', só enquanto durar a promoção' : ''}."`,
-    `[35–40s] CTA: "${cta}"`,
-  ].join('\n');
+  const fmt = input.format ? POST_FORMATS[input.format] : null;
+  const promo = input.objective === 'promocao' ? ', só enquanto durar a promoção' : '';
+  const script = (
+    fmt
+      ? [
+          `FORMATO: ${fmt.label} — ${fmt.description} Você não aparece.`,
+          `[0–3s] GANCHO (texto grande na tela${input.format === 'narracao' ? ' + narração' : ''}): "${hook}"`,
+          `[3–8s] CENA: ${fmt.shots[0]}. Texto: a dor de ${audience}.`,
+          `[8–20s] CENA: ${fmt.shots[1]}. Destaque: ${benefits.slice(0, 2).join(' e ').toLowerCase()}.`,
+          `[20–30s] CENA: ${fmt.shots[2]}. PROVA: ${proof}`,
+          `[30–35s] OFERTA (texto na tela): "Hoje sai por ${price}${promo}."`,
+          `[35–40s] CTA: "${cta}" — aponte para o carrinho laranja.`,
+        ]
+      : [
+          `[0–3s] GANCHO: "${hook}"`,
+          `[3–8s] PROBLEMA: Mostre a dor de ${audience} sem o produto.`,
+          `[8–20s] SOLUÇÃO: Apresente ${input.productName} em uso. Destaque: ${benefits.slice(0, 2).join(' e ').toLowerCase()}.`,
+          `[20–30s] PROVA: ${proof}`,
+          `[30–35s] OFERTA: "Hoje sai por ${price}${promo}."`,
+          `[35–40s] CTA: "${cta}"`,
+        ]
+  ).join('\n');
 
   return { hook, script, benefits, proof, cta };
 }
@@ -100,7 +115,7 @@ export function answerLocally(messages: ChatMessage[], ctx: CopilotContext): str
   if (/ganch/.test(q)) {
     const target = mentioned ?? bestBy(active, (p) => p.last30d.revenue) ?? ctx.products[0];
     const n = Math.min(15, Number(q.match(/\d+/)?.[0] ?? 10));
-    const input: ScriptInput = { productName: target.name, price: target.promoPrice ?? target.price, benefits: '', audience: 'quem compra no TikTok Shop', objective: 'vender' };
+    const input: ScriptInput = { productName: target.name, price: target.promoPrice ?? target.price, benefits: '', audience: 'quem compra no TikTok Shop', objective: 'vender', format: 'maos' };
     const hooks = new Set<string>();
     for (let i = 0; hooks.size < n && i < n * 4; i++) hooks.add(buildScript(input, i).hook);
     return `**${hooks.size} ganchos para ${target.name}:**\n\n${[...hooks].map((h, i) => `${i + 1}. ${h}`).join('\n')}\n\nDica: teste 2–3 ganchos com o mesmo vídeo e mantenha o de maior retenção nos 3 primeiros segundos.`;
@@ -108,21 +123,24 @@ export function answerLocally(messages: ChatMessage[], ctx: CopilotContext): str
 
   if (/roteiro|script/.test(q)) {
     const target = mentioned ?? bestBy(active, (p) => p.last30d.revenue) ?? ctx.products[0];
-    const s = buildScript({ productName: target.name, price: target.promoPrice ?? target.price, benefits: '', audience: 'quem compra no TikTok Shop', objective: 'vender' });
+    const s = buildScript({ productName: target.name, price: target.promoPrice ?? target.price, benefits: '', audience: 'quem compra no TikTok Shop', objective: 'vender', format: 'maos' });
     return `**Roteiro para ${target.name}**\n\n**Gancho:** ${s.hook}\n\n${s.script}\n\nPara benefícios específicos, use o **Gerador de Roteiro** com a descrição do produto.`;
   }
 
-  if (/sequ[eê]ncia|semana|cronograma|calend/.test(q)) {
+  if (/sequ[eê]ncia|semana|cronograma|calend|plano|postar|publica/.test(q)) {
     const ranked = [...active].sort((a, b) => b.last30d.revenue - a.last30d.revenue);
-    if (!ranked.length) return 'Não há produtos ativos para montar a sequência.';
+    if (!ranked.length) return 'Não há produtos ativos para montar o plano.';
     const start = parseISO(ctx.today);
+    const formats = ['maos', 'antes_depois', 'unboxing', 'comparativo', 'pov_texto', 'narracao', 'maos'] as const;
     const lines = Array.from({ length: 7 }, (_, i) => {
       const day = addDays(start, i);
-      const p = ranked[i % Math.min(ranked.length, 3)];
-      const hour = day.getDay() === 0 || day.getDay() === 6 ? '11:00' : '20:00';
-      return `- **${format(day, "EEEE (dd/MM)", { locale: ptBR })}** · ${hour} — ${p.name}`;
+      const a = ranked[i % Math.min(ranked.length, 3)];
+      const b = ranked[(i + 1) % Math.min(ranked.length, 3)];
+      const f1 = POST_FORMATS[formats[i]].label;
+      const f2 = POST_FORMATS[formats[(i + 3) % formats.length]].label;
+      return `- **${format(day, 'EEEE (dd/MM)', { locale: ptBR })}** · 12:00 ${a.name} (${f1}) · 19:00 ${b.name} (${f2})`;
     });
-    return `**Sequência sugerida para os próximos 7 dias**\n\n${lines.join('\n')}\n\nCritério: alternei os 3 produtos com maior faturamento nos últimos 30 dias; fins de semana pela manhã e dias úteis às 20h. Ajuste pelos horários em que seu público mais converte em Analytics.`;
+    return `**Plano de publicações sem rosto — próximos 7 dias**\n\n${lines.join('\n')}\n\nCritério: 2 vídeos por dia alternando os 3 produtos com maior faturamento em 30 dias e variando o formato para testar qual retém mais. Programe em **Publicações** e acompanhe o CTR por vídeo em Analytics.`;
   }
 
   if (/melhor|perform|vend(e|endo) mais|top/.test(q) && !/hoje|divulg/.test(q)) {
@@ -183,7 +201,7 @@ export function answerLocally(messages: ChatMessage[], ctx: CopilotContext): str
     '- "Crie 10 ganchos"',
     '- "Como melhorar esse vídeo?"',
     '- "Qual produto está performando melhor?"',
-    '- "Crie uma sequência de Lives para essa semana"',
+    '- "Monte meu plano de publicações da semana"',
     '',
     '_Modo local: respostas baseadas em regras e nos seus dados. Configure o provedor remoto para respostas livres de um modelo de linguagem._',
   ].join('\n');

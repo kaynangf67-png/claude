@@ -19,7 +19,7 @@ const SUGGESTIONS = [
   'Crie 10 ganchos.',
   'Como melhorar esse vídeo?',
   'Qual produto está performando melhor?',
-  'Crie uma sequência de Lives para essa semana.',
+  'Monte meu plano de publicações da semana.',
 ];
 
 const STORAGE_KEY = 'liveflow:copilot';

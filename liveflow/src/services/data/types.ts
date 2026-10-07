@@ -7,6 +7,7 @@ import type {
   Integration,
   Live,
   LiveSchedule,
+  Post,
   Product,
   Profile,
   Video,
@@ -23,6 +24,7 @@ export interface TableMap {
   notifications: AppNotification;
   ai_generations: AIGeneration;
   integrations: Integration;
+  posts: Post;
 }
 
 export type TableName = keyof TableMap;

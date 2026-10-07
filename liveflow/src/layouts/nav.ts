@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Package,
   Radio,
+  Send,
   Settings,
   Sparkles,
   Workflow,
@@ -23,6 +24,7 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     label: 'Operação',
     items: [
       { to: '/', label: 'Dashboard', icon: LayoutDashboard },
+      { to: '/publicacoes', label: 'Publicações', icon: Send },
       { to: '/produtos', label: 'Produtos', icon: Package },
       { to: '/videos', label: 'Vídeos', icon: Clapperboard },
       { to: '/lives', label: 'Lives', icon: Radio },
@@ -42,4 +44,4 @@ export const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
 ];
 
 /** Itens fixos da barra inferior no mobile (o resto vai em "Mais"). */
-export const MOBILE_PRIMARY = ['/', '/produtos', '/videos', '/lives'];
+export const MOBILE_PRIMARY = ['/', '/publicacoes', '/videos', '/produtos'];

@@ -10,6 +10,7 @@ export interface PlanDefinition {
     products: number | null;
     videos: number | null;
     livesPerMonth: number | null;
+    postsPerMonth: number | null;
     aiGenerationsPerMonth: number | null;
     analyticsHistoryDays: number;
     storageMb: number;
@@ -21,19 +22,19 @@ export const PLANS: Record<PlanTier, PlanDefinition> = {
     tier: 'free',
     name: 'Free',
     priceMonthly: 0,
-    limits: { products: 10, videos: 10, livesPerMonth: 30, aiGenerationsPerMonth: 30, analyticsHistoryDays: 30, storageMb: 1024 },
+    limits: { products: 10, videos: 10, livesPerMonth: 30, postsPerMonth: 60, aiGenerationsPerMonth: 30, analyticsHistoryDays: 30, storageMb: 1024 },
   },
   pro: {
     tier: 'pro',
     name: 'Pro',
     priceMonthly: 79,
-    limits: { products: 100, videos: 200, livesPerMonth: 600, aiGenerationsPerMonth: 500, analyticsHistoryDays: 180, storageMb: 20480 },
+    limits: { products: 100, videos: 200, livesPerMonth: 600, postsPerMonth: 900, aiGenerationsPerMonth: 500, analyticsHistoryDays: 180, storageMb: 20480 },
   },
   premium: {
     tier: 'premium',
     name: 'Premium',
     priceMonthly: 199,
-    limits: { products: null, videos: null, livesPerMonth: null, aiGenerationsPerMonth: 3000, analyticsHistoryDays: 730, storageMb: 102400 },
+    limits: { products: null, videos: null, livesPerMonth: null, postsPerMonth: null, aiGenerationsPerMonth: 3000, analyticsHistoryDays: 730, storageMb: 102400 },
   },
 };
 

@@ -12,6 +12,8 @@ import { useServices } from '@/contexts/services';
 import { errorMessage, usePlan, useProducts } from '@/hooks/queries';
 import { sanitizeText } from '@/lib/validation';
 import { OBJECTIVE_LABELS, type Script, type ScriptInput, type ScriptObjective } from '@/services/ai/types';
+import { FORMAT_KEYS, POST_FORMATS } from '@/services/formats';
+import type { PostFormat } from '@/types/domain';
 
 function scriptToText(s: Script) {
   return `GANCHO\n${s.hook}\n\nROTEIRO\n${s.script}\n\nBENEFÍCIOS\n${s.benefits.map((b) => `- ${b}`).join('\n')}\n\nPROVA\n${s.proof}\n\nCTA\n${s.cta}`;
@@ -83,7 +85,7 @@ export default function ScriptGeneratorPage() {
   const products = useProducts();
   const [params] = useSearchParams();
   const [productId, setProductId] = useState(params.get('produto') ?? '');
-  const [input, setInput] = useState<ScriptInput>({ productName: '', price: null, benefits: '', audience: '', objective: 'vender' });
+  const [input, setInput] = useState<ScriptInput>({ productName: '', price: null, benefits: '', audience: '', objective: 'vender', format: 'maos' });
   const [result, setResult] = useState<Script[] | null>(null);
   const [mode, setMode] = useState<'single' | 'variations'>('single');
   const [loading, setLoading] = useState<'single' | 'variations' | null>(null);
@@ -109,6 +111,7 @@ export default function ScriptGeneratorPage() {
       benefits: sanitizeText(input.benefits).slice(0, 2000),
       audience: sanitizeText(input.audience).slice(0, 200),
       objective: input.objective,
+      format: input.format,
     };
     if (!clean.productName) return setError('Informe o nome do produto.');
     setError('');
@@ -131,7 +134,7 @@ export default function ScriptGeneratorPage() {
     <div className="animate-in">
       <PageHeader
         title="Gerador de roteiro"
-        description="Gancho, roteiro, benefícios, prova e CTA para vídeos e lives do TikTok Shop."
+        description="Gancho, roteiro, benefícios, prova e CTA — com cenas para gravar sem aparecer."
         actions={<Badge tone={services.ai.providerId === 'remote' ? 'primary' : 'neutral'}>{services.ai.providerId === 'remote' ? 'IA generativa' : 'Gerador local (templates)'}</Badge>}
       />
       <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
@@ -159,6 +162,12 @@ export default function ScriptGeneratorPage() {
               <Field label="Objetivo" htmlFor="s-obj">
                 <NativeSelect id="s-obj" value={input.objective} onChange={(e) => setInput({ ...input, objective: e.target.value as ScriptObjective })}>
                   {Object.entries(OBJECTIVE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </NativeSelect>
+              </Field>
+              <Field label="Formato do vídeo" htmlFor="s-fmt" hint={input.format ? POST_FORMATS[input.format].description : 'Roteiro genérico (com apresentador).'}>
+                <NativeSelect id="s-fmt" value={input.format ?? ''} onChange={(e) => setInput({ ...input, format: (e.target.value || undefined) as PostFormat | undefined })}>
+                  {FORMAT_KEYS.map((k) => <option key={k} value={k}>{POST_FORMATS[k].label} (sem rosto)</option>)}
+                  <option value="">Com apresentador</option>
                 </NativeSelect>
               </Field>
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">

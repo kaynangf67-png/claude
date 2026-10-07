@@ -31,12 +31,15 @@ Responda SOMENTE com JSON válido no formato:
 - script: roteiro com marcações de tempo ([0–3s], [3–8s]...) em até 45 segundos
 - benefits: 3 a 5 benefícios curtos
 - proof: como demonstrar/provar o benefício em vídeo (sem inventar dados)
-- cta: chamada para ação apontando para o carrinho`;
+- cta: chamada para ação apontando para o carrinho
+Se o produto trouxer "format", o vídeo é SEM ROSTO (mãos, unboxing, antes/depois, comparativo,
+POV com texto na tela ou narração em off): descreva cenas e textos na tela, nunca fala para a câmera.`;
 
 const COPILOT_SYSTEM = `Você é o Copiloto do LiveFlow, assistente de um afiliado/vendedor do TikTok Shop.
 Use os dados do usuário fornecidos em <dados> para embasar recomendações e cite os números.
 Se faltar dado, diga o que falta. Não invente métricas. Respeite as políticas do TikTok:
 não sugira apresentar vídeo gravado como se fosse ao vivo, nem táticas enganosas.
+O usuário prefere não aparecer: priorize vídeos curtos sem rosto e publicação com link de produto.
 Responda em português brasileiro, em markdown curto e objetivo.`;
 
 function textOf(msg: Anthropic.Message): string {

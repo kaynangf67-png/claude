@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, ExternalLink, Package, Pencil, Radio, Sparkles } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Package, Pencil, Send, Sparkles } from 'lucide-react';
 import { EmptyState } from '@/components/app/page';
 import { ProductImage, VideoThumb } from '@/components/app/media';
 import { LiveStatusBadge, ProductStatusBadge, VideoStatusBadge } from '@/components/app/status';
@@ -67,8 +67,8 @@ export default function ProductDetailPage() {
                   </Link>
                 </Button>
                 <Button asChild size="sm">
-                  <Link to={`/lives/nova?produto=${product.id}`}>
-                    <Radio /> Criar live
+                  <Link to={`/publicacoes?nova=1&produto=${product.id}`}>
+                    <Send /> Programar publicação
                   </Link>
                 </Button>
               </div>

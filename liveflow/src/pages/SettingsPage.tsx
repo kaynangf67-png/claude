@@ -11,7 +11,7 @@ import { Field } from '@/components/ui/label';
 import { Avatar, Progress, Switch, Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/misc';
 import { useAuth } from '@/contexts/auth';
 import { useServices } from '@/contexts/services';
-import { qk, useAction, useFileUrl, useIntegration, useLives, useProducts, useProfile, useVideos } from '@/hooks/queries';
+import { qk, useAction, useFileUrl, useIntegration, useLives, usePosts, useProducts, useProfile, useVideos } from '@/hooks/queries';
 import { useDemoSeed } from '@/hooks/use-demo-seed';
 import { useTheme } from '@/hooks/use-theme';
 import { formatDateTime } from '@/lib/format';
@@ -212,11 +212,13 @@ function PlanTab() {
   const products = useProducts();
   const videos = useVideos();
   const lives = useLives();
+  const posts = usePosts();
   const plan = PLANS[profile?.plan ?? 'free'];
   const month = new Date().toISOString().slice(0, 7);
   const usage = [
     { label: 'Produtos', used: (products.data ?? []).filter((p) => p.status !== 'archived').length, limit: plan.limits.products },
     { label: 'Vídeos', used: (videos.data ?? []).filter((v) => v.status !== 'archived').length, limit: plan.limits.videos },
+    { label: 'Publicações neste mês', used: (posts.data ?? []).filter((p) => (p.scheduled_at ?? p.created_at).startsWith(month)).length, limit: plan.limits.postsPerMonth },
     { label: 'Lives neste mês', used: (lives.data ?? []).filter((l) => l.starts_at.startsWith(month)).length, limit: plan.limits.livesPerMonth },
   ];
   return (
@@ -244,6 +246,7 @@ function PlanTab() {
               <ul className="mt-3 grid gap-1 text-sm text-muted-foreground">
                 <li>{p.limits.products ?? 'Ilimitados'} produtos</li>
                 <li>{p.limits.videos ?? 'Ilimitados'} vídeos</li>
+                <li>{p.limits.postsPerMonth ?? 'Ilimitadas'} publicações/mês</li>
                 <li>{p.limits.livesPerMonth ?? 'Ilimitadas'} lives/mês</li>
                 <li>{p.limits.aiGenerationsPerMonth} gerações de IA/mês</li>
                 <li>Analytics de {p.limits.analyticsHistoryDays} dias</li>
@@ -265,7 +268,7 @@ function DataTab() {
   const [confirm, confirmNode] = useConfirm();
   return (
     <Card>
-      <CardHeader><div><CardTitle>Dados de demonstração</CardTitle><CardDescription>Preenche a conta com produtos, vídeos, lives, automações e 90 dias de métricas fictícias.</CardDescription></div></CardHeader>
+      <CardHeader><div><CardTitle>Dados de demonstração</CardTitle><CardDescription>Preenche a conta com produtos, vídeos, publicações, lives e 90 dias de métricas fictícias.</CardDescription></div></CardHeader>
       <CardContent>
         <Button
           onClick={async () => {

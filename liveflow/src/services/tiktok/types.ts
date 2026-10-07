@@ -9,7 +9,7 @@
  *    em vez de fingir que funcionam.
  */
 
-export type Capability = 'authenticate' | 'getProducts' | 'createLive' | 'scheduleLive' | 'getLiveStatus' | 'getAnalytics';
+export type Capability = 'authenticate' | 'getProducts' | 'publishVideo' | 'createLive' | 'scheduleLive' | 'getLiveStatus' | 'getAnalytics';
 
 export interface CapabilityInfo {
   capability: Capability;
@@ -44,6 +44,13 @@ export interface LiveHandle {
   externalId: string;
 }
 
+export interface PublishRequest {
+  videoUrl: string;
+  caption: string;
+  /** Sem auditoria do app, a API oficial só permite SELF_ONLY (privado). */
+  privacy: 'SELF_ONLY' | 'PUBLIC_TO_EVERYONE';
+}
+
 export type ExternalLiveStatus = 'scheduled' | 'running' | 'finished' | 'cancelled' | 'error';
 
 export interface ExternalLiveState {
@@ -75,6 +82,12 @@ export interface TikTokService {
   authenticate(): Promise<TikTokAccount>;
   disconnect(): Promise<void>;
   getProducts(): Promise<TikTokProduct[]>;
+  /**
+   * Content Posting API (oficial). Limitações documentadas: app não auditado só publica
+   * privado (SELF_ONLY) e para poucos usuários/dia; o link de produto (cestinha) é
+   * adicionado no app do TikTok — não encontramos suporte a isso na API.
+   */
+  publishVideo(req: PublishRequest): Promise<{ publishId: string }>;
   createLive(req: LiveRequest): Promise<LiveHandle>;
   scheduleLive(req: LiveRequest): Promise<LiveHandle>;
   getLiveStatus(live: { externalId: string | null; startsAt: string; durationMinutes: number; status: string }): Promise<ExternalLiveState>;
