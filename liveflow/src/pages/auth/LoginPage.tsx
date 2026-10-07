@@ -47,7 +47,7 @@ export default function LoginPage() {
   }
 
   return (
-    <AuthLayout title="Entrar" subtitle="Acesse sua central de lives.">
+    <AuthLayout title="Entrar" subtitle="Acesse sua operação de vídeos.">
       <form onSubmit={submit} className="grid gap-4" noValidate>
         <Field label="E-mail" htmlFor="email" error={errors.email}>
           <Input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} aria-invalid={!!errors.email} />

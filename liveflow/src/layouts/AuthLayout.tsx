@@ -14,13 +14,13 @@ export function AuthLayout({ title, subtitle, children }: { title: string; subti
           <Logo className="[&>span:last-child]:text-white" />
         </div>
         <div className="relative mt-auto max-w-lg">
-          <h2 className="text-4xl leading-tight font-semibold tracking-tight">Transforme seus vídeos em uma operação inteligente de Lives.</h2>
-          <p className="mt-4 text-white/70">Organize produtos, vídeos e transmissões em um só lugar — com agenda, automações e analytics.</p>
+          <h2 className="text-4xl leading-tight font-semibold tracking-tight">Venda no TikTok Shop sem aparecer.</h2>
+          <p className="mt-4 text-white/70">Vídeos curtos com o produto no carrinho: prepare, programe, poste e veja o que vende.</p>
           <div className="mt-10 grid gap-3">
             {[
-              { icon: CalendarClock, t: 'Agenda e recorrência', d: 'Programe uma vez, o LiveFlow gera as ocorrências.' },
-              { icon: BarChart3, t: 'Analytics de verdade', d: 'CTR, conversão, comissão e ROI por produto, vídeo e live.' },
-              { icon: Sparkles, t: 'IA para conteúdo', d: 'Roteiros, ganchos e um copiloto que conhece seus números.' },
+              { icon: CalendarClock, t: 'Publicações programadas', d: 'Legenda, hashtags e produto prontos. O LiveFlow avisa a hora de postar.' },
+              { icon: BarChart3, t: 'Vendas reais', d: 'Importe o CSV do TikTok Shop e descubra qual vídeo e formato vende mais.' },
+              { icon: Sparkles, t: 'Roteiros sem rosto', d: 'Mãos, unboxing, antes e depois: cenas e ganchos prontos para gravar.' },
             ].map(({ icon: Icon, t, d }) => (
               <div key={t} className="flex gap-3 rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur">
                 <Icon className="mt-0.5 size-5 text-[oklch(0.8_0.12_285)]" />

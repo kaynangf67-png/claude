@@ -120,7 +120,7 @@ export default function OnboardingPage() {
                 <Sparkles className="size-6" />
               </span>
               <h1 className="mt-5 text-2xl font-semibold tracking-tight">Bem-vindo ao LiveFlow</h1>
-              <p className="mt-2 text-muted-foreground">Transforme seus vídeos em uma operação inteligente de Lives. Venda sem aparecer: vamos configurar o essencial em 3 passos.</p>
+              <p className="mt-2 text-muted-foreground">Venda no TikTok Shop sem aparecer. Vamos configurar o essencial em 3 passos.</p>
               <div className="mt-6 grid gap-2 text-left text-sm">
                 {[
                   { icon: Package, t: 'Cadastre um produto' },
