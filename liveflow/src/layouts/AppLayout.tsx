@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Bell, LogOut, Menu, Moon, Plus, Sun, User } from 'lucide-react';
+import { Bell, FileUp, LogOut, Menu, Moon, Plus, Sun, User } from 'lucide-react';
 import { Logo } from '@/components/app/brand';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -17,7 +17,7 @@ import { cn } from '@/lib/utils';
 import { backendMode } from '@/services/backend';
 import { MOBILE_PRIMARY, NAV_GROUPS } from './nav';
 
-const ALL_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
+const ALL_ITEMS = [...NAV_GROUPS.flatMap((g) => g.items), { to: '/importar', label: 'Importar vendas', icon: FileUp }];
 
 function isActive(pathname: string, to: string) {
   return to === '/' ? pathname === '/' : pathname === to || pathname.startsWith(`${to}/`);

@@ -79,7 +79,7 @@ export class DemoRepository implements DataRepository {
     this.save();
   }
 
-  async removeWhere<T extends TableName>(table: T, opts: Pick<ListOptions<T>, 'eq' | 'in' | 'gte'>): Promise<void> {
+  async removeWhere<T extends TableName>(table: T, opts: Pick<ListOptions<T>, 'eq' | 'in' | 'gte' | 'lte'>): Promise<void> {
     const doomed = new Set(applyFilters(this.table(table), opts).map((r) => r.id));
     const db = this.load();
     db[table] = this.table(table).filter((r) => !doomed.has(r.id)) as never;

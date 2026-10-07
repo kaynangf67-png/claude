@@ -22,7 +22,7 @@ Por isso o fluxo é: o LiveFlow prepara (vídeo, legenda, hashtags, produto), pr
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 31 testes (recorrência, analytics, validação, publicações, legendas, regras de domínio, IA local)
+npm test           # 39 testes (recorrência, analytics, validação, publicações, legendas, CSV/importação, regras de domínio, IA local)
 npm run build
 ```
 
@@ -93,6 +93,6 @@ Uma automação mantém lives materializadas para os próximos **30 dias**. Hoje
 
 - Upload de vídeo usa upload simples; para arquivos grandes, trocar por upload resumável (TUS) no Supabase.
 - Notificações são in-app; o lembrete "hora de postar" só aparece com o app aberto. E-mail/push exigem Edge Function + provedor — é o próximo passo para a publicação assistida funcionar no dia a dia.
-- Analytics são inseridos via seed/manual. Não há fonte real até existir integração oficial (ex.: dados de pedidos/afiliados pelo TikTok Shop Partner API, se sua conta tiver acesso).
+- **Importar vendas (CSV)** em *Analytics → Importar vendas*: mapeamento de colunas (sugerido pelo cabeçalho), números BR ("R$ 1.234,56"), CSV do Excel em Windows-1252, casamento de produtos por SKU/nome, vínculo com publicações pelo link do vídeo e reimportação sem duplicar. Arquivos .xlsx precisam ser salvos como CSV antes. Integração direta exigiria acesso ao TikTok Shop Partner API.
 - Pagamentos: contrato `BillingProvider` e tabela `subscriptions` prontos; checkout/webhook ainda não implementados.
 - O cálculo de “Taxa de conversão” usa pedidos ÷ cliques; ROI = (comissão − custo) ÷ custo, e só aparece se houver custo registrado.

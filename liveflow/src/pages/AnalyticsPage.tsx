@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BadgePercent, CircleDollarSign, Eye, MousePointerClick, Percent, ShoppingBag, ShoppingCart, Target, TrendingUp } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { FileUp, BadgePercent, CircleDollarSign, Eye, MousePointerClick, Percent, ShoppingBag, ShoppingCart, Target, TrendingUp } from 'lucide-react';
 import { PageHeader } from '@/components/app/page';
 import { StatCard } from '@/components/app/stat-card';
 import { ProductImage, VideoThumb } from '@/components/app/media';
@@ -95,6 +96,7 @@ export default function AnalyticsPage() {
         description={`${formatDate(range.from)} – ${formatDate(range.to)} · comparado ao período anterior`}
         actions={
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Button asChild variant="outline" size="sm"><Link to="/importar"><FileUp /> Importar vendas</Link></Button>
             <Tabs value={preset} onValueChange={(v) => setPreset(v as RangePreset)}>
               <TabsList className="max-w-full overflow-x-auto scrollbar-none">
                 <TabsTrigger value="today">Hoje</TabsTrigger>

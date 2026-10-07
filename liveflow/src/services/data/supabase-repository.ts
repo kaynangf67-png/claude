@@ -87,7 +87,7 @@ export class SupabaseRepository implements DataRepository {
     if (error) raise(table, error);
   }
 
-  async removeWhere<T extends TableName>(table: T, opts: Pick<ListOptions<T>, 'eq' | 'in' | 'gte'>): Promise<void> {
+  async removeWhere<T extends TableName>(table: T, opts: Pick<ListOptions<T>, 'eq' | 'in' | 'gte' | 'lte'>): Promise<void> {
     const q = filtered(this.db.from(table).delete().eq('user_id', this.userId), opts as ListOptions<TableName>);
     const { error } = await q;
     if (error) raise(table, error);

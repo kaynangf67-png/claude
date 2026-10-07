@@ -115,11 +115,11 @@ export default function DashboardPage() {
             </span>
             <div className="flex-1">
               <p className="font-medium">Sua conta está vazia</p>
-              <p className="text-sm text-muted-foreground">Carregue dados fictícios para ver o LiveFlow funcionando, ou comece cadastrando um produto.</p>
+              <p className="text-sm text-muted-foreground">Importe suas vendas reais do TikTok Shop por CSV, ou carregue dados fictícios para explorar.</p>
             </div>
             <div className="flex gap-2">
               <Button variant="outline" asChild>
-                <Link to="/produtos">Cadastrar produto</Link>
+                <Link to="/importar">Importar vendas (CSV)</Link>
               </Button>
               <Button onClick={() => seed.mutate()} loading={seed.isPending}>
                 Usar dados de demonstração

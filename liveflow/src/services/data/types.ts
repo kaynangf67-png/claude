@@ -53,7 +53,7 @@ export interface DataRepository {
   insertMany<T extends TableName>(table: T, values: Insert<T>[]): Promise<Row<T>[]>;
   update<T extends TableName>(table: T, id: string, patch: Update<T>): Promise<Row<T>>;
   remove<T extends TableName>(table: T, id: string): Promise<void>;
-  removeWhere<T extends TableName>(table: T, opts: Pick<ListOptions<T>, 'eq' | 'in' | 'gte'>): Promise<void>;
+  removeWhere<T extends TableName>(table: T, opts: Pick<ListOptions<T>, 'eq' | 'in' | 'gte' | 'lte'>): Promise<void>;
   count<T extends TableName>(table: T, opts?: Pick<ListOptions<T>, 'eq' | 'gte' | 'lte'>): Promise<number>;
 }
 

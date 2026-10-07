@@ -22,6 +22,7 @@ const LiveDetailPage = lazy(() => import('@/pages/lives/LiveDetailPage'));
 const SchedulePage = lazy(() => import('@/pages/SchedulePage'));
 const AutomationsPage = lazy(() => import('@/pages/AutomationsPage'));
 const AnalyticsPage = lazy(() => import('@/pages/AnalyticsPage'));
+const ImportPage = lazy(() => import('@/pages/ImportPage'));
 const ScriptGeneratorPage = lazy(() => import('@/pages/ScriptGeneratorPage'));
 const CopilotPage = lazy(() => import('@/pages/CopilotPage'));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage'));
@@ -97,6 +98,7 @@ export default function App() {
             <Route path="agenda" element={<Suspense fallback={<PageLoader />}><SchedulePage /></Suspense>} />
             <Route path="automacoes" element={<Suspense fallback={<PageLoader />}><AutomationsPage /></Suspense>} />
             <Route path="analytics" element={<Suspense fallback={<PageLoader />}><AnalyticsPage /></Suspense>} />
+            <Route path="importar" element={<Suspense fallback={<PageLoader />}><ImportPage /></Suspense>} />
             <Route path="ia/roteiros" element={<Suspense fallback={<PageLoader />}><ScriptGeneratorPage /></Suspense>} />
             <Route path="ia/copiloto" element={<Suspense fallback={<PageLoader />}><CopilotPage /></Suspense>} />
             <Route path="configuracoes" element={<Suspense fallback={<PageLoader />}><SettingsPage /></Suspense>} />
