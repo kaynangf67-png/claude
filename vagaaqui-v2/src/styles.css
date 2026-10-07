@@ -823,45 +823,52 @@ button {
 /* ---------- navegação ---------- */
 .nav-banner {
   position: absolute;
-  top: calc(env(safe-area-inset-top) + 12px);
-  left: 12px;
-  right: 12px;
+  top: calc(env(safe-area-inset-top) + 8px);
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 6;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 10px;
+  width: max-content;
+  max-width: calc(100vw - 24px);
   background: #1557d6;
   color: #fff;
-  border-radius: 18px;
-  padding: 14px 16px;
+  border-radius: 14px;
+  padding: 7px 14px 7px 10px;
   box-shadow: var(--shadow);
 }
 @media (min-width: 760px) {
   .nav-banner {
-    right: auto;
-    width: 420px;
     left: 16px;
+    transform: none;
+    max-width: 420px;
   }
 }
 .nav-arrow {
-  font-size: 40px;
+  font-size: 22px;
   line-height: 1;
-  width: 52px;
+  width: 26px;
   text-align: center;
 }
 .nav-text {
   display: flex;
-  flex-direction: column;
+  align-items: baseline;
+  gap: 8px;
   min-width: 0;
 }
 .nav-text b {
-  font-size: 30px;
-  line-height: 1.1;
+  font-size: 18px;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 .nav-text span {
-  font-size: 17px;
+  font-size: 14px;
   font-weight: 600;
   opacity: 0.95;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .nav-bottom {
   position: absolute;
