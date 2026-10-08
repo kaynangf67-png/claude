@@ -65,6 +65,9 @@ function Lab() {
   const loci = useMemo(() => Object.fromEntries(SPEAKERS.map((s) => [s.id, s.locus])), []);
   const rep = res.representation;
   const seg = res.timeline.segments[0];
+  // repete a frase em loop (com pausa) para quem chega ao laboratório depois
+  const loopLen = (seg?.signEnd ?? 2) + 1.6;
+  const labTime = () => ((performance.now() - startRef.current) / 1000) % loopLen;
 
   const toggleLive = () => {
     if (live) {
@@ -171,7 +174,7 @@ ORIGEM:    motor de regras (AI_GENERATED → controle de qualidade)`}</pre>
       <div ref={stageRef} className="lab-stage">
         {mountAvatar && (
           <Suspense fallback={<div className="interp-loading">Carregando intérprete 3D…</div>}>
-            <AvatarViewer getTime={() => (performance.now() - startRef.current) / 1000} timeline={res.timeline} loci={loci} expressiveness={1} />
+            <AvatarViewer getTime={labTime} timeline={res.timeline} loci={loci} expressiveness={1} fpsCap={45} />
           </Suspense>
         )}
         <div className="interp-gloss">

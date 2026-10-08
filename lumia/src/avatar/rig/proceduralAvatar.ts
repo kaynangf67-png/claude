@@ -29,7 +29,7 @@ const UPPER = 0.285;
 const FORE = 0.255;
 const HEAD_PIVOT = new THREE.Vector3(0, 0.535, -0.005);
 const HEAD_OFFSET = new THREE.Vector3(0, 0.066, 0.008);
-const HX = 0.077;
+const HX = 0.073;
 const HY = 0.112;
 const HZ = 0.098;
 
@@ -57,7 +57,7 @@ function sculpt(ux: number, uy: number, uz: number, out = new THREE.Vector3()) {
   if (uy > 0.35 && uz > 0) Z -= 0.008 * (uy - 0.35) * uz;
   // nariz: ponte → ponta → columela
   const noseY = uy > -0.2 ? sstep(0.16, -0.2, uy) : 1 - sstep(-0.2, -0.33, uy);
-  Z += 0.021 * noseY * noseY * gauss((ux / 0.09) ** 2) * front;
+  Z += 0.017 * noseY * noseY * gauss((ux / 0.085) ** 2) * front;
   // asas do nariz
   Z += 0.005 * gauss(((ax - 0.12) / 0.07) ** 2 + ((uy + 0.27) / 0.06) ** 2) * front;
   // órbitas
@@ -306,8 +306,8 @@ function ensureOutwardWinding(g: THREE.BufferGeometry) {
 }
 
 function buildHairGeometry() {
-  const W = 72;
-  const Hh = 56;
+  const W = 112;
+  const Hh = 88;
   const pos: number[] = [];
   const uv: number[] = [];
   const p = new THREE.Vector3();
@@ -324,9 +324,9 @@ function buildHairGeometry() {
       const front = uz > 0 ? 0.74 - 0.5 * ax * ax : 0.6;
       const temple = ax > 0.7 ? THREE.MathUtils.lerp(front, 0.02, sstep(0.7, 0.95, ax)) : front;
       const line = uz < 0 ? THREE.MathUtils.lerp(temple, -0.6, sstep(0, -0.6, uz)) : temple;
-      const m = sstep(line - 0.06, line + 0.05, uy);
+      const m = sstep(line - 0.03, line + 0.09, uy);
       const thick = (0.026 + 0.03 * sstep(0.5, 1, uy) + 0.022 * sstep(0, -0.8, uz)) * m * m * m;
-      p.multiplyScalar(m > 0.02 ? 1.004 + thick : 0.975);
+      p.multiplyScalar(THREE.MathUtils.lerp(0.97, 1.006 + thick, sstep(0, 0.25, m)));
       // volume pentado para trás
       if (uz < 0) p.z -= 0.006 * m;
       pos.push(p.x, p.y, p.z);
@@ -569,7 +569,7 @@ export class ProceduralAvatar implements AvatarRig {
     const faceSkin = skin.clone();
     faceSkin.vertexColors = true;
     const knit = knitTexture();
-    const cloth = new THREE.MeshPhysicalMaterial({ color: '#15171c', roughness: 0.86, sheen: 0.7, sheenColor: new THREE.Color('#3b4252'), sheenRoughness: 0.75, bumpMap: knit, bumpScale: 0.6 });
+    const cloth = new THREE.MeshStandardMaterial({ color: '#191b21', roughness: 0.88, bumpMap: knit, bumpScale: 0.6 });
     const hairTex = hairTexture();
     const hair = new THREE.MeshPhysicalMaterial({ color: '#1a110c', roughness: 0.52, sheen: 1, sheenColor: new THREE.Color('#6b4a36'), sheenRoughness: 0.45, bumpMap: hairTex, bumpScale: 1.4, clearcoat: 0.15, clearcoatRoughness: 0.4 });
     const nail = new THREE.MeshPhysicalMaterial({ color: '#d6a594', roughness: 0.25, clearcoat: 0.8, clearcoatRoughness: 0.2 });
@@ -593,17 +593,21 @@ export class ProceduralAvatar implements AvatarRig {
     torsoMesh.scale.set(1.12, 1, 0.64);
     this.torso.add(torsoMesh);
     for (const sx of [-1, 1]) {
-      const sh = new THREE.Mesh(new THREE.SphereGeometry(0.05, 24, 18), cloth);
-      sh.scale.set(1.05, 0.8, 0.95);
-      sh.position.set(sx * 0.178, 0.404, -0.006);
+      const sh = new THREE.Mesh(new THREE.SphereGeometry(0.047, 24, 18), cloth);
+      sh.scale.set(1, 0.78, 0.92);
+      sh.position.set(sx * 0.172, 0.398, -0.006);
       this.torso.add(sh);
     }
+    const trap = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 16), cloth);
+    trap.scale.set(0.15, 0.045, 0.075);
+    trap.position.set(0, 0.425, -0.012);
+    this.torso.add(trap);
     const collar = new THREE.Mesh(new THREE.TorusGeometry(0.058, 0.008, 10, 40), cloth);
     collar.rotation.x = Math.PI / 2;
     collar.scale.set(1.05, 0.88, 1);
     collar.position.set(0, 0.476, 0.004);
     this.torso.add(collar);
-    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.049, 0.056, 0.13, 28), skin);
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.06, 0.13, 28), skin);
     neck.position.set(0, 0.52, -0.004);
     this.torso.add(neck);
 
@@ -769,7 +773,9 @@ export class ProceduralAvatar implements AvatarRig {
     }
     for (const name of this.morphNames) {
       const cur = this.face[name] ?? 0;
-      this.face[name] = snap ? targetFace[name] ?? 0 : damp(cur, targetFace[name] ?? 0, 14, o.dt);
+      const v = snap ? targetFace[name] ?? 0 : damp(cur, targetFace[name] ?? 0, 14, o.dt);
+      // zera resíduos da suavização: o shader só pula morphs com influência exatamente 0
+      this.face[name] = v < 0.004 ? 0 : v;
     }
     for (const mesh of this.faceMeshes) {
       const dict = mesh.morphTargetDictionary!;

@@ -348,7 +348,8 @@ export class GlbRig implements AvatarRig {
     target.eyeBlinkLeft = Math.max(target.eyeBlinkLeft ?? 0, blink);
     target.eyeBlinkRight = Math.max(target.eyeBlinkRight ?? 0, blink);
     for (const name of new Set([...Object.keys(this.face), ...Object.keys(target)])) {
-      this.face[name] = o.snap ? target[name] ?? 0 : damp(this.face[name] ?? 0, target[name] ?? 0, 14, o.dt);
+      const v = o.snap ? target[name] ?? 0 : damp(this.face[name] ?? 0, target[name] ?? 0, 14, o.dt);
+      this.face[name] = v < 0.004 ? 0 : v; // influência 0 exata = morph ignorado pelo shader
     }
     for (const mesh of this.morphMeshes) {
       const dict = mesh.morphTargetDictionary!;

@@ -24,7 +24,7 @@ import { classifyEmotion } from './emotionEngine';
 import { buildContext } from './contextEngine';
 import { represent } from './librasEngine';
 import { checkQuality } from './qualityEngine';
-import { buildTimeline, type InterpretationTimeline, type SegmentInput } from '@/avatar/timelineEngine';
+import { buildTimeline, entryFor, type InterpretationTimeline, type SegmentInput } from '@/avatar/timelineEngine';
 import { INTERPRETATION_PLANS } from '@/data/demoInterpretation';
 import { DEMO_TRANSCRIPTS } from '@/data/demoTranscript';
 
@@ -168,6 +168,9 @@ export function interpretSentence(text: string, opts: { emotion?: import('./type
     : classifyEmotion(unit, undefined, []);
   const ctx = buildContext(unit, undefined, { speakerId: opts.speaker ?? null, listenerId: opts.listener ?? null, confidence: opts.speaker ? 0.9 : 0.3, method: opts.speaker ? 'visual-context' : 'unknown' }, emo);
   const rep = represent(unit, ctx, null);
+  // Frase avulsa não tem tempo de fala real: a "fala" dura o tempo natural da sinalização.
+  const natural = rep.tokens.reduce((a, t) => a + (entryFor(t)?.duration ?? 0.5) / rep.speed + 0.1, 0);
+  unit.end = start + natural;
   const timeline = buildTimeline('lab', 'pt-BR-LIBRAS', [{ unit, context: ctx, representation: rep, makeQuality: (timing) => checkQuality(rep, ctx, timing) }]);
   return { unit, context: ctx, representation: rep, timeline };
 }

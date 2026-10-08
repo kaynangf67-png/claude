@@ -44,6 +44,8 @@ export interface AvatarViewerProps {
   className?: string;
   /** Teto de quadros por segundo do avatar (sinais não precisam de 60 fps; o vídeo agradece). */
   fpsCap?: number;
+  /** Teto de resolução interna do canvas. */
+  maxDpr?: number;
 }
 
 const LOOK_Y = 1.32;
@@ -102,6 +104,21 @@ function Scene({ getTime, timeline, loci, expressiveness = 0.5, ambience, onStat
     };
   }, [gl, scene]);
 
+  // Compila os shaders fora do caminho crítico (KHR_parallel_shader_compile quando disponível):
+  // o avatar só aparece pronto, sem travar o vídeo no momento em que o intérprete entra.
+  const precompile = async (r: AvatarRig) => {
+    try {
+      const staging = new THREE.Scene();
+      staging.environment = scene.environment;
+      staging.add(r.object);
+      scene.children.filter((c) => (c as THREE.Light).isLight).forEach((l) => staging.add(l.clone()));
+      await gl.compileAsync(staging, camera);
+      staging.remove(r.object);
+    } catch {
+      /* sem compileAsync: compila no primeiro quadro */
+    }
+  };
+
   // carrega GLB realista se configurado; senão, avatar de referência
   useEffect(() => {
     let alive = true;
@@ -115,6 +132,8 @@ function Scene({ getTime, timeline, loci, expressiveness = 0.5, ambience, onStat
           if (!alive) return;
           const g = new GlbRig(gltf.scene, cfg);
           created = g;
+          await precompile(g);
+          if (!alive) return;
           setRig(g);
           onStatus?.({
             kind: 'glb',
@@ -129,6 +148,8 @@ function Scene({ getTime, timeline, loci, expressiveness = 0.5, ambience, onStat
       if (!alive) return;
       const p = new ProceduralAvatar();
       created = p;
+      await precompile(p);
+      if (!alive) return;
       setRig(p);
       if (!cfg?.enabled) onStatus?.({ kind: 'procedural', message: 'Avatar de referência — instale /models/avatar.glb para realismo fotográfico' });
     })();
@@ -197,7 +218,9 @@ function Scene({ getTime, timeline, loci, expressiveness = 0.5, ambience, onStat
 }
 
 export default function AvatarViewer(props: AvatarViewerProps) {
-  const [dpr, setDpr] = useState(() => Math.min(1.5, window.devicePixelRatio || 1));
+  const maxDpr = props.maxDpr ?? 1.5;
+  const [dpr, setDpr] = useState(() => Math.min(maxDpr, window.devicePixelRatio || 1));
+  useEffect(() => setDpr((d) => Math.min(d, maxDpr)), [maxDpr]);
   return (
     <Canvas
       className={props.className}
@@ -212,7 +235,7 @@ export default function AvatarViewer(props: AvatarViewerProps) {
       }}
       aria-hidden="true"
     >
-      <PerformanceMonitor onDecline={() => setDpr((d) => Math.max(0.75, d - 0.25))} onIncline={() => setDpr((d) => Math.min(1.5, d + 0.25))} />
+      <PerformanceMonitor onDecline={() => setDpr((d) => Math.max(0.75, d - 0.25))} onIncline={() => setDpr((d) => Math.min(maxDpr, d + 0.25))} />
       <Scene {...props} />
     </Canvas>
   );

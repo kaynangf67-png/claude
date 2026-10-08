@@ -33,6 +33,8 @@ export interface AvatarWindowProps {
   status: AvatarStatus | null;
   onFps?: (fps: number, cpuMs: number) => void;
   bottomReserve: number;
+  /** Aparelho com dificuldade: avatar mais leve para proteger o vídeo. */
+  lowPower?: boolean;
 }
 
 const SIZES: AccessibilityPrefs['interpreterSize'][] = ['S', 'M', 'L'];
@@ -41,6 +43,8 @@ export function AvatarWindow(p: AvatarWindowProps) {
   const { layout, W, H } = p;
   const [drag, setDrag] = useState<{ x: number; y: number } | null>(null);
   const [resizeW, setResizeW] = useState<number | null>(null);
+  const dragRef = useRef<{ x: number; y: number } | null>(null);
+  const resizeRef = useRef<number | null>(null);
   const [touch, setTouch] = useState(false);
   const start = useRef<{ px: number; py: number; x: number; y: number; w: number; moved: boolean } | null>(null);
   const frames = useRef({ n: 0, t: performance.now(), cpu: 0 });
@@ -96,11 +100,16 @@ export function AvatarWindow(p: AvatarWindowProps) {
     const dy = e.clientY - s.py;
     if (!s.moved && Math.hypot(dx, dy) < 5) return;
     s.moved = true;
-    setDrag({ x: Math.max(0, Math.min(W - w, s.x + dx)), y: Math.max(0, Math.min(H - h - p.bottomReserve, s.y + dy)) });
+    const next = { x: Math.max(0, Math.min(W - w, s.x + dx)), y: Math.max(0, Math.min(H - h - p.bottomReserve, s.y + dy)) };
+    dragRef.current = next;
+    setDrag(next);
   };
   const onPointerUp = () => {
     const s = start.current;
     start.current = null;
+    // lê da ref: num gesto rápido o estado ainda pode não ter sido renderizado
+    const drag = dragRef.current;
+    dragRef.current = null;
     if (!s?.moved || !drag) {
       setDrag(null);
       return;
@@ -129,11 +138,14 @@ export function AvatarWindow(p: AvatarWindowProps) {
     const dx = (e.clientX - s.px) * resizeSide;
     const dy = s.py - e.clientY;
     const nw = Math.max(W * 0.12, Math.min(W * 0.5, s.w + Math.max(dx, dy / 1.25)));
+    resizeRef.current = nw;
     setResizeW(nw);
   };
   const onResizeUp = () => {
     start.current = null;
-    if (resizeW) p.setPrefs({ interpreterWidth: resizeW / W });
+    const rw = resizeRef.current;
+    resizeRef.current = null;
+    if (rw) p.setPrefs({ interpreterWidth: rw / W });
     setResizeW(null);
   };
 
@@ -171,7 +183,7 @@ export function AvatarWindow(p: AvatarWindowProps) {
           </div>
         }
       >
-        <AvatarViewer getTime={p.getTime} timeline={p.timeline} loci={p.loci} expressiveness={p.immersive ? 1 : 0.5} fpsCap={p.immersive ? 45 : 30} ambience={p.cinema ? p.ambience : null} onStatus={p.onStatus} onPose={onPose} />
+        <AvatarViewer getTime={p.getTime} timeline={p.timeline} loci={p.loci} expressiveness={p.immersive ? 1 : 0.5} fpsCap={p.lowPower ? 15 : p.immersive ? 45 : 30} maxDpr={p.lowPower ? 1 : 1.5} ambience={p.cinema ? p.ambience : null} onStatus={p.onStatus} onPose={onPose} />
       </Suspense>
       {p.status?.kind === 'loading' && (
         <div className="interp-loading">

@@ -325,6 +325,34 @@ export function VideoPlayer(props: VideoPlayerProps) {
     return () => window.clearInterval(id);
   }, [librasOn, cinema, videoRef]);
 
+  // ---------------------------------------------------------------- proteção da fluidez do vídeo
+  // Se o vídeo começar a perder quadros com o intérprete ligado, o avatar entra em modo leve.
+  const [lowPower, setLowPower] = useState(false);
+  useEffect(() => {
+    if (!librasOn || lowPower) return;
+    let prev: { d: number; t: number } | null = null;
+    let strikes = 0;
+    const id = window.setInterval(() => {
+      const v = videoRef.current;
+      const q = v?.getVideoPlaybackQuality?.();
+      if (!v || !q || v.paused) {
+        prev = null;
+        return;
+      }
+      if (prev) {
+        const frames = q.totalVideoFrames - prev.t;
+        const lost = q.droppedVideoFrames - prev.d;
+        strikes = frames > 30 && lost / frames > 0.15 ? strikes + 1 : 0;
+        if (strikes >= 2) {
+          setLowPower(true);
+          toast('Modo leve do intérprete ativado para manter o vídeo fluido neste aparelho.', 'info');
+        }
+      }
+      prev = { d: q.droppedVideoFrames, t: q.totalVideoFrames };
+    }, 3000);
+    return () => window.clearInterval(id);
+  }, [librasOn, lowPower, toast, videoRef]);
+
   // ---------------------------------------------------------------- diagnóstico
   useEffect(() => {
     if (!prefs.diagnostics) return;
@@ -469,6 +497,7 @@ export function VideoPlayer(props: VideoPlayerProps) {
           status={avatarStatus}
           onFps={(fps, cpu) => setAvatarFps({ fps, cpu })}
           bottomReserve={bottomReserve}
+          lowPower={lowPower}
         />
       )}
       {librasOn && layout.autoMovedFor && !collapsed && !immersive && (
@@ -491,7 +520,7 @@ export function VideoPlayer(props: VideoPlayerProps) {
         <div className="diag">
           <div>vídeo t = {t.toFixed(2)} s · {rate}× · {active?.height ?? '—'}p</div>
           <div>quadros perdidos: {dropped ? `${dropped.dropped}/${dropped.total}` : '—'}</div>
-          <div>avatar: {librasOn ? `${avatarFps.fps} fps (teto ${immersive ? 45 : 30}) · JS ${avatarFps.cpu.toFixed(2)} ms/quadro · ${avatarStatus?.kind ?? '—'}` : 'desligado (render parado)'}</div>
+          <div>avatar: {librasOn ? `${avatarFps.fps} fps (teto ${lowPower ? 15 : immersive ? 45 : 30}) · JS ${avatarFps.cpu.toFixed(2)} ms/quadro${lowPower ? ' · modo leve' : ''} · ${avatarStatus?.kind ?? '—'}` : 'desligado (render parado)'}</div>
           <div>sinal: {sign ? `${sign.token.gloss} [${sign.start.toFixed(2)}–${sign.end.toFixed(2)}]` : '—'}</div>
           <div>regiões protegidas: {rois.length}</div>
         </div>
