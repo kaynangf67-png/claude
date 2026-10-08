@@ -1,0 +1,9 @@
+{
+  "enabled": false,
+  "url": "/models/avatar.glb",
+  "heightMeters": null,
+  "rotationY": 0,
+  "boneAliases": {},
+  "morphAliases": {},
+  "invertFingerCurl": false
+}
