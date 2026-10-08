@@ -1,5 +1,3 @@
-import atendimentoJpg from '../assets/atendimento.jpg';
-import atendimentoWebp from '../assets/atendimento.webp';
 import consultorioJpg from '../assets/consultorio.jpg';
 import consultorioWebp from '../assets/consultorio.webp';
 import entradaJpg from '../assets/entrada.jpg';
@@ -47,12 +45,5 @@ export const photos = {
     width: 577,
     height: 1079,
     alt: `Porta de vidro na entrada da ${clinic.name}, com o logotipo e vasos de plantas nas laterais`,
-  },
-  atendimento: {
-    jpg: atendimentoJpg,
-    webp: atendimentoWebp,
-    width: 611,
-    height: 1132,
-    alt: 'Dentista com equipamento de magnificação realizando atendimento em paciente na cadeira odontológica',
   },
 } satisfies Record<string, PhotoAsset>;

@@ -1,5 +1,5 @@
 import { Clock, MapPin, Phone } from 'lucide-react';
-import { clinic, WHATSAPP_NUMBER, whatsappMessages } from '../config/clinic';
+import { clinic, SHOW_PENDING, WHATSAPP_NUMBER, whatsappMessages } from '../config/clinic';
 import { isWhatsAppConfigured } from '../lib/whatsapp';
 import { InstagramIcon, WhatsAppIcon } from './BrandIcons';
 import { Pending } from './Pending';
@@ -65,6 +65,7 @@ export function Footer() {
                   </WhatsAppLink>
                 </div>
               </li>
+              {(clinic.instagram || SHOW_PENDING) && (
               <li className="flex gap-3">
                 <InstagramIcon className="mt-0.5 size-[1.1rem] shrink-0 text-white/60" />
                 <div>
@@ -85,10 +86,11 @@ export function Footer() {
                   )}
                 </div>
               </li>
+              )}
               <li className="flex gap-3">
                 <MapPin className="mt-0.5 size-[1.1rem] shrink-0 text-white/60" aria-hidden="true" />
                 <div>
-                  <p className="text-white">Endereço</p>
+                  <p className="text-white">{addressLine ? 'Endereço' : 'Localização'}</p>
                   {addressLine ? (
                     <address className="mt-1.5 not-italic leading-relaxed">
                       {addressLine}
@@ -96,9 +98,11 @@ export function Footer() {
                       {cityLine}
                     </address>
                   ) : (
-                    <p className="mt-1.5">
-                      <Pending>[Endereço completo]</Pending>
-                    </p>
+                    SHOW_PENDING && (
+                      <p className="mt-1.5">
+                        <Pending>[Endereço completo]</Pending>
+                      </p>
+                    )
                   )}
                   {a.mapsUrl ? (
                     <a
@@ -121,6 +125,7 @@ export function Footer() {
                   )}
                 </div>
               </li>
+              {(clinic.openingHours.length > 0 || SHOW_PENDING) && (
               <li className="flex gap-3">
                 <Clock className="mt-0.5 size-[1.1rem] shrink-0 text-white/60" aria-hidden="true" />
                 <div>
@@ -138,6 +143,7 @@ export function Footer() {
                   )}
                 </div>
               </li>
+              )}
               {clinic.phoneDisplay && (
                 <li className="flex gap-3">
                   <Phone className="mt-0.5 size-[1.1rem] shrink-0 text-white/60" aria-hidden="true" />
@@ -158,12 +164,14 @@ export function Footer() {
 
         <div className="mt-16 flex flex-col gap-3 border-t border-white/10 pt-8 text-[0.82rem] text-white/55 lg:flex-row lg:items-center lg:justify-between">
           <p>© 2026 {clinic.name}. Todos os direitos reservados.</p>
+          {(clinic.technicalLead.name || SHOW_PENDING) && (
           <p>
             Responsável técnico(a): {clinic.technicalLead.name || <Pending>[Nome]</Pending>} ·{' '}
             {clinic.technicalLead.cro || <Pending>[CRO-UF 0000]</Pending>}
             {' · '}
             {clinic.clinicRegistration || <Pending>[Inscrição da clínica no CRO]</Pending>}
           </p>
+          )}
         </div>
       </div>
     </footer>
