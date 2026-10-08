@@ -1,0 +1,51 @@
+WEBVTT
+Kind: descriptions
+Language: pt-BR
+
+NOTE
+Sons importantes (SDH). O identificador entre colchetes no início
+de cada cue é o tipo do som usado pelo motor multimodal.
+
+rain
+00:00:04.000 --> 00:00:07.000
+[RAIN] Chuva forte lá fora
+
+door-open
+00:00:04.500 --> 00:00:05.600
+[DOOR_CREAK] Porta range ao abrir
+
+steps
+00:00:05.600 --> 00:00:09.400
+[FOOTSTEPS] Passos
+
+door-slam
+00:00:10.200 --> 00:00:11.600
+[DOOR_SLAM] Porta bate com força
+
+phone
+00:00:12.500 --> 00:00:22.400
+[PHONE_RING] Telefone vibrando e tocando
+
+answer
+00:00:22.400 --> 00:00:23.000
+[CLICK] Clique — chamada atendida
+
+music
+00:00:25.000 --> 00:00:38.500
+[MUSIC_TENSE] ♪ Trilha tensa crescendo
+
+silence
+00:00:38.600 --> 00:00:42.400
+[SUDDEN_SILENCE] Silêncio repentino — a chuva para
+
+knock
+00:00:42.500 --> 00:00:44.500
+[KNOCK] Batidas na porta
+
+heart
+00:00:44.800 --> 00:00:49.300
+[HEARTBEAT_BASS] Pulsação grave
+
+impact
+00:00:49.500 --> 00:00:52.000
+[IMPACT] Impacto sonoro final
