@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -b",
     "test": "vitest run",
-    "media": "python3 scripts/generate_media.py"
+    "media": "python3 scripts/generate_media.py",
+    "build:artifact": "tsc -b && VITE_HASH_ROUTER=1 vite build --mode artifact --outDir dist-artifact"
   },
   "dependencies": {
     "@react-three/drei": "^10.7.9",

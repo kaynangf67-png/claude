@@ -1,9 +1,23 @@
 import { fileURLToPath, URL } from 'node:url';
-import { defineConfig } from 'vitest/config';
+import { defineConfig, type Plugin } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig({
-  plugins: [react()],
+// Modo "artifact": publica o app inteiro como página estática em subcaminho
+// (caminhos relativos + rotas com #). Uso: npm run build:artifact
+function relativeAssets(): Plugin {
+  return {
+    name: 'lumia-relative-assets',
+    enforce: 'pre',
+    transform(code, id) {
+      if (!/\/src\/.*\.(ts|tsx)$/.test(id)) return null;
+      return code.replace(/(['"`])\/(media|posters|models)\//g, '$1./$2/');
+    },
+  };
+}
+
+export default defineConfig(({ mode }) => ({
+  base: mode === 'artifact' ? './' : '/',
+  plugins: [react(), ...(mode === 'artifact' ? [relativeAssets()] : [])],
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
   },
@@ -23,4 +37,4 @@ export default defineConfig({
   test: {
     environment: 'node',
   },
-});
+}));
