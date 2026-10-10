@@ -1,0 +1,20 @@
+{
+  "searchStringsArray": [
+    "marmoraria",
+    "vidraçaria",
+    "serralheria",
+    "clínica de estética",
+    "fisioterapia",
+    "pilates",
+    "clínica veterinária",
+    "pet shop",
+    "oficina mecânica",
+    "auto elétrica",
+    "nutricionista",
+    "buffet infantil"
+  ],
+  "locationQuery": "Serra, Espírito Santo, Brasil",
+  "maxCrawledPlacesPerSearch": 40,
+  "language": "pt-BR",
+  "website": "allPlaces"
+}

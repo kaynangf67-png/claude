@@ -27,3 +27,8 @@ dist/
 
 # Playwright MCP output (snapshots, console logs)
 .playwright-mcp/
+
+# Prospecção (dados de terceiros)
+prospeccao/*.csv
+prospeccao/dataset*.json
+leads-sem-site.csv
