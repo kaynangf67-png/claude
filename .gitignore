@@ -24,3 +24,6 @@ dist/
 .env
 .env.local
 .vercel
+
+# Playwright MCP output (snapshots, console logs)
+.playwright-mcp/
