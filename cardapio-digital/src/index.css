@@ -1,0 +1,68 @@
+@import 'tailwindcss';
+
+/* Cores e fontes vêm de src/config/restaurant.ts (injetadas no <head> no build). */
+@theme inline {
+  --font-sans: var(--font-body-family);
+  --font-display: var(--font-display-family);
+
+  --color-brand: var(--brand);
+  --color-brand-contrast: var(--brand-contrast);
+  --color-brand-soft: color-mix(in oklab, var(--brand) 10%, var(--surface));
+  --color-accent: var(--accent);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-muted: color-mix(in oklab, var(--ink) 68%, var(--surface));
+  --color-line: color-mix(in oklab, var(--ink) 11%, var(--surface));
+}
+
+@theme {
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04), 0 10px 30px -18px rgb(0 0 0 / 0.22);
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-bg font-sans text-ink antialiased;
+    overflow-x: clip;
+  }
+  :focus-visible {
+    outline: 2px solid var(--brand);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+  dialog::backdrop {
+    background: rgb(0 0 0 / 0.55);
+    backdrop-filter: blur(2px);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  .container-menu {
+    @apply mx-auto w-full max-w-[1120px] px-4 sm:px-6;
+  }
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .price {
+    font-variant-numeric: tabular-nums;
+  }
+}
