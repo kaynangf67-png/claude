@@ -57,8 +57,8 @@ export interface Address {
   line1: string;
   line2?: string;
   neighborhood?: string;
-  city: string;
-  state: string;
+  city?: string;
+  state?: string;
   postalCode?: string;
   /** Link "Compartilhar" da ficha do Google Maps. */
   mapsUrl?: string;
@@ -111,8 +111,13 @@ export interface Restaurant {
 }
 
 export interface MenuConfig {
-  /** true = mostra faixa "dados de demonstração" e bloqueia `npm run check:publish`. */
-  demo: boolean;
+  /**
+   * - 'demo': dados fictícios do template.
+   * - 'preview': prévia para o dono aprovar; mostra itens não confirmados com aviso.
+   * - 'live': cardápio oficial; só itens verificados.
+   * Fora de 'live' o site tem faixa de aviso, fica fora do Google e `check:publish` falha.
+   */
+  stage: 'demo' | 'preview' | 'live';
   restaurant: Restaurant;
   theme: Theme;
   categories: Category[];

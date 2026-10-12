@@ -3,16 +3,20 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import { menu } from './src/config/restaurant.ts';
+import { clients } from './src/clients/index.ts';
 import { isPublishable } from './src/lib/menu.ts';
 import { googleFontsHref, themeCss } from './src/lib/theme.ts';
 import { validateMenu } from './src/lib/validate.ts';
+
+const clientId = process.env.CLIENT ?? 'demo';
+const menu = clients[clientId];
+if (!menu) throw new Error(`CLIENT="${clientId}" não existe. Opções: ${Object.keys(clients).join(', ')}`);
 
 const publicDir = fileURLToPath(new URL('./public/', import.meta.url));
 const escape = (s: string) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
 /**
- * Lê src/config/restaurant.ts no build:
+ * Lê src/clients/<CLIENT>.ts no build:
  * - falha o build se a configuração tiver erros;
  * - injeta title, meta, Open Graph, cores e fontes no HTML
  *   (prévias de WhatsApp e buscadores não executam JavaScript).
@@ -21,8 +25,8 @@ const VIRTUAL_ID = 'virtual:menu';
 const RESOLVED_ID = '\0' + VIRTUAL_ID;
 
 /**
- * Dados públicos do cardápio. Em produção, produtos pendentes NÃO entram
- * no JavaScript publicado; em nenhum modo vão `source` e `note` (internos).
+ * Dados públicos do cardápio. Em produção (exceto na prévia), produtos pendentes
+ * NÃO entram no JavaScript publicado; em nenhum modo vão `source` e `note` (internos).
  */
 function publicMenu(includePending: boolean) {
   return {
@@ -45,8 +49,7 @@ function restaurantMenu(): Plugin {
     },
     load(id) {
       if (id !== RESOLVED_ID) return;
-      this.addWatchFile(fileURLToPath(new URL('./src/config/restaurant.ts', import.meta.url)));
-      return `export const menu = ${JSON.stringify(publicMenu(!isBuild))};`;
+      return `export const menu = ${JSON.stringify(publicMenu(!isBuild || menu.stage === 'preview'))};`;
     },
     buildStart() {
       const errors = validateMenu(menu, (p) => existsSync(publicDir + p)).filter((i) => i.severity === 'erro');
@@ -74,7 +77,7 @@ function restaurantMenu(): Plugin {
         `<meta property="og:description" content="${escape(description)}" />`,
         r.publicUrl && `<meta property="og:url" content="${r.publicUrl}/" />`,
         ogImage && `<meta property="og:image" content="${escape(absolute(ogImage))}" />`,
-        menu.demo && `<meta name="robots" content="noindex" />`,
+        menu.stage !== 'live' && `<meta name="robots" content="noindex" />`,
         `<link rel="preconnect" href="https://fonts.googleapis.com" />`,
         `<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />`,
         `<link rel="stylesheet" href="${googleFontsHref(menu.theme)}" />`,

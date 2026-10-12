@@ -10,8 +10,13 @@ import { ImageDialog } from './components/ImageDialog';
 import { InfoSection } from './components/InfoSection';
 import { ShareSection } from './components/ShareSection';
 
-/** Em desenvolvimento mostra itens pendentes (marcados). Em produção eles nem chegam ao bundle. */
-const INCLUDE_PENDING = import.meta.env.DEV;
+/** Pendentes aparecem em dev e na prévia para o dono. Em 'live'/'demo' de produção nem chegam ao bundle. */
+const INCLUDE_PENDING = import.meta.env.DEV || menu.stage === 'preview';
+
+const STAGE_NOTICE: Record<string, string> = {
+  demo: 'Cardápio de demonstração · dados fictícios',
+  preview: 'Prévia para aprovação · preços e itens ainda não confirmados pelo restaurante',
+};
 
 export default function App() {
   const sections = useMemo(() => buildSections(menu, INCLUDE_PENDING), []);
@@ -76,9 +81,9 @@ export default function App() {
 
   return (
     <>
-      {menu.demo && (
+      {STAGE_NOTICE[menu.stage] && (
         <div role="note" className="bg-ink px-4 py-2 text-center text-xs font-medium text-bg">
-          Cardápio de demonstração · dados fictícios
+          {STAGE_NOTICE[menu.stage]}
         </div>
       )}
 

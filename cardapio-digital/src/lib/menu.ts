@@ -45,6 +45,7 @@ export function formatAddress(config: MenuConfig): string[] {
   const a = config.restaurant.address;
   if (!a) return [];
   const first = [a.line1, a.line2].filter(Boolean).join(', ');
-  const second = [a.neighborhood, `${a.city} - ${a.state}`].filter(Boolean).join(', ');
-  return [first, a.postalCode ? `${second} · CEP ${a.postalCode}` : second];
+  const cityState = [a.city, a.state].filter(Boolean).join(' - ');
+  const second = [a.neighborhood, cityState].filter(Boolean).join(', ');
+  return [first, a.postalCode ? `${second} · CEP ${a.postalCode}` : second].filter(Boolean);
 }

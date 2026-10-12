@@ -34,7 +34,7 @@ export function validateMenu(config: MenuConfig, fileExists: (path: string) => b
   };
 
   // Restaurante
-  if (config.demo) add('bloqueia-publicacao', 'demo', 'configuração ainda está em modo demonstração');
+  if (config.stage !== 'live') add('bloqueia-publicacao', 'stage', `estágio "${config.stage}": troque para 'live' após aprovação do dono`);
   if (!r.name.trim()) add('erro', 'restaurant.name', 'nome do restaurante vazio');
   if (!r.publicUrl) add('bloqueia-publicacao', 'restaurant.publicUrl', 'URL pública vazia: QR Code usaria o endereço atual do navegador');
   else if (!/^https:\/\/[^\s]+[^/]$/.test(r.publicUrl))
@@ -43,7 +43,8 @@ export function validateMenu(config: MenuConfig, fileExists: (path: string) => b
     add('erro', 'restaurant.phoneDigits', 'formato esperado: 55 + DDD + número, só dígitos');
   if (r.phoneDisplay && !r.phoneDigits) add('aviso', 'restaurant.phoneDigits', 'sem phoneDigits o telefone não fica clicável');
   if (!r.address) add('aviso', 'restaurant.address', 'endereço não informado: seção some do site');
-  else if (!r.address.mapsUrl) add('aviso', 'restaurant.address.mapsUrl', 'sem link do Google Maps');
+  else if (!r.address.city || !r.address.state) add('aviso', 'restaurant.address', 'cidade/UF não informadas');
+  if (r.address && !r.address.mapsUrl) add('aviso', 'restaurant.address.mapsUrl', 'sem link do Google Maps');
   if (!r.openingHours?.length) add('aviso', 'restaurant.openingHours', 'horário não informado: seção some do site');
   if (!r.logo) add('aviso', 'restaurant.logo', 'sem logo: o nome aparece em texto');
   if (!r.heroImage) add('aviso', 'restaurant.heroImage', 'sem foto de capa: hero usa a cor da marca');

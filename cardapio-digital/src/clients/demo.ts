@@ -1,10 +1,10 @@
 /**
  * ============================================================
- *  CONFIGURAÇÃO DO CLIENTE — único arquivo a editar por restaurante
+ *  CLIENTE DE DEMONSTRAÇÃO (CLIENT=demo) — modelo para novos clientes
  * ============================================================
  *
  *  ATENÇÃO: os dados abaixo são FICTÍCIOS, só para demonstrar o
- *  template. `demo: true` exibe uma faixa de aviso no site e faz
+ *  template. `stage: 'demo'` exibe uma faixa de aviso no site e faz
  *  `npm run check:publish` falhar até ser trocado por dados reais.
  *
  *  Regras:
@@ -17,7 +17,7 @@
 import type { MenuConfig } from '../types/menu.ts';
 
 export const menu: MenuConfig = {
-  demo: true,
+  stage: 'demo',
 
   restaurant: {
     name: 'Cantina Modelo',

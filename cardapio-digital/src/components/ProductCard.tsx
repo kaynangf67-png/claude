@@ -10,7 +10,8 @@ interface Props {
 
 export function ProductCard({ product, onOpenImage }: Props) {
   const unavailable = product.available === false;
-  const pending = !isPublishable(product);
+  // Na prévia, a faixa do topo já avisa; o destaque por item é só para revisão em dev.
+  const pending = import.meta.env.DEV && !isPublishable(product);
   const alt = product.imageAlt ?? product.name;
 
   return (

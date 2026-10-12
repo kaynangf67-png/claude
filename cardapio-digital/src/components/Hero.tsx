@@ -9,7 +9,7 @@ interface Props {
 
 export function Hero({ restaurant: r, onShare }: Props) {
   const hasImage = Boolean(r.heroImage);
-  const city = r.address ? `${r.address.neighborhood ? `${r.address.neighborhood} · ` : ''}${r.address.city}` : null;
+  const city = [r.address?.neighborhood, r.address?.city].filter(Boolean).join(' · ') || null;
 
   return (
     <header className="relative isolate overflow-hidden bg-brand text-brand-contrast">
