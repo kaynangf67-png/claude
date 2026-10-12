@@ -47,10 +47,11 @@ supabase link --project-ref SEU_REF
 supabase db push                  # aplica supabase/migrations/
 ```
 
-A migration `20261012000000_menu_builder.sql` cria:
+As migrations (`20261012000000_menu_builder.sql` e `20261012000100_hardening.sql`) criam:
 
 - **Tabelas:** `profiles`, `restaurant_projects`, `menu_categories`, `menu_products`, `project_assets`, `ai_usage`, `activity_log`.
 - **Integridade:** chaves estrangeiras, índices e `CHECK`s (slug, cores, status, preço ≥ 0, tipo e tamanho de arquivo). Uma FK composta impede ligar um produto a uma categoria de outro projeto, e `unique(project_id, sha256)` impede enviar a mesma imagem duas vezes.
+- **Permissões explícitas:** o visitante (`anon`) não tem acesso a nenhuma tabela; só à função pública. Não dependemos dos privilégios padrão do projeto.
 - **RLS:** cada usuário só lê e altera os próprios projetos. `ai_usage` é **somente leitura** para o usuário, porque só a Edge Function (service role) grava ali. Assim ninguém consegue apagar o próprio histórico para burlar o limite.
 - **`get_public_menu(slug)`:** a única porta do público. Devolve só campos públicos, só cardápios com status `published` e só itens revisados com preço. O público nunca lê tabelas.
 - **`is_slug_available(slug, id)`:** verifica duplicidade sem expor projetos de outras pessoas.

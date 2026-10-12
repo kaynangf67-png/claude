@@ -12,5 +12,5 @@ BASE="${TEST_DATABASE_URL%%\?*}"
 QUERY="${TEST_DATABASE_URL#"$BASE"}"
 URL="${BASE%/*}/$DB$QUERY"
 psql "$URL" -v ON_ERROR_STOP=1 -q -f tests/supabase_stubs.sql
-psql "$URL" -v ON_ERROR_STOP=1 -q -f migrations/20261012000000_menu_builder.sql
+for f in migrations/*.sql; do psql "$URL" -v ON_ERROR_STOP=1 -q -f "$f"; done
 psql "$URL" -v ON_ERROR_STOP=1 -q -f tests/rls_test.sql

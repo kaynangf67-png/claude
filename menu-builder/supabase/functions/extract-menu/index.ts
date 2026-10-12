@@ -11,7 +11,7 @@
 //   * Limites: MAX_IMAGES_PER_CALL por chamada e AI_DAILY_IMAGE_LIMIT por usuário/dia.
 //   * Imagens já analisadas são puladas, salvo `force: true`.
 
-import Anthropic from 'npm:@anthropic-ai/sdk';
+import Anthropic from 'npm:@anthropic-ai/sdk@0.133.0';
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import {
   EXTRACTION_SCHEMA,

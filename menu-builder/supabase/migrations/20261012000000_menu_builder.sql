@@ -192,6 +192,18 @@ create policy "uso de IA: ler o próprio" on public.ai_usage for select using (o
 create policy "atividades: ler" on public.activity_log for select using (owner_id = auth.uid());
 create policy "atividades: registrar" on public.activity_log for insert with check (owner_id = auth.uid());
 
+-- ---------------------------------------------------------------- permissões explícitas
+-- Não dependemos dos privilégios padrão do projeto. Visitante (anon) não toca em tabela
+-- nenhuma: só na função get_public_menu. Usuário logado tem acesso filtrado pelo RLS acima.
+revoke all on public.profiles, public.restaurant_projects, public.project_assets, public.menu_categories,
+  public.menu_products, public.ai_usage, public.activity_log from anon, authenticated;
+grant select, update on public.profiles to authenticated;
+grant select, insert, update, delete on public.restaurant_projects, public.project_assets,
+  public.menu_categories, public.menu_products to authenticated;
+grant select on public.ai_usage to authenticated;
+grant select, insert on public.activity_log to authenticated;
+grant usage on sequence public.activity_log_id_seq to authenticated;
+
 -- ---------------------------------------------------------------- leitura pública
 -- Única porta do público. SECURITY DEFINER para ignorar o RLS, mas devolve apenas
 -- campos públicos, apenas cardápios publicados e apenas itens revisados e com preço.
@@ -254,7 +266,7 @@ as $$
   where p.slug = p_slug and p.status = 'published';
 $$;
 
-revoke all on function public.get_public_menu(text) from public;
+revoke all on function public.get_public_menu(text) from public, anon, authenticated;
 grant execute on function public.get_public_menu(text) to anon, authenticated;
 
 -- Disponibilidade de slug sem expor projetos de outros usuários.
@@ -269,7 +281,7 @@ as $$
     select 1 from public.restaurant_projects where slug = p_slug and id <> p_project_id
   );
 $$;
-revoke all on function public.is_slug_available(text, uuid) from public;
+revoke all on function public.is_slug_available(text, uuid) from public, anon, authenticated;
 grant execute on function public.is_slug_available(text, uuid) to authenticated;
 
 -- ---------------------------------------------------------------- storage

@@ -63,7 +63,16 @@ end $$;
 reset request.jwt.claim.sub;
 set role anon;
 do $$ begin
-  if (select count(*) from restaurant_projects) <> 0 then raise exception 'FALHA: anon lê tabela de projetos'; end if;
+  begin
+    perform 1 from restaurant_projects;
+    raise exception 'FALHA: anon tem acesso à tabela de projetos';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform 1 from menu_products;
+    raise exception 'FALHA: anon tem acesso à tabela de produtos';
+  exception when insufficient_privilege then null;
+  end;
   if get_public_menu('sabor-da-casa') is not null then raise exception 'FALHA: cardápio não publicado visível'; end if;
 end $$;
 
