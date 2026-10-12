@@ -1,6 +1,6 @@
 @import 'tailwindcss';
 
-/* Cores e fontes vêm de src/config/restaurant.ts (injetadas no <head> no build). */
+/* Cores e fontes vêm de src/clients/<CLIENT>.ts (injetadas no <head> no build). */
 @theme inline {
   --font-sans: var(--font-body-family);
   --font-display: var(--font-display-family);
