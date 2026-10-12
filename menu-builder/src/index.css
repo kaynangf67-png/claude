@@ -1,0 +1,46 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Painel: base clara, grafite e um azul-petróleo como destaque. */
+  --color-ink: #16202c;
+  --color-ink-soft: #4a5666;
+  --color-ink-faint: #7a8594;
+  --color-canvas: #f5f6f8;
+  --color-panel: #ffffff;
+  --color-line: #e3e6eb;
+  --color-line-strong: #cfd4dc;
+  --color-accent: #1e3a5f;
+  --color-accent-hover: #16304f;
+  --color-accent-soft: #e8eef6;
+  --color-ok: #15803d;
+  --color-ok-soft: #e7f5ec;
+  --color-warn: #b45309;
+  --color-warn-soft: #fdf3e3;
+  --color-danger: #b91c1c;
+  --color-danger-soft: #fdecec;
+
+  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.06);
+  --shadow-pop: 0 12px 32px -12px rgb(16 24 40 / 0.25);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-canvas font-sans text-ink antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+  dialog::backdrop {
+    background: rgb(15 23 42 / 0.45);
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
