@@ -50,6 +50,17 @@ async function logUsage(
   await admin.from('ai_usage').insert({ ...row, model: MODEL, cost_usd: cost });
 }
 
+/** Traduz falhas da API de IA em mensagens que dizem ao usuário o que fazer. */
+function aiErrorMessage(status: number | undefined, detail: string): string {
+  if (/credit balance is too low/i.test(detail)) return 'Sem saldo na conta da Anthropic. Adicione créditos em platform.claude.com (Cobrança) e tente de novo.';
+  if (/not scoped to a workspace/i.test(detail)) return 'A chave da IA não pertence a um workspace. Crie uma chave dentro de um workspace no console da Anthropic e troque o segredo ANTHROPIC_API_KEY no Supabase.';
+  if (status === 401 || /invalid x-api-key|authentication/i.test(detail)) return 'Chave da IA inválida ou revogada. Gere uma nova e troque o segredo ANTHROPIC_API_KEY no Supabase.';
+  if (status === 403) return 'A chave da IA não tem permissão para este modelo ou recurso.';
+  if (status === 429) return 'Limite de uso da IA atingido. Tente novamente em alguns minutos.';
+  if (status !== undefined && status >= 500) return 'A IA está instável no momento. Tente novamente em alguns minutos.';
+  return 'A IA rejeitou a requisição. Veja o detalhe no registro de uso (ai_usage) ou fale com o suporte técnico.';
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return json({ error: 'method_not_allowed' }, 405);
@@ -137,8 +148,7 @@ Deno.serve(async (req) => {
     const status = error instanceof Anthropic.APIError ? error.status : undefined;
     await logUsage(admin, { owner_id: user.id, project_id: projectId, images: pages.length, status: 'error', error: String(error).slice(0, 500) });
     await supabase.from('project_assets').update({ analysis_error: 'Falha ao chamar a IA.' }).in('id', pages.map((p) => p.id));
-    const retryable = status === 429 || (status !== undefined && status >= 500);
-    return json({ error: 'ai_error', message: retryable ? 'A IA está ocupada. Tente novamente em alguns minutos.' : 'A IA recusou a requisição.' }, 502);
+    return json({ error: 'ai_error', message: aiErrorMessage(status, String(error)) }, 502);
   }
 
   const usageRow = {
