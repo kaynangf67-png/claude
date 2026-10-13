@@ -1,5 +1,5 @@
-import { forwardRef, useEffect, useId, useRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
-import { Loader2, X } from 'lucide-react';
+import { forwardRef, useEffect, useId, useRef, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from 'react';
+import { Eye, EyeOff, Loader2, X } from 'lucide-react';
 import { cn } from '@/lib/format';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -87,6 +87,37 @@ const control = 'w-full rounded-lg bg-panel px-3 text-sm text-ink ring-1 ring-li
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input({ className, ...props }, ref) {
   return <input ref={ref} className={cn(control, 'h-10', className)} {...props} />;
+});
+
+/** Campo de senha com botão para mostrar/ocultar o que foi digitado. */
+export const PasswordInput = forwardRef<HTMLInputElement, Omit<InputHTMLAttributes<HTMLInputElement>, 'type'>>(function PasswordInput(
+  { className, ...props },
+  ref,
+) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div className="relative">
+      <input
+        ref={ref}
+        type={visible ? 'text' : 'password'}
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        className={cn(control, 'h-10 pr-11', className)}
+        {...props}
+      />
+      <button
+        type="button"
+        onClick={() => setVisible((v) => !v)}
+        aria-label={visible ? 'Ocultar senha' : 'Mostrar senha'}
+        aria-pressed={visible}
+        title={visible ? 'Ocultar senha' : 'Mostrar senha'}
+        className="absolute inset-y-0 right-0 grid w-11 place-items-center rounded-r-lg text-ink-faint hover:text-ink"
+      >
+        {visible ? <EyeOff className="size-4" aria-hidden="true" /> : <Eye className="size-4" aria-hidden="true" />}
+      </button>
+    </div>
+  );
 });
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(function Textarea({ className, ...props }, ref) {

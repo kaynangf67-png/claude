@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { isSupabaseConfigured } from '@/lib/env';
 import { getSupabase } from '@/lib/supabase';
+import { AuthFailure, translateAuthError } from './authErrors';
 
 export interface AuthUser {
   id: string;
@@ -13,18 +14,15 @@ interface AuthState {
   loading: boolean;
   signIn(email: string, password: string): Promise<void>;
   signUp(email: string, password: string): Promise<{ needsConfirmation: boolean }>;
+  resendConfirmation(email: string): Promise<void>;
   signOut(): Promise<void>;
 }
 
 const DEMO_USER: AuthUser = { id: 'demo', email: 'demonstracao@local', isDemo: true };
 const AuthContext = createContext<AuthState | null>(null);
 
-const AUTH_ERRORS: Record<string, string> = {
-  'Invalid login credentials': 'E-mail ou senha incorretos.',
-  'Email not confirmed': 'Confirme seu e-mail pelo link enviado antes de entrar.',
-  'User already registered': 'Este e-mail já tem conta. Entre com sua senha.',
-};
-const translate = (message: string) => AUTH_ERRORS[message] ?? message;
+/** Para onde o link de confirmação do e-mail leva: a tela de login deste app. */
+const confirmRedirect = () => `${window.location.origin}/login`;
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(isSupabaseConfigured ? null : DEMO_USER);
@@ -48,12 +46,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       async signIn(email, password) {
         const { error } = await getSupabase().auth.signInWithPassword({ email, password });
-        if (error) throw new Error(translate(error.message));
+        if (error) throw translateAuthError(error);
       },
       async signUp(email, password) {
-        const { data, error } = await getSupabase().auth.signUp({ email, password });
-        if (error) throw new Error(translate(error.message));
+        const { data, error } = await getSupabase().auth.signUp({ email, password, options: { emailRedirectTo: confirmRedirect() } });
+        if (error) throw translateAuthError(error);
+        // Com confirmação de e-mail ligada, o Supabase não acusa e-mail repetido (para não revelar quem tem conta):
+        // devolve um usuário sem identidades. Tratamos como "já tem conta".
+        if (data.user && data.user.identities?.length === 0) {
+          throw new AuthFailure('Este e-mail já tem conta. Entre com sua senha ou reenvie a confirmação, se ainda não confirmou.', 'user_already_exists');
+        }
         return { needsConfirmation: !data.session };
+      },
+      async resendConfirmation(email) {
+        const { error } = await getSupabase().auth.resend({ type: 'signup', email, options: { emailRedirectTo: confirmRedirect() } });
+        if (error) throw translateAuthError(error);
       },
       async signOut() {
         if (isSupabaseConfigured) await getSupabase().auth.signOut();
