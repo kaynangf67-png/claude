@@ -1,0 +1,223 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Archivo', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Verde floresta: cor principal da marca */
+  --color-forest-950: #08170f;
+  --color-forest-900: #0f2a1f;
+  --color-forest-800: #163a2a;
+  --color-forest-700: #1f4b37;
+  --color-forest-600: #2b6249;
+  --color-forest-200: #c7d6cc;
+
+  /* Lima: só para ação principal e detalhes de destaque */
+  --color-lime-300: #d8f68a;
+  --color-lime-400: #c4ef4f;
+  --color-lime-500: #a9d932;
+
+  /* Neutros quentes */
+  --color-paper: #f5f3ec;
+  --color-paper-2: #ebe8de;
+  --color-ink: #141715;
+  --color-graphite: #2b2f2c;
+  --color-muted: #59615b;
+
+  --radius-card: 14px;
+
+  --shadow-soft: 0 1px 2px rgb(15 42 31 / 0.05), 0 12px 32px -16px rgb(15 42 31 / 0.18);
+}
+
+/* Archivo expandida para títulos, com o peso firme de uma placa de trânsito */
+@utility display {
+  font-family: var(--font-display);
+  font-stretch: 112%;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 5.5rem;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-paper font-sans text-ink antialiased;
+    overflow-x: clip;
+    font-size: 1.0625rem;
+  }
+  ::selection {
+    background: var(--color-lime-400);
+    color: var(--color-forest-950);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-lime-500);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+  img {
+    max-width: 100%;
+  }
+}
+
+@layer components {
+  .container-site {
+    @apply mx-auto w-full max-w-[1240px] px-4 sm:px-8;
+  }
+
+  /* Tipografia: Archivo expandida para títulos (utilitário display, acima) */
+  .heading-xl {
+    @apply display text-[2.55rem] leading-[0.98] sm:text-[3.6rem] lg:text-[4.6rem];
+  }
+  .heading-lg {
+    @apply display text-[2.05rem] leading-[1.02] sm:text-[2.8rem] lg:text-[3.25rem];
+  }
+  .heading-md {
+    @apply display text-[1.45rem] leading-[1.1] sm:text-[1.6rem];
+  }
+  .eyebrow {
+    @apply inline-flex items-center gap-3 text-[0.72rem] font-semibold tracking-[0.2em] text-forest-600 uppercase;
+  }
+  .eyebrow::before {
+    content: '';
+    @apply h-[3px] w-6 rounded-full bg-lime-500;
+  }
+  .on-dark .eyebrow {
+    @apply text-lime-300;
+  }
+  .lead {
+    @apply text-[1.07rem] leading-relaxed text-muted sm:text-[1.15rem];
+  }
+  .on-dark .lead {
+    @apply text-forest-200;
+  }
+
+  .btn {
+    @apply inline-flex min-h-12 items-center justify-center gap-2.5 rounded-full px-6 text-[0.97rem] font-semibold whitespace-nowrap transition-[background-color,color,border-color,box-shadow,transform] duration-200 ease-out;
+  }
+  .btn:active {
+    transform: translateY(1px);
+  }
+  /* Ação principal: lima com texto verde-escuro (contraste 12:1) */
+  .btn-primary {
+    @apply bg-lime-400 text-forest-950 shadow-[0_10px_24px_-12px_rgb(169_217_50/0.9)] hover:bg-lime-300;
+  }
+  .btn-dark {
+    @apply bg-forest-900 text-paper hover:bg-forest-800;
+  }
+  .btn-outline {
+    @apply border border-forest-900/20 text-forest-900 hover:border-forest-900/50 hover:bg-forest-900/[0.03];
+  }
+  .on-dark .btn-outline {
+    @apply border-white/25 text-paper hover:border-white/60 hover:bg-white/[0.04];
+  }
+
+  .text-link {
+    @apply inline-flex items-center gap-1.5 font-semibold text-forest-800 underline decoration-forest-800/25 decoration-2 underline-offset-[5px] transition-colors hover:decoration-lime-500;
+  }
+
+  /* Conteúdo aguardando confirmação da autoescola */
+  .pending {
+    @apply rounded-[4px] bg-lime-400/25 px-1 text-forest-700 decoration-forest-600/50 decoration-dotted underline-offset-4;
+    text-decoration-line: underline;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+  .on-dark .pending {
+    @apply bg-white/10 text-lime-300 decoration-lime-300/50;
+  }
+
+  /* Hachura discreta para molduras de foto ainda vazias */
+  .hatch {
+    background-color: var(--color-paper-2);
+    background-image: repeating-linear-gradient(
+      -45deg,
+      rgb(15 42 31 / 0.06) 0 1px,
+      transparent 1px 12px
+    );
+  }
+}
+
+/* Faixa de pista: tracejado que "anda" devagar */
+.lane {
+  background-image: linear-gradient(90deg, var(--lane-color, var(--color-lime-400)) 0 56%, transparent 56% 100%);
+  background-size: 64px 100%;
+}
+.lane-vertical {
+  background-image: linear-gradient(180deg, var(--lane-color, var(--color-lime-400)) 0 56%, transparent 56% 100%);
+  background-size: 100% 44px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .lane-animated {
+    animation: lane-move 2.4s linear infinite;
+  }
+  @keyframes lane-move {
+    to {
+      background-position-x: -64px;
+    }
+  }
+
+  /* Revelação ao rolar: só anima quando JS e movimento estão disponíveis */
+  .js .reveal {
+    opacity: 0;
+    transform: translateY(20px);
+    transition:
+      opacity 0.8s cubic-bezier(0.2, 0.7, 0.2, 1),
+      transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+  .js .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Trilho da linha do tempo se desenha quando entra na tela */
+  .js .reveal .route-fill {
+    transform: scaleX(0);
+    transition: transform 1.6s cubic-bezier(0.6, 0, 0.2, 1) 0.2s;
+  }
+  .js .reveal.is-visible .route-fill {
+    transform: scaleX(1);
+  }
+  @media (max-width: 1023.98px) {
+    .js .reveal .route-fill {
+      transform: scaleY(0);
+    }
+    .js .reveal.is-visible .route-fill {
+      transform: scaleY(1);
+    }
+  }
+
+  .gear-dot {
+    animation: gear-pulse 2.8s ease-in-out infinite;
+    transform-origin: center;
+    transform-box: fill-box;
+  }
+  @keyframes gear-pulse {
+    0%,
+    100% {
+      opacity: 0.55;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.15;
+      transform: scale(1.55);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
