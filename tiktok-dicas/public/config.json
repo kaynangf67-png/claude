@@ -1,0 +1,65 @@
+{
+  "gancho": "Um negócio pra começar hoje com R$0.",
+  "ideia": {
+    "nome": "Gestão de Perfil no Google",
+    "descricao": "Você cuida de como os comércios do bairro aparecem no Google Maps: fotos, horários e avaliações em dia."
+  },
+  "numeros": [
+    {
+      "rotulo": "Mensalidade por comércio",
+      "valor": 150,
+      "formato": "moeda"
+    },
+    {
+      "rotulo": "Comércios atendidos",
+      "valor": 8,
+      "formato": "numero"
+    },
+    {
+      "rotulo": "Potencial por mês",
+      "valor": 1200,
+      "formato": "moeda"
+    }
+  ],
+  "passos": [
+    {
+      "texto": "Ache comércios com perfil abandonado",
+      "icone": "mapa"
+    },
+    {
+      "texto": "Ofereça uma análise gratuita",
+      "icone": "mensagem"
+    },
+    {
+      "texto": "Feche um plano mensal",
+      "icone": "check"
+    }
+  ],
+  "erro": "Prometer primeiro lugar no Google.",
+  "fechamento": "Siga e monte sua renda extra comigo.",
+  "proximoGancho": "Como cobrar seu primeiro cliente.",
+  "perfil": "@seuperfil",
+  "audio": "narracao.mp3",
+  "timestamps": "narracao.json",
+  "trilha": "trilha.wav",
+  "cor": "limao",
+  "transicoes": [
+    "split",
+    "zoom",
+    "wipe",
+    "glitch",
+    "zoom"
+  ],
+  "roteiro": {
+    "gancho": "Negócio pra começar hoje, com zero reais.",
+    "ideia": "Cuidar do perfil no Google dos comércios da cidade: fotos, horários e avaliações em dia.",
+    "numeros": "Exemplo: cento e cinquenta por mês, vezes oito comércios, dá um potencial de mil e duzentos reais.",
+    "passos": [
+      "Primeiro: ache comércios com perfil abandonado.",
+      "Segundo: ofereça uma análise gratuita.",
+      "Terceiro: feche um plano mensal."
+    ],
+    "erro": "E nunca prometa primeiro lugar no Google.",
+    "fechamento": "Segue o perfil: dica nova todo dia. Amanhã: como cobrar seu primeiro cliente."
+  }
+}

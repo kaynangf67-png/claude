@@ -1,0 +1,380 @@
+{
+ "estimado": true,
+ "palavras": [
+  {
+   "texto": "Negócio",
+   "inicio": 0.15,
+   "fim": 0.565
+  },
+  {
+   "texto": "pra",
+   "inicio": 0.605,
+   "fim": 0.84
+  },
+  {
+   "texto": "começar",
+   "inicio": 0.88,
+   "fim": 1.295
+  },
+  {
+   "texto": "hoje,",
+   "inicio": 1.335,
+   "fim": 1.615
+  },
+  {
+   "texto": "com",
+   "inicio": 1.835,
+   "fim": 2.07
+  },
+  {
+   "texto": "zero",
+   "inicio": 2.11,
+   "fim": 2.39
+  },
+  {
+   "texto": "reais.",
+   "inicio": 2.43,
+   "fim": 2.755
+  },
+  {
+   "texto": "Cuidar",
+   "inicio": 3.315,
+   "fim": 3.685
+  },
+  {
+   "texto": "do",
+   "inicio": 3.725,
+   "fim": 3.915
+  },
+  {
+   "texto": "perfil",
+   "inicio": 3.955,
+   "fim": 4.325
+  },
+  {
+   "texto": "no",
+   "inicio": 4.365,
+   "fim": 4.555
+  },
+  {
+   "texto": "Google",
+   "inicio": 4.595,
+   "fim": 4.965
+  },
+  {
+   "texto": "dos",
+   "inicio": 5.005,
+   "fim": 5.24
+  },
+  {
+   "texto": "comércios",
+   "inicio": 5.28,
+   "fim": 5.785
+  },
+  {
+   "texto": "da",
+   "inicio": 5.825,
+   "fim": 6.015
+  },
+  {
+   "texto": "cidade:",
+   "inicio": 6.055,
+   "fim": 6.425
+  },
+  {
+   "texto": "fotos,",
+   "inicio": 6.645,
+   "fim": 6.97
+  },
+  {
+   "texto": "horários",
+   "inicio": 7.19,
+   "fim": 7.65
+  },
+  {
+   "texto": "e",
+   "inicio": 7.69,
+   "fim": 7.835
+  },
+  {
+   "texto": "avaliações",
+   "inicio": 7.875,
+   "fim": 8.425
+  },
+  {
+   "texto": "em",
+   "inicio": 8.465,
+   "fim": 8.655
+  },
+  {
+   "texto": "dia.",
+   "inicio": 8.695,
+   "fim": 8.93
+  },
+  {
+   "texto": "Exemplo:",
+   "inicio": 9.49,
+   "fim": 9.905
+  },
+  {
+   "texto": "cento",
+   "inicio": 10.125,
+   "fim": 10.45
+  },
+  {
+   "texto": "e",
+   "inicio": 10.49,
+   "fim": 10.635
+  },
+  {
+   "texto": "cinquenta",
+   "inicio": 10.675,
+   "fim": 11.18
+  },
+  {
+   "texto": "por",
+   "inicio": 11.22,
+   "fim": 11.455
+  },
+  {
+   "texto": "mês,",
+   "inicio": 11.495,
+   "fim": 11.73
+  },
+  {
+   "texto": "vezes",
+   "inicio": 11.95,
+   "fim": 12.275
+  },
+  {
+   "texto": "oito",
+   "inicio": 12.315,
+   "fim": 12.595
+  },
+  {
+   "texto": "comércios,",
+   "inicio": 12.635,
+   "fim": 13.14
+  },
+  {
+   "texto": "dá",
+   "inicio": 13.36,
+   "fim": 13.55
+  },
+  {
+   "texto": "um",
+   "inicio": 13.59,
+   "fim": 13.78
+  },
+  {
+   "texto": "potencial",
+   "inicio": 13.82,
+   "fim": 14.325
+  },
+  {
+   "texto": "de",
+   "inicio": 14.365,
+   "fim": 14.555
+  },
+  {
+   "texto": "mil",
+   "inicio": 14.595,
+   "fim": 14.83
+  },
+  {
+   "texto": "e",
+   "inicio": 14.87,
+   "fim": 15.015
+  },
+  {
+   "texto": "duzentos",
+   "inicio": 15.055,
+   "fim": 15.515
+  },
+  {
+   "texto": "reais.",
+   "inicio": 15.555,
+   "fim": 15.88
+  },
+  {
+   "texto": "Primeiro:",
+   "inicio": 16.44,
+   "fim": 16.9
+  },
+  {
+   "texto": "ache",
+   "inicio": 17.12,
+   "fim": 17.4
+  },
+  {
+   "texto": "comércios",
+   "inicio": 17.44,
+   "fim": 17.945
+  },
+  {
+   "texto": "com",
+   "inicio": 17.985,
+   "fim": 18.22
+  },
+  {
+   "texto": "perfil",
+   "inicio": 18.26,
+   "fim": 18.63
+  },
+  {
+   "texto": "abandonado.",
+   "inicio": 18.67,
+   "fim": 19.22
+  },
+  {
+   "texto": "Segundo:",
+   "inicio": 19.78,
+   "fim": 20.195
+  },
+  {
+   "texto": "ofereça",
+   "inicio": 20.415,
+   "fim": 20.83
+  },
+  {
+   "texto": "uma",
+   "inicio": 20.87,
+   "fim": 21.105
+  },
+  {
+   "texto": "análise",
+   "inicio": 21.145,
+   "fim": 21.56
+  },
+  {
+   "texto": "gratuita.",
+   "inicio": 21.6,
+   "fim": 22.06
+  },
+  {
+   "texto": "Terceiro:",
+   "inicio": 22.62,
+   "fim": 23.08
+  },
+  {
+   "texto": "feche",
+   "inicio": 23.3,
+   "fim": 23.625
+  },
+  {
+   "texto": "um",
+   "inicio": 23.665,
+   "fim": 23.855
+  },
+  {
+   "texto": "plano",
+   "inicio": 23.895,
+   "fim": 24.22
+  },
+  {
+   "texto": "mensal.",
+   "inicio": 24.26,
+   "fim": 24.63
+  },
+  {
+   "texto": "E",
+   "inicio": 25.19,
+   "fim": 25.335
+  },
+  {
+   "texto": "nunca",
+   "inicio": 25.375,
+   "fim": 25.7
+  },
+  {
+   "texto": "prometa",
+   "inicio": 25.74,
+   "fim": 26.155
+  },
+  {
+   "texto": "primeiro",
+   "inicio": 26.195,
+   "fim": 26.655
+  },
+  {
+   "texto": "lugar",
+   "inicio": 26.695,
+   "fim": 27.02
+  },
+  {
+   "texto": "no",
+   "inicio": 27.06,
+   "fim": 27.25
+  },
+  {
+   "texto": "Google.",
+   "inicio": 27.29,
+   "fim": 27.66
+  },
+  {
+   "texto": "Segue",
+   "inicio": 28.22,
+   "fim": 28.545
+  },
+  {
+   "texto": "o",
+   "inicio": 28.585,
+   "fim": 28.73
+  },
+  {
+   "texto": "perfil:",
+   "inicio": 28.77,
+   "fim": 29.14
+  },
+  {
+   "texto": "dica",
+   "inicio": 29.36,
+   "fim": 29.64
+  },
+  {
+   "texto": "nova",
+   "inicio": 29.68,
+   "fim": 29.96
+  },
+  {
+   "texto": "todo",
+   "inicio": 30,
+   "fim": 30.28
+  },
+  {
+   "texto": "dia.",
+   "inicio": 30.32,
+   "fim": 30.555
+  },
+  {
+   "texto": "Amanhã:",
+   "inicio": 30.915,
+   "fim": 31.285
+  },
+  {
+   "texto": "como",
+   "inicio": 31.505,
+   "fim": 31.785
+  },
+  {
+   "texto": "cobrar",
+   "inicio": 31.825,
+   "fim": 32.195
+  },
+  {
+   "texto": "seu",
+   "inicio": 32.235,
+   "fim": 32.47
+  },
+  {
+   "texto": "primeiro",
+   "inicio": 32.51,
+   "fim": 32.97
+  },
+  {
+   "texto": "cliente.",
+   "inicio": 33.01,
+   "fim": 33.425
+  }
+ ]
+}
