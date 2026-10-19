@@ -2,6 +2,7 @@ import { fileURLToPath, URL } from 'node:url';
 import { defineConfig, loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import { viteSingleFile } from 'vite-plugin-singlefile';
 
 // Em desenvolvimento, serve /api/* com o mesmo roteador usado na Vercel.
 function devApi(): Plugin {
@@ -26,6 +27,21 @@ function devApi(): Plugin {
 export default defineConfig(({ mode }) => {
   // Disponibiliza as variáveis do .env (inclusive as de servidor) para o middleware de dev.
   Object.assign(process.env, loadEnv(mode, process.cwd(), ''));
+  // `vite build --mode preview`: um único HTML com tudo embutido, para abrir sem servidor.
+  if (mode === 'preview') {
+    process.env.VITE_PREVIEW = '1';
+    return {
+      plugins: [react(), tailwindcss(), viteSingleFile()],
+      define: { 'import.meta.env.VITE_PREVIEW': JSON.stringify('1') },
+      resolve: {
+        alias: {
+          '@': fileURLToPath(new URL('./src', import.meta.url)),
+          '@shared': fileURLToPath(new URL('./shared', import.meta.url)),
+        },
+      },
+      build: { outDir: 'dist-preview', assetsInlineLimit: 100_000_000 },
+    };
+  }
   return {
     plugins: [react(), tailwindcss(), devApi()],
     resolve: {
