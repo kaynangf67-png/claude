@@ -1,4 +1,4 @@
-import type { ApiErrorBody, IntegrationId } from '../shared/types';
+import type { ApiErrorBody, IntegrationId } from '../shared/types.js';
 
 export class ApiError extends Error {
   constructor(

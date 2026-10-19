@@ -1,14 +1,14 @@
 // Sincronização agendada (cron): para cada termo em SYNC_TERMS, grava a série
 // do Google Trends e atualiza os principais anúncios do Mercado Livre/Shopee
 // no catálogo compartilhado (owner_id = null), acrescentando histórico de preço.
-import { productToRow } from '../shared/dbmap';
-import type { Product, TrendSeries } from '../shared/types';
-import { adminClient } from './db';
-import { serverEnv } from './env';
-import { ApiError } from './http';
-import { fetchTrends, isTrendsConfigured } from './integrations/googleTrends';
-import { isMercadoLivreConfigured, searchMercadoLivre } from './integrations/mercadoLivre';
-import { isShopeeConfigured, searchShopee } from './integrations/shopee';
+import { productToRow } from '../shared/dbmap.js';
+import type { Product, TrendSeries } from '../shared/types.js';
+import { adminClient } from './db.js';
+import { serverEnv } from './env.js';
+import { ApiError } from './http.js';
+import { fetchTrends, isTrendsConfigured } from './integrations/googleTrends.js';
+import { isMercadoLivreConfigured, searchMercadoLivre } from './integrations/mercadoLivre.js';
+import { isShopeeConfigured, searchShopee } from './integrations/shopee.js';
 
 export async function runSync() {
   const db = adminClient();

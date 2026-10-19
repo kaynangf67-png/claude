@@ -6,7 +6,7 @@ import {
   growthFromSeries,
   opportunityScore,
   priceForMargin,
-} from './analysis';
+} from './analysis.js';
 
 const base = { supplierCost: 40, commissionPct: 12, fixedFee: 6, extraFeesPct: 0, shipping: 10, otherCosts: 4, taxPct: 6 };
 

@@ -1,8 +1,8 @@
-import type { IntegrationStatus } from '../shared/types';
-import { isDatabaseConfigured } from './db';
-import { isTrendsConfigured } from './integrations/googleTrends';
-import { isMercadoLivreConfigured } from './integrations/mercadoLivre';
-import { isShopeeConfigured } from './integrations/shopee';
+import type { IntegrationStatus } from '../shared/types.js';
+import { isDatabaseConfigured } from './db.js';
+import { isTrendsConfigured } from './integrations/googleTrends.js';
+import { isMercadoLivreConfigured } from './integrations/mercadoLivre.js';
+import { isShopeeConfigured } from './integrations/shopee.js';
 
 /** Status das integrações. Informa apenas presença de configuração — nunca valores. */
 export function integrationStatus(): IntegrationStatus[] {

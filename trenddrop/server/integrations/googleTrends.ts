@@ -10,10 +10,10 @@
 // - TIMESERIES aceita até 5 termos; GEO_MAP_0 e RELATED_QUERIES aceitam 1.
 // - Cada chamada consome créditos do plano SerpApi; por isso há cache.
 
-import { averageOf, growthFromSeries } from '../../shared/analysis';
-import type { RegionInterest, RelatedQuery, TrendPeriod, TrendSeries, TrendsResult } from '../../shared/types';
-import { serverEnv } from '../env';
-import { ApiError, cached, fetchJson, notConfigured } from '../http';
+import { averageOf, growthFromSeries } from '../../shared/analysis.js';
+import type { RegionInterest, RelatedQuery, TrendPeriod, TrendSeries, TrendsResult } from '../../shared/types.js';
+import { serverEnv } from '../env.js';
+import { ApiError, cached, fetchJson, notConfigured } from '../http.js';
 
 const SERPAPI_URL = 'https://serpapi.com/search.json';
 

@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { parseRegions, parseRelated, parseTimeseries, PERIOD_TO_SERPAPI } from './integrations/googleTrends';
-import { nodeToProduct, shopeeSignature } from './integrations/shopee';
-import { handleApi } from './router';
-import { integrationStatus } from './status';
+import { parseRegions, parseRelated, parseTimeseries, PERIOD_TO_SERPAPI } from './integrations/googleTrends.js';
+import { nodeToProduct, shopeeSignature } from './integrations/shopee.js';
+import { handleApi } from './router.js';
+import { integrationStatus } from './status.js';
 
 describe('Google Trends (SerpApi)', () => {
   it('mapeia os períodos suportados', () => {

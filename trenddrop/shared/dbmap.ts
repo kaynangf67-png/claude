@@ -1,5 +1,5 @@
 // Conversão entre o modelo Product e as colunas de public.products.
-import type { Product } from './types';
+import type { Product } from './types.js';
 
 export interface ProductRow {
   id: string;

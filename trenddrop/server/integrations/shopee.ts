@@ -14,10 +14,10 @@
 // Exige conta aprovada no programa de afiliados e credenciais da Open API.
 
 import { createHash } from 'node:crypto';
-import { priceStats } from '../../shared/analysis';
-import type { MarketSearchResult, Metric, Product } from '../../shared/types';
-import { serverEnv } from '../env';
-import { ApiError, cached, fetchJson, notConfigured } from '../http';
+import { priceStats } from '../../shared/analysis.js';
+import type { MarketSearchResult, Metric, Product } from '../../shared/types.js';
+import { serverEnv } from '../env.js';
+import { ApiError, cached, fetchJson, notConfigured } from '../http.js';
 
 const ENDPOINT = 'https://open-api.affiliate.shopee.com.br/graphql';
 const SOURCE = 'Shopee Affiliate API';

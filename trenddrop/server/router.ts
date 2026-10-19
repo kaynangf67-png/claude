@@ -1,13 +1,13 @@
 // Roteador único da API. Usado pelas funções da Vercel (api/*.ts) e pelo
 // middleware de desenvolvimento do Vite.
-import type { TrendPeriod } from '../shared/types';
-import { serverEnv } from './env';
-import { ApiError, errorResponse, json, requiredParam } from './http';
-import { fetchTrends } from './integrations/googleTrends';
-import { mercadoLivreBestSellers, mercadoLivreCategories, mercadoLivreTrends, searchMercadoLivre } from './integrations/mercadoLivre';
-import { searchShopee } from './integrations/shopee';
-import { integrationStatus } from './status';
-import { runSync } from './sync';
+import type { TrendPeriod } from '../shared/types.js';
+import { serverEnv } from './env.js';
+import { ApiError, errorResponse, json, requiredParam } from './http.js';
+import { fetchTrends } from './integrations/googleTrends.js';
+import { mercadoLivreBestSellers, mercadoLivreCategories, mercadoLivreTrends, searchMercadoLivre } from './integrations/mercadoLivre.js';
+import { searchShopee } from './integrations/shopee.js';
+import { integrationStatus } from './status.js';
+import { runSync } from './sync.js';
 
 const PERIODS: TrendPeriod[] = ['7d', '30d', '90d', '12m'];
 

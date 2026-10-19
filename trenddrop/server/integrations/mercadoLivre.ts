@@ -17,11 +17,11 @@
 // ML_REFRESH_TOKEN do ambiente precisa ser atualizado manualmente se a
 // função reiniciar depois de uma renovação.
 
-import { competitionFromListings, priceStats } from '../../shared/analysis';
-import type { KeywordTrend, MarketSearchResult, Metric, Product } from '../../shared/types';
-import { serverEnv } from '../env';
-import { ApiError, cached, fetchJson, notConfigured } from '../http';
-import { readSecret, writeSecret } from '../db';
+import { competitionFromListings, priceStats } from '../../shared/analysis.js';
+import type { KeywordTrend, MarketSearchResult, Metric, Product } from '../../shared/types.js';
+import { serverEnv } from '../env.js';
+import { ApiError, cached, fetchJson, notConfigured } from '../http.js';
+import { readSecret, writeSecret } from '../db.js';
 
 const API = 'https://api.mercadolibre.com';
 const SOURCE = 'API Mercado Livre';

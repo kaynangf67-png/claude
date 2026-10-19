@@ -2,7 +2,7 @@
 // indicador de oportunidade. Nada aqui inventa dados: entradas ausentes
 // resultam em null e reduzem a "cobertura" do indicador.
 
-import type { Competition, CompetitionLevel, DataQuality, Product, TrendPoint } from './types';
+import type { Competition, CompetitionLevel, DataQuality, Product, TrendPoint } from './types.js';
 
 // ---------------------------------------------------------------------------
 // Lucro

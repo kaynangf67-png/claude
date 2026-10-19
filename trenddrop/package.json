@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && npm run check:api && vite build",
+    "check:api": "tsc --ignoreConfig --noEmit --module nodenext --moduleResolution nodenext --target es2022 --skipLibCheck --types node api/*.ts",
     "preview": "vite preview",
     "build:file": "vite build --mode preview",
     "typecheck": "tsc -b",

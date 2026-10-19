@@ -1,7 +1,7 @@
 // Acesso ao banco pelo backend com a service role (ignora RLS). Usado apenas
 // pela sincronização agendada e para guardar segredos rotacionados.
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { serverEnv } from './env';
+import { serverEnv } from './env.js';
 
 let admin: SupabaseClient | null = null;
 

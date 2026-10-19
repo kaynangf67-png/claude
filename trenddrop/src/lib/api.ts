@@ -25,8 +25,11 @@ async function get<T>(path: string): Promise<T> {
     throw new ApiRequestError('network', 'Backend indisponível. Em produção, as rotas /api rodam como funções serverless.');
   }
   if (!res.ok) {
-    const e = body as ApiErrorBody;
-    throw new ApiRequestError(e.code ?? 'upstream_error', e.error ?? `Erro HTTP ${res.status}`, e.integration);
+    const e = body as Partial<ApiErrorBody> & { error?: unknown };
+    // Erros do nosso backend têm `error` em texto; erros da própria plataforma
+    // (ex.: função que caiu na Vercel) vêm como { error: { code, message } }.
+    if (typeof e.error === 'string') throw new ApiRequestError(e.code ?? 'upstream_error', e.error, e.integration);
+    throw new ApiRequestError('network', `O servidor falhou ao processar a consulta (HTTP ${res.status}). Tente novamente em instantes.`);
   }
   return body as T;
 }
