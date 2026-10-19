@@ -71,3 +71,36 @@ describe('API', () => {
     expect(integrationStatus().find((i) => i.id === 'tiktok')!.state).toBe('indisponivel');
   });
 });
+
+describe('Google Trends — requisição à SerpApi', () => {
+  it('monta as URLs com os parâmetros documentados', async () => {
+    const { fetchTrends } = await import('./integrations/googleTrends.js');
+    const urls: URL[] = [];
+    const original = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      urls.push(new URL(String(input)));
+      return new Response(JSON.stringify({ interest_over_time: { timeline_data: [] } }));
+    }) as typeof fetch;
+    process.env.SERPAPI_KEY = 'k';
+    try {
+      await fetchTrends({ terms: ['seladora a vácuo', 'mini liquidificador'], period: '12m', details: true });
+    } finally {
+      globalThis.fetch = original;
+      delete process.env.SERPAPI_KEY;
+    }
+    expect(urls).toHaveLength(3);
+    for (const u of urls) {
+      expect(u.origin + u.pathname).toBe('https://serpapi.com/search.json');
+      expect(u.searchParams.get('engine')).toBe('google_trends');
+      expect(u.searchParams.get('geo')).toBe('BR');
+      expect(u.searchParams.get('date')).toBe('today 12-m');
+      expect(u.searchParams.get('tz')).toBe('180');
+      expect(u.searchParams.get('hl')).toBe('pt-BR');
+    }
+    const byType = Object.fromEntries(urls.map((u) => [u.searchParams.get('data_type'), u.searchParams]));
+    expect(byType.TIMESERIES.get('q')).toBe('seladora a vácuo,mini liquidificador');
+    expect(byType.GEO_MAP_0.get('q')).toBe('seladora a vácuo');
+    expect(byType.GEO_MAP_0.get('region')).toBe('REGION');
+    expect(byType.RELATED_QUERIES.get('q')).toBe('seladora a vácuo');
+  });
+});

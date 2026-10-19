@@ -102,7 +102,7 @@ export async function fetchTrends(opts: {
   return cached(key, 60 * 60 * 1000, async () => {
     const [ts, geoMap, related] = await Promise.all([
       serp<SerpTimeseries>({ q: terms.join(','), geo, date, data_type: 'TIMESERIES' }),
-      opts.details ? serp<SerpGeo>({ q: terms[0], geo, date, data_type: 'GEO_MAP_0' }).catch(() => ({}) as SerpGeo) : null,
+      opts.details ? serp<SerpGeo>({ q: terms[0], geo, date, data_type: 'GEO_MAP_0', region: 'REGION' }).catch(() => ({}) as SerpGeo) : null,
       opts.details ? serp<SerpRelated>({ q: terms[0], geo, date, data_type: 'RELATED_QUERIES' }).catch(() => ({}) as SerpRelated) : null,
     ]);
     return {
