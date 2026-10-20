@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, MemoryRouter, Route, Routes } from 'react-router-dom';
 import { SessionProvider } from './app/session';
 import { AppLayout } from './components/AppLayout';
 import { SiteLayout } from './components/SiteLayout';
@@ -19,9 +19,12 @@ import { ArticlePage } from './pages/app/ArticlePage';
 import { ProductGuide } from './pages/app/ProductGuide';
 import { Profile } from './pages/app/Profile';
 
+// Build de pré-visualização (página única, sem controle da URL) usa roteamento em memória.
+const Router = import.meta.env.VITE_ROUTER === 'memory' ? MemoryRouter : BrowserRouter;
+
 export function App() {
   return (
-    <BrowserRouter>
+    <Router>
       <SessionProvider>
         <Routes>
           <Route element={<SiteLayout />}>
@@ -56,6 +59,6 @@ export function App() {
           </Route>
         </Routes>
       </SessionProvider>
-    </BrowserRouter>
+    </Router>
   );
 }

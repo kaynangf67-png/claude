@@ -28,9 +28,21 @@ export interface DemoDb {
   journal: Record<string, JournalEntry[]>;
 }
 
-const empty = (): DemoDb => ({ users: [], sessionUserId: null, access: {}, completions: {}, journal: {} });
-
 type KV = Pick<Storage, 'getItem' | 'setItem'>;
+
+/** localStorage quando disponível; senão, memória (dados somem ao fechar a página). */
+export function safeStorage(): KV {
+  try {
+    const s = window.localStorage;
+    s.getItem(DEMO_KEY);
+    return s;
+  } catch {
+    const map = new Map<string, string>();
+    return { getItem: (k) => map.get(k) ?? null, setItem: (k, v) => void map.set(k, v) };
+  }
+}
+
+const empty = (): DemoDb => ({ users: [], sessionUserId: null, access: {}, completions: {}, journal: {} });
 
 export class DemoStore {
   constructor(private readonly storage: KV) {}
@@ -45,7 +57,11 @@ export class DemoStore {
   }
 
   write(db: DemoDb) {
-    this.storage.setItem(DEMO_KEY, JSON.stringify(db));
+    try {
+      this.storage.setItem(DEMO_KEY, JSON.stringify(db));
+    } catch {
+      /* armazenamento bloqueado (janela privada etc.): os dados valem só nesta sessão */
+    }
   }
 
   update<T>(fn: (db: DemoDb) => T): T {

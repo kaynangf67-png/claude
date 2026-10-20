@@ -8,7 +8,7 @@ import {
   type AccessInfo, type AuthService, type AuthUser, type ClaimResult, type DataService, type DemoControls,
   type JournalEntry, type JournalInput, type Period, type Profile, type SignUpInput,
 } from '../types';
-import { DEMO_KEY, DemoStore, hashPassword, randomSalt, type DemoDb } from './store';
+import { DEMO_KEY, DemoStore, hashPassword, randomSalt, safeStorage, type DemoDb } from './store';
 
 const DAY = 86_400_000;
 const NO_ACCESS = new AppError('Seu acesso ao app não está ativo, então não foi possível salvar.', 'no_access');
@@ -25,7 +25,7 @@ export class DemoBackend implements AuthService, DataService, DemoControls {
   readonly kind = 'demo' as const;
   private listeners = new Set<(u: AuthUser | null, event?: string) => void>();
 
-  constructor(private readonly store = new DemoStore(window.localStorage)) {
+  constructor(private readonly store = new DemoStore(safeStorage())) {
     // Mantém abas sincronizadas (entrar/sair em outra aba).
     if (typeof window !== 'undefined') {
       window.addEventListener('storage', (e) => {

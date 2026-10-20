@@ -13,7 +13,8 @@
     "ebook:pdf": "node ebook/scripts/build-pdf.mjs",
     "ebook:samples": "sh ebook/scripts/render-samples.sh",
     "db:seed-articles": "node scripts/gen-articles-seed.mjs",
-    "test:db": "bash supabase/tests/run_local.sh"
+    "test:db": "bash supabase/tests/run_local.sh",
+    "build:preview": "node scripts/build-preview.mjs preview/pele-em-foco.html"
   },
   "dependencies": {
     "@fontsource-variable/fraunces": "^5.3.0",
