@@ -86,7 +86,7 @@ Orgs can tighten any tool (`approval`, `blocked`) but cannot loosen below a tool
 
 - **AI**: set `ANTHROPIC_API_KEY`. Without it the app works with manual plans; AI features show as unavailable.
 - **Gmail**: create a Google OAuth client (Web), add redirect URI `${NEXT_PUBLIC_APP_URL}/api/integrations/gmail/callback`, enable the Gmail API, set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `ORBIT_ENCRYPTION_KEY`. Scopes requested: `openid email gmail.compose`.
-- **Background resume**: set `CRON_SECRET` and call `GET /api/cron/tick` with `Authorization: Bearer $CRON_SECRET` every few minutes. `vercel.json` schedules it every 5 minutes (sub-daily crons need a paid Vercel plan).
+- **Background resume**: set `CRON_SECRET` and call `GET /api/cron/tick` with `Authorization: Bearer $CRON_SECRET` every few minutes. `vercel.json` schedules it once a day (the Vercel Hobby limit). On Pro, change it to `*/5 * * * *`, or use an external scheduler.
 
 `/setup` shows which services are configured without revealing values.
 
