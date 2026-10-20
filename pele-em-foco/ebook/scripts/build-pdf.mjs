@@ -23,19 +23,13 @@ const publicDir = resolve(root, '../public');
 const config = JSON.parse(readFileSync(resolve(root, 'config.json'), 'utf8'));
 const coverSvg = readFileSync(resolve(root, 'assets/cover.svg'), 'utf8');
 
-function formatDate(iso) {
-  const [y, m, d] = iso.split('-').map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
-}
-
 const values = {
   ...config,
   technicalReviewerLine: config.technicalReviewer
     ? `${config.technicalReviewer}${config.technicalReviewerCredentials ? ` — ${config.technicalReviewerCredentials}` : ''}`
     : 'Este material não passou por revisão técnica de médico dermatologista. As informações foram compiladas a partir das fontes listadas no capítulo 12.',
-  appAccessLine: config.bonusEndDate
-    ? `Quem compra o e-book tem acesso gratuito ao app até ${formatDate(config.bonusEndDate)}. As condições de uso após essa data serão comunicadas com antecedência pelos canais oficiais.`
-    : 'Quem compra o e-book tem acesso gratuito ao app pelo período informado na página de compra e no e-mail de entrega. As condições de uso após esse período são comunicadas com antecedência pelos canais oficiais.',
+  appAccessLine:
+    'Quem compra o e-book ganha 30 dias de acesso ao app, contados a partir da ativação: crie sua conta com o mesmo e-mail da compra e confirme esse e-mail. Depois do período, você continua podendo ver, exportar e apagar seus registros.',
   appUrlLine: config.appUrl ? `Acesse: ${config.appUrl}` : 'O link de acesso está no e-mail de entrega da sua compra.',
 };
 

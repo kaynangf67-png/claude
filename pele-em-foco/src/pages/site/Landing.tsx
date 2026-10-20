@@ -2,11 +2,7 @@ import { Link } from 'react-router-dom';
 import { BookOpen, Check, ClipboardList, Gift, Leaf, NotebookPen, ShieldCheck, SunMoon, X } from 'lucide-react';
 import { CheckoutButton } from '../../components/CheckoutButton';
 import { ConfigPending } from '../../components/ui';
-import { launch } from '../../config/launch';
-import { formatLong, todayKey } from '../../lib/dates';
-import { bonusStatus } from '../../lib/bonus';
-
-const bonus = bonusStatus(launch.bonusEndDate, todayKey());
+import { BONUS_DAYS, launch } from '../../config/launch';
 
 const CHAPTERS = [
   ['Entendendo a acne', 'Cravos, espinhas, oleosidade e por que a acne não tem uma causa única.'],
@@ -38,22 +34,16 @@ const FAQ = [
   { q: 'O guia substitui o dermatologista?', a: 'Não. Ele ajuda você a entender a acne, organizar uma rotina básica e reconhecer quando procurar avaliação. Ele não diagnostica nem indica tratamento.' },
   { q: 'Vou ter resultado em quanto tempo?', a: 'Não prometemos prazo nem resultado. Cada pele responde de um jeito, e tratamentos para acne costumam levar semanas. O que o guia oferece é informação confiável e um método para manter constância.' },
   { q: 'O guia indica marcas?', a: 'Não há marcas patrocinando o conteúdo. O guia ensina a avaliar produtos por função, ingredientes e preço, para você escolher com autonomia.' },
-  { q: 'Meus dados do app ficam onde?', a: 'Na versão atual, só no navegador do seu aparelho. Não há conta, não pedimos fotos do rosto e você pode apagar tudo quando quiser.' },
+  { q: 'Meus dados do app ficam onde?', a: 'Numa conta sua, protegida por e-mail e senha. Só você vê sua rotina e seu diário. Não pedimos fotos do rosto nem informações médicas, e você pode exportar ou apagar tudo quando quiser.' },
+  { q: 'Quando começam os 30 dias do app?', a: 'Na ativação: quando você cria a conta com o mesmo e-mail da compra e confirma esse e-mail. Se você comprar hoje e criar a conta daqui a uma semana, os 30 dias começam daqui a uma semana.' },
 ];
 
 function BonusTerms() {
-  if (bonus.kind === 'nao-configurado') return <ConfigPending>data final do acesso gratuito ao app (VITE_BONUS_END_DATE).</ConfigPending>;
-  if (bonus.kind === 'encerrado') {
-    return (
-      <ConfigPending>
-        o período do bônus terminou em {formatLong(bonus.endDate)}. Defina uma nova data ou retire a oferta do app desta página antes de continuar vendendo.
-      </ConfigPending>
-    );
-  }
   return (
     <p>
-      Quem comprar o e-book tem <strong>acesso gratuito ao app até {formatLong(bonus.endDate)}</strong>. Antes dessa data, avisaremos pelo e-mail da compra
-      como fica o uso depois dela. Seus registros ficam no seu aparelho e podem ser exportados a qualquer momento.
+      Quem compra o e-book ganha <strong>{BONUS_DAYS} dias de acesso ao app</strong>, contados a partir da ativação. A ativação é automática quando você
+      cria sua conta com <strong>o mesmo e-mail da compra</strong> e confirma esse e-mail. Depois dos {BONUS_DAYS} dias, você continua podendo ver, exportar
+      e apagar seus registros.
     </p>
   );
 }
@@ -160,8 +150,8 @@ export function Landing() {
             <BonusTerms />
             <ul className="small" style={{ marginBottom: 0, paddingLeft: '1.2rem' }}>
               <li>Funciona no navegador do celular ou do computador, sem instalar nada.</li>
-              <li>O link de acesso chega junto com o e-book, no e-mail da compra.</li>
-              <li>Sem login nesta versão: seus dados ficam só no seu aparelho.</li>
+              <li>Conta própria com e-mail e senha: seus registros acompanham você em qualquer aparelho.</li>
+              <li>O link do app está na última página do e-book e na página de próximos passos.</li>
               <li>Não pede fotos do rosto e não faz diagnóstico.</li>
             </ul>
           </div>
@@ -212,7 +202,7 @@ export function Landing() {
               <li><Check size={18} aria-hidden="true" /> E-book em PDF com 12 capítulos, glossário e referências</li>
               <li><Check size={18} aria-hidden="true" /> Checklists, ficha para consulta e planilha de comparação</li>
               <li><Check size={18} aria-hidden="true" /> Registro de hábitos de 30 dias para imprimir</li>
-              <li><Check size={18} aria-hidden="true" /> Acesso ao app Pele em Foco como bônus{bonus.kind === 'ativo' ? `, gratuito até ${formatLong(bonus.endDate)}` : ''}</li>
+              <li><Check size={18} aria-hidden="true" /> {BONUS_DAYS} dias de acesso ao app Pele em Foco como bônus</li>
             </ul>
             <Price />
             <CheckoutButton />

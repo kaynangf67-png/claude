@@ -1,6 +1,7 @@
-// Teste de fumaça ponta a ponta com o build de produção.
-// Uso: npm run build && npm run test:e2e   (sobe o `vite preview` sozinho)
-// Gera capturas de tela em tests/screenshots/ (ignorado pelo git).
+// Teste ponta a ponta no navegador (Playwright), em celular e desktop.
+// Roda contra o build de produção em MODO DEMONSTRAÇÃO (sem Supabase):
+//   VITE_DEMO_MODE=true npm run build && npm run test:e2e
+// As regras de acesso do banco real são testadas separadamente em `npm run test:db`.
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync } from 'node:fs';
@@ -26,8 +27,12 @@ const check = async (name, fn) => {
     await fn();
     results.push(['ok', name]);
   } catch (e) {
-    results.push(['FALHOU', name, e.message.split('\n').slice(0, 4).join(' | ')]);
+    results.push(['FALHOU', name, e.message.split('\n').slice(0, 3).join(' | ')]);
   }
+};
+const noOverflow = async (page) => {
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  assert.ok(overflow <= 0, `rolagem horizontal de ${overflow}px em ${page.url()}`);
 };
 
 try {
@@ -38,135 +43,237 @@ try {
     const errors = [];
     page.on('pageerror', (e) => errors.push(e.message));
     page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+    const email = `ana.${vp.name}@exemplo.com`;
+    const password = 'pele2026foco';
+    const nav = (label) => page.locator(vp.name === 'mobile' ? '.app-nav' : '.sidebar').getByRole('link', { name: label });
 
-    await check(`${vp.name}: página de vendas carrega sem rolagem horizontal`, async () => {
+    await check(`${vp.name}: site carrega, CTA desativado sem checkout, imagens ok`, async () => {
       await page.goto(BASE + '/');
       await page.getByRole('heading', { level: 1 }).waitFor();
-      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
-      assert.ok(overflow <= 0, `overflow horizontal de ${overflow}px`);
-      await page.screenshot({ path: `${SHOTS}${vp.name}-vendas.png`, fullPage: true });
-    });
-
-    await check(`${vp.name}: CTA de compra fica desativado sem checkout configurado`, async () => {
-      const cta = page.getByRole('button', { name: /checkout em configuração/i }).first();
-      assert.equal(await cta.getAttribute('aria-disabled'), 'true');
-      assert.equal(await page.locator('a[href*="checkout"]').count(), 0);
-    });
-
-    await check(`${vp.name}: imagens da página de vendas carregam`, async () => {
+      await noOverflow(page);
+      assert.equal(await page.getByRole('button', { name: /checkout em configuração/i }).first().getAttribute('aria-disabled'), 'true');
       await page.evaluate(() => Promise.all([...document.images].map((i) => { i.loading = 'eager'; return i.decode().catch(() => null); })));
-      const broken = await page.evaluate(() => [...document.images].filter((i) => !i.naturalWidth).map((i) => i.src));
-      assert.deepEqual(broken, []);
-    });
-
-    await check(`${vp.name}: links internos do site respondem`, async () => {
-      for (const path of ['/obrigado', '/privacidade', '/termos', '/rota-inexistente']) {
+      assert.deepEqual(await page.evaluate(() => [...document.images].filter((i) => !i.naturalWidth).map((i) => i.src)), []);
+      assert.ok(await page.getByText(/30 dias de acesso ao app/).first().isVisible());
+      for (const path of ['/obrigado', '/privacidade', '/termos']) {
         await page.goto(BASE + path);
         await page.getByRole('heading', { level: 1 }).waitFor();
+        await noOverflow(page);
       }
-      assert.ok(await page.getByText('Página não encontrada').isVisible());
     });
 
-    await check(`${vp.name}: /app sem onboarding redireciona para boas-vindas`, async () => {
-      await page.goto(BASE + '/app/rotina');
-      await page.waitForURL('**/app/boas-vindas');
+    await check(`${vp.name}: rota protegida sem login vai para /entrar`, async () => {
+      await page.goto(BASE + '/app/diario');
+      await page.waitForURL('**/entrar');
+      assert.ok(await page.getByText('Modo demonstração.').isVisible(), 'faixa do modo demonstração deveria aparecer');
     });
 
-    await check(`${vp.name}: onboarding exige aceite e cria rotina`, async () => {
-      await page.getByRole('button', { name: 'Começar' }).click();
-      const next = page.getByRole('button', { name: 'Continuar' });
-      assert.ok(await next.isDisabled(), 'continuar deveria estar desativado sem aceite');
-      await page.getByLabel(/Entendi que o app é educativo/).check();
-      await next.click();
-      await page.getByLabel(/Como prefere ser chamado/).fill('Lu');
-      await page.getByRole('radio', { name: 'Oleosa', exact: true }).check();
-      await page.getByLabel('Uso maquiagem').check();
-      await page.screenshot({ path: `${SHOTS}${vp.name}-onboarding.png`, fullPage: true });
-      await page.getByRole('button', { name: 'Criar minha rotina' }).click();
+    await check(`${vp.name}: cadastro valida campos com mensagens em português`, async () => {
+      await page.goto(BASE + '/criar-conta');
+      await page.getByRole('button', { name: 'Criar conta' }).click();
+      assert.ok(await page.getByText('Informe seu e-mail.').isVisible());
+      assert.ok(await page.getByText('Crie uma senha.').isVisible());
+      assert.ok(await page.getByText('Para continuar, confirme que entendeu o aviso.').isVisible());
+      await page.getByLabel('E-mail').fill('ana@');
+      await page.getByLabel('Senha', { exact: true }).fill('abc');
+      await page.getByLabel('Confirme a senha').fill('abd');
+      await page.getByRole('button', { name: 'Criar conta' }).click();
+      assert.ok(await page.getByText('Este e-mail não parece válido.').isVisible());
+      assert.ok(await page.getByText(/pelo menos 8 caracteres/).first().isVisible());
+      assert.ok(await page.getByText('As senhas não são iguais.').isVisible());
+      assert.equal(await page.getByLabel('E-mail').getAttribute('aria-invalid'), 'true');
+      await page.screenshot({ path: `${SHOTS}${vp.name}-cadastro-erros.png`, fullPage: true });
+    });
+
+    await check(`${vp.name}: cadastro cria conta SEM acesso ao bônus`, async () => {
+      await page.getByLabel(/Como prefere ser chamado/).fill('Ana');
+      await page.getByLabel('E-mail').fill(email);
+      await page.getByLabel('Senha', { exact: true }).fill(password);
+      await page.getByLabel('Confirme a senha').fill(password);
+      await page.getByRole('checkbox', { name: /Entendi que o Pele em Foco é educativo/ }).check();
+      await page.getByRole('button', { name: 'Criar conta' }).click();
       await page.waitForURL(BASE + '/app');
-      await page.getByRole('heading', { name: /, Lu\./ }).waitFor();
+      await page.getByRole('heading', { name: /, Ana\./ }).waitFor();
+      await page.getByRole('heading', { name: 'Seu acesso ainda não está ativo' }).waitFor();
+      await noOverflow(page);
+      await page.screenshot({ path: `${SHOTS}${vp.name}-sem-acesso.png`, fullPage: true });
+      await page.goto(BASE + '/app/rotina');
+      await page.getByRole('heading', { name: 'Seu acesso ainda não está ativo' }).waitFor();
+      await page.goto(BASE + '/app/aprender');
+      await page.getByRole('heading', { name: 'Seu acesso ainda não está ativo' }).waitFor();
+    });
+
+    await check(`${vp.name}: acesso de demonstração ativa 30 dias e o início mostra dados reais`, async () => {
+      await page.goto(BASE + '/app');
+      await page.getByRole('button', { name: 'Simular compra (30 dias)' }).click();
+      await page.getByText('Próximo passo').waitFor();
+      assert.ok(await page.getByText('0 de 6 passos').isVisible());
+      assert.ok(await page.getByText(/30 dias restantes|29 dias restantes/).isVisible());
       await page.screenshot({ path: `${SHOTS}${vp.name}-inicio.png`, fullPage: true });
     });
 
-    await check(`${vp.name}: checklist persiste após recarregar`, async () => {
-      await page.goto(BASE + '/app/rotina?periodo=noite');
-      await page.getByRole('checkbox', { name: /Remover maquiagem/ }).click();
+    await check(`${vp.name}: rotina marca, desfaz e persiste após recarregar`, async () => {
+      await page.goto(BASE + '/app/rotina?periodo=manha');
       await page.getByRole('checkbox', { name: /Limpeza suave/ }).click();
+      await page.getByText('“Limpeza suave” marcado. Salvo.').waitFor();
+      await page.getByRole('checkbox', { name: /Proteção solar/ }).click();
       await page.reload();
-      assert.equal(await page.getByRole('checkbox', { name: /Remover maquiagem/ }).getAttribute('aria-checked'), 'true');
-      assert.equal(await page.getByRole('checkbox', { name: /Hidratante leve/ }).getAttribute('aria-checked'), 'false');
-      await page.getByRole('tab', { name: /Manhã/ }).click();
-      assert.equal(await page.getByRole('checkbox', { name: /Protetor solar/ }).getAttribute('aria-checked'), 'false');
+      assert.equal(await page.getByRole('checkbox', { name: /Limpeza suave/ }).getAttribute('aria-checked'), 'true');
+      assert.equal(await page.getByRole('checkbox', { name: /Hidratação/ }).getAttribute('aria-checked'), 'false');
+      await page.getByRole('checkbox', { name: /Proteção solar/ }).click();
+      await page.getByText('“Proteção solar” desmarcado. Salvo.').waitFor();
+      await page.reload();
+      assert.equal(await page.getByRole('checkbox', { name: /Proteção solar/ }).getAttribute('aria-checked'), 'false');
+      await page.getByRole('tab', { name: /Noite/ }).click();
+      assert.ok(await page.getByRole('checkbox', { name: /Revisão dos cuidados utilizados/ }).isVisible());
       await page.screenshot({ path: `${SHOTS}${vp.name}-rotina.png`, fullPage: true });
     });
 
-    await check(`${vp.name}: personalizar rotina (adicionar, desativar, remover)`, async () => {
-      await page.getByRole('button', { name: 'Personalizar' }).click();
-      await page.getByLabel('Novo passo').fill('Lavar pincéis');
-      await page.getByRole('button', { name: 'Adicionar' }).click();
-      await page.getByRole('switch', { name: /Hidratante leve/ }).uncheck();
-      await page.getByRole('button', { name: 'Concluir' }).click();
-      assert.ok(await page.getByRole('checkbox', { name: /Lavar pincéis/ }).isVisible());
-      assert.equal(await page.getByRole('checkbox', { name: /Hidratante leve/ }).count(), 0);
-      await page.reload();
-      await page.getByRole('button', { name: 'Personalizar' }).click();
-      await page.getByRole('button', { name: 'Remover Lavar pincéis' }).click();
-      await page.getByRole('switch', { name: /Hidratante leve/ }).check();
-      await page.getByRole('button', { name: 'Concluir' }).click();
-      assert.equal(await page.getByRole('checkbox', { name: /Lavar pincéis/ }).count(), 0);
-    });
-
-    await check(`${vp.name}: diário salva e aparece no histórico`, async () => {
-      await page.goto(BASE + '/app/diario');
-      await page.getByRole('button', { name: 'Dormi bem' }).click();
-      await page.getByRole('radio', { name: 'Mais oleosa' }).check();
-      await page.getByRole('button', { name: 'Dia de estresse' }).click();
-      await page.getByLabel('Anotação livre').fill('Testa mais oleosa.');
-      await page.reload();
-      assert.equal(await page.getByLabel('Anotação livre').inputValue(), 'Testa mais oleosa.');
-      assert.equal(await page.getByRole('button', { name: 'Dormi bem' }).getAttribute('aria-pressed'), 'true');
-      assert.ok(await page.getByText('“Testa mais oleosa.”').isVisible());
-      await page.getByRole('button', { name: 'Dia anterior' }).click();
-      assert.equal(await page.getByLabel('Anotação livre').inputValue(), '');
-      await page.screenshot({ path: `${SHOTS}${vp.name}-diario.png`, fullPage: true });
-    });
-
-    await check(`${vp.name}: biblioteca, artigo com fontes e produtos`, async () => {
-      await page.goto(BASE + '/app/biblioteca');
-      await page.getByRole('button', { name: 'Estilo de vida', exact: true }).click();
-      await page.getByRole('link', { name: /Alimentação e acne/ }).click();
-      await page.getByRole('heading', { name: 'Fontes' }).waitFor();
-      const ext = await page.locator('article a[target="_blank"]').count();
-      assert.ok(ext >= 3, `esperava fontes externas, achou ${ext}`);
-      await page.screenshot({ path: `${SHOTS}${vp.name}-artigo.png`, fullPage: true });
-      await page.goto(BASE + '/app/produtos');
-      await page.getByRole('heading', { name: 'Protetor solar' }).waitFor();
-      await page.goto(BASE + '/app/biblioteca/nao-existe');
-      await page.getByText('Artigo não encontrado').waitFor();
-    });
-
-    await check(`${vp.name}: navegação principal leva a todas as telas`, async () => {
+    await check(`${vp.name}: rotina funciona pelo teclado`, async () => {
+      const box = page.getByRole('checkbox', { name: /Revisão dos cuidados utilizados/ });
+      await box.focus();
+      await page.keyboard.press('Space');
+      await page.getByText('“Revisão dos cuidados utilizados” marcado. Salvo.').waitFor();
+      assert.equal(await box.getAttribute('aria-checked'), 'true');
       await page.goto(BASE + '/app');
-      const nav = page.locator(vp.name === 'mobile' ? '.app-nav' : '.desktop-nav');
-      for (const [label, path] of [['Rotina', '/app/rotina'], ['Diário', '/app/diario'], ['Aprender', '/app/biblioteca'], ['Perfil', '/app/perfil'], ['Início', '/app']]) {
-        await nav.getByRole('link', { name: label }).click();
-        await page.waitForURL((u) => u.pathname === path);
-      }
+      await page.getByText('2 de 6 passos').waitFor();
     });
 
-    await check(`${vp.name}: perfil mostra privacidade e apaga dados`, async () => {
-      await page.goto(BASE + '/app/perfil');
-      await page.screenshot({ path: `${SHOTS}${vp.name}-perfil.png`, fullPage: true });
-      const [file] = await Promise.all([
-        page.waitForEvent('download'),
-        page.getByRole('button', { name: 'Exportar meus dados' }).click(),
-      ]);
+    await check(`${vp.name}: diário cria, impede data duplicada, edita e apaga`, async () => {
+      await page.goto(BASE + '/app/diario');
+      await page.getByRole('heading', { name: 'Nenhum registro ainda' }).waitFor();
+      await page.getByRole('radio', { name: 'Mais oleosa' }).check();
+      await page.getByRole('button', { name: 'Oleosidade' }).click();
+      await page.getByLabel('Produtos usados (opcional)').fill('Gel de limpeza');
+      await page.getByLabel('Anotações (opcional)').fill('Testa mais oleosa à tarde.');
+      await page.getByRole('button', { name: 'Salvar registro' }).click();
+      await page.getByText('Registro salvo.').waitFor();
+      await page.reload();
+      await page.getByText('Testa mais oleosa à tarde.').waitFor();
+      assert.ok(await page.getByText('Mais oleosa · Oleosidade').isVisible());
+      await page.getByRole('button', { name: 'Salvar registro' }).click();
+      assert.ok(await page.getByText(/Já existe um registro para esta data/).isVisible());
+      await page.getByRole('button', { name: /^Editar registro de/ }).click();
+      await page.getByLabel('Anotações (opcional)').fill('Testa oleosa, queixo ok.');
+      await page.getByRole('button', { name: 'Salvar alterações' }).click();
+      await page.getByText('Registro atualizado.').waitFor();
+      assert.ok(await page.getByText('Testa oleosa, queixo ok.').isVisible());
+      await page.screenshot({ path: `${SHOTS}${vp.name}-diario.png`, fullPage: true });
+      // registro de ontem, depois apagado
+      const y = await page.evaluate(() => { const d = new Date(); d.setDate(d.getDate() - 1); return d.toISOString().slice(0, 10); });
+      await page.getByLabel('Data').fill(y);
+      await page.getByLabel('Anotações (opcional)').fill('Registro de ontem');
+      await page.getByRole('button', { name: 'Salvar registro' }).click();
+      await page.getByText('Registro de ontem').waitFor();
+      assert.equal(await page.locator('.history-item').count(), 2);
+      await page.locator('.history-item').filter({ hasText: 'Registro de ontem' }).getByRole('button', { name: /Apagar/ }).click();
+      await page.getByRole('dialog').getByRole('button', { name: 'Apagar' }).click();
+      await page.getByText('Registro apagado.').waitFor();
+      assert.equal(await page.locator('.history-item').count(), 1);
+    });
+
+    await check(`${vp.name}: biblioteca busca, filtra por categoria e mostra fontes`, async () => {
+      await nav('Aprender').click();
+      await page.waitForURL('**/app/aprender');
+      await page.getByRole('searchbox', { name: 'Buscar na biblioteca' }).fill('protetor');
+      await page.getByRole('link', { name: /Protetor solar no dia a dia/ }).waitFor();
+      await page.getByRole('searchbox', { name: 'Buscar na biblioteca' }).fill('xyzxyz');
+      await page.getByRole('heading', { name: 'Nada encontrado' }).waitFor();
+      await page.getByRole('button', { name: 'Limpar busca' }).click();
+      await page.getByRole('button', { name: 'Quando procurar dermatologista', exact: true }).click();
+      await page.getByRole('link', { name: /Quando procurar um dermatologista/ }).click();
+      await page.getByRole('heading', { name: 'Fontes' }).waitFor();
+      assert.ok((await page.locator('article a[target="_blank"]').count()) >= 3);
+      await noOverflow(page);
+      await page.screenshot({ path: `${SHOTS}${vp.name}-artigo.png`, fullPage: true });
+    });
+
+    await check(`${vp.name}: bônus expirado bloqueia gravação e mantém leitura do histórico`, async () => {
+      await nav('Perfil').click();
+      await page.getByText(/Bônus ativo até/).waitFor();
+      await page.getByRole('button', { name: 'Simular bônus expirado' }).click();
+      await page.getByRole('heading', { name: 'Seu período de bônus terminou' }).waitFor();
+      await nav('Minha rotina').click();
+      await page.getByRole('heading', { name: 'Seu período de bônus terminou' }).waitFor();
+      await nav('Diário da pele').click();
+      await page.getByText('Testa oleosa, queixo ok.').waitFor();
+      assert.equal(await page.getByRole('button', { name: 'Salvar registro' }).count(), 0, 'formulário não deveria aparecer');
+      assert.equal(await page.getByRole('button', { name: /^Editar registro de/ }).count(), 0);
+      await page.screenshot({ path: `${SHOTS}${vp.name}-expirado.png`, fullPage: true });
+    });
+
+    await check(`${vp.name}: perfil exporta, apaga dados e sai`, async () => {
+      await nav('Perfil').click();
+      await page.getByText(email, { exact: true }).waitFor();
+      const [file] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Exportar meus dados' }).click()]);
       assert.match(file.suggestedFilename(), /^pele-em-foco-\d{4}-\d{2}-\d{2}\.json$/);
-      await page.getByRole('button', { name: 'Apagar todos os dados' }).click();
-      await page.getByRole('dialog').getByRole('button', { name: 'Apagar tudo' }).click();
-      await page.waitForURL('**/app/boas-vindas');
-      const stored = await page.evaluate(() => localStorage.getItem('pele-em-foco:v1'));
-      assert.equal(stored, null, 'localStorage deveria estar vazio');
+      await page.getByRole('button', { name: 'Apagar rotina e diário' }).click();
+      await page.getByRole('dialog').getByRole('button', { name: 'Apagar' }).click();
+      await page.getByText('Rotina e diário apagados.').waitFor();
+      await page.screenshot({ path: `${SHOTS}${vp.name}-perfil.png`, fullPage: true });
+      await page.getByRole('button', { name: 'Sair da conta' }).click();
+      await page.waitForURL('**/entrar');
+      await page.goto(BASE + '/app/perfil');
+      await page.waitForURL('**/entrar');
+    });
+
+    await check(`${vp.name}: login recusa senha errada e entra com a certa`, async () => {
+      await page.getByLabel('E-mail').fill(email);
+      await page.getByLabel('Senha', { exact: true }).fill('senhaerrada1');
+      await page.getByRole('button', { name: 'Entrar' }).click();
+      await page.getByText('E-mail ou senha incorretos.').waitFor();
+      await page.getByLabel('Senha', { exact: true }).fill(password);
+      await page.getByRole('button', { name: 'Entrar' }).click();
+      // a última tentativa de abrir /app/perfil sem sessão vira o destino após o login
+      await page.waitForURL(BASE + '/app/perfil');
+    });
+
+    await check(`${vp.name}: recuperar senha explica a limitação do modo demo`, async () => {
+      await nav('Perfil').click();
+      await page.getByRole('button', { name: 'Sair da conta' }).click();
+      await page.waitForURL('**/entrar');
+      await page.goto(BASE + '/recuperar-senha');
+      await page.getByLabel('E-mail da conta').fill(email);
+      await page.getByRole('button', { name: 'Enviar link' }).click();
+      await page.getByText(/No modo demonstração não há envio de e-mail/).waitFor();
+    });
+
+    await check(`${vp.name}: outra conta não vê os dados da primeira e conta é excluída`, async () => {
+      await page.goto(BASE + '/criar-conta');
+      await page.getByLabel('E-mail').fill(`bruno.${vp.name}@exemplo.com`);
+      await page.getByLabel('Senha', { exact: true }).fill(password);
+      await page.getByLabel('Confirme a senha').fill(password);
+      await page.getByRole('checkbox', { name: /Entendi que o Pele em Foco é educativo/ }).check();
+      await page.getByRole('button', { name: 'Criar conta' }).click();
+      await page.waitForURL(BASE + '/app');
+      await page.getByRole('heading', { name: 'Seu acesso ainda não está ativo' }).waitFor();
+      await page.goto(BASE + '/app/diario');
+      await page.getByRole('heading', { name: 'Nenhum registro ainda' }).waitFor();
+      await page.goto(BASE + '/app/perfil');
+      await page.getByRole('button', { name: 'Excluir minha conta' }).click();
+      await page.getByRole('dialog').getByRole('button', { name: 'Excluir conta' }).click();
+      await page.waitForURL('**/entrar');
+      await page.getByText('Sua conta e seus dados foram excluídos.').waitFor();
+      await page.getByLabel('E-mail').fill(`bruno.${vp.name}@exemplo.com`);
+      await page.getByLabel('Senha', { exact: true }).fill(password);
+      await page.getByRole('button', { name: 'Entrar' }).click();
+      await page.getByText('E-mail ou senha incorretos.').waitFor();
+    });
+
+    await check(`${vp.name}: teclado — "pular para o conteúdo" é o primeiro foco e a navegação leva o foco ao conteúdo`, async () => {
+      await page.goto(BASE + '/entrar');
+      await page.getByLabel('E-mail').fill(email);
+      await page.getByLabel('Senha', { exact: true }).fill(password);
+      await page.getByRole('button', { name: 'Entrar' }).click();
+      await page.waitForURL(BASE + '/app');
+      await nav('Diário da pele').click();
+      await page.waitForURL('**/app/diario');
+      assert.equal(await page.evaluate(() => document.activeElement?.id), 'conteudo', 'foco deveria ir para o conteúdo após navegar');
+      await page.reload();
+      await page.getByRole('heading', { name: 'Suas observações' }).waitFor();
+      await page.keyboard.press('Tab');
+      const focused = await page.evaluate(() => `${document.activeElement?.tagName}:${document.activeElement?.textContent?.slice(0, 40)}`);
+      assert.equal(focused, 'A:Pular para o conteúdo');
     });
 
     await check(`${vp.name}: sem erros no console`, async () => {

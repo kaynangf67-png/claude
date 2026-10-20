@@ -11,11 +11,14 @@
     "test": "vitest run",
     "test:e2e": "node tests/smoke.mjs",
     "ebook:pdf": "node ebook/scripts/build-pdf.mjs",
-    "ebook:samples": "sh ebook/scripts/render-samples.sh"
+    "ebook:samples": "sh ebook/scripts/render-samples.sh",
+    "db:seed-articles": "node scripts/gen-articles-seed.mjs",
+    "test:db": "bash supabase/tests/run_local.sh"
   },
   "dependencies": {
     "@fontsource-variable/fraunces": "^5.3.0",
     "@fontsource-variable/inter": "^5.3.0",
+    "@supabase/supabase-js": "^2.118.0",
     "lucide-react": "^1.59.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

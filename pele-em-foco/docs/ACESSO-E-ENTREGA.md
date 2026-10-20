@@ -1,71 +1,49 @@
 # Entrega do produto e acesso ao app
 
-## Jornada pretendida
+## Jornada
 
-1. **Descoberta** — conteúdo nas redes sociais leva para a página de vendas (`/`).
-2. **Página de vendas** — explica o guia, mostra amostras, o bônus e as condições.
-3. **Compra** — botão leva ao checkout da **Cakto** (`VITE_CHECKOUT_URL`). Pagamento, recibo e e-mail de confirmação são da Cakto. Passo a passo em `docs/CAKTO.md`.
-4. **Entrega do e-book** — a Cakto entrega o PDF por e-mail ou pela área de membros (`VITE_CAKTO_DELIVERY`).
-5. **Acesso ao app** — a última página do PDF e a página `/obrigado` (página de agradecimento configurada na Cakto, exibida após Pix ou cartão aprovados) trazem o link do app.
-6. **Período do bônus** — data única para todos os compradores (`VITE_BONUS_END_DATE`), exibida na página de vendas, no app, nos termos e no PDF (`ebook/config.json → bonusEndDate`).
+1. **Descoberta** — redes sociais levam para a página de vendas (`/`).
+2. **Compra** — o botão leva ao checkout da **Cakto** (`VITE_CHECKOUT_URL`). Pagamento, recibo e e-mail de confirmação são da Cakto (`docs/CAKTO.md`).
+3. **E-book** — a Cakto entrega o PDF por e-mail ou pela área de membros (`VITE_CAKTO_DELIVERY`).
+4. **Registro da compra** — o webhook da Cakto chama a Edge Function `cakto-webhook`, que grava a compra aprovada em `verified_purchases`.
+5. **Conta** — `/obrigado` (página de agradecimento da Cakto, após Pix/cartão) e a última página do PDF orientam a criar a conta **com o mesmo e-mail da compra** e confirmar o e-mail.
+6. **Ativação** — ao entrar, o app chama `claim_verified_purchase()`; o banco cria um acesso de **30 dias a partir desse momento**.
+7. **Expiração** — depois dos 30 dias, rotina, diário (criar/editar) e biblioteca ficam bloqueados pelo RLS; a pessoa vê uma mensagem clara e pode ler, exportar e apagar os próprios dados.
+8. **Reembolso/chargeback** — o webhook marca a compra e o banco revoga o acesso ligado ao pedido.
 
-## O que está implementado (e o que não está)
+## Por que a ativação é na criação da conta, e não na compra
+
+“30 dias a partir da compra” penalizaria quem cria a conta dias depois. Contar a partir da ativação é mais justo e fácil de explicar. A compra continua sendo a prova: sem compra aprovada no servidor não há ativação, e cada compra ativa uma única vez (inclusive se a conta for excluída e recriada).
+
+## Por que o e-mail precisa ser confirmado
+
+Sem confirmação, qualquer pessoa poderia criar uma conta com o e-mail de um comprador e usar o bônus dele. `claim_verified_purchase()` recusa contas com `email_confirmed_at` vazio.
+
+## Situação
 
 | Item | Situação |
 |---|---|
-| Botão de compra para checkout externo | Implementado. Sem URL configurada, o botão fica desativado. **Não testado com checkout real** (nenhum link foi fornecido). |
-| Página `/obrigado` | Implementada. **Não confirma pagamento e não libera nada**; só orienta. |
-| PDF para upload na plataforma | Gerado e inspecionado. |
-| App acessível pelo link | Implementado. **Sem controle de acesso**: qualquer pessoa com o link usa o app. |
-| Período do bônus | Data configurável, exibida em todo lugar e com aviso de encerramento no app. **Não bloqueia o uso após a data.** |
-| Validação de compra, login, expiração no servidor | **Não implementado.** |
+| Schema, RLS, ativação, expiração, revogação | Implementado e testado em Postgres local (`npm run test:db`) |
+| Webhook (`supabase/functions/cakto-webhook`) | Implementado; lógica testada (`src/lib/cakto.test.ts`); **não implantado** |
+| Exclusão de conta (`supabase/functions/delete-account`) | Implementado; **não implantado** |
+| Liberação manual (sem webhook) | `select public.record_verified_purchase('email', 'pedido', null, 'approved', 'manual');` no SQL Editor |
 
-Isso é deliberado: sem backend, qualquer “trava” no navegador (parâmetro de URL, código no `localStorage`) seria contornável em segundos e daria uma falsa sensação de segurança.
+## Casos de borda
 
-## Por que uma data única, e não “X dias após a compra”
+- **Comprou com um e-mail e criou a conta com outro:** não ativa. Hoje o suporte resolve registrando manualmente a compra com o e-mail da conta (`record_verified_purchase` com um id de pedido novo, ex.: `pedido-123-ajuste`). Considere um formulário de suporte para isso.
+- **Pagamento por boleto:** a compra só é registrada quando a Cakto aprova; até lá o app mostra “Seu acesso ainda não está ativo” e o botão “Verificar novamente”.
+- **Duas compras com o mesmo e-mail:** a segunda fica guardada e pode ativar um novo período depois que o primeiro terminar (a pessoa entra e o app tenta a ativação).
 
-“30 dias a partir da compra” exige saber, no servidor, quando cada pessoa comprou. Sem backend isso não existe. A data única é honesta, simples de comunicar e funciona hoje. Para mudar para prazo por comprador, siga a próxima seção.
-
-## Caminho para acesso restrito de verdade (próxima etapa)
-
-Requer um backend (sugestão: Supabase) e o webhook da plataforma de pagamento.
-
-1. **Banco:** tabela `entitlements (email text primary key, purchased_at timestamptz, expires_at timestamptz, status text, order_id text unique)` com RLS: o usuário autenticado só lê a linha do próprio e-mail; ninguém escreve pelo cliente.
-2. **Webhook da Cakto:** Edge Function `cakto-webhook` que compara o `secret` enviado no corpo com o salvo, trata `purchase_approved` (cria/atualiza `entitlements` com `expires_at = purchased_at + duração`) e `refund`/`chargeback` (`status = 'revoked'`). Detalhes e cuidados com reenvio em `docs/CAKTO.md`. Segredos (`WEBHOOK_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`) só como secrets da função, nunca em `VITE_*`.
-3. **Login:** Supabase Auth com link mágico por e-mail (o mesmo e-mail da compra).
-4. **Verificação:** o app consulta `entitlements` após o login; RLS garante que a resposta vem do servidor. Expirado ou revogado → tela explicando a situação e oferecendo exportar os dados.
-5. **Dados na nuvem (opcional):** migrar rotina/diário do `localStorage` para tabelas com RLS por usuário. Atualizar a política de privacidade antes (passa a haver tratamento de dados no servidor).
-6. **Testes obrigatórios antes de anunciar:** compra aprovada → acesso; reembolso → acesso revogado; e-mail diferente → sem acesso; expiração → bloqueio; webhook com assinatura inválida → rejeitado.
-
-Nada disso deve ser anunciado como funcionando antes desses testes passarem.
-
-## Configuração na Cakto (resumo; detalhes em `docs/CAKTO.md`)
-
-- [ ] Criar o produto com o PDF final como arquivo de entrega.
-- [ ] Definir preço e copiar o link do checkout para `VITE_CHECKOUT_URL`.
-- [ ] Página de agradecimento personalizada (Upsell/Downsell): `https://SEU-DOMINIO/obrigado`.
-- [ ] Se a Cakto permitir personalizar o e-mail/área de membros, usar o modelo abaixo.
-- [ ] Reembolso: a Cakto aceita pedidos em até 7 dias em app.cakto.com.br/refund; manter `VITE_REFUND_DAYS=7` salvo se você for honrar mais dias pelo suporte.
-- [ ] Fazer uma compra de teste real (ou no modo de teste da plataforma) e conferir: e-mail recebido, PDF abre, link do app abre, redirecionamento para `/obrigado`.
-
-## Modelo de e-mail de entrega
+## Modelo de e-mail de entrega (se a Cakto permitir personalizar)
 
 > **Assunto:** Seu Pele em Foco chegou
 >
 > Olá!
 >
-> Obrigado por comprar o **Pele em Foco — Guia prático para entender a acne e organizar sua rotina de cuidados**.
->
 > **1. Baixe o e-book:** [link de download ou da área de membros da Cakto]
 >
-> **2. Acesse o app bônus:** https://SEU-DOMINIO/app
-> Funciona no navegador do celular ou do computador. Dica: use “Adicionar à tela inicial” no menu do navegador.
->
-> **Acesso gratuito ao app até [DATA DO BÔNUS].** Antes dessa data, avisaremos por este e-mail como fica o uso depois dela. Seus registros ficam salvos no seu aparelho e podem ser exportados a qualquer momento.
+> **2. Ative o app (30 dias de bônus):** crie sua conta em https://SEU-DOMINIO/criar-conta usando **este mesmo e-mail** e confirme o e-mail. Os 30 dias começam a contar na ativação.
 >
 > Lembrete: o guia e o app são educativos e não substituem consulta com dermatologista.
 >
-> Dúvidas: [E-MAIL DE SUPORTE]
-> Reembolso: até [N] dias após a compra, em app.cakto.com.br/refund ou respondendo este e-mail.
->
-> Pele em Foco
+> Dúvidas: [E-MAIL DE SUPORTE] · Reembolso: até [N] dias após a compra, em app.cakto.com.br/refund ou respondendo este e-mail.

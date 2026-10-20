@@ -31,7 +31,10 @@ export function SiteLayout() {
             <Link to="/#bonus">App bônus</Link>
             <Link to="/#perguntas">Perguntas</Link>
           </nav>
-          {pathname === '/' ? <CheckoutButton size="sm" label="Quero o guia" /> : <Link to="/" className="btn btn-secondary">Conhecer o guia</Link>}
+          <div className="row">
+            <Link to="/entrar" className="btn btn-ghost">Entrar</Link>
+            {pathname === '/' ? <CheckoutButton size="sm" label="Quero o guia" /> : <Link to="/" className="btn btn-secondary">Conhecer o guia</Link>}
+          </div>
         </div>
       </header>
       <main id="conteudo">

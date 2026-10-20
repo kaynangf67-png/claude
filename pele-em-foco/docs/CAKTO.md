@@ -48,15 +48,20 @@ Em **Produtos → seu produto → Ver links**, copie o link da oferta (`https://
 - [ ] Pedido de reembolso em app.cakto.com.br/refund funciona e o estorno aparece?
 - [ ] Repetir no celular.
 
-## 7. Webhooks (só para a próxima etapa, com backend)
+## 7. Webhook (ativa e revoga o bônus de 30 dias)
 
-Hoje o site **não recebe nada da Cakto**. Quando houver backend para controlar o acesso ao app (`docs/ACESSO-E-ENTREGA.md`):
+Implementado em `supabase/functions/cakto-webhook` (lógica em `_shared/cakto.ts`, testada). **Ainda não implantado nem testado com a Cakto real.**
 
-- Eventos relevantes: `purchase_approved` (liberar), `refund` e `chargeback` (revogar). Também existem `purchase_refused` e `refund_requested`.
-- O webhook é criado com os produtos e eventos desejados, e a Cakto devolve um `secret`. Segundo a documentação e exemplos públicos, o `secret` vem **no corpo** do JSON (não em cabeçalho HMAC), junto com `event` e `data` (com `customer`, `product`, `offer`, `status`…). Compare o `secret` no servidor e rejeite se não bater.
-- Responda em até 8 segundos.
-- Reenvio de evento usa o payload original. Um pedido reembolsado depois pode ter o `purchase_approved` antigo reenviado, então trate eventos por ordem/estado, não só pelo último que chegou.
-- Valide os campos com um evento de teste real da sua conta antes de confiar no formato.
+1. Implante: `supabase functions deploy cakto-webhook --no-verify-jwt`.
+2. Na Cakto, crie o webhook para o produto com os eventos **`purchase_approved`**, **`refund`** e **`chargeback`**, apontando para `https://<ref>.supabase.co/functions/v1/cakto-webhook`.
+3. Guarde o `secret` que a Cakto devolve: `supabase secrets set CAKTO_WEBHOOK_SECRET=<secret> CAKTO_PRODUCT_ID=<id do produto>`.
+4. Use o evento de teste da Cakto (`purchase_approved`) com um e-mail seu e confira em `verified_purchases` (Table Editor). Depois crie a conta com esse e-mail, confirme e veja o acesso ativar.
+
+Detalhes que a função trata:
+- O `secret` vem **no corpo** do JSON (não em cabeçalho); a comparação é em tempo constante; segredo errado → 401.
+- Campos lidos: `event`, `data.id` (ou `data.refId`), `data.customer.email`, `data.product.id`. **Confirme esses nomes com um evento real da sua conta**; se forem diferentes, ajuste `decideCaktoEvent` e o teste.
+- Reenvio do mesmo evento não duplica (pedido é único). Reembolso e chargeback são finais: um `purchase_approved` reenviado depois deles não reabre a compra (testado).
+- Responde rápido (uma única chamada ao banco), dentro dos 8 segundos que a Cakto espera.
 
 ## Fontes
 

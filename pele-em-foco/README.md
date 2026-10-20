@@ -1,99 +1,119 @@
 # Pele em Foco
 
-Produto digital educativo em português: **e-book** sobre acne, pele oleosa e rotina básica + **app web companheiro** (bônus para compradores) + **página de vendas**.
+Produto digital educativo em português: **e-book** sobre acne, pele oleosa e rotina básica + **app web** com contas, rotina, diário e biblioteca (bônus de **30 dias** para quem compra) + **página de vendas** com checkout na Cakto.
 
-> Conteúdo educativo. Não faz diagnóstico, não indica tratamento, não substitui dermatologista.
+> Conteúdo educativo. O app não faz diagnóstico, não indica tratamento e não garante resultado.
 
-## O que tem aqui
+## Estado atual (leia primeiro)
 
-| Pasta | Conteúdo |
+| Parte | Situação |
 |---|---|
-| `brand/` | Tokens de design (`tokens.css`) e documentação do design system |
-| `ebook/src/` | Fonte editável do e-book (HTML + CSS de impressão A5). **O HTML não é versionado** (repositório público) |
-| `ebook/assets/cover.svg` | Arte da capa (vetorial) |
-| `ebook/config.json` | Autor, revisor técnico, contato, URL do app e data do bônus impressos no PDF |
-| `ebook/scripts/` | Build do PDF (Playwright + pypdf) e exportação das páginas de amostra |
-| `ebook/dist/pele-em-foco.pdf` | PDF final gerado pelo build (não versionado) |
-| `src/` | App React + TypeScript: página de vendas, pós-compra, páginas legais e app companheiro |
-| `src/content/` | Artigos da biblioteca, FAQ, fontes e guia de produtos |
-| `public/` | Capa em PNG, amostras do e-book, favicon, manifest |
-| `docs/` | Fontes verificadas, fluxo de entrega e acesso, checklist editorial |
-| `tests/smoke.mjs` | Teste ponta a ponta (mobile e desktop) |
-| `LAUNCH_CHECKLIST.md` | O que está pronto, o que falta, em ordem de prioridade |
+| App, telas e regras no navegador | Pronto. Testado em modo demonstração (unitário + ponta a ponta, celular e desktop) |
+| Banco (schema, RLS, ativação de 30 dias, revogação) | Pronto. Testado em Postgres 16 local com um *stub* do Supabase (`npm run test:db`) |
+| Supabase real (Auth, e-mails, Edge Functions) | **Não conectado.** Nenhum projeto foi criado, nenhum deploy feito |
+| Webhook da Cakto | Código pronto e lógica testada. **Não implantado nem testado com a Cakto real** |
+| Página de vendas e e-book | Prontos. O checkout depende do link da sua oferta |
 
-## Requisitos
+Até o Supabase e a Cakto estarem conectados e testados (seção “Antes de clientes reais”), **ninguém consegue ativar o bônus de verdade**.
 
-- Node.js 20+ (testado com 22) e npm
-- Para gerar o PDF: Chromium do Playwright (`npx playwright install chromium` fora deste ambiente), Python 3 com `pypdf` (`pip install pypdf`) e, para amostras, `pdftoppm` (poppler-utils)
+## Como funciona o acesso de 30 dias
 
-## Instalação e comandos
+1. A pessoa compra o e-book na Cakto.
+2. A Cakto chama a Edge Function `cakto-webhook`, que valida o segredo e grava a compra em `verified_purchases` (tabela que o navegador não lê nem escreve).
+3. A pessoa cria a conta no app **com o mesmo e-mail** e confirma o e-mail.
+4. Ao entrar, o app chama `claim_verified_purchase()` no banco. A função confere e-mail confirmado + compra aprovada e ainda não usada, e cria em `access_entitlements` um acesso de **30 dias a partir desse momento**.
+5. Rotina, diário (criar/editar) e biblioteca são liberados **pelo RLS do banco** só enquanto o acesso estiver ativo. Depois dos 30 dias, a pessoa ainda lê, exporta e apaga os próprios dados.
+6. Reembolso ou chargeback na Cakto → o webhook marca a compra e **revoga** o acesso.
+
+Nada disso depende de flag no navegador, parâmetro de URL ou `localStorage`. Uma conta nova não tem acesso, e o usuário não consegue inserir nem alterar o próprio acesso (testado).
+
+## Estrutura
+
+```
+pele-em-foco/
+├── src/
+│   ├── app/            sessão (usuário, perfil, acesso), hooks
+│   ├── services/       interfaces + implementação Supabase + implementação demo
+│   ├── components/     layout, navegação, guards de rota, UI reutilizável
+│   ├── pages/auth/     entrar, criar conta, recuperar e redefinir senha
+│   ├── pages/app/      início, minha rotina, diário, aprender, artigo, guia de produtos, perfil
+│   ├── pages/site/     página de vendas, pós-compra, privacidade, termos
+│   ├── content/        artigos (fonte única do seed do banco), fontes, FAQ, guia de produtos
+│   ├── lib/            datas, rotina, diário, validação, env
+│   └── styles/app.css  componentes sobre os tokens de brand/tokens.css
+├── supabase/
+│   ├── migrations/     schema + RLS + funções; seed dos artigos (gerado)
+│   ├── functions/      cakto-webhook, delete-account, _shared/cakto.ts
+│   ├── tests/          testes de banco (Postgres local)
+│   └── config.toml
+├── brand/              design tokens e design system
+├── ebook/              fonte do e-book (HTML não versionado), build do PDF
+├── docs/               Supabase, Cakto, entrega, fontes, revisão editorial
+└── tests/smoke.mjs     ponta a ponta (Playwright)
+```
+
+Sobre o Tailwind: o projeto já tinha um design system próprio em CSS, com tokens compartilhados entre o app e o e-book. Manter tudo na mesma fonte foi mais simples e consistente do que acrescentar uma segunda camada de estilo.
+
+## Rodando localmente
+
+Requisitos: Node 20+ (testado com 22). Para os testes de banco: PostgreSQL 16 instalado (`/usr/lib/postgresql/16/bin`).
 
 ```bash
 cd pele-em-foco
 npm install
-cp .env.example .env.local   # preencha antes de publicar
-
-npm run dev          # http://localhost:5173
-npm run typecheck
-npm test             # testes de lógica (vitest)
-npm run build        # gera dist/
-npm run preview      # serve o build
-npm run test:e2e     # após o build: fluxo completo no navegador, mobile e desktop
-
-npm run ebook:pdf      # regenera ebook/dist/pele-em-foco.pdf e public/capa-pele-em-foco.png
-npm run ebook:samples  # regenera public/amostras/*.png a partir do PDF
+npm run dev              # http://localhost:5173 — sem .env.local roda em MODO DEMONSTRAÇÃO
 ```
 
-Rotas: `/` vendas · `/obrigado` pós-compra · `/privacidade` · `/termos` · `/app` (onboarding em `/app/boas-vindas`, depois início, rotina, diário, biblioteca, produtos e perfil).
+No modo demonstração há uma faixa amarela fixa avisando. Contas e dados ficam no navegador, senhas são guardadas só como hash PBKDF2, e os botões “Simular compra / Simular bônus expirado / Remover acesso” existem **apenas** nesse modo. O build de produção com Supabase elimina todo esse código (verificado no bundle).
 
-## Configuração (variáveis de ambiente)
+### Comandos
 
-Todas são `VITE_*`, portanto **públicas** (vão para o navegador). Não há segredo nenhum neste projeto.
+| Comando | O que faz |
+|---|---|
+| `npm run dev` | Servidor de desenvolvimento |
+| `npm run typecheck` | TypeScript |
+| `npm test` | Testes unitários (Vitest) |
+| `npm run test:db` | Sobe um Postgres temporário, aplica as migrations e roda os testes de acesso e RLS |
+| `VITE_DEMO_MODE=true npm run build && npm run test:e2e` | Fluxos completos no navegador, celular e desktop |
+| `npm run build` | Build de produção |
+| `npm run db:seed-articles` | Regenera o seed SQL da biblioteca a partir de `src/content/articles.ts` |
+| `npm run ebook:pdf` / `npm run ebook:samples` | PDF do e-book e páginas de amostra |
 
-| Variável | Para quê | Sem ela |
-|---|---|---|
-| `VITE_PRICE_LABEL` | Preço exibido (“R$ 27,00”) | Aviso “a configurar” |
-| `VITE_CHECKOUT_URL` | Link da oferta na Cakto (`https://pay.cakto.com.br/...`) | Botão de compra desativado |
-| `VITE_CAKTO_DELIVERY` | `email` ou `members` (igual ao canal de entrega do produto na Cakto) | `email` |
-| `VITE_BONUS_END_DATE` | Último dia do app gratuito (AAAA-MM-DD) | Aviso “a configurar” |
-| `VITE_REFUND_DAYS` | Prazo de reembolso (mínimo forçado: 7) | 7 |
-| `VITE_SUPPORT_EMAIL` | Suporte | Aviso “a configurar” |
-| `VITE_BUSINESS_NAME`, `VITE_BUSINESS_DOCUMENT` | Responsável e CPF/CNPJ | Aviso “a configurar” |
-| `VITE_SITE_URL` | URL pública (uso em textos) | — |
+## Configurando o Supabase
 
-Enquanto faltar algo, a página de vendas mostra uma faixa amarela “Página em configuração”. Isso é proposital: ninguém publica sem perceber. A faixa também aparece se a data do bônus já passou.
+Passo a passo completo em [`docs/SUPABASE.md`](docs/SUPABASE.md). Resumo:
 
-Para o PDF, preencha `ebook/config.json` e rode `npm run ebook:pdf`. Sem revisor técnico preenchido, o PDF declara que **não** houve revisão por dermatologista.
+1. Criar o projeto (região São Paulo) → copiar URL e anon key para `.env.local`.
+2. `supabase link --project-ref <ref>` e `supabase db push` (aplica as duas migrations).
+3. Auth: confirmação de e-mail **ligada**, senha mínima 8, URLs de redirecionamento (`/app`, `/redefinir-senha`), SMTP próprio para produção.
+4. `supabase functions deploy cakto-webhook --no-verify-jwt` e `supabase functions deploy delete-account`.
+5. `supabase secrets set CAKTO_WEBHOOK_SECRET=... CAKTO_PRODUCT_ID=... APP_ORIGIN=https://seu-dominio`.
+6. Criar o webhook na Cakto apontando para a função (eventos `purchase_approved`, `refund`, `chargeback`) — veja [`docs/CAKTO.md`](docs/CAKTO.md).
+
+Enquanto o webhook não estiver no ar, dá para liberar uma compra manualmente no SQL Editor:
+
+```sql
+select public.record_verified_purchase('email@do-comprador.com', 'pedido-cakto-123', null, 'approved', 'manual');
+```
 
 ## Deploy (Vercel)
 
-1. Novo projeto apontando para este repositório, **Root Directory = `pele-em-foco`**.
-2. Framework: Vite (já em `vercel.json`, com rewrite para as rotas do React Router).
-3. Configure as variáveis acima em *Settings → Environment Variables* e faça o deploy.
-4. Rode a checagem pós-deploy do `LAUNCH_CHECKLIST.md`.
+1. Projeto com **Root Directory = `pele-em-foco`** (o `vercel.json` já faz o rewrite das rotas).
+2. Variáveis: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` e as da página de vendas (veja `.env.example`). **Não** defina `VITE_DEMO_MODE` em produção.
+3. Depois do deploy, adicione o domínio em Supabase → Auth → URL Configuration.
 
-Qualquer hospedagem estática serve (Netlify, Cloudflare Pages): build `npm run build`, saída `dist`, e redirecionar todas as rotas para `index.html`.
+Sem as variáveis do Supabase e sem `VITE_DEMO_MODE`, o build de produção mostra “App em configuração” em vez de rodar o modo demo por engano.
 
-**Nada foi publicado a partir deste ambiente.** Nenhum deploy foi feito ou testado.
+## Antes de clientes reais
 
-## Funcionalidades implementadas
+Checklist detalhado em [`LAUNCH_CHECKLIST.md`](LAUNCH_CHECKLIST.md). O mínimo:
 
-- **Página de vendas** com capa, capítulos, amostras reais do PDF, bônus com condições, para quem é/não é, compromisso editorial, oferta, FAQ, rodapé com aviso educativo.
-- **Pós-compra** (`/obrigado`) que orienta sem confirmar pagamento nem liberar nada.
-- **Políticas** de privacidade e termos/reembolso (modelos marcados para revisão jurídica).
-- **App:** onboarding com aceite do aviso educativo e preferências opcionais; rotina manhã/noite gerada pelas preferências e personalizável; diário com hábitos, observações autorrelatadas, etiquetas, nota e histórico; biblioteca com 8 artigos + FAQ, todos com fontes; guia de produtos por categoria; perfil com preferências, período do bônus, exportação e exclusão total dos dados.
-- **Persistência local** (`localStorage`, chave `pele-em-foco:v1`) com tolerância a dados corrompidos e a navegadores que bloqueiam armazenamento (o app avisa). Nada é gravado antes do onboarding; “Apagar todos os dados” remove a chave.
+- [ ] Projeto Supabase criado, migrations aplicadas e os cenários de `docs/SUPABASE.md` §5 conferidos no projeto real (cadastro, confirmação de e-mail, ativação, isolamento, expiração, reembolso).
+- [ ] SMTP próprio configurado (o e-mail padrão do Supabase tem limite baixo de envios e não serve para produção).
+- [ ] Edge Functions implantadas; um evento de teste da Cakto ativa o acesso; um reembolso revoga.
+- [ ] Exclusão de conta testada de ponta a ponta.
+- [ ] Revisão jurídica de privacidade e termos; revisão técnica do conteúdo por dermatologista.
 
-## O que depende de serviços externos ou não existe
+## Repositório público e o e-book
 
-- **Checkout/pagamento (Cakto):** só o link da oferta. Não há webhook nem confirmação de compra no site. Passo a passo da configuração em `docs/CAKTO.md`.
-- **Controle de acesso ao app:** não existe. Qualquer pessoa com o link usa o app. O período do bônus é **informativo** (avisos e textos), sem bloqueio. Caminho para implementar de verdade: `docs/ACESSO-E-ENTREGA.md`.
-- **Contas e sincronização na nuvem:** não existem; os dados ficam no aparelho.
-- **Entrega do PDF:** feita pela Cakto (e-mail ou Cakto Members).
-- **Produtos específicos e afiliados:** a lista começa vazia de propósito. Regras de cadastro em `src/content/products.ts` (validadas por teste).
-- **Fotografia de marca:** não há. Só arte vetorial.
-- **PWA offline:** há manifest, mas não service worker.
-
-## Repositório público e o PDF
-
-Este repositório no GitHub é **público**. Para não entregar o produto pago de graça, `ebook/src/pele-em-foco.html` e `ebook/dist/` estão no `.gitignore`. Os arquivos foram enviados separadamente; para regenerar o PDF, coloque o HTML em `ebook/src/` e rode `npm run ebook:pdf`. As amostras em `public/amostras/` (4 páginas) são públicas de propósito.
+Este repositório é **público**. Por isso `ebook/src/pele-em-foco.html` e `ebook/dist/` estão no `.gitignore`. Os artigos curtos da biblioteca estão no código (são o seed do banco).

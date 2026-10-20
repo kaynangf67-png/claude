@@ -34,3 +34,17 @@ export function formatLong(key: string): string {
 export function formatShort(key: string): string {
   return fromKey(key).toLocaleDateString('pt-BR', { weekday: 'short', day: 'numeric', month: 'short' });
 }
+
+/** Data e hora no formato brasileiro, no fuso do aparelho. */
+export function formatDateTimeBR(iso: string): string {
+  return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+export function formatDateBR(iso: string): string {
+  return new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+/** "segunda-feira, 20 de outubro de 2026" */
+export function formatFullDate(key: string): string {
+  return fromKey(key).toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}

@@ -1,0 +1,20 @@
+# Configuração do Supabase CLI para o Pele em Foco.
+# Ajuste project_id com `supabase link --project-ref <ref>`.
+project_id = "pele-em-foco"
+
+[auth]
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173/app", "http://localhost:5173/redefinir-senha"]
+minimum_password_length = 8
+
+[auth.email]
+enable_signup = true
+# Obrigatório: a ativação do bônus exige e-mail confirmado (claim_verified_purchase).
+enable_confirmations = true
+
+[functions.cakto-webhook]
+# A Cakto não envia JWT do Supabase; a função valida o segredo do corpo.
+verify_jwt = false
+
+[functions.delete-account]
+verify_jwt = true

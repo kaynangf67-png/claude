@@ -1,6 +1,23 @@
 import { SOURCES, type Source } from './sources';
 
-export type ArticleCategory = 'Acne' | 'Rotina' | 'Produtos' | 'Estilo de vida' | 'Saúde';
+export type ArticleCategory =
+  | 'entendendo-a-acne'
+  | 'rotina-de-cuidados'
+  | 'ingredientes-e-rotulos'
+  | 'habitos-e-bem-estar'
+  | 'mitos-e-verdades'
+  | 'quando-procurar-dermatologista';
+
+export const CATEGORIES: { id: ArticleCategory; label: string }[] = [
+  { id: 'entendendo-a-acne', label: 'Entendendo a acne' },
+  { id: 'rotina-de-cuidados', label: 'Rotina de cuidados' },
+  { id: 'ingredientes-e-rotulos', label: 'Ingredientes e rótulos' },
+  { id: 'habitos-e-bem-estar', label: 'Hábitos e bem-estar' },
+  { id: 'mitos-e-verdades', label: 'Mitos e verdades' },
+  { id: 'quando-procurar-dermatologista', label: 'Quando procurar dermatologista' },
+];
+
+export const categoryLabel = (id: ArticleCategory) => CATEGORIES.find((c) => c.id === id)?.label ?? id;
 
 export interface ArticleSection {
   heading?: string;
@@ -24,7 +41,7 @@ export const ARTICLES: Article[] = [
     slug: 'como-a-acne-se-forma',
     title: 'Como a acne se forma',
     summary: 'Sebo, células mortas, bactérias e inflamação: os quatro processos que atuam juntos.',
-    category: 'Acne',
+    category: 'entendendo-a-acne',
     minutes: 4,
     sections: [
       {
@@ -61,7 +78,7 @@ export const ARTICLES: Article[] = [
     slug: 'pele-oleosa',
     title: 'Pele oleosa: cuidar sem agredir',
     summary: 'Oleosidade não é acne, e tentar “secar” a pele à força costuma piorar.',
-    category: 'Rotina',
+    category: 'entendendo-a-acne',
     minutes: 3,
     sections: [
       {
@@ -93,7 +110,7 @@ export const ARTICLES: Article[] = [
     slug: 'rotina-basica',
     title: 'Rotina básica: manhã e noite',
     summary: 'Limpar, hidratar e proteger de manhã. Remover, limpar, tratar (se houver) e hidratar à noite.',
-    category: 'Rotina',
+    category: 'rotina-de-cuidados',
     minutes: 4,
     sections: [
       {
@@ -128,7 +145,7 @@ export const ARTICLES: Article[] = [
     slug: 'lendo-rotulos',
     title: 'Como ler o rótulo de um produto',
     summary: 'A frente da embalagem vende; a lista de ingredientes informa.',
-    category: 'Produtos',
+    category: 'ingredientes-e-rotulos',
     minutes: 4,
     sections: [
       {
@@ -155,7 +172,7 @@ export const ARTICLES: Article[] = [
     slug: 'ingredientes',
     title: 'Ingredientes comuns e seus cuidados',
     summary: 'Ácido salicílico, peróxido de benzoíla, retinoides, niacinamida: o que cada um faz e onde mora o risco.',
-    category: 'Produtos',
+    category: 'ingredientes-e-rotulos',
     minutes: 5,
     sections: [
       {
@@ -196,7 +213,7 @@ export const ARTICLES: Article[] = [
     slug: 'alimentacao',
     title: 'Alimentação e acne: o que se sabe',
     summary: 'Há associação com dieta de alta carga glicêmica e leite, mas a evidência é limitada. Nenhum alimento cura acne.',
-    category: 'Estilo de vida',
+    category: 'habitos-e-bem-estar',
     minutes: 4,
     sections: [
       {
@@ -231,7 +248,7 @@ export const ARTICLES: Article[] = [
     slug: 'mitos-e-erros',
     title: 'Mitos e erros comuns',
     summary: 'Espremer, esfregar, trocar de produto toda semana e outras armadilhas.',
-    category: 'Estilo de vida',
+    category: 'mitos-e-verdades',
     minutes: 3,
     sections: [
       {
@@ -262,7 +279,7 @@ export const ARTICLES: Article[] = [
     slug: 'quando-procurar-dermatologista',
     title: 'Quando procurar um dermatologista',
     summary: 'Acne profunda, dolorosa, persistente ou que deixa marcas merece avaliação profissional.',
-    category: 'Saúde',
+    category: 'quando-procurar-dermatologista',
     minutes: 3,
     sections: [
       {
@@ -290,6 +307,85 @@ export const ARTICLES: Article[] = [
       },
     ],
     sources: [SOURCES.aadTips, SOURCES.aadTreat, SOURCES.sbdTreat, SOURCES.aadScars],
+  },
+  {
+    slug: 'protetor-solar-no-dia-a-dia',
+    title: 'Protetor solar no dia a dia',
+    summary: 'O passo mais esquecido da rotina — e um dos mais importantes para quem tem acne.',
+    category: 'rotina-de-cuidados',
+    minutes: 3,
+    sections: [
+      {
+        paragraphs: [
+          'A Academia Americana de Dermatologia recomenda protetor solar de amplo espectro (UVA e UVB), com FPS 30 ou mais e resistente à água, para todas as pessoas, de qualquer tom de pele.',
+          'Para quem tem acne, há um motivo a mais: o sol pode escurecer as manchas que ficam depois das espinhas, e alguns ingredientes usados em tratamentos aumentam a sensibilidade solar.',
+        ],
+      },
+      {
+        heading: 'Na prática',
+        bullets: [
+          'Prefira versões não comedogênicas e de toque seco, se a pele for oleosa.',
+          'Aplique em quantidade suficiente em rosto, orelhas e pescoço.',
+          'Reaplique em exposição longa, depois de suar muito ou entrar na água.',
+          'Sombra, boné ou chapéu e roupas completam a proteção — o protetor sozinho não basta.',
+        ],
+        note: 'O melhor protetor é aquele que você gosta de usar todos os dias.',
+      },
+    ],
+    sources: [SOURCES.aadSunscreen, SOURCES.aadTips],
+  },
+  {
+    slug: 'sono-estresse-e-suor',
+    title: 'Sono, estresse, suor e atrito',
+    summary: 'Fatores do dia a dia que podem influenciar a pele — sem culpa e sem exagero.',
+    category: 'habitos-e-bem-estar',
+    minutes: 3,
+    sections: [
+      {
+        paragraphs: [
+          'A acne tem várias causas, e hábitos do dia a dia podem pesar mais para umas pessoas do que para outras. Observar com calma ajuda mais do que mudar tudo de uma vez.',
+        ],
+      },
+      {
+        heading: 'Suor e atrito',
+        bullets: [
+          'Lave o rosto depois de suar, como orienta a AAD — principalmente sob capacete, boné ou máscara.',
+          'Alças de mochila, capacete e roupas apertadas podem favorecer lesões nas áreas de contato.',
+          'Cabelo oleoso encostando na testa também pode contribuir; lave com regularidade.',
+        ],
+      },
+      {
+        heading: 'Sono e estresse',
+        paragraphs: [
+          'Muita gente percebe piora em fases de estresse ou pouco sono. Registrar isso no diário pode ajudar você a notar padrões — mas uma observação pessoal não prova causa e efeito.',
+        ],
+      },
+    ],
+    sources: [SOURCES.aadTips, SOURCES.aadHabits, SOURCES.sbdAcne],
+  },
+  {
+    slug: 'acne-e-autoestima',
+    title: 'Acne, autoestima e redes sociais',
+    summary: 'O impacto emocional da acne é real e merece atenção.',
+    category: 'habitos-e-bem-estar',
+    minutes: 2,
+    sections: [
+      {
+        paragraphs: [
+          'Acne pode afetar humor, vida social e confiança. Isso é legítimo — e é um dos motivos para procurar avaliação profissional, não um exagero.',
+          'Fotos editadas e filtros mostram uma pele que não existe. Textura, poros e marcas fazem parte de pele real.',
+        ],
+      },
+      {
+        heading: 'O que pode ajudar',
+        bullets: [
+          'Comparar sua pele com ela mesma ao longo de semanas, não com fotos de outras pessoas.',
+          'Evitar se examinar com lupa ou contar espinhas todos os dias.',
+          'Buscar apoio psicológico se a acne estiver afetando muito como você se sente.',
+        ],
+      },
+    ],
+    sources: [SOURCES.aadTreat, SOURCES.sbdAcne],
   },
 ];
 

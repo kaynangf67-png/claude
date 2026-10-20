@@ -1,9 +1,8 @@
-import { useEffect, useRef, type ReactNode } from 'react';
-import { AlertTriangle, Check, Info, Settings2 } from 'lucide-react';
-import type { RoutineStep } from '../lib/types';
+import { useEffect, useId, useRef, useState, type InputHTMLAttributes, type ReactNode } from 'react';
+import { AlertTriangle, Check, Eye, EyeOff, Info, Loader2, Settings2 } from 'lucide-react';
 
-export function Notice({ tone = 'info', children }: { tone?: 'info' | 'alert' | 'config'; children: ReactNode }) {
-  const Icon = tone === 'alert' ? AlertTriangle : tone === 'config' ? Settings2 : Info;
+export function Notice({ tone = 'info', children }: { tone?: 'info' | 'alert' | 'config' | 'success'; children: ReactNode }) {
+  const Icon = tone === 'alert' ? AlertTriangle : tone === 'config' ? Settings2 : tone === 'success' ? Check : Info;
   return (
     <div className={`notice ${tone === 'info' ? '' : tone}`} role={tone === 'alert' ? 'alert' : undefined}>
       <Icon size={18} aria-hidden="true" />
@@ -30,45 +29,90 @@ export function ProgressBar({ value, total, label }: { value: number; total: num
   );
 }
 
-export function StepChecklist({ steps, done, onToggle }: { steps: RoutineStep[]; done: string[]; onToggle: (id: string) => void }) {
-  if (steps.length === 0) return <p className="muted small">Nenhum passo ativo. Ajuste sua rotina em “Personalizar”.</p>;
+export function Spinner({ label = 'Carregando…' }: { label?: string }) {
   return (
-    <ul className="checklist">
-      {steps.map((s) => {
-        const checked = done.includes(s.id);
-        return (
-          <li key={s.id}>
-            <button type="button" role="checkbox" aria-checked={checked} className="check" onClick={() => onToggle(s.id)}>
-              <span className="check-box" aria-hidden="true">{checked && <Check size={16} strokeWidth={3} />}</span>
-              <span>
-                <span className="check-label">{s.label}</span>
-                {s.hint && <span className="check-hint">{s.hint}</span>}
-              </span>
-            </button>
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
-
-export function Switch({ id, label, description, checked, onChange }: { id: string; label: string; description?: string; checked: boolean; onChange: (v: boolean) => void }) {
-  return (
-    <div className="switch-row">
-      <label htmlFor={id} style={{ cursor: 'pointer' }}>
-        <span style={{ display: 'block' }}>{label}</span>
-        {description && <span className="small muted" style={{ fontWeight: 400 }}>{description}</span>}
-      </label>
-      <span className="switch">
-        <input id={id} type="checkbox" role="switch" checked={checked} onChange={(e) => onChange(e.target.checked)} />
-        <span aria-hidden="true" />
-      </span>
+    <div className="loading" role="status" aria-live="polite">
+      <Loader2 size={20} className="spin" aria-hidden="true" />
+      <span>{label}</span>
     </div>
   );
 }
 
-export function ConfirmDialog({ open, title, children, confirmLabel, onConfirm, onCancel }: {
-  open: boolean; title: string; children: ReactNode; confirmLabel: string; onConfirm: () => void; onCancel: () => void;
+export function EmptyState({ icon, title, children, action }: { icon?: ReactNode; title: string; children?: ReactNode; action?: ReactNode }) {
+  return (
+    <div className="empty">
+      {icon && <div className="empty-icon" aria-hidden="true">{icon}</div>}
+      <h2>{title}</h2>
+      {children && <div className="muted small">{children}</div>}
+      {action}
+    </div>
+  );
+}
+
+/** Mensagem de status curta (salvo / erro) anunciada a leitores de tela. */
+export function useFlash(timeout = 2500) {
+  const [msg, setMsg] = useState<{ text: string; tone: 'ok' | 'error' } | null>(null);
+  const timer = useRef<number | undefined>(undefined);
+  const show = (text: string, tone: 'ok' | 'error' = 'ok') => {
+    window.clearTimeout(timer.current);
+    setMsg({ text, tone });
+    if (tone === 'ok') timer.current = window.setTimeout(() => setMsg(null), timeout);
+  };
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  const node = (
+    <div aria-live="polite" className="flash-slot">
+      {msg && <p className={`flash ${msg.tone}`} role={msg.tone === 'error' ? 'alert' : 'status'}>{msg.text}</p>}
+    </div>
+  );
+  return { show, clear: () => setMsg(null), node };
+}
+
+interface FieldProps extends InputHTMLAttributes<HTMLInputElement> {
+  label: string;
+  error?: string | null;
+  hint?: ReactNode;
+}
+
+export function Field({ label, error, hint, id, type, ...rest }: FieldProps) {
+  const auto = useId();
+  const inputId = id ?? auto;
+  const [show, setShow] = useState(false);
+  const isPassword = type === 'password';
+  const describedBy = [error ? `${inputId}-erro` : null, hint ? `${inputId}-dica` : null].filter(Boolean).join(' ') || undefined;
+  return (
+    <div className="field">
+      <label htmlFor={inputId}>{label}</label>
+      <div className={isPassword ? 'input-with-action' : undefined}>
+        <input
+          id={inputId}
+          className={`input ${error ? 'invalid' : ''}`}
+          type={isPassword && show ? 'text' : type}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy}
+          {...rest}
+        />
+        {isPassword && (
+          <button type="button" className="input-action" onClick={() => setShow((v) => !v)} aria-label={show ? 'Ocultar senha' : 'Mostrar senha'} aria-pressed={show}>
+            {show ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+          </button>
+        )}
+      </div>
+      {hint && <span id={`${inputId}-dica`} className="xs muted">{hint}</span>}
+      {error && <span id={`${inputId}-erro`} className="field-error">{error}</span>}
+    </div>
+  );
+}
+
+export function SubmitButton({ busy, children, busyLabel = 'Aguarde…', className = 'btn btn-primary btn-lg btn-block', disabled }: { busy: boolean; children: ReactNode; busyLabel?: string; className?: string; disabled?: boolean }) {
+  return (
+    <button type="submit" className={className} disabled={busy || disabled} aria-busy={busy}>
+      {busy ? (<><Loader2 size={18} className="spin" aria-hidden="true" /> {busyLabel}</>) : children}
+    </button>
+  );
+}
+
+export function ConfirmDialog({ open, title, children, confirmLabel, onConfirm, onCancel, busy = false }: {
+  open: boolean; title: string; children: ReactNode; confirmLabel: string; onConfirm: () => void; onCancel: () => void; busy?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
@@ -83,8 +127,10 @@ export function ConfirmDialog({ open, title, children, confirmLabel, onConfirm, 
         <h2 id="confirm-title" style={{ fontSize: 'var(--text-lg)' }}>{title}</h2>
         <div className="muted">{children}</div>
         <div className="row wrap" style={{ justifyContent: 'flex-end' }}>
-          <button type="button" className="btn btn-ghost" onClick={onCancel}>Cancelar</button>
-          <button type="button" className="btn btn-danger" onClick={onConfirm}>{confirmLabel}</button>
+          <button type="button" className="btn btn-ghost" onClick={onCancel} disabled={busy}>Cancelar</button>
+          <button type="button" className="btn btn-danger" onClick={onConfirm} disabled={busy}>
+            {busy ? <Loader2 size={18} className="spin" aria-hidden="true" /> : null} {confirmLabel}
+          </button>
         </div>
       </div>
     </dialog>

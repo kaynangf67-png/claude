@@ -1,8 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Mail, MonitorSmartphone, Download, LifeBuoy } from 'lucide-react';
 import { ConfigPending } from '../../components/ui';
-import { launch } from '../../config/launch';
-import { formatLong } from '../../lib/dates';
+import { BONUS_DAYS, launch } from '../../config/launch';
 
 /**
  * Página de obrigado configurada na Cakto (Produto → Upsell/Downsell → página de agradecimento personalizada).
@@ -53,16 +52,15 @@ export function Obrigado() {
           <li className="card-flat row" style={{ alignItems: 'flex-start' }}>
             <MonitorSmartphone aria-hidden="true" />
             <div className="stack">
-              <h2 className="h3">3. Abra o app bônus</h2>
+              <h2 className="h3">3. Crie sua conta no app com o mesmo e-mail da compra</h2>
               <p className="small" style={{ marginBottom: 0 }}>
-                O link também está na última página do e-book. Funciona no navegador; dá para adicionar à tela inicial do celular pelo menu do navegador.
+                Confirme o e-mail pelo link que enviaremos. Assim que a compra aprovada for vinculada à sua conta, os <strong>{BONUS_DAYS} dias de acesso</strong> começam a contar.
+                Se a Cakto ainda estiver processando o pagamento, entre de novo mais tarde ou use “Verificar novamente” no app.
               </p>
-              {launch.bonusEndDate ? (
-                <p className="small" style={{ marginBottom: 0 }}>Acesso gratuito até <strong>{formatLong(launch.bonusEndDate)}</strong>.</p>
-              ) : (
-                <ConfigPending>data final do bônus (VITE_BONUS_END_DATE).</ConfigPending>
-              )}
-              <Link to="/app" className="btn btn-primary" style={{ alignSelf: 'flex-start' }}>Abrir o app</Link>
+              <div className="row wrap">
+                <Link to="/criar-conta" className="btn btn-primary">Criar conta</Link>
+                <Link to="/entrar" className="btn btn-ghost">Já tenho conta</Link>
+              </div>
             </div>
           </li>
           <li className="card-flat row" style={{ alignItems: 'flex-start' }}>

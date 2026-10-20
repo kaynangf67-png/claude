@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ConfigPending } from '../../components/ui';
-import { launch } from '../../config/launch';
-import { formatLong } from '../../lib/dates';
+import { BONUS_DAYS, launch } from '../../config/launch';
 
 function Draft() {
   return (
@@ -32,10 +31,13 @@ export function Privacidade() {
 
         <h2>App Pele em Foco</h2>
         <ul>
-          <li>Os dados que você registra no app (preferências, rotina, diário) ficam <strong>somente no armazenamento local do seu navegador</strong>. Eles não são enviados para nossos servidores.</li>
-          <li>Não há criação de conta nesta versão e não pedimos fotos do rosto, documentos ou informações médicas.</li>
-          <li>Você pode exportar ou apagar todos os dados a qualquer momento em Perfil. Limpar os dados do navegador também os remove.</li>
-          <li>Como os dados ficam no seu aparelho, quem tiver acesso a ele pode vê-los. Use o bloqueio de tela do seu dispositivo.</li>
+          <li><strong>Conta:</strong> e-mail, senha (guardada pelo provedor de autenticação apenas em formato criptográfico, nunca em texto), nome opcional e a data em que você aceitou o aviso educativo.</li>
+          <li><strong>Uso do app:</strong> os passos da rotina que você marca, por data, e as anotações opcionais do diário (observações, produtos usados e texto livre).</li>
+          <li><strong>Acesso:</strong> o vínculo entre sua conta e a compra (número do pedido e e-mail recebidos da Cakto) e as datas de início e fim do bônus.</li>
+          <li>Os dados ficam no banco de dados do app, hospedado no Supabase. Regras no próprio banco garantem que cada conta só leia e altere os próprios registros.</li>
+          <li>Não pedimos fotos do rosto, documentos ou diagnósticos. O diário é opcional e serve para observações pessoais; evite escrever informações de saúde que você não queira registrar.</li>
+          <li>Você pode exportar seus dados, apagar rotina e diário ou excluir a conta inteira em Perfil, a qualquer momento.</li>
+          <li>Não usamos seus registros para publicidade e não os vendemos.</li>
         </ul>
 
         <h2>Seus direitos (LGPD)</h2>
@@ -65,9 +67,9 @@ export function Termos() {
 
         <h2>Bônus: app Pele em Foco</h2>
         <ul>
-          <li>{launch.bonusEndDate ? <>O acesso gratuito ao app para compradores vale até <strong>{formatLong(launch.bonusEndDate)}</strong>.</> : '[Período de acesso gratuito a configurar.]'}</li>
-          <li>Antes do fim desse período, comunicaremos pelo e-mail da compra as condições de uso depois dele. Não haverá cobrança automática sem a sua contratação expressa.</li>
-          <li>Os registros feitos no app ficam no seu aparelho e podem ser exportados.</li>
+          <li>Quem compra o e-book recebe <strong>{BONUS_DAYS} dias de acesso ao app</strong>, contados a partir da ativação: o momento em que a compra aprovada é vinculada a uma conta com o mesmo e-mail, já confirmado.</li>
+          <li>Cada compra ativa o bônus uma única vez. Reembolso ou contestação do pagamento encerram o acesso.</li>
+          <li>Depois do período, não há cobrança automática. Você continua podendo ver, exportar e apagar seus registros.</li>
           <li>O app é fornecido como bônus, sem garantia de disponibilidade ininterrupta.</li>
         </ul>
 

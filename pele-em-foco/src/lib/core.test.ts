@@ -1,24 +1,14 @@
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { addDays, diffDays, toKey } from './dates';
-import { buildRoutine, mergeRoutine, progress } from './routine';
-import { lastDays, streak } from './habits';
-import { emptyData, load, save, STORAGE_KEY } from './storage';
-import { bonusStatus } from './bonus';
-import { isCaktoCheckout, missingLaunchConfig } from '../config/launch';
+import { dayProgress, isDone, ROUTINE_STEPS, stepsFor } from './routine';
+import { OBSERVATIONS, SKIN_FEELS } from './journal';
+import { validateDisplayName, validateEmail, validatePassword } from './validation';
+import { isCaktoCheckout, missingLaunchConfig, type Launch } from '../config/launch';
+import { ARTICLES, CATEGORIES } from '../content/articles';
 import { CATEGORY_GUIDES, PRODUCTS, productIssues, type Product } from '../content/products';
-import { ARTICLES } from '../content/articles';
 
-function memoryStorage() {
-  const map = new Map<string, string>();
-  return {
-    getItem: (k: string) => map.get(k) ?? null,
-    setItem: (k: string, v: string) => void map.set(k, v),
-    removeItem: (k: string) => void map.delete(k),
-    map,
-  };
-}
-
-const prefs = { name: '', skinFeel: 'oleosa' as const, usesMakeup: true, shaves: false, hasTreatment: true };
+const migration = readFileSync(new URL('../../supabase/migrations/20261020120000_pele_em_foco_schema.sql', import.meta.url), 'utf8');
 
 describe('datas', () => {
   it('soma dias atravessando meses e anos', () => {
@@ -30,97 +20,67 @@ describe('datas', () => {
 });
 
 describe('rotina', () => {
-  it('monta passos conforme as preferências', () => {
-    const ids = buildRoutine(prefs).map((s) => s.id);
-    expect(ids).toContain('demaquilar');
-    expect(ids).toContain('tratamento');
-    expect(ids).not.toContain('barbear');
-    expect(ids.filter((id) => id === 'protetor')).toHaveLength(1);
+  it('tem os passos educativos pedidos', () => {
+    expect(stepsFor('manha').map((s) => s.label)).toEqual(['Limpeza suave', 'Hidratação', 'Proteção solar']);
+    expect(stepsFor('noite').map((s) => s.label)).toEqual(['Limpeza suave', 'Hidratação', 'Revisão dos cuidados utilizados']);
   });
 
-  it('mantém passos personalizados e desativados ao mudar preferências', () => {
-    const routine = buildRoutine(prefs).map((s) => (s.id === 'hidratante-noite' ? { ...s, enabled: false } : s));
-    routine.push({ id: 'custom-1', period: 'noite', label: 'Ler o diário', enabled: true, custom: true });
-    const merged = mergeRoutine(routine, { ...prefs, usesMakeup: false, shaves: true });
-    expect(merged.find((s) => s.id === 'hidratante-noite')?.enabled).toBe(false);
-    expect(merged.some((s) => s.id === 'custom-1')).toBe(true);
-    expect(merged.some((s) => s.id === 'demaquilar')).toBe(false);
-    expect(merged.some((s) => s.id === 'barbear')).toBe(true);
+  it('as chaves dos passos são exatamente as aceitas pelo banco', () => {
+    for (const period of ['manha', 'noite'] as const) {
+      const sql = migration.match(new RegExp(`period = '${period}' and step_key in \\(([^)]+)\\)`))![1];
+      const dbKeys = [...sql.matchAll(/'([^']+)'/g)].map((m) => m[1]);
+      expect(stepsFor(period).map((s) => s.key)).toEqual(dbKeys);
+    }
   });
 
-  it('calcula progresso só com passos ativos', () => {
-    const routine = buildRoutine(prefs);
-    const entry = { done: ['limpeza-manha', 'protetor'], habits: [], tags: [], note: '' };
-    expect(progress(routine, entry, 'manha')).toEqual({ done: 2, total: 3, complete: false });
-    expect(progress(routine, undefined).done).toBe(0);
-  });
-});
-
-describe('hábitos', () => {
-  it('conta sequência de dias completos', () => {
-    const data = emptyData();
-    const all = data.routine.map((s) => s.id);
-    data.days['2026-10-18'] = { done: all, habits: [], tags: [], note: '' };
-    data.days['2026-10-19'] = { done: all, habits: [], tags: [], note: '' };
-    expect(streak(data, '2026-10-20')).toBe(2); // hoje ainda aberto
-    data.days['2026-10-20'] = { done: all, habits: [], tags: [], note: '' };
-    expect(streak(data, '2026-10-20')).toBe(3);
-    expect(lastDays(data, '2026-10-20', 7)).toHaveLength(7);
-    expect(lastDays(data, '2026-10-20', 7).filter((d) => d.complete)).toHaveLength(3);
+  it('calcula progresso por dia e período', () => {
+    const c = [
+      { completedOn: '2026-10-20', period: 'manha' as const, stepKey: 'limpeza' },
+      { completedOn: '2026-10-20', period: 'manha' as const, stepKey: 'protecao-solar' },
+      { completedOn: '2026-10-19', period: 'noite' as const, stepKey: 'limpeza' },
+    ];
+    expect(dayProgress(c, '2026-10-20', 'manha')).toEqual({ done: 2, total: 3, complete: false });
+    expect(dayProgress(c, '2026-10-20')).toEqual({ done: 2, total: 6, complete: false });
+    expect(isDone(c, '2026-10-20', 'noite', 'limpeza')).toBe(false);
+    expect(ROUTINE_STEPS).toHaveLength(6);
   });
 });
 
-describe('armazenamento local', () => {
-  it('salva e recarrega', () => {
-    const storage = memoryStorage();
-    const data = emptyData();
-    data.preferences.name = 'Ana';
-    data.days['2026-10-20'] = { done: ['protetor'], habits: ['dormi-bem'], tags: [], note: 'ok' };
-    expect(save(data, storage)).toBe(true);
-    const back = load(storage);
-    expect(back.preferences.name).toBe('Ana');
-    expect(back.days['2026-10-20'].done).toEqual(['protetor']);
-  });
-
-  it('volta ao estado inicial com JSON corrompido ou versão desconhecida', () => {
-    const storage = memoryStorage();
-    storage.setItem(STORAGE_KEY, '{quebrado');
-    expect(load(storage).onboardedAt).toBeNull();
-    storage.setItem(STORAGE_KEY, JSON.stringify({ version: 99 }));
-    expect(load(storage).days).toEqual({});
-  });
-
-  it('não quebra quando o navegador bloqueia o armazenamento', () => {
-    const blocked = {
-      getItem: () => { throw new Error('SecurityError'); },
-      setItem: () => { throw new Error('QuotaExceeded'); },
-      removeItem: () => undefined,
-    };
-    expect(load(blocked).version).toBe(1);
-    expect(save(emptyData(), blocked)).toBe(false);
+describe('diário', () => {
+  it('opções do formulário são exatamente as aceitas pelo banco', () => {
+    const obs = migration.match(/observations <@ array\[([^\]]+)\]/)![1];
+    expect(OBSERVATIONS.map((o) => o.value).sort()).toEqual([...obs.matchAll(/'([^']+)'/g)].map((m) => m[1]).sort());
+    const feel = migration.match(/skin_feel text check \(skin_feel in \(([^)]+)\)/)![1];
+    expect(SKIN_FEELS.map((o) => o.value)).toEqual([...feel.matchAll(/'([^']+)'/g)].map((m) => m[1]));
   });
 });
 
-describe('bônus', () => {
-  it('informa período ativo, último dia e encerrado', () => {
-    expect(bonusStatus(null, '2026-10-20')).toEqual({ kind: 'nao-configurado' });
-    expect(bonusStatus('2026-10-30', '2026-10-20')).toEqual({ kind: 'ativo', endDate: '2026-10-30', daysLeft: 10 });
-    expect(bonusStatus('2026-10-20', '2026-10-20')).toMatchObject({ kind: 'ativo', daysLeft: 0 });
-    expect(bonusStatus('2026-10-19', '2026-10-20')).toEqual({ kind: 'encerrado', endDate: '2026-10-19' });
+describe('validação de formulários', () => {
+  it('e-mail', () => {
+    expect(validateEmail('')).toBe('Informe seu e-mail.');
+    expect(validateEmail('ana@')).toBe('Este e-mail não parece válido.');
+    expect(validateEmail(' ana@exemplo.com ')).toBeNull();
+  });
+  it('senha', () => {
+    expect(validatePassword('')).toBe('Crie uma senha.');
+    expect(validatePassword('abc12')).toMatch(/pelo menos 8/);
+    expect(validatePassword('abcdefgh')).toMatch(/letras e números/);
+    expect(validatePassword('pele2026foco')).toBeNull();
+  });
+  it('nome', () => {
+    expect(validateDisplayName('x'.repeat(61))).toMatch(/60/);
+    expect(validateDisplayName('Lu')).toBeNull();
   });
 });
 
 describe('configuração de lançamento', () => {
+  const empty: Launch = { caktoDelivery: 'email', priceLabel: null, checkoutUrl: null, refundDays: 7, supportEmail: null, businessName: null, businessDocument: null, siteUrl: null };
   it('lista o que falta preencher', () => {
-    const empty = { caktoDelivery: 'email' as const, priceLabel: null, checkoutUrl: null, bonusEndDate: null, refundDays: 7, supportEmail: null, businessName: null, businessDocument: null, siteUrl: null };
-    expect(missingLaunchConfig(empty)).toHaveLength(5);
-    const full = { ...empty, priceLabel: 'R$ 27', checkoutUrl: 'https://pay.cakto.com.br/abc123', bonusEndDate: '2027-01-31', supportEmail: 'a@b.c', businessName: 'X', businessDocument: '1' };
-    expect(missingLaunchConfig(full, '2026-10-20')).toEqual([]);
-    expect(missingLaunchConfig(full, '2027-02-01')).toEqual(['Data do bônus já passou (VITE_BONUS_END_DATE)']);
+    expect(missingLaunchConfig(empty)).toHaveLength(4);
+    const full = { ...empty, priceLabel: 'R$ 27', checkoutUrl: 'https://pay.cakto.com.br/abc123', supportEmail: 'a@b.c', businessName: 'X', businessDocument: '1' };
+    expect(missingLaunchConfig(full)).toEqual([]);
+    expect(missingLaunchConfig({ ...full, checkoutUrl: 'https://hotmart.com/x' })).toEqual(['VITE_CHECKOUT_URL não parece um link pay.cakto.com.br']);
   });
-});
-
-describe('checkout Cakto', () => {
   it('aceita só links de oferta pay.cakto.com.br em https', () => {
     expect(isCaktoCheckout('https://pay.cakto.com.br/ct947fn_1173605')).toBe(true);
     expect(isCaktoCheckout('http://pay.cakto.com.br/abc')).toBe(false);
@@ -128,38 +88,42 @@ describe('checkout Cakto', () => {
     expect(isCaktoCheckout('https://pay.cakto.com.br.golpe.com/abc')).toBe(false);
     expect(isCaktoCheckout('não é url')).toBe(false);
   });
-
-  it('avisa quando o link de checkout não é da Cakto', () => {
-    const cfg = { caktoDelivery: 'email' as const, priceLabel: 'R$ 27', checkoutUrl: 'https://hotmart.com/x', bonusEndDate: '2027-01-31', refundDays: 7, supportEmail: 'a@b.c', businessName: 'X', businessDocument: '1', siteUrl: null };
-    expect(missingLaunchConfig(cfg, '2026-10-20')).toEqual(['VITE_CHECKOUT_URL não parece um link pay.cakto.com.br']);
-  });
 });
 
 describe('conteúdo', () => {
-  it('produtos cadastrados seguem as regras editoriais', () => {
-    for (const p of PRODUCTS) expect(productIssues(p), p.id).toEqual([]);
-    for (const p of PRODUCTS) expect(CATEGORY_GUIDES.some((g) => g.id === p.category)).toBe(true);
+  it('as 6 categorias da biblioteca têm artigos e batem com o banco', () => {
+    const dbCats = [...migration.match(/category text not null check \(category in \(([\s\S]+?)\)\)/)![1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
+    expect(CATEGORIES.map((c) => c.id)).toEqual(dbCats);
+    for (const c of CATEGORIES) expect(ARTICLES.some((a) => a.category === c.id), c.id).toBe(true);
   });
 
-  it('a validação recusa preço sem verificação e afiliado sem link', () => {
-    const bad: Product = {
-      id: 'x', name: 'Gel', brand: 'Marca', category: 'limpador', purpose: '', keyIngredients: ['Glicerina'], affiliate: true,
-      price: { minBRL: 30, maxBRL: 40, verifiedAt: '', source: '' },
-    };
-    expect(productIssues(bad)).toEqual(expect.arrayContaining(['produto afiliado precisa de link', 'preço sem data de verificação', 'preço sem fonte']));
-  });
-
-  it('todo artigo tem fonte em https e slug único', () => {
-    const slugs = new Set(ARTICLES.map((a) => a.slug));
-    expect(slugs.size).toBe(ARTICLES.length);
+  it('todo artigo tem slug válido e único e fontes em https', () => {
+    expect(new Set(ARTICLES.map((a) => a.slug)).size).toBe(ARTICLES.length);
     for (const a of ARTICLES) {
+      expect(a.slug).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
+      expect(a.minutes).toBeGreaterThan(0);
       expect(a.sources.length, a.slug).toBeGreaterThan(0);
       for (const s of a.sources) expect(s.url).toMatch(/^https:\/\//);
     }
   });
 
+  it('o seed do banco está atualizado com o conteúdo do app', () => {
+    const seed = readFileSync(new URL('../../supabase/migrations/20261020120100_seed_educational_articles.sql', import.meta.url), 'utf8');
+    for (const a of ARTICLES) expect(seed, `rode npm run db:seed-articles (${a.slug})`).toContain(JSON.stringify(a.sections).replaceAll("'", "''"));
+  });
+
   it('nenhum texto promete cura ou prazo de resultado', () => {
     const text = JSON.stringify(ARTICLES).toLowerCase();
     for (const banned of ['cura a acne', 'pele perfeita em', 'garantido', 'em 7 dias']) expect(text).not.toContain(banned);
+  });
+
+  it('produtos cadastrados seguem as regras editoriais', () => {
+    for (const p of PRODUCTS) expect(productIssues(p), p.id).toEqual([]);
+    for (const p of PRODUCTS) expect(CATEGORY_GUIDES.some((g) => g.id === p.category)).toBe(true);
+    const bad: Product = {
+      id: 'x', name: 'Gel', brand: 'Marca', category: 'limpador', purpose: '', keyIngredients: ['Glicerina'], affiliate: true,
+      price: { minBRL: 30, maxBRL: 40, verifiedAt: '', source: '' },
+    };
+    expect(productIssues(bad)).toEqual(expect.arrayContaining(['produto afiliado precisa de link', 'preço sem data de verificação', 'preço sem fonte']));
   });
 });
