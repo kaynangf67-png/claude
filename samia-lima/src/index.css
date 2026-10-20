@@ -1,0 +1,160 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Newsreader', ui-serif, Georgia, 'Times New Roman', serif;
+
+  /* Paleta do cartão de visita */
+  --color-wine-950: #4b1728; /* bordô profundo */
+  --color-wine-800: #702338; /* bordô principal */
+  --color-wine-600: #8b3448; /* bordô suave */
+  --color-wine-200: #e6cfd4;
+  --color-wine-100: #f3e7ea;
+  --color-paper: #faf8f7; /* off-white quente */
+  --color-stone: #f1eeee; /* cinza neutro */
+  --color-ink: #30262a; /* texto */
+  --color-muted: #6a5c61;
+  --color-line: #e5dfe0;
+
+  --shadow-soft: 0 1px 2px rgb(75 23 40 / 0.04), 0 10px 30px -18px rgb(75 23 40 / 0.22);
+  --shadow-lift: 0 2px 4px rgb(75 23 40 / 0.05), 0 24px 48px -24px rgb(75 23 40 / 0.35);
+
+  --radius-card: 14px;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 5.5rem;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-paper font-sans text-ink antialiased;
+    overflow-x: clip;
+    font-feature-settings: 'ss01';
+  }
+  ::selection {
+    background: var(--color-wine-800);
+    color: white;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-wine-600);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+  .on-dark :focus-visible {
+    outline-color: white;
+  }
+  img {
+    max-width: 100%;
+  }
+}
+
+@layer components {
+  .container-site {
+    @apply mx-auto w-full max-w-[1200px] px-5 sm:px-8;
+  }
+
+  .eyebrow {
+    @apply inline-flex items-center gap-3 text-[0.72rem] font-semibold tracking-[0.2em] text-wine-800 uppercase;
+  }
+  .eyebrow::before {
+    content: '';
+    @apply h-px w-7 bg-current opacity-60;
+  }
+  .on-dark .eyebrow {
+    @apply text-wine-200;
+  }
+
+  .heading-xl {
+    @apply font-display text-[2.7rem] leading-[1.02] font-[350] tracking-[-0.02em] text-wine-950 sm:text-[3.6rem] lg:text-[4.35rem];
+    font-variation-settings: 'opsz' 72;
+  }
+  .heading-lg {
+    @apply font-display text-[2.15rem] leading-[1.08] font-[350] tracking-[-0.015em] text-wine-950 sm:text-[2.9rem];
+    font-variation-settings: 'opsz' 60;
+  }
+  .heading-md {
+    @apply font-display text-[1.45rem] leading-[1.2] font-normal text-wine-950;
+    font-variation-settings: 'opsz' 32;
+  }
+  .on-dark .heading-xl,
+  .on-dark .heading-lg,
+  .on-dark .heading-md {
+    @apply text-white;
+  }
+  .lead {
+    @apply text-[1.05rem] leading-[1.7] text-muted sm:text-[1.125rem];
+  }
+  .on-dark .lead {
+    @apply text-white/75;
+  }
+
+  .btn {
+    @apply inline-flex min-h-12 items-center justify-center gap-2.5 rounded-full px-6 whitespace-nowrap text-[0.95rem] font-semibold transition-[background-color,color,border-color,box-shadow,transform] duration-200 ease-out;
+  }
+  .btn:active {
+    transform: translateY(1px);
+  }
+  .btn-primary {
+    @apply bg-wine-800 text-white shadow-[0_10px_24px_-12px_rgb(112_35_56/0.7)] hover:bg-wine-950;
+  }
+  .btn-outline {
+    @apply border border-wine-800/25 text-wine-800 hover:border-wine-800/60 hover:bg-wine-100/60;
+  }
+  .btn-light {
+    @apply bg-white text-wine-950 hover:bg-wine-100;
+  }
+  .btn-outline-light {
+    @apply border border-white/35 text-white hover:border-white/70 hover:bg-white/8;
+  }
+
+  .link-arrow {
+    @apply inline-flex items-center gap-2 font-semibold text-wine-800 underline decoration-wine-800/25 underline-offset-[6px] transition-colors hover:decoration-wine-800;
+  }
+
+  .card {
+    @apply rounded-[var(--radius-card)] border border-line bg-white shadow-soft;
+  }
+
+  /* Conteúdo aguardando confirmação (só aparece no modo prévia) */
+  .pending-badge {
+    @apply inline-flex items-center gap-1.5 rounded-full border border-dashed border-amber-700/50 bg-amber-50 px-2.5 py-1 text-[0.7rem] font-semibold tracking-wide text-amber-800 uppercase;
+  }
+  .pending-outline {
+    @apply outline-2 outline-offset-4 outline-amber-600/50 outline-dashed;
+  }
+}
+
+/* Arco: forma inspirada na coroa do dente, usada nos enquadramentos de imagem */
+.arch {
+  border-radius: 999px 999px var(--radius-card) var(--radius-card);
+}
+
+/* Revelação ao rolar: só anima quando JS e movimento estão disponíveis */
+@media (prefers-reduced-motion: no-preference) {
+  .js .reveal {
+    opacity: 0;
+    transform: translateY(16px);
+    transition:
+      opacity 0.9s cubic-bezier(0.2, 0.7, 0.2, 1),
+      transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+  .js .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
