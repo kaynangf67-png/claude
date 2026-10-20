@@ -2,7 +2,7 @@ import { ArrowRight } from 'lucide-react';
 import { launch } from '../config/launch';
 
 /**
- * Leva ao checkout da plataforma de pagamento.
+ * Leva ao checkout hospedado na Cakto. O site não processa nem guarda dados de pagamento.
  * Sem VITE_CHECKOUT_URL o botão fica desativado — nunca simulamos uma compra.
  */
 export function CheckoutButton({ label = 'Quero o Pele em Foco', size = 'lg' }: { label?: string; size?: 'sm' | 'lg' }) {

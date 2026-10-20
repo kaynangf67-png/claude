@@ -4,9 +4,9 @@
 
 1. **Descoberta** — conteúdo nas redes sociais leva para a página de vendas (`/`).
 2. **Página de vendas** — explica o guia, mostra amostras, o bônus e as condições.
-3. **Compra** — botão leva ao checkout da plataforma (`VITE_CHECKOUT_URL`). Pagamento, nota/recibo e e-mail de confirmação são da plataforma.
-4. **Entrega do e-book** — a plataforma envia o PDF (`ebook/dist/pele-em-foco.pdf`, enviado por você como arquivo do produto na plataforma).
-5. **Acesso ao app** — o e-mail de entrega (modelo abaixo) e a última página do PDF trazem o link do app. A URL de redirecionamento pós-compra aponta para `/obrigado`.
+3. **Compra** — botão leva ao checkout da **Cakto** (`VITE_CHECKOUT_URL`). Pagamento, recibo e e-mail de confirmação são da Cakto. Passo a passo em `docs/CAKTO.md`.
+4. **Entrega do e-book** — a Cakto entrega o PDF por e-mail ou pela área de membros (`VITE_CAKTO_DELIVERY`).
+5. **Acesso ao app** — a última página do PDF e a página `/obrigado` (página de agradecimento configurada na Cakto, exibida após Pix ou cartão aprovados) trazem o link do app.
 6. **Período do bônus** — data única para todos os compradores (`VITE_BONUS_END_DATE`), exibida na página de vendas, no app, nos termos e no PDF (`ebook/config.json → bonusEndDate`).
 
 ## O que está implementado (e o que não está)
@@ -31,7 +31,7 @@ Isso é deliberado: sem backend, qualquer “trava” no navegador (parâmetro d
 Requer um backend (sugestão: Supabase) e o webhook da plataforma de pagamento.
 
 1. **Banco:** tabela `entitlements (email text primary key, purchased_at timestamptz, expires_at timestamptz, status text, order_id text unique)` com RLS: o usuário autenticado só lê a linha do próprio e-mail; ninguém escreve pelo cliente.
-2. **Webhook:** Edge Function `payment-webhook` que valida a assinatura/token da plataforma, trata compra aprovada (cria/atualiza `entitlements` com `expires_at = purchased_at + duração`) e reembolso/chargeback (`status = 'revoked'`). Segredos (`WEBHOOK_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`) só como secrets da função, nunca em `VITE_*`.
+2. **Webhook da Cakto:** Edge Function `cakto-webhook` que compara o `secret` enviado no corpo com o salvo, trata `purchase_approved` (cria/atualiza `entitlements` com `expires_at = purchased_at + duração`) e `refund`/`chargeback` (`status = 'revoked'`). Detalhes e cuidados com reenvio em `docs/CAKTO.md`. Segredos (`WEBHOOK_SECRET`, `SUPABASE_SERVICE_ROLE_KEY`) só como secrets da função, nunca em `VITE_*`.
 3. **Login:** Supabase Auth com link mágico por e-mail (o mesmo e-mail da compra).
 4. **Verificação:** o app consulta `entitlements` após o login; RLS garante que a resposta vem do servidor. Expirado ou revogado → tela explicando a situação e oferecendo exportar os dados.
 5. **Dados na nuvem (opcional):** migrar rotina/diário do `localStorage` para tabelas com RLS por usuário. Atualizar a política de privacidade antes (passa a haver tratamento de dados no servidor).
@@ -39,13 +39,13 @@ Requer um backend (sugestão: Supabase) e o webhook da plataforma de pagamento.
 
 Nada disso deve ser anunciado como funcionando antes desses testes passarem.
 
-## Configuração na plataforma de pagamento (checklist)
+## Configuração na Cakto (resumo; detalhes em `docs/CAKTO.md`)
 
 - [ ] Criar o produto com o PDF final como arquivo de entrega.
 - [ ] Definir preço e copiar o link do checkout para `VITE_CHECKOUT_URL`.
-- [ ] URL de redirecionamento pós-compra: `https://SEU-DOMINIO/obrigado`.
-- [ ] Personalizar o e-mail de entrega com o modelo abaixo.
-- [ ] Prazo de garantia/reembolso igual a `VITE_REFUND_DAYS` (mínimo 7).
+- [ ] Página de agradecimento personalizada (Upsell/Downsell): `https://SEU-DOMINIO/obrigado`.
+- [ ] Se a Cakto permitir personalizar o e-mail/área de membros, usar o modelo abaixo.
+- [ ] Reembolso: a Cakto aceita pedidos em até 7 dias em app.cakto.com.br/refund; manter `VITE_REFUND_DAYS=7` salvo se você for honrar mais dias pelo suporte.
 - [ ] Fazer uma compra de teste real (ou no modo de teste da plataforma) e conferir: e-mail recebido, PDF abre, link do app abre, redirecionamento para `/obrigado`.
 
 ## Modelo de e-mail de entrega
@@ -56,7 +56,7 @@ Nada disso deve ser anunciado como funcionando antes desses testes passarem.
 >
 > Obrigado por comprar o **Pele em Foco — Guia prático para entender a acne e organizar sua rotina de cuidados**.
 >
-> **1. Baixe o e-book:** [link de download da plataforma]
+> **1. Baixe o e-book:** [link de download ou da área de membros da Cakto]
 >
 > **2. Acesse o app bônus:** https://SEU-DOMINIO/app
 > Funciona no navegador do celular ou do computador. Dica: use “Adicionar à tela inicial” no menu do navegador.
@@ -66,6 +66,6 @@ Nada disso deve ser anunciado como funcionando antes desses testes passarem.
 > Lembrete: o guia e o app são educativos e não substituem consulta com dermatologista.
 >
 > Dúvidas: [E-MAIL DE SUPORTE]
-> Reembolso: até [N] dias após a compra, pela plataforma ou respondendo este e-mail.
+> Reembolso: até [N] dias após a compra, em app.cakto.com.br/refund ou respondendo este e-mail.
 >
 > Pele em Foco

@@ -4,7 +4,7 @@ import { buildRoutine, mergeRoutine, progress } from './routine';
 import { lastDays, streak } from './habits';
 import { emptyData, load, save, STORAGE_KEY } from './storage';
 import { bonusStatus } from './bonus';
-import { missingLaunchConfig } from '../config/launch';
+import { isCaktoCheckout, missingLaunchConfig } from '../config/launch';
 import { CATEGORY_GUIDES, PRODUCTS, productIssues, type Product } from '../content/products';
 import { ARTICLES } from '../content/articles';
 
@@ -112,11 +112,26 @@ describe('bônus', () => {
 
 describe('configuração de lançamento', () => {
   it('lista o que falta preencher', () => {
-    const empty = { priceLabel: null, checkoutUrl: null, bonusEndDate: null, refundDays: 7, supportEmail: null, businessName: null, businessDocument: null, siteUrl: null };
+    const empty = { caktoDelivery: 'email' as const, priceLabel: null, checkoutUrl: null, bonusEndDate: null, refundDays: 7, supportEmail: null, businessName: null, businessDocument: null, siteUrl: null };
     expect(missingLaunchConfig(empty)).toHaveLength(5);
-    const full = { ...empty, priceLabel: 'R$ 27', checkoutUrl: 'https://x', bonusEndDate: '2027-01-31', supportEmail: 'a@b.c', businessName: 'X', businessDocument: '1' };
+    const full = { ...empty, priceLabel: 'R$ 27', checkoutUrl: 'https://pay.cakto.com.br/abc123', bonusEndDate: '2027-01-31', supportEmail: 'a@b.c', businessName: 'X', businessDocument: '1' };
     expect(missingLaunchConfig(full, '2026-10-20')).toEqual([]);
     expect(missingLaunchConfig(full, '2027-02-01')).toEqual(['Data do bônus já passou (VITE_BONUS_END_DATE)']);
+  });
+});
+
+describe('checkout Cakto', () => {
+  it('aceita só links de oferta pay.cakto.com.br em https', () => {
+    expect(isCaktoCheckout('https://pay.cakto.com.br/ct947fn_1173605')).toBe(true);
+    expect(isCaktoCheckout('http://pay.cakto.com.br/abc')).toBe(false);
+    expect(isCaktoCheckout('https://pay.cakto.com.br/')).toBe(false);
+    expect(isCaktoCheckout('https://pay.cakto.com.br.golpe.com/abc')).toBe(false);
+    expect(isCaktoCheckout('não é url')).toBe(false);
+  });
+
+  it('avisa quando o link de checkout não é da Cakto', () => {
+    const cfg = { caktoDelivery: 'email' as const, priceLabel: 'R$ 27', checkoutUrl: 'https://hotmart.com/x', bonusEndDate: '2027-01-31', refundDays: 7, supportEmail: 'a@b.c', businessName: 'X', businessDocument: '1', siteUrl: null };
+    expect(missingLaunchConfig(cfg, '2026-10-20')).toEqual(['VITE_CHECKOUT_URL não parece um link pay.cakto.com.br']);
   });
 });
 

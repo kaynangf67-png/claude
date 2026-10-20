@@ -31,8 +31,9 @@ const SAMPLES = [
 ];
 
 const FAQ = [
+  { q: 'Quais formas de pagamento?', a: 'O checkout é da Cakto, uma plataforma de pagamentos brasileira. As formas disponíveis (como Pix e cartão) aparecem na tela de pagamento. Este site não vê nem guarda seus dados de pagamento.' },
   { q: 'Em que formato vem o e-book?', a: 'PDF em português, com 53 páginas, pensado para ler no celular e também para imprimir as fichas e o registro de 30 dias.' },
-  { q: 'Como recebo?', a: 'Depois da confirmação do pagamento, a plataforma de pagamento envia o link de download para o seu e-mail. O mesmo e-mail traz o acesso ao app bônus.' },
+  { q: 'Como recebo?', a: launch.caktoDelivery === 'members' ? 'O pagamento é feito na Cakto. Assim que ele é aprovado, você recebe por e-mail o login da área de membros da Cakto, onde estão o e-book em PDF e o link do app bônus.' : 'O pagamento é feito na Cakto. Assim que ele é aprovado, a Cakto envia para o seu e-mail o acesso ao e-book em PDF. O link do app bônus está no próprio e-book e na página de próximos passos.' },
   { q: 'Serve para homens e mulheres?', a: 'Sim. A pele não tem gênero, e o guia trata de barba, maquiagem, treino e outros contextos do dia a dia.' },
   { q: 'O guia substitui o dermatologista?', a: 'Não. Ele ajuda você a entender a acne, organizar uma rotina básica e reconhecer quando procurar avaliação. Ele não diagnostica nem indica tratamento.' },
   { q: 'Vou ter resultado em quanto tempo?', a: 'Não prometemos prazo nem resultado. Cada pele responde de um jeito, e tratamentos para acne costumam levar semanas. O que o guia oferece é informação confiável e um método para manter constância.' },
@@ -216,7 +217,7 @@ export function Landing() {
             <Price />
             <CheckoutButton />
             <p className="small" style={{ color: 'var(--pf-sage-soft)', margin: 0 }}>
-              Pagamento processado pela plataforma de checkout. Você tem {launch.refundDays} dias a partir da compra para pedir reembolso, conforme os{' '}
+              Pagamento seguro processado pela Cakto. Você tem {launch.refundDays} dias a partir da compra para pedir reembolso, conforme os{' '}
               <Link to="/termos" style={{ color: 'inherit' }}>termos</Link>.
             </p>
           </div>
@@ -235,7 +236,7 @@ export function Landing() {
             ))}
             <details className="faq">
               <summary>E se eu não gostar?</summary>
-              <p>Você pode pedir reembolso em até {launch.refundDays} dias após a compra, pela plataforma de pagamento ou pelo suporte. Detalhes nos <Link to="/termos">termos</Link>.</p>
+              <p>Você pode pedir reembolso em até {launch.refundDays} dias após a compra, direto na Cakto (app.cakto.com.br/refund) ou pelo suporte. Detalhes nos <Link to="/termos">termos</Link>.</p>
             </details>
           </div>
         </div>

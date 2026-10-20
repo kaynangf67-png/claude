@@ -13,9 +13,24 @@ function readDate(name: string): string | null {
   return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
 }
 
+export type CaktoDelivery = 'email' | 'members';
+
+/** Link de oferta da Cakto (pay.cakto.com.br). */
+export function isCaktoCheckout(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.protocol === 'https:' && u.hostname === 'pay.cakto.com.br' && u.pathname.length > 1;
+  } catch {
+    return false;
+  }
+}
+
 export const launch = {
   priceLabel: read('VITE_PRICE_LABEL'),
+  /** Link da oferta na Cakto, ex.: https://pay.cakto.com.br/abc123 */
   checkoutUrl: read('VITE_CHECKOUT_URL'),
+  /** Como a Cakto entrega o PDF: anexo/link no e-mail de compra ou área de membros (Cakto Members). */
+  caktoDelivery: (read('VITE_CAKTO_DELIVERY') === 'members' ? 'members' : 'email') as CaktoDelivery,
   bonusEndDate: readDate('VITE_BONUS_END_DATE'),
   /** Nunca menos que os 7 dias do direito de arrependimento (art. 49 do CDC). */
   refundDays: Math.max(7, Number(read('VITE_REFUND_DAYS') ?? '7') || 7),
@@ -31,7 +46,8 @@ export type Launch = typeof launch;
 export function missingLaunchConfig(config: Launch = launch, today: string = todayKey()): string[] {
   const missing: string[] = [];
   if (!config.priceLabel) missing.push('Preço (VITE_PRICE_LABEL)');
-  if (!config.checkoutUrl) missing.push('Link do checkout (VITE_CHECKOUT_URL)');
+  if (!config.checkoutUrl) missing.push('Link do checkout da Cakto (VITE_CHECKOUT_URL)');
+  else if (!isCaktoCheckout(config.checkoutUrl)) missing.push('VITE_CHECKOUT_URL não parece um link pay.cakto.com.br');
   if (!config.bonusEndDate) missing.push('Data final do bônus (VITE_BONUS_END_DATE)');
   else if (config.bonusEndDate < today) missing.push('Data do bônus já passou (VITE_BONUS_END_DATE)');
   if (!config.supportEmail) missing.push('E-mail de suporte (VITE_SUPPORT_EMAIL)');

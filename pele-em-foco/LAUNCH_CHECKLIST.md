@@ -30,7 +30,7 @@ Estado em 20/10/2026. Ordem = prioridade dentro de cada grupo.
 
 ## 3. Requer credenciais ou serviços externos
 
-1. [ ] **Plataforma de pagamento** (Hotmart, Kiwify, Eduzz, Cakto…): criar produto, subir o PDF, copiar o link para `VITE_CHECKOUT_URL`, redirecionamento para `/obrigado`, e-mail de entrega (modelo em `docs/ACESSO-E-ENTREGA.md`). **Fazer uma compra de teste ponta a ponta.**
+1. [ ] **Cakto** (passo a passo em `docs/CAKTO.md`): criar o produto, escolher entrega por e-mail ou Cakto Members (`VITE_CAKTO_DELIVERY`), subir o PDF, colar o link `pay.cakto.com.br` em `VITE_CHECKOUT_URL`, página de agradecimento → `/obrigado`. **Fazer uma compra de teste e um pedido de reembolso de teste.**
 2. [ ] **Preencher variáveis** de `.env.example` na hospedagem (preço, bônus, suporte, responsável/CPF-CNPJ). A faixa amarela some quando tudo estiver preenchido.
 3. [ ] **Hospedagem** (Vercel, Root Directory `pele-em-foco`) e domínio. Depois do deploy: abrir `/`, `/app`, `/obrigado`, recarregar numa rota interna (testa o rewrite) e conferir capa e amostras.
 4. [ ] **E-mail de suporte** real e monitorado.
@@ -52,7 +52,7 @@ Estado em 20/10/2026. Ordem = prioridade dentro de cada grupo.
 - [ ] **O que acontece com o app depois da data do bônus?** Assinatura paga, gratuito para sempre ou desligar? “Gratuito por tempo limitado” só é honesto se existir um depois definido. Decida antes de anunciar.
 - [ ] **Revisão técnica por dermatologista** (CRM + RQE). Para conteúdo de saúde vendido, é a maior alavanca de credibilidade e de redução de risco. Sem ela, o PDF diz explicitamente que não houve revisão.
 - [ ] **Preço.** Nada foi sugerido aqui sem dados de mercado.
-- [ ] **Regras da plataforma** sobre produtos de saúde/estética e sobre anúncios nas redes (Meta/TikTok têm políticas próprias para saúde e aparência).
+- [ ] **Regras da Cakto** sobre produtos de saúde/estética e sobre anúncios nas redes (Meta/TikTok têm políticas próprias para saúde e aparência).
 
 ## Repositório e arquivos do e-book
 

@@ -53,7 +53,8 @@ Todas são `VITE_*`, portanto **públicas** (vão para o navegador). Não há se
 | Variável | Para quê | Sem ela |
 |---|---|---|
 | `VITE_PRICE_LABEL` | Preço exibido (“R$ 27,00”) | Aviso “a configurar” |
-| `VITE_CHECKOUT_URL` | Link do checkout da plataforma | Botão de compra desativado |
+| `VITE_CHECKOUT_URL` | Link da oferta na Cakto (`https://pay.cakto.com.br/...`) | Botão de compra desativado |
+| `VITE_CAKTO_DELIVERY` | `email` ou `members` (igual ao canal de entrega do produto na Cakto) | `email` |
 | `VITE_BONUS_END_DATE` | Último dia do app gratuito (AAAA-MM-DD) | Aviso “a configurar” |
 | `VITE_REFUND_DAYS` | Prazo de reembolso (mínimo forçado: 7) | 7 |
 | `VITE_SUPPORT_EMAIL` | Suporte | Aviso “a configurar” |
@@ -85,10 +86,10 @@ Qualquer hospedagem estática serve (Netlify, Cloudflare Pages): build `npm run 
 
 ## O que depende de serviços externos ou não existe
 
-- **Checkout/pagamento:** só o link. Não há integração, webhook nem confirmação de compra.
+- **Checkout/pagamento (Cakto):** só o link da oferta. Não há webhook nem confirmação de compra no site. Passo a passo da configuração em `docs/CAKTO.md`.
 - **Controle de acesso ao app:** não existe. Qualquer pessoa com o link usa o app. O período do bônus é **informativo** (avisos e textos), sem bloqueio. Caminho para implementar de verdade: `docs/ACESSO-E-ENTREGA.md`.
 - **Contas e sincronização na nuvem:** não existem; os dados ficam no aparelho.
-- **E-mail de entrega:** feito pela plataforma de pagamento; modelo em `docs/ACESSO-E-ENTREGA.md`.
+- **Entrega do PDF:** feita pela Cakto (e-mail ou Cakto Members).
 - **Produtos específicos e afiliados:** a lista começa vazia de propósito. Regras de cadastro em `src/content/products.ts` (validadas por teste).
 - **Fotografia de marca:** não há. Só arte vetorial.
 - **PWA offline:** há manifest, mas não service worker.

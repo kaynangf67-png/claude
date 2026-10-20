@@ -5,17 +5,20 @@ import { launch } from '../../config/launch';
 import { formatLong } from '../../lib/dates';
 
 /**
- * Página de pós-compra (URL de redirecionamento do checkout).
- * Ela NÃO confirma pagamento nem libera nada: só orienta os próximos passos.
+ * Página de obrigado configurada na Cakto (Produto → Upsell/Downsell → página de agradecimento personalizada).
+ * A Cakto só redireciona para cá após Pix ou cartão aprovados; no boleto ela mostra a página padrão dela.
+ * Esta página NÃO confirma pagamento nem libera nada: só orienta os próximos passos.
  */
 export function Obrigado() {
+  const members = launch.caktoDelivery === 'members';
+
   return (
     <section className="section">
       <div className="container narrow stack-lg">
         <div className="stack">
           <p className="eyebrow">Próximos passos</p>
           <h1>Comprou o Pele em Foco? Veja como acessar.</h1>
-          <p className="muted">Esta página explica o caminho. A confirmação do pagamento e o envio do e-book são feitos pela plataforma de pagamento.</p>
+          <p className="muted">A confirmação do pagamento e o envio do e-book são feitos pela Cakto, a plataforma onde você pagou.</p>
         </div>
 
         <ol className="steps-list">
@@ -23,14 +26,28 @@ export function Obrigado() {
             <Mail aria-hidden="true" />
             <div>
               <h2 className="h3">1. Confira seu e-mail</h2>
-              <p className="small" style={{ marginBottom: 0 }}>Depois que o pagamento é aprovado, a plataforma envia um e-mail com o link de download. Pix e cartão costumam ser rápidos; boleto pode levar alguns dias úteis. Olhe também a caixa de spam e promoções.</p>
+              <p className="small" style={{ marginBottom: 0 }}>
+                {members
+                  ? 'Com o pagamento aprovado, a Cakto envia para o e-mail da compra o seu login da área de membros.'
+                  : 'Com o pagamento aprovado, a Cakto envia para o e-mail da compra o acesso ao e-book.'}{' '}
+                Pix e cartão costumam ser aprovados na hora; boleto pode levar alguns dias úteis. Olhe também spam e promoções.
+              </p>
             </div>
           </li>
           <li className="card-flat row" style={{ alignItems: 'flex-start' }}>
             <Download aria-hidden="true" />
             <div>
               <h2 className="h3">2. Baixe o e-book</h2>
-              <p className="small" style={{ marginBottom: 0 }}>O PDF abre no celular e no computador. Se quiser, imprima as fichas e o registro de 30 dias.</p>
+              <p className="small" style={{ marginBottom: 0 }}>
+                {members ? (
+                  <>
+                    Entre na área de membros da Cakto em <a href="https://aluno.cakto.com.br" target="_blank" rel="noopener noreferrer">aluno.cakto.com.br</a> com o login recebido e baixe o PDF.{' '}
+                  </>
+                ) : (
+                  'Abra o e-mail da Cakto e baixe o PDF. '
+                )}
+                Ele abre no celular e no computador; se quiser, imprima as fichas e o registro de 30 dias.
+              </p>
             </div>
           </li>
           <li className="card-flat row" style={{ alignItems: 'flex-start' }}>
@@ -38,7 +55,7 @@ export function Obrigado() {
             <div className="stack">
               <h2 className="h3">3. Abra o app bônus</h2>
               <p className="small" style={{ marginBottom: 0 }}>
-                O link também está no e-mail e na última página do e-book. Funciona no navegador; dá para adicionar à tela inicial do celular pelo menu do navegador.
+                O link também está na última página do e-book. Funciona no navegador; dá para adicionar à tela inicial do celular pelo menu do navegador.
               </p>
               {launch.bonusEndDate ? (
                 <p className="small" style={{ marginBottom: 0 }}>Acesso gratuito até <strong>{formatLong(launch.bonusEndDate)}</strong>.</p>
@@ -52,7 +69,9 @@ export function Obrigado() {
             <LifeBuoy aria-hidden="true" />
             <div className="stack">
               <h2 className="h3">Não recebeu?</h2>
-              <p className="small" style={{ marginBottom: 0 }}>Confira o status da compra na plataforma de pagamento (o e-mail de confirmação dela traz o link da sua área de compras). Se o pagamento estiver aprovado e o e-mail não chegou, fale com o suporte.</p>
+              <p className="small" style={{ marginBottom: 0 }}>
+                Confira se o pagamento foi aprovado no e-mail de confirmação da Cakto e se o e-mail digitado na compra está certo. Se estiver tudo aprovado e o acesso não chegou, fale com o suporte informando o e-mail usado na compra.
+              </p>
               {launch.supportEmail ? <a href={`mailto:${launch.supportEmail}`}>{launch.supportEmail}</a> : <ConfigPending>e-mail de suporte (VITE_SUPPORT_EMAIL).</ConfigPending>}
             </div>
           </li>
