@@ -33,7 +33,7 @@ const FAQ = [
   { q: 'Serve para homens e mulheres?', a: 'Sim. A pele não tem gênero, e o guia trata de barba, maquiagem, treino e outros contextos do dia a dia.' },
   { q: 'O guia substitui o dermatologista?', a: 'Não. Ele ajuda você a entender a acne, organizar uma rotina básica e reconhecer quando procurar avaliação. Ele não diagnostica nem indica tratamento.' },
   { q: 'Vou ter resultado em quanto tempo?', a: 'Não prometemos prazo nem resultado. Cada pele responde de um jeito, e tratamentos para acne costumam levar semanas. O que o guia oferece é informação confiável e um método para manter constância.' },
-  { q: 'O guia indica marcas?', a: 'Não há marcas patrocinando o conteúdo. O guia ensina a avaliar produtos por função, ingredientes e preço, para você escolher com autonomia.' },
+  { q: 'O guia indica marcas?', a: 'O guia ensina a avaliar produtos por função, ingredientes e preço. No app há alguns exemplos com link de afiliado do Mercado Livre: se você comprar por eles, o Pele em Foco recebe uma comissão, sem custo extra para você. Nenhuma marca paga para aparecer, e os critérios valem para qualquer produto.' },
   { q: 'Meus dados do app ficam onde?', a: 'Numa conta sua, protegida por e-mail e senha. Só você vê sua rotina e seu diário. Não pedimos fotos do rosto nem informações médicas, e você pode exportar ou apagar tudo quando quiser.' },
   { q: 'Quando começam os 30 dias do app?', a: 'Na ativação: quando você cria a conta com o mesmo e-mail da compra e confirma esse e-mail. Se você comprar hoje e criar a conta daqui a uma semana, os 30 dias começam daqui a uma semana.' },
 ];

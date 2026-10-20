@@ -19,15 +19,16 @@ Estado em 20/10/2026.
 - Excluir a conta apaga tudo em cascata; recriar a conta com o mesmo e-mail **não** reutiliza a compra.
 - Teste de mutação: removendo a exigência de acesso ativo de uma política, o teste falha (o harness detecta regressões).
 
-### Unitários — `npm test` (24 testes)
+### Unitários — `npm test` (30 testes)
 - Datas, progresso da rotina, validações de formulário.
 - Listas do frontend (passos, observações, sensações, categorias) **iguais às constraints da migration**.
 - Seed SQL da biblioteca sincronizado com `src/content/articles.ts`.
 - Artigos: slug válido e único, fontes em https, sem promessas de cura/prazo.
+- Questionário: alertas sempre levam ao dermatologista, categorias existem no guia, sem promessa de cura nem medicamento.
 - Webhook Cakto: aprovação, reembolso, chargeback, segredo errado/ausente, outro produto, payload inválido.
 - Modo demo: senha não fica em texto, mesma mensagem para e-mail inexistente e senha errada, regras de acesso, isolamento, exclusão de conta.
 
-### Navegador — `npm run test:e2e` (32 verificações: 16 em 390px e 16 em 1366px, modo demo)
+### Navegador — `npm run test:e2e` (34 verificações: 17 em 390px e 17 em 1366px, modo demo; o build de teste precisa ignorar o `.env.local`: `VITE_SUPABASE_URL= VITE_SUPABASE_ANON_KEY= VITE_CHECKOUT_URL= VITE_DEMO_MODE=true npm run build`)
 - Site, CTA desativado sem checkout, imagens, páginas legais, sem rolagem horizontal.
 - Rota protegida → `/entrar`; destino original preservado após login.
 - Cadastro: mensagens de erro em português, `aria-invalid`, aceite obrigatório.
@@ -35,6 +36,7 @@ Estado em 20/10/2026.
 - Ativação demo → início com estado real; rotina marca/desfaz/persiste; teclado (Espaço) funciona.
 - Diário: criar, recarregar, data duplicada recusada, editar, apagar com confirmação.
 - Biblioteca: busca, sem resultados, filtro por categoria, artigo com fontes externas.
+- Questionário: botão só libera com as respostas obrigatórias, alerta mostra “Procure um dermatologista”, link leva à seção certa do guia.
 - Expirado: rotina bloqueada, diário só leitura.
 - Perfil: exportar JSON, apagar rotina e diário, sair; senha errada recusada; login volta para a página pedida.
 - Outra conta não vê dados da primeira; exclusão de conta.

@@ -102,6 +102,8 @@ textarea.input { min-height: 110px; resize: vertical; line-height: var(--leading
 .input:focus { outline: 2px solid var(--color-focus); outline-offset: 0; border-color: transparent; }
 fieldset { border: 0; padding: 0; margin: 0; }
 legend { font-weight: 600; margin-bottom: var(--space-3); padding: 0; }
+.quiz-legend { font-size: var(--text-md); line-height: 1.4; }
+[id^="cat-"] { scroll-margin-top: 96px; }
 
 .option-grid { display: grid; gap: var(--space-2); grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 .option { position: relative; }

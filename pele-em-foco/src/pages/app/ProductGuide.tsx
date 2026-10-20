@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { CATEGORY_GUIDES, PRODUCTS, type Product } from '../../content/products';
 import { formatFullDate } from '../../lib/dates';
@@ -37,6 +38,11 @@ import { Notice } from '../../components/ui';
 import { RequireAccess } from '../../components/guards';
 
 function GuideInner() {
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (hash) document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView({ block: 'start' });
+  }, [hash]);
+
   return (
     <div className="stack-lg">
       <Link to="/app/aprender" className="btn btn-ghost" style={{ alignSelf: 'flex-start', paddingLeft: 0 }}>
@@ -52,6 +58,9 @@ function GuideInner() {
           ? 'Nenhuma marca patrocina este conteúdo e nenhum produto específico é recomendado.'
           : 'Os produtos abaixo são exemplos para comparar com os critérios de cada categoria, não uma indicação para a sua pele. Links marcados como afiliado podem gerar comissão.'}
       </Notice>
+      <p className="small" style={{ marginBottom: 0 }}>
+        Não sabe por onde começar? <Link to="/app/aprender/questionario">Responda o questionário de rotina</Link>.
+      </p>
       {CATEGORY_GUIDES.map((g) => (
         <section key={g.id} className="card stack" aria-labelledby={`cat-${g.id}`}>
           <h2 id={`cat-${g.id}`} className="h3">{g.title}</h2>

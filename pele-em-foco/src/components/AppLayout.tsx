@@ -14,13 +14,13 @@ const NAV = [
 ];
 
 export function AppLayout() {
-  const { pathname } = useLocation();
+  const { pathname, hash } = useLocation();
   const { auth } = useBackend();
   const mainRef = useRef<HTMLElement>(null);
   const firstRender = useRef(true);
-  // Troca de tela: volta ao topo e leva o foco do teclado/leitor de tela para o conteúdo novo.
+  // Troca de tela: volta ao topo (exceto quando o link aponta para uma seção, #âncora) e leva o foco do teclado/leitor de tela para o conteúdo novo.
   useEffect(() => {
-    window.scrollTo(0, 0);
+    if (!hash) window.scrollTo(0, 0);
     if (firstRender.current) {
       firstRender.current = false;
       return;

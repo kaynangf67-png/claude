@@ -31,6 +31,11 @@ function LearnInner() {
         <p>Textos curtos, em português claro, com as fontes de cada informação.</p>
       </header>
 
+      <Link to="/app/aprender/questionario" className="card-forest card-link row between">
+        <span><strong>Questionário de rotina</strong><br /><span className="small" style={{ color: 'var(--pf-sage-soft)' }}>6 perguntas, sem foto, para saber que tipo de produto procurar.</span></span>
+        <ArrowRight aria-hidden="true" />
+      </Link>
+
       <div className="field search-field">
         <label htmlFor="busca" className="sr-only">Buscar na biblioteca</label>
         <Search size={18} aria-hidden="true" className="search-icon" />

@@ -18,6 +18,7 @@ import { Learn } from './pages/app/Learn';
 import { ArticlePage } from './pages/app/ArticlePage';
 import { ProductGuide } from './pages/app/ProductGuide';
 import { Profile } from './pages/app/Profile';
+import { Quiz } from './pages/app/Quiz';
 
 // Build de pré-visualização (página única, sem controle da URL) usa roteamento em memória.
 const Router = import.meta.env.VITE_ROUTER === 'memory' ? MemoryRouter : BrowserRouter;
@@ -53,6 +54,7 @@ export function App() {
               <Route path="diario" element={<Journal />} />
               <Route path="aprender" element={<Learn />} />
               <Route path="aprender/guia-de-produtos" element={<ProductGuide />} />
+              <Route path="aprender/questionario" element={<Quiz />} />
               <Route path="aprender/:slug" element={<ArticlePage />} />
               <Route path="perfil" element={<Profile />} />
             </Route>

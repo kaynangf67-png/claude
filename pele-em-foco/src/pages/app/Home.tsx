@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, BookOpen, Check, Moon, NotebookPen, Sun } from 'lucide-react';
+import { ArrowRight, BookOpen, Check, ClipboardList, Moon, NotebookPen, Sun } from 'lucide-react';
 import { ProgressBar, Spinner } from '../../components/ui';
 import { AccessLocked } from '../../components/AccessLocked';
 import { useBackend, useSession } from '../../app/session';
@@ -129,7 +129,8 @@ export function Home() {
 
       <section aria-labelledby="atalhos">
         <h2 id="atalhos" className="h3" style={{ marginBottom: 'var(--space-3)' }}>Atalhos</h2>
-        <div className="grid grid-3">
+        <div className="grid grid-2">
+          <Link to="/app/aprender/questionario" className="card-flat card-link shortcut"><ClipboardList aria-hidden="true" /><span><strong>Questionário de rotina</strong><span className="small muted">Que tipo de produto procurar</span></span></Link>
           <Link to="/app/diario" className="card-flat card-link shortcut"><NotebookPen aria-hidden="true" /><span><strong>Diário da pele</strong><span className="small muted">{wroteToday ? 'Você já anotou hoje' : 'Ainda sem anotação hoje'}</span></span></Link>
           <Link to="/app/aprender" className="card-flat card-link shortcut"><BookOpen aria-hidden="true" /><span><strong>Aprender</strong><span className="small muted">{articles.length} artigos com fontes</span></span></Link>
           <Link to="/app/perfil" className="card-flat card-link shortcut"><Check aria-hidden="true" /><span><strong>Seu acesso</strong><span className="small muted">{daysLeft !== null ? `${daysLeft} ${daysLeft === 1 ? 'dia restante' : 'dias restantes'}` : '—'}</span></span></Link>

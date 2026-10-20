@@ -30,7 +30,18 @@ export interface Product {
   affiliate: boolean;
 }
 
-export const PRODUCTS: Product[] = [];
+export const PRODUCTS: Product[] = [
+  {
+    id: 'lrp-anthelios-airlicium-fps80',
+    name: 'Anthelios Airlicium+ FPS 80',
+    brand: 'La Roche-Posay',
+    category: 'protetor',
+    purpose: 'Protetor facial com toque seco, pensado para pele oleosa. A fórmula tem fragrância: se sua pele é sensível, teste antes numa área pequena.',
+    keyIngredients: ['dióxido de titânio', 'filtros UVA/UVB (bemotrizinol, avobenzona, octocrileno)', 'sílica', 'glicerina'],
+    url: 'https://meli.la/2CiFLb3',
+    affiliate: true,
+  },
+];
 
 export interface CategoryGuide {
   id: ProductCategory;

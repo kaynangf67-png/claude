@@ -188,6 +188,29 @@ try {
       await page.screenshot({ path: `${SHOTS}${vp.name}-artigo.png`, fullPage: true });
     });
 
+    await check(`${vp.name}: questionário sem foto sugere tipos de produto e alerta para dermatologista`, async () => {
+      await nav('Aprender').click();
+      await page.getByRole('link', { name: /Questionário de rotina/ }).click();
+      await page.waitForURL('**/app/aprender/questionario');
+      const submit = page.getByRole('button', { name: 'Ver minhas sugestões' });
+      assert.ok(await submit.isDisabled());
+      await page.getByRole('radio', { name: 'Brilhosa no rosto todo' }).check();
+      await page.getByRole('group', { name: /arder, coçar/ }).getByRole('radio', { name: 'Às vezes' }).check();
+      await page.getByRole('group', { name: /maquiagem/ }).getByRole('radio', { name: 'Sim' }).check();
+      await page.getByRole('group', { name: /suor/ }).getByRole('radio', { name: 'Não' }).check();
+      await page.getByRole('group', { name: /barba/ }).getByRole('radio', { name: 'Não' }).check();
+      await page.getByRole('checkbox', { name: /profundas ou doloridas/ }).check();
+      await submit.click();
+      await page.getByRole('heading', { name: 'Procure um dermatologista' }).waitFor();
+      await page.getByRole('heading', { name: 'Demaquilante' }).waitFor();
+      await page.getByText('Suas respostas não foram salvas', { exact: false }).waitFor();
+      await noOverflow(page);
+      await page.screenshot({ path: `${SHOTS}${vp.name}-questionario.png`, fullPage: true });
+      await page.getByRole('link', { name: 'Ver no guia de produtos' }).nth(2).click();
+      await page.waitForURL('**/app/aprender/guia-de-produtos#cat-protetor');
+      await page.waitForFunction(() => { const r = document.getElementById('cat-protetor')?.getBoundingClientRect(); return !!r && r.top >= 0 && r.top < 200; });
+    });
+
     await check(`${vp.name}: bônus expirado bloqueia gravação e mantém leitura do histórico`, async () => {
       await nav('Perfil').click();
       await page.getByText(/Bônus ativo até/).waitFor();
