@@ -1,0 +1,6 @@
+{
+  "framework": null,
+  "installCommand": "echo sem-dependencias",
+  "buildCommand": "echo site-estatico",
+  "outputDirectory": "."
+}
