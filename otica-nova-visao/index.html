@@ -757,11 +757,40 @@ const CONFIG = {
   });
 })();
 
+/* ---------- Revelação ao rolar ----------
+   Fica separado do resto: se outra parte do script falhar, o conteúdo continua aparecendo. */
+(function () {
+  if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const items = Array.prototype.slice.call(document.querySelectorAll(".reveal"));
+  const show = el => {
+    // No carrossel horizontal, revela todos os cards juntos (senão os de fora da tela ficam invisíveis ao deslizar)
+    const group = el.closest(".highlights");
+    (group ? group.querySelectorAll(".reveal") : [el]).forEach(x => x.classList.add("in"));
+  };
+  let working = false;
+  const check = () => {
+    const limit = window.innerHeight * 0.92;
+    items.forEach(el => { if (!el.classList.contains("in") && el.getBoundingClientRect().top < limit) show(el); });
+    working = true;
+  };
+  document.documentElement.classList.add("js");
+  check();
+  let queued = false;
+  window.addEventListener("scroll", () => { if (!queued) { queued = true; requestAnimationFrame(() => { queued = false; check(); }); } }, { passive: true });
+  window.addEventListener("resize", check);
+  window.addEventListener("load", check);
+  // Garantia: se a verificação não rodar por qualquer motivo, mostra tudo
+  setTimeout(() => { if (!working) items.forEach(el => el.classList.add("in")); }, 2000);
+})();
+
 /* ---------- Interações ---------- */
 (function () {
-  document.documentElement.classList.add("js");
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const finePointer = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+
+  // Declarados antes do primeiro onScroll(), que já usa o parallax no celular
+  const fg = document.getElementById("floatGlasses");
+  const fgShadow = document.getElementById("floatShadow");
 
   // Header com sombra + barra mobile após o hero
   const header = document.getElementById("header");
@@ -790,25 +819,7 @@ const CONFIG = {
   menu.querySelectorAll("a").forEach(a => a.addEventListener("click", () => toggle(false)));
   document.addEventListener("keydown", e => { if (e.key === "Escape") toggle(false); });
 
-  // Revelação ao rolar
-  const items = document.querySelectorAll(".reveal");
-  if (reduce || !("IntersectionObserver" in window)) {
-    items.forEach(el => el.classList.add("in"));
-  } else {
-    const io = new IntersectionObserver(entries => {
-      entries.forEach(e => {
-        if (!e.isIntersecting) return;
-        // No carrossel horizontal, revela todos os cards juntos (senão os de fora da tela ficam invisíveis ao deslizar)
-        const group = e.target.closest(".highlights");
-        (group ? group.querySelectorAll(".reveal") : [e.target]).forEach(el => { el.classList.add("in"); io.unobserve(el); });
-      });
-    }, { threshold: 0.12, rootMargin: "0px 0px -40px 0px" });
-    items.forEach(el => io.observe(el));
-  }
-
   // Óculos flutuando: mouse no desktop, rolagem no mobile
-  const fg = document.getElementById("floatGlasses");
-  const fgShadow = document.getElementById("floatShadow");
   function applyGlasses(rx, ry, tx, ty) {
     fg.style.transform = "translate3d(" + tx + "px," + ty + "px,0) rotateX(" + rx + "deg) rotateY(" + ry + "deg)";
     fgShadow.style.translate = (-tx * 0.6) + "px " + (-ty * 0.3) + "px";
