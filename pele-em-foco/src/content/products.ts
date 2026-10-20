@@ -5,7 +5,7 @@
 // - Link que gera comissão precisa de affiliate: true — o app exibe o aviso de afiliado.
 // - A lista começa VAZIA de propósito: cadastre só produtos conferidos por você.
 
-export type ProductCategory = 'limpador' | 'hidratante' | 'protetor' | 'tratamento' | 'demaquilante';
+export type ProductCategory = 'limpador' | 'hidratante' | 'protetor' | 'tratamento' | 'demaquilante' | 'kit';
 
 export interface VerifiedPrice {
   minBRL: number;
@@ -68,6 +68,13 @@ export const CATEGORY_GUIDES: CategoryGuide[] = [
     role: 'Atua nos processos da acne. Alguns são cosméticos; outros, medicamentos.',
     lookFor: ['Orientação profissional sobre qual ativo, quanto e quando', 'Concentração informada no rótulo'],
     caution: ['Vários ativos ao mesmo tempo', 'Medicamentos sem prescrição', 'Irritação forte: suspenda e procure orientação', 'Peróxido de benzoíla mancha tecidos'],
+  },
+  {
+    id: 'kit',
+    title: 'Kits de cuidados',
+    role: 'Reúnem vários produtos de uma vez. Práticos, mas nem sempre combinam com a sua pele.',
+    lookFor: ['Só o básico: limpador suave, hidratante e protetor solar', 'Itens que você usaria separadamente', 'Lista de ingredientes de cada item disponível antes de comprar'],
+    caution: ['Kits com vários ácidos ou esfoliantes para usar juntos', 'Promessas de “tratamento completo” ou resultado em poucos dias', 'Pagar por itens que você não vai usar'],
   },
   {
     id: 'demaquilante',
