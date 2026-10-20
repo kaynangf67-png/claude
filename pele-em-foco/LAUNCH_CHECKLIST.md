@@ -4,7 +4,7 @@ Estado em 20/10/2026.
 
 ## 1. Funcionando e testado
 
-### Banco — `npm run test:db` (56 verificações, Postgres 16 + stub do Supabase)
+### Banco — `npm run test:db` (58 verificações, Postgres 16 + stub do Supabase)
 - Perfil criado por trigger com nome e aceite do aviso; usuário só altera o próprio nome.
 - Conta nova sem acesso: não grava rotina nem diário, não lê biblioteca.
 - Usuário **não** insere nem altera `access_entitlements`, não lê `verified_purchases`, não executa `record_verified_purchase`.

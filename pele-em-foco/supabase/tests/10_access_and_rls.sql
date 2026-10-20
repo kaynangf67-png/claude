@@ -140,6 +140,8 @@ reset role;
 set role anon;
 select test.login(null);
 select test.fails($$select * from public.journal_entries$$, 'anônimo não lê diário');
+select test.fails($$select * from public.access_entitlements$$, 'anônimo não lê acessos');
+select test.fails($$select * from public.profiles$$, 'anônimo não lê perfis');
 select test.fails($$select * from public.educational_articles$$, 'anônimo não lê biblioteca');
 select test.fails($$select public.get_my_access()$$, 'anônimo não consulta acesso');
 select test.fails($$select public.claim_verified_purchase()$$, 'anônimo não ativa acesso');

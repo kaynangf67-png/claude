@@ -40,7 +40,7 @@ Alternativa sem CLI: cole, em ordem, os dois arquivos de `supabase/migrations/` 
 
 ### Testar as regras
 
-`npm run test:db` roda 56 verificações num Postgres local com um *stub* do schema `auth`. O stub imita `auth.uid()` e os grants padrão do Supabase, mas **não é o Supabase**: depois do `db push`, repita os cenários principais no projeto real (duas contas de teste, uma com compra registrada manualmente).
+`npm run test:db` roda 58 verificações num Postgres local com um *stub* do schema `auth`. O stub imita `auth.uid()` e os grants padrão do Supabase, mas **não é o Supabase**: depois do `db push`, repita os cenários principais no projeto real (duas contas de teste, uma com compra registrada manualmente).
 
 ## 3. Auth
 
