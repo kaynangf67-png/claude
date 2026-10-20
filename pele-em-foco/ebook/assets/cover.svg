@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1480 2100" role="img" aria-labelledby="t">
+  <title id="t">Pele em Foco — Guia prático para entender a acne e organizar sua rotina de cuidados</title>
+  <rect width="1480" height="2100" fill="#F7F4EE"/>
+  <!-- Faixa inferior -->
+  <rect y="1480" width="1480" height="620" fill="#263D32"/>
+  <!-- Anéis de foco -->
+  <g fill="none" stroke="#A8B5A0" stroke-width="2.2">
+    <circle cx="1010" cy="760" r="120"/>
+    <circle cx="1010" cy="760" r="210"/>
+    <circle cx="1010" cy="760" r="310"/>
+    <circle cx="1010" cy="760" r="420" stroke-dasharray="4 14"/>
+    <circle cx="1010" cy="760" r="540" stroke-opacity="0.55"/>
+  </g>
+  <circle cx="1010" cy="760" r="34" fill="#263D32"/>
+  <!-- Folha em traço único -->
+  <g fill="none" stroke="#263D32" stroke-width="3" stroke-linecap="round">
+    <path d="M300 1360 C 330 1160, 470 1030, 640 990 C 620 1170, 500 1310, 300 1360 Z"/>
+    <path d="M300 1360 C 410 1250, 500 1140, 600 1030"/>
+    <path d="M300 1360 L 250 1440"/>
+  </g>
+  <!-- Topo -->
+  <text x="140" y="250" font-family="Inter Variable, Inter, sans-serif" font-size="30" letter-spacing="9" fill="#5D6D55" font-weight="600">GUIA PRÁTICO · EDIÇÃO 2026</text>
+  <line x1="140" y1="292" x2="560" y2="292" stroke="#A8B5A0" stroke-width="2"/>
+  <!-- Título -->
+  <text font-family="Fraunces Variable, Georgia, serif" font-weight="400" font-size="190" letter-spacing="-3">
+    <tspan x="132" y="1700" fill="#F7F4EE">Pele</tspan>
+    <tspan x="138" y="1880" font-style="italic" fill="#A8B5A0">em foco</tspan>
+  </text>
+  <text x="140" y="1990" font-family="Inter Variable, Inter, sans-serif" font-size="34" fill="#E8DFD2" letter-spacing="0.5">Guia prático para entender a acne e</text>
+  <text x="140" y="2038" font-family="Inter Variable, Inter, sans-serif" font-size="34" fill="#E8DFD2" letter-spacing="0.5">organizar sua rotina de cuidados</text>
+</svg>

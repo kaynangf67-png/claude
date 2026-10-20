@@ -1,0 +1,11 @@
+{
+  "_comment": "Preencha antes do lançamento. Campos vazios geram textos honestos no PDF (ex.: 'sem revisão técnica').",
+  "edition": "1ª edição",
+  "editionDate": "outubro de 2026",
+  "author": "",
+  "technicalReviewer": "",
+  "technicalReviewerCredentials": "",
+  "supportContact": "",
+  "appUrl": "",
+  "bonusEndDate": ""
+}

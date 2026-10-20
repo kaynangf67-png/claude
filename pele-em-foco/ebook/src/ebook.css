@@ -1,0 +1,191 @@
+/* Pele em Foco — layout de impressão do e-book (A5, Chromium/Playwright) */
+@import url('../../brand/tokens.css');
+@import url('../../node_modules/@fontsource-variable/fraunces/opsz.css');
+@import url('../../node_modules/@fontsource-variable/fraunces/opsz-italic.css');
+@import url('../../node_modules/@fontsource-variable/inter/wght.css');
+
+@page {
+  size: 148mm 210mm;
+  margin: 18mm 16mm 20mm 16mm;
+  @bottom-center {
+    content: counter(page);
+    font-family: 'Inter Variable', sans-serif;
+    font-size: 7.5pt;
+    color: #5f625d;
+    letter-spacing: 0.08em;
+  }
+  @top-right {
+    content: 'PELE EM FOCO';
+    font-family: 'Inter Variable', sans-serif;
+    font-size: 6.5pt;
+    letter-spacing: 0.22em;
+    color: #8f9a88;
+  }
+}
+@page cover {
+  margin: 0;
+  @bottom-center { content: none; }
+  @top-right { content: none; }
+}
+@page bare {
+  @bottom-center { content: none; }
+  @top-right { content: none; }
+}
+@page opener {
+  @top-right { content: none; }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 9.6pt;
+  line-height: 1.58;
+  color: var(--color-text);
+  background: #fff;
+  hyphens: auto;
+  font-variant-numeric: oldstyle-nums;
+}
+
+/* ---------- Capa ---------- */
+.cover {
+  page: cover;
+  width: 148mm;
+  height: 210mm;
+  position: relative;
+  overflow: hidden;
+  break-after: page;
+}
+/* No fluxo principal, capa e contracapa viram páginas em branco que o build substitui. */
+.slot { page: bare; break-after: page; height: 1mm; }
+.slot.end { break-before: page; break-after: auto; }
+.cover svg { display: block; width: 100%; height: 100%; }
+
+.back-cover {
+  page: cover;
+  width: 148mm;
+  height: 210mm;
+  background: var(--pf-forest);
+  color: var(--pf-ivory);
+  padding: 30mm 20mm;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  break-before: page;
+}
+.back-cover h2 { color: var(--pf-ivory); font-size: 20pt; margin: 0 0 6mm; }
+.back-cover p { color: #dfe5da; max-width: 95mm; }
+.back-cover .small { font-size: 7.5pt; color: var(--pf-sage); letter-spacing: 0.04em; }
+
+/* ---------- Páginas especiais ---------- */
+.bare { page: bare; }
+.page { break-before: page; }
+.credits { page: bare; break-before: page; font-size: 8pt; color: var(--color-text-muted); display: flex; flex-direction: column; justify-content: flex-end; height: 170mm; }
+.credits dl { display: grid; grid-template-columns: 30mm 1fr; gap: 1.5mm 4mm; margin: 0 0 6mm; }
+.credits dt { font-weight: 600; color: var(--color-text); }
+.credits dd { margin: 0; }
+
+/* ---------- Tipografia ---------- */
+h1, h2, h3, h4 {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  color: var(--pf-forest);
+  line-height: 1.15;
+  hyphens: manual;
+  break-after: avoid;
+  font-variant-numeric: lining-nums;
+}
+h1 { font-size: 24pt; margin: 0 0 5mm; letter-spacing: -0.01em; }
+h2 { font-size: 14pt; margin: 8mm 0 2.5mm; }
+h3 { font-size: 11pt; margin: 5mm 0 1.5mm; }
+h4 { font-family: var(--font-sans); font-size: 8pt; text-transform: uppercase; letter-spacing: 0.14em; color: var(--pf-sage-ink); margin: 4mm 0 1mm; font-weight: 600; }
+p { margin: 0 0 2.6mm; orphans: 3; widows: 3; }
+ul, ol { margin: 0 0 3mm; padding-left: 5mm; }
+li { margin-bottom: 1mm; }
+li::marker { color: var(--pf-sage-ink); }
+strong { font-weight: 600; color: var(--pf-charcoal); }
+em { font-style: italic; }
+a { color: var(--pf-forest); text-decoration: underline; text-decoration-color: var(--pf-sage); text-underline-offset: 2px; word-break: break-all; }
+.lead { font-family: var(--font-serif); font-size: 12pt; line-height: 1.45; color: var(--pf-forest); margin-bottom: 5mm; hyphens: manual; }
+.eyebrow { font-family: var(--font-sans); font-size: 7pt; letter-spacing: 0.24em; text-transform: uppercase; color: var(--pf-sage-ink); font-weight: 600; margin: 0 0 2mm; }
+
+/* ---------- Abertura de capítulo ---------- */
+.chapter { break-before: page; }
+.opener { page: opener; min-height: 172mm; display: flex; flex-direction: column; justify-content: flex-end; break-after: page; border-bottom: 1px solid var(--pf-beige-line); padding-bottom: 8mm; }
+.opener .num { font-family: var(--font-serif); font-size: 64pt; line-height: 1; color: var(--pf-sage); font-weight: 300; margin-bottom: 4mm; font-variant-numeric: lining-nums; }
+.opener h1 { font-size: 26pt; }
+.opener .lead { margin-bottom: 0; max-width: 100mm; }
+
+/* ---------- Sumário ---------- */
+.toc { list-style: none; padding: 0; margin: 4mm 0 0; }
+.toc li { display: flex; align-items: baseline; gap: 2mm; padding: 2.1mm 0; border-bottom: 1px solid var(--pf-beige); margin: 0; }
+.toc .n { font-family: var(--font-serif); color: var(--pf-sage-ink); width: 7mm; font-variant-numeric: lining-nums; }
+.toc .t { flex: 1; }
+.toc .p { font-variant-numeric: lining-nums tabular-nums; color: var(--color-text-muted); font-size: 8.5pt; }
+
+/* ---------- Componentes ---------- */
+.box { border: 1px solid var(--pf-beige-line); border-radius: 3mm; padding: 4mm 4.5mm; margin: 4mm 0; break-inside: avoid; background: var(--pf-white); }
+.box > :last-child { margin-bottom: 0; }
+.box h4 { margin-top: 0; }
+.box.sage { background: var(--pf-sage-soft); border-color: #c9d3c2; }
+.box.beige { background: #f3eee5; border-color: var(--pf-beige-line); }
+.box.alert { background: var(--pf-alert-soft); border-color: #e2c9b8; }
+.box.alert h4 { color: var(--pf-alert); }
+.box.forest { background: var(--pf-forest); border-color: var(--pf-forest); color: var(--pf-ivory); }
+.box.forest h4, .box.forest strong { color: var(--pf-ivory); }
+.box.forest h4 { color: var(--pf-sage); }
+
+.summary { border-left: 2px solid var(--pf-sage); padding: 1mm 0 1mm 4mm; margin: 6mm 0 2mm; break-inside: avoid; }
+.summary h4 { margin-top: 0; }
+.summary ul { margin-bottom: 0; }
+
+.checklist { list-style: none; padding: 0; }
+.checklist li { position: relative; padding-left: 7mm; margin-bottom: 1.8mm; }
+.checklist li::before { content: ''; position: absolute; left: 0; top: 0.6mm; width: 3.4mm; height: 3.4mm; border: 1px solid var(--pf-forest); border-radius: 0.8mm; background: var(--pf-white); }
+
+.steps { counter-reset: step; list-style: none; padding: 0; }
+.steps > li { counter-increment: step; position: relative; padding-left: 9mm; margin-bottom: 3mm; break-inside: avoid; }
+.steps > li::before { content: counter(step); position: absolute; left: 0; top: -0.3mm; width: 5.6mm; height: 5.6mm; border-radius: 50%; background: var(--pf-forest); color: var(--pf-ivory); font-size: 7.5pt; font-weight: 600; display: flex; align-items: center; justify-content: center; font-variant-numeric: lining-nums; }
+
+table { width: 100%; border-collapse: collapse; font-size: 8.2pt; margin: 3mm 0 4mm; break-inside: auto; }
+th, td { text-align: left; vertical-align: top; padding: 1.8mm 2mm; border-bottom: 1px solid var(--pf-beige); }
+th { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.1em; color: var(--pf-sage-ink); font-weight: 600; border-bottom: 1px solid var(--pf-sage); }
+tr { break-inside: avoid; }
+td:first-child { font-weight: 600; color: var(--pf-forest); }
+
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; }
+.two-col .box { margin: 0; }
+
+.lines { margin: 2mm 0 4mm; }
+.lines span { display: block; border-bottom: 1px solid var(--pf-beige-line); height: 7mm; }
+
+.ref { font-size: 8pt; margin-bottom: 2.6mm; padding-left: 5mm; text-indent: -5mm; break-inside: avoid; }
+.ref a { word-break: break-all; }
+.muted { color: var(--color-text-muted); }
+.small { font-size: 8pt; }
+.center { text-align: center; }
+
+/* ---------- Tracker imprimível (uma página paisagem lógica dentro do A5) ---------- */
+.tracker { break-before: page; page: bare; }
+.tracker h1 { font-size: 16pt; margin-bottom: 1mm; }
+.tracker table { font-size: 6.4pt; margin: 2mm 0; table-layout: fixed; }
+.tracker th, .tracker td { padding: 0; height: 5.2mm; border: 1px solid var(--pf-beige-line); text-align: center; vertical-align: middle; font-weight: 400; color: var(--color-text); }
+.tracker th { background: var(--pf-sage-soft); letter-spacing: 0; text-transform: none; font-size: 6pt; color: var(--pf-forest); font-weight: 600; }
+.tracker td:first-child, .tracker th:first-child { text-align: left; padding-left: 1.5mm; width: 26mm; font-weight: 600; color: var(--pf-forest); }
+.tracker .week { background: #f3eee5; }
+
+/* ---------- Glossário ---------- */
+.glossary dt { font-family: var(--font-serif); font-size: 10.5pt; color: var(--pf-forest); margin-top: 3mm; break-after: avoid; }
+.glossary dd { margin: 0.5mm 0 0; }
+.glossary div { break-inside: avoid; }
+
+/* ---------- Página do app ---------- */
+.app-page .phone { width: 30mm; height: 50mm; border-radius: 6mm; border: 1.5px solid var(--pf-forest); background: var(--pf-ivory); padding: 5mm 3.5mm; margin: 0 auto 4mm; display: flex; flex-direction: column; gap: 2.2mm; }
+.app-page .phone .bar { height: 3mm; border-radius: 2mm; background: var(--pf-beige); }
+.app-page .phone .bar.s { width: 60%; background: var(--pf-sage); }
+.app-page .phone .card { border: 1px solid var(--pf-beige-line); border-radius: 2mm; padding: 2mm; background: var(--pf-white); display: flex; flex-direction: column; gap: 1.4mm; }
+.app-page .phone .row { display: flex; gap: 1.6mm; align-items: center; }
+.app-page .phone .dot { width: 2.6mm; height: 2.6mm; border-radius: 0.6mm; border: 1px solid var(--pf-forest); }
+.app-page .phone .dot.on { background: var(--pf-forest); }
+.app-page .phone .ln { flex: 1; height: 1.8mm; border-radius: 1mm; background: var(--pf-beige); }

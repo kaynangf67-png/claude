@@ -1,0 +1,12 @@
+{
+  "name": "Pele em Foco",
+  "short_name": "Pele em Foco",
+  "description": "Rotina, diário e biblioteca de cuidados com a pele. Conteúdo educativo.",
+  "lang": "pt-BR",
+  "start_url": "/app",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#F7F4EE",
+  "theme_color": "#263D32",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}

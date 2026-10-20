@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.env
+.env.local
+tests/screenshots/
+
+# Conteúdo pago: o repositório é público, então o e-book não é versionado.
+# Veja LAUNCH_CHECKLIST.md → "Repositório e arquivos do e-book".
+ebook/src/pele-em-foco.html
+ebook/dist/
