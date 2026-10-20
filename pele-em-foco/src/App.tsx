@@ -5,6 +5,7 @@ import { SiteLayout } from './components/SiteLayout';
 import { GuestOnly, RequireAuth, RequireBackend } from './components/guards';
 import { Landing } from './pages/site/Landing';
 import { Obrigado } from './pages/site/Obrigado';
+import { Teste } from './pages/site/Teste';
 import { NotFound, Privacidade, Termos } from './pages/site/Legal';
 import { AuthLayout } from './pages/auth/AuthLayout';
 import { SignIn } from './pages/auth/SignIn';
@@ -31,6 +32,7 @@ export function App() {
           <Route element={<SiteLayout />}>
             <Route index element={<Landing />} />
             <Route path="obrigado" element={<Obrigado />} />
+            <Route path="teste" element={<Teste />} />
             <Route path="privacidade" element={<Privacidade />} />
             <Route path="termos" element={<Termos />} />
             <Route path="*" element={<NotFound />} />

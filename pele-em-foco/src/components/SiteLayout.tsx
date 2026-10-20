@@ -27,6 +27,7 @@ export function SiteLayout() {
         <div className="container">
           <Brand />
           <nav aria-label="Seções" className="site-nav">
+            <Link to="/teste">Teste grátis</Link>
             <Link to="/#conteudo-do-guia">O guia</Link>
             <Link to="/#bonus">App bônus</Link>
             <Link to="/#perguntas">Perguntas</Link>

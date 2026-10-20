@@ -62,6 +62,45 @@ try {
       }
     });
 
+    await check(`${vp.name}: teste público com imagens leva a resultado e oferta; sinais graves vão ao dermatologista`, async () => {
+      await page.goto(BASE + '/');
+      await page.getByRole('link', { name: 'Fazer o teste grátis' }).click();
+      await page.waitForURL('**/teste');
+      const next = page.getByRole('button', { name: 'Continuar' });
+      assert.ok(await next.isDisabled());
+      await page.getByRole('radio', { name: /Brilhosa no rosto todo/ }).check();
+      await next.click();
+      await page.getByRole('checkbox', { name: /^Cravos/ }).check();
+      await noOverflow(page);
+      await page.screenshot({ path: `${SHOTS}${vp.name}-teste-pergunta.png`, fullPage: true });
+      await next.click();
+      await page.getByRole('radio', { name: /^Poucas/ }).check(); await next.click();
+      await page.getByRole('radio', { name: /^Não deixam/ }).check(); await next.click();
+      await page.getByRole('radio', { name: 'Não', exact: true }).check(); await next.click();
+      await page.getByRole('checkbox', { name: 'Nenhum destes' }).check();
+      await page.getByRole('button', { name: 'Ver meu resultado' }).click();
+      await page.getByRole('heading', { name: /rotina básica e constante/ }).waitFor();
+      await page.getByRole('heading', { name: /Guia Pele em Foco/ }).waitFor();
+      assert.equal(await page.getByRole('heading', { name: 'Por que procurar avaliação' }).count(), 0);
+      await noOverflow(page);
+      await page.screenshot({ path: `${SHOTS}${vp.name}-teste-resultado.png`, fullPage: true });
+
+      await page.getByRole('button', { name: 'Refazer o teste' }).click();
+      await page.getByRole('radio', { name: /Seca ou repuxando/ }).check(); await next.click();
+      await page.getByRole('checkbox', { name: /^Caroços profundos/ }).check(); await next.click();
+      await page.getByRole('radio', { name: /^Várias/ }).check(); await next.click();
+      await page.getByRole('button', { name: 'Voltar' }).click();
+      assert.ok(await page.getByRole('radio', { name: /^Várias/ }).isChecked());
+      await next.click();
+      await page.getByRole('radio', { name: /^Cicatrizes/ }).check(); await next.click();
+      await page.getByRole('radio', { name: 'Às vezes' }).check(); await next.click();
+      await page.getByRole('checkbox', { name: 'Nenhum destes' }).check();
+      await page.getByRole('button', { name: 'Ver meu resultado' }).click();
+      await page.getByRole('heading', { name: /primeiro passo é um dermatologista/ }).waitFor();
+      await page.getByRole('heading', { name: 'Por que procurar avaliação' }).waitFor();
+      await page.screenshot({ path: `${SHOTS}${vp.name}-teste-dermatologista.png`, fullPage: true });
+    });
+
     await check(`${vp.name}: rota protegida sem login vai para /entrar`, async () => {
       await page.goto(BASE + '/app/diario');
       await page.waitForURL('**/entrar');
@@ -291,7 +330,8 @@ try {
       await page.waitForURL(BASE + '/app');
       await nav('Diário da pele').click();
       await page.waitForURL('**/app/diario');
-      assert.equal(await page.evaluate(() => document.activeElement?.id), 'conteudo', 'foco deveria ir para o conteúdo após navegar');
+      // O foco é movido num efeito do React, logo depois da troca de URL: espera a condição em vez de ler na hora.
+      await page.waitForFunction(() => document.activeElement?.id === 'conteudo', null, { timeout: 3000 }).catch(() => assert.fail('foco deveria ir para o conteúdo após navegar'));
       await page.reload();
       await page.getByRole('heading', { name: 'Suas observações' }).waitFor();
       await page.keyboard.press('Tab');

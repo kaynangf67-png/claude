@@ -26,6 +26,7 @@ export function Privacidade() {
         <p>O Pele em Foco é um produto educativo de {responsible()}. Contato para assuntos de privacidade: {contact()}.</p>
 
         <h2>Site e página de vendas</h2>
+        <p>O <strong>teste de rotina</strong> (página /teste) funciona só no seu navegador: as respostas não são salvas nem enviadas para nós ou para terceiros.</p>
         <p>Este site não usa cookies de rastreamento, pixels de anúncio ou ferramentas de análise nesta versão. Se isso mudar, esta política será atualizada antes.</p>
         <p>A compra acontece no checkout da <strong>Cakto</strong>, que coleta os dados necessários (como nome, e-mail, CPF e dados de pagamento) e os trata conforme a política de privacidade dela. Não temos acesso aos dados do seu cartão. Recebemos da Cakto as informações da compra (como nome, e-mail e status do pagamento) para entregar o produto e prestar suporte.</p>
 

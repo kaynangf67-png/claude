@@ -28,6 +28,8 @@ export interface Product {
   url?: string;
   /** true quando o link gera comissão */
   affiliate: boolean;
+  /** Para kits: perfis de pele que o fabricante indica. O teste público só sugere kits com este campo. */
+  forSkin?: ('oleosa' | 'mista' | 'normal' | 'seca' | 'sensivel')[];
 }
 
 export const PRODUCTS: Product[] = [

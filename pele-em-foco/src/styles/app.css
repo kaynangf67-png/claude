@@ -295,6 +295,8 @@ dialog.confirm::backdrop { background: rgba(41, 43, 41, 0.45); }
 .site-nav a:hover { color: var(--color-primary); }
 @media (min-width: 820px) { .site-nav { display: flex; } }
 @media (max-width: 380px) { .site-header .btn { padding: 0 var(--space-3); } }
+.site-header .btn, .site-header .brand, .site-header a { white-space: nowrap; }
+@media (max-width: 480px) { .site-header .container { gap: var(--space-2); } .site-header .btn { padding: 0 var(--space-3); font-size: var(--text-sm); } }
 
 .hero { padding: var(--space-7) 0 var(--space-8); }
 .hero-grid { display: grid; gap: var(--space-7); align-items: center; }
@@ -349,3 +351,23 @@ dialog.confirm::backdrop { background: rgba(41, 43, 41, 0.45); }
 .center { text-align: center; }
 .footer-links { display: flex; flex-direction: column; gap: var(--space-2); }
 .card-sage > h2 + ul, .card-beige > h2 + ul { margin-top: var(--space-4); }
+
+/* Teste público */
+.pick-grid { display: grid; gap: var(--space-3); grid-template-columns: repeat(2, 1fr); }
+@media (min-width: 640px) { .pick-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); } }
+.pick-grid-text { grid-template-columns: 1fr; }
+.pick { position: relative; display: block; cursor: pointer; }
+.pick input { position: absolute; opacity: 0; inset: 0; cursor: pointer; margin: 0; z-index: 1; width: 100%; height: 100%; }
+.pick-body { position: relative; display: flex; flex-direction: column; gap: var(--space-2); height: 100%; padding: var(--space-3); border: 1.5px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-surface); transition: border-color 0.15s, background 0.15s; }
+.pick-grid-text .pick-body { flex-direction: row; align-items: center; min-height: 56px; padding-right: var(--space-8, 2.5rem); }
+.pick-text { display: flex; flex-direction: column; gap: 2px; font-size: var(--text-sm); line-height: 1.35; }
+.pick-check { position: absolute; top: var(--space-2); right: var(--space-2); width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--color-primary); color: var(--color-on-primary); opacity: 0; transform: scale(0.6); transition: opacity 0.15s, transform 0.15s; }
+.pick-grid-text .pick-check { top: 50%; margin-top: -12px; right: var(--space-3); }
+.pick input:checked + .pick-body { border-color: var(--color-primary); background: var(--color-accent-soft); }
+.pick input:checked + .pick-body .pick-check { opacity: 1; transform: scale(1); }
+.pick input:focus-visible + .pick-body { outline: 2px solid var(--color-focus); outline-offset: 2px; }
+.pick:hover .pick-body { border-color: var(--color-accent); }
+.teste-art { width: 100%; height: auto; display: block; border-radius: var(--radius-sm); }
+.teste-offer h2 { color: var(--color-on-primary); }
+.teste-points, .teste-points svg { color: var(--pf-ivory); }
+.teste-cta { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: center; justify-content: space-between; }

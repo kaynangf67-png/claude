@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { BookOpen, Check, ClipboardList, Gift, Leaf, NotebookPen, ShieldCheck, SunMoon, X } from 'lucide-react';
+import { ArrowRight, BookOpen, Check, ClipboardList, Gift, Leaf, NotebookPen, ShieldCheck, SunMoon, X } from 'lucide-react';
 import { CheckoutButton } from '../../components/CheckoutButton';
 import { ConfigPending } from '../../components/ui';
 import { BONUS_DAYS, launch } from '../../config/launch';
@@ -72,7 +72,7 @@ export function Landing() {
             </p>
             <div className="row wrap" style={{ gap: 'var(--space-4)' }}>
               <CheckoutButton />
-              <a href="#conteudo-do-guia" className="btn btn-ghost">Ver o que tem dentro</a>
+              <Link to="/teste" className="btn btn-secondary btn-lg">Fazer o teste grátis</Link>
             </div>
             <ul className="hero-points small">
               <li><Check size={16} aria-hidden="true" /> 12 capítulos + glossário</li>
@@ -94,6 +94,19 @@ export function Landing() {
             Vídeo dizendo que leite causa espinha, outro dizendo que não. Prateleira com sérum, tônico, ácido e esfoliante. Dica caseira com limão e pasta de dente.
             O Pele em Foco organiza o que as fontes confiáveis dizem — inclusive o que ainda é incerto.
           </p>
+        </div>
+      </section>
+
+      <section className="section" aria-labelledby="teste-title">
+        <div className="container narrow">
+          <div className="card-beige teste-cta">
+            <div className="stack" style={{ maxWidth: 460 }}>
+              <p className="eyebrow">Teste de rotina · 1 minuto</p>
+              <h2 id="teste-title" className="h3" style={{ margin: 0 }}>Não sabe por onde começar?</h2>
+              <p className="small muted" style={{ marginBottom: 0 }}>Marque as imagens que parecem com a sua pele e veja o que a sua rotina precisa, e quando é hora de procurar um dermatologista. Sem foto e sem e-mail.</p>
+            </div>
+            <Link to="/teste" className="btn btn-primary">Fazer o teste <ArrowRight size={16} aria-hidden="true" /></Link>
+          </div>
         </div>
       </section>
 
