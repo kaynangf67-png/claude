@@ -52,7 +52,8 @@ def main():
     ap.add_argument("--saida")
     ap.add_argument("--max-palavras", type=int, default=7)
     ap.add_argument("--max-fala", type=float, default=25,
-                    help="duração máx. de cada trecho em s; menor = legenda mais sincronizada")
+                    help="duração alvo de cada trecho em s (o VAD só divide onde há pausa); "
+                         "menor = legenda mais sincronizada")
     a = ap.parse_args()
     saida = a.saida or os.path.splitext(a.video)[0] + ".srt"
 
