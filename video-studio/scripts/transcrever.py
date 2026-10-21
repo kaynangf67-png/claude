@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Transcreve o áudio de um vídeo e gera legenda .srt (Whisper large-v3-turbo, offline).
 
-Uso: transcrever.py VIDEO [--lingua pt] [--saida legenda.srt] [--max-palavras 7]
+Uso: transcrever.py VIDEO [--lingua pt] [--saida legenda.srt] [--max-palavras 7] [--max-fala 25]
 """
 import argparse
 import os
@@ -51,6 +51,8 @@ def main():
     ap.add_argument("--lingua", default="pt")
     ap.add_argument("--saida")
     ap.add_argument("--max-palavras", type=int, default=7)
+    ap.add_argument("--max-fala", type=float, default=25,
+                    help="duração máx. de cada trecho em s; menor = legenda mais sincronizada")
     a = ap.parse_args()
     saida = a.saida or os.path.splitext(a.video)[0] + ".srt"
 
@@ -62,8 +64,8 @@ def main():
     )
     cfg = sherpa_onnx.VadModelConfig()
     cfg.silero_vad.model = VAD
-    cfg.silero_vad.min_silence_duration = 0.4
-    cfg.silero_vad.max_speech_duration = 25  # Whisper processa no máx. 30 s por vez
+    cfg.silero_vad.min_silence_duration = 0.4 if a.max_fala >= 10 else 0.15
+    cfg.silero_vad.max_speech_duration = min(a.max_fala, 25)  # Whisper processa no máx. 30 s por vez
     cfg.sample_rate = SR
     vad = sherpa_onnx.VoiceActivityDetector(cfg, buffer_size_in_seconds=60)
 
