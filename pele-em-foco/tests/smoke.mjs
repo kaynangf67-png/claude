@@ -47,14 +47,20 @@ try {
     const password = 'pele2026foco';
     const nav = (label) => page.locator(vp.name === 'mobile' ? '.app-nav' : '.sidebar').getByRole('link', { name: label });
 
-    await check(`${vp.name}: site carrega, CTA desativado sem checkout, imagens ok`, async () => {
+    await check(`${vp.name}: página inicial apresenta o problema; /conhecer vende o app com CTA desativado sem checkout`, async () => {
       await page.goto(BASE + '/');
-      await page.getByRole('heading', { level: 1 }).waitFor();
+      await page.getByRole('heading', { level: 1, name: /gastou com produto para acne/ }).waitFor();
+      await page.getByRole('button', { name: 'Começar o teste' }).waitFor();
+      await noOverflow(page);
+      await page.screenshot({ path: `${SHOTS}${vp.name}-inicio-site.png`, fullPage: true });
+      await page.getByRole('link', { name: 'Pular e conhecer o app' }).click();
+      await page.waitForURL('**/conhecer');
       await noOverflow(page);
       assert.equal(await page.getByRole('button', { name: /checkout em configuração/i }).first().getAttribute('aria-disabled'), 'true');
       await page.evaluate(() => Promise.all([...document.images].map((i) => { i.loading = 'eager'; return i.decode().catch(() => null); })));
       assert.deepEqual(await page.evaluate(() => [...document.images].filter((i) => !i.naturalWidth).map((i) => i.src)), []);
-      assert.ok(await page.getByText(/30 dias de acesso ao app/).first().isVisible());
+      assert.ok(await page.getByText(/Acesso vitalício, pagamento único/).first().isVisible());
+      assert.equal(await page.getByText(/e-book/i).count(), 0, 'não deve citar e-book');
       for (const path of ['/obrigado', '/privacidade', '/termos']) {
         await page.goto(BASE + path);
         await page.getByRole('heading', { level: 1 }).waitFor();
@@ -64,8 +70,7 @@ try {
 
     await check(`${vp.name}: teste público com imagens leva a resultado e oferta; sinais graves vão ao dermatologista`, async () => {
       await page.goto(BASE + '/');
-      await page.getByRole('link', { name: 'Fazer o teste grátis' }).click();
-      await page.waitForURL('**/teste');
+      await page.getByRole('button', { name: 'Começar o teste' }).click();
       const next = page.getByRole('button', { name: 'Continuar' });
       assert.ok(await next.isDisabled());
       await page.getByRole('radio', { name: /Brilhosa no rosto todo/ }).check();
@@ -80,12 +85,16 @@ try {
       await page.getByRole('checkbox', { name: 'Nenhum destes' }).check();
       await page.getByRole('button', { name: 'Ver meu resultado' }).click();
       await page.getByRole('heading', { name: /rotina básica e constante/ }).waitFor();
-      await page.getByRole('heading', { name: /Guia Pele em Foco/ }).waitFor();
+      await page.getByRole('heading', { name: 'App Pele em Foco' }).waitFor();
+      await page.getByRole('heading', { name: 'Perguntas frequentes' }).waitFor();
       assert.equal(await page.getByRole('heading', { name: 'Por que procurar avaliação' }).count(), 0);
       await noOverflow(page);
       await page.screenshot({ path: `${SHOTS}${vp.name}-teste-resultado.png`, fullPage: true });
 
       await page.getByRole('button', { name: 'Refazer o teste' }).click();
+      await page.goto(BASE + '/teste');
+      await page.waitForURL(BASE + '/');
+      await page.getByRole('button', { name: 'Começar o teste' }).click();
       await page.getByRole('radio', { name: /Seca ou repuxando/ }).check(); await next.click();
       await page.getByRole('checkbox', { name: /^Caroços profundos/ }).check(); await next.click();
       await page.getByRole('radio', { name: /^Várias/ }).check(); await next.click();
@@ -142,12 +151,12 @@ try {
       await page.getByRole('heading', { name: 'Seu acesso ainda não está ativo' }).waitFor();
     });
 
-    await check(`${vp.name}: acesso de demonstração ativa 30 dias e o início mostra dados reais`, async () => {
+    await check(`${vp.name}: acesso de demonstração libera acesso vitalício e o início mostra dados reais`, async () => {
       await page.goto(BASE + '/app');
-      await page.getByRole('button', { name: 'Simular compra (30 dias)' }).click();
+      await page.getByRole('button', { name: 'Simular compra' }).click();
       await page.getByText('Próximo passo').waitFor();
       assert.ok(await page.getByText('0 de 6 passos').isVisible());
-      assert.ok(await page.getByText(/30 dias restantes|29 dias restantes/).isVisible());
+      assert.ok(await page.getByText('Vitalício', { exact: true }).isVisible());
       await page.screenshot({ path: `${SHOTS}${vp.name}-inicio.png`, fullPage: true });
     });
 
@@ -252,11 +261,11 @@ try {
 
     await check(`${vp.name}: bônus expirado bloqueia gravação e mantém leitura do histórico`, async () => {
       await nav('Perfil').click();
-      await page.getByText(/Bônus ativo até/).waitFor();
-      await page.getByRole('button', { name: 'Simular bônus expirado' }).click();
-      await page.getByRole('heading', { name: 'Seu período de bônus terminou' }).waitFor();
+      await page.getByText(/Acesso vitalício ativo/).waitFor();
+      await page.getByRole('button', { name: 'Simular acesso expirado' }).click();
+      await page.getByRole('heading', { name: 'Seu acesso terminou' }).waitFor();
       await nav('Minha rotina').click();
-      await page.getByRole('heading', { name: 'Seu período de bônus terminou' }).waitFor();
+      await page.getByRole('heading', { name: 'Seu acesso terminou' }).waitFor();
       await nav('Diário da pele').click();
       await page.getByText('Testa oleosa, queixo ok.').waitFor();
       assert.equal(await page.getByRole('button', { name: 'Salvar registro' }).count(), 0, 'formulário não deveria aparecer');

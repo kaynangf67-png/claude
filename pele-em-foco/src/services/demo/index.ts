@@ -1,6 +1,6 @@
 // MODO DEMONSTRAÇÃO — autenticação e dados locais, sem servidor e sem segurança real.
 // Existe para desenvolver e demonstrar o app sem credenciais do Supabase.
-// Reproduz as regras do banco (acesso ativo para gravar, 30 dias, isolamento por usuário)
+// Reproduz as regras do banco (acesso ativo para gravar, acesso vitalício, isolamento por usuário)
 // para que o comportamento da interface seja o mesmo da produção.
 import { ARTICLES } from '../../content/articles';
 import {
@@ -17,8 +17,8 @@ const uuid = () => crypto.randomUUID();
 function accessOf(db: DemoDb, uid: string, now = Date.now()): AccessInfo {
   const a = db.access[uid];
   if (!a) return { status: 'none', startsAt: null, expiresAt: null, source: null };
-  const status = a.status === 'revoked' ? 'revoked' : now >= Date.parse(a.expiresAt) ? 'expired' : 'active';
-  return { status, startsAt: a.startsAt, expiresAt: a.expiresAt, source: 'demo' };
+  const status = a.status === 'revoked' ? 'revoked' : a.expiresAt !== 'infinity' && now >= Date.parse(a.expiresAt) ? 'expired' : 'active';
+  return { status, startsAt: a.startsAt, expiresAt: a.expiresAt === 'infinity' ? null : a.expiresAt, source: 'demo' };
 }
 
 export class DemoBackend implements AuthService, DataService, DemoControls {
@@ -123,7 +123,7 @@ export class DemoBackend implements AuthService, DataService, DemoControls {
     const id = this.uid();
     const now = Date.now();
     this.store.update((db) => {
-      db.access[id] = { status: 'active', startsAt: new Date(now).toISOString(), expiresAt: new Date(now + 30 * DAY).toISOString() };
+      db.access[id] = { status: 'active', startsAt: new Date(now).toISOString(), expiresAt: 'infinity' };
     });
   }
 

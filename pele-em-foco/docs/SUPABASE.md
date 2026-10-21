@@ -15,7 +15,7 @@ supabase link --project-ref <ref-do-projeto>
 supabase db push             # aplica supabase/migrations/*.sql
 ```
 
-Alternativa sem CLI: cole, em ordem, os dois arquivos de `supabase/migrations/` no SQL Editor.
+Alternativa sem CLI: cole, em ordem, os arquivos de `supabase/migrations/` no SQL Editor.
 
 ### Tabelas
 
@@ -33,7 +33,7 @@ Alternativa sem CLI: cole, em ordem, os dois arquivos de `supabase/migrations/` 
 | Função | Para quê | Executável por |
 |---|---|---|
 | `get_my_access()` | situação para a interface (`active`, `expired`, `revoked`, `none`) | `authenticated` |
-| `claim_verified_purchase()` | vincula compra aprovada ao usuário (e-mail confirmado e igual) e ativa 30 dias. Cada compra ativa uma vez, mesmo se a conta for excluída e recriada | `authenticated` |
+| `claim_verified_purchase()` | vincula compra aprovada ao usuário (e-mail confirmado e igual) e libera acesso vitalício. Cada compra ativa uma vez, mesmo se a conta for excluída e recriada | `authenticated` |
 | `record_verified_purchase(email, pedido, produto, status, origem)` | grava compra (`approved`/`refunded`/`chargeback`); reembolso revoga | `service_role` |
 | `delete_my_data()` | apaga rotina e diário do usuário | `authenticated` |
 | `private.has_active_access()` | usada nas políticas RLS | interna |
@@ -45,7 +45,7 @@ Alternativa sem CLI: cole, em ordem, os dois arquivos de `supabase/migrations/` 
 ## 3. Auth
 
 *Authentication → Providers → Email*:
-- **Confirm email: ligado** (a ativação do bônus exige e-mail confirmado; sem isso, alguém poderia criar conta com o e-mail de outra pessoa).
+- **Confirm email: ligado** (a ativação do acesso exige e-mail confirmado; sem isso, alguém poderia criar conta com o e-mail de outra pessoa).
 - Senha mínima: 8.
 
 *Authentication → URL Configuration*:
@@ -73,7 +73,7 @@ Nenhuma das duas foi implantada ou testada contra o Supabase real neste projeto.
 
 1. Crie a conta A (e-mail que você controla) e confirme. O app deve mostrar “Seu acesso ainda não está ativo”.
 2. No SQL Editor: `select public.record_verified_purchase('<email A>', 'teste-1', null, 'approved', 'manual');`
-3. No app, “Verificar novamente” → acesso ativo por 30 dias; marque passos e crie um registro no diário.
+3. No app, “Verificar novamente” → acesso vitalício ativo; marque passos e crie um registro no diário.
 4. Crie a conta B e confirme que ela não vê nada de A.
 5. `update public.access_entitlements set expires_at = now() - interval '1 minute' where external_order_id = 'teste-1';` → A vê “período terminou”, não grava, mas lê o histórico.
 6. `select public.record_verified_purchase('<email A>', 'teste-1', null, 'refunded', 'manual');` → acesso revogado.

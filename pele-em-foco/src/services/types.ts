@@ -28,6 +28,7 @@ export type AccessStatus = 'active' | 'expired' | 'revoked' | 'none';
 export interface AccessInfo {
   status: AccessStatus;
   startsAt: string | null;
+  /** null com status ativo = acesso vitalício (o banco grava 'infinity') */
   expiresAt: string | null;
   source: string | null;
 }

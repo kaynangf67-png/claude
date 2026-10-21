@@ -56,7 +56,7 @@ export function SignUp() {
     <section className="stack-lg" aria-labelledby="titulo">
       <div className="stack">
         <h1 id="titulo">Criar conta</h1>
-        <p className="muted" style={{ marginBottom: 0 }}>Use <strong>o mesmo e-mail da sua compra</strong> na Cakto para o bônus ser ativado.</p>
+        <p className="muted" style={{ marginBottom: 0 }}>Use <strong>o mesmo e-mail da sua compra</strong> na Cakto para o acesso ser liberado.</p>
       </div>
       {errors.form && <Notice tone="alert">{errors.form}</Notice>}
       <form className="stack" onSubmit={submit} noValidate>

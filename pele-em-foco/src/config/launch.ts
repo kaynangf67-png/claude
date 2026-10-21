@@ -7,8 +7,6 @@ function read(name: string): string | null {
 }
 
 
-export type CaktoDelivery = 'email' | 'members';
-
 /** Link de oferta da Cakto (pay.cakto.com.br). */
 export function isCaktoCheckout(url: string): boolean {
   try {
@@ -19,15 +17,10 @@ export function isCaktoCheckout(url: string): boolean {
   }
 }
 
-/** Duração do bônus. A fonte da verdade é o banco (claim_verified_purchase); isto é só para os textos. */
-export const BONUS_DAYS = 30;
-
 export const launch = {
   priceLabel: read('VITE_PRICE_LABEL'),
   /** Link da oferta na Cakto, ex.: https://pay.cakto.com.br/abc123 */
   checkoutUrl: read('VITE_CHECKOUT_URL'),
-  /** Como a Cakto entrega o PDF: anexo/link no e-mail de compra ou área de membros (Cakto Members). */
-  caktoDelivery: (read('VITE_CAKTO_DELIVERY') === 'members' ? 'members' : 'email') as CaktoDelivery,
   /** Nunca menos que os 7 dias do direito de arrependimento (art. 49 do CDC). */
   refundDays: Math.max(7, Number(read('VITE_REFUND_DAYS') ?? '7') || 7),
   supportEmail: read('VITE_SUPPORT_EMAIL'),

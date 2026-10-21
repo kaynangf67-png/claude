@@ -80,7 +80,7 @@ select test.ok(public.claim_verified_purchase() = 'no_purchase', 'compra de outr
 -- ===== A ativa e usa =====
 select test.login('00000000-0000-0000-0000-00000000000a');
 select test.ok(public.claim_verified_purchase() = 'activated', 'A ativa com compra verificada e e-mail confirmado');
-select test.ok((select status = 'active' and expires_at - starts_at = interval '30 days' from public.get_my_access()), 'acesso ativo por exatamente 30 dias');
+select test.ok((select status = 'active' and expires_at = 'infinity'::timestamptz from public.get_my_access()), 'acesso ativo vitalício');
 select test.ok(public.claim_verified_purchase() = 'already_active', 'segunda ativação é idempotente');
 insert into public.routine_completions (completed_on, period, step_key) values (current_date, 'manha', 'limpeza');
 select test.fails($$insert into public.routine_completions (completed_on, period, step_key) values (current_date, 'manha', 'limpeza')$$, 'conclusão duplicada é recusada');

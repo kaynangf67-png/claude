@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, ExternalLink, RotateCcw, Stethoscope } from 'lucide-react';
-import { CheckoutButton } from '../../components/CheckoutButton';
 import { Notice, ProgressBar } from '../../components/ui';
 import { LESION_ART, MARKS_ART, SKIN_ART } from '../../components/TesteIllustrations';
-import { BONUS_DAYS, launch } from '../../config/launch';
+import { AppDetails, AppOffer } from './Landing';
 import {
   buildTesteResult, emptyTeste, stepDone, steps, TESTE_ALERTS,
   type Lesion, type Marks, type Sensitivity, type SkinType, type StepId, type TesteAnswers,
@@ -142,27 +141,12 @@ function Result({ a, restart }: { a: TesteAnswers; restart: () => void }) {
         <ul className="small" style={{ margin: 0, paddingLeft: '1.2rem' }}>{r.needs.map((x) => <li key={x}>{x}</li>)}</ul>
       </section>
 
-      <section className="card-forest stack-lg teste-offer" aria-labelledby="oferta">
-        <div className="stack">
-          <p className="eyebrow" style={{ color: 'var(--pf-sage-soft)' }}>{derm ? 'Para chegar preparado(a) à consulta' : 'Para montar e manter a sua rotina'}</p>
-          <h2 id="oferta">Guia Pele em Foco + {BONUS_DAYS} dias de app</h2>
-          <p style={{ color: 'var(--pf-sage-soft)', marginBottom: 0 }}>
-            {derm
-              ? 'O guia explica os tipos de lesão, os sinais de alerta e como chegar preparado(a) à consulta. O app ajuda a registrar a evolução para mostrar ao médico. Ele não substitui o tratamento.'
-              : 'O passo a passo da rotina de manhã e de noite, como ler rótulos e comparar produtos, e o que é mito. O app lembra você da rotina e guarda um diário da pele.'}
-          </p>
-        </div>
-        <ul className="hero-points small teste-points">
-          <li><Check size={16} aria-hidden="true" /> E-book em PDF, 12 capítulos + glossário</li>
-          <li><Check size={16} aria-hidden="true" /> App de rotina e diário por {BONUS_DAYS} dias</li>
-          <li><Check size={16} aria-hidden="true" /> {launch.refundDays} dias para pedir reembolso</li>
-        </ul>
-        <div className="row wrap" style={{ gap: 'var(--space-4)', alignItems: 'center' }}>
-          {launch.priceLabel && <p className="price">{launch.priceLabel}</p>}
-          <CheckoutButton label="Quero o guia" />
-        </div>
-        <Link to="/#conteudo-do-guia" className="small" style={{ color: 'var(--pf-ivory)' }}>Ver o que tem dentro do guia</Link>
-      </section>
+      <AppOffer
+        eyebrow={derm ? 'Para acompanhar a pele até e depois da consulta' : 'Para montar e manter a sua rotina'}
+        text={derm
+          ? 'O diário registra como a pele está e o que você usa, para mostrar ao dermatologista. A rotina em checklist ajuda a manter os cuidados que ele indicar. O app não substitui o tratamento.'
+          : 'Sua rotina de manhã e de noite em checklist, um diário para acompanhar como a pele reage, artigos com fontes e um guia para escolher produtos sem cair em promessa.'}
+      />
 
       {r.kits.length > 0 && (
         <section className="stack" aria-labelledby="kit">
@@ -186,13 +170,47 @@ function Result({ a, restart }: { a: TesteAnswers; restart: () => void }) {
         Este teste é educativo. Ele não avalia a gravidade da acne, não faz diagnóstico e não indica tratamento. Suas respostas ficaram só no seu navegador: nada foi salvo ou enviado.
       </Notice>
       <button className="btn btn-ghost" style={{ alignSelf: 'flex-start' }} onClick={restart}><RotateCcw size={16} aria-hidden="true" /> Refazer o teste</button>
+
+      <AppDetails />
     </div>
+  );
+}
+
+/** Abertura da página inicial: apresenta o problema antes do teste. */
+function Intro({ onStart }: { onStart: () => void }) {
+  return (
+    <section className="hero">
+      <div className="container narrow stack-lg">
+        <p className="eyebrow">Teste grátis · 1 minuto · sem foto</p>
+        <h1 className="display">Você já gastou com produto para acne <span className="italic-accent">e a pele continua igual?</span></h1>
+        <p className="lead">
+          Um vídeo diz que leite causa espinha, outro diz que não. Sérum, ácido, esfoliante, dica caseira com limão. Na maioria das vezes, o que falta não é
+          mais um produto: é saber do que a sua pele precisa e manter uma rotina simples todos os dias.
+        </p>
+        <div className="card stack">
+          <p style={{ margin: 0 }}><strong>Marque as imagens que parecem com a sua pele e descubra:</strong></p>
+          <ul className="icon-list small" style={{ margin: 0 }}>
+            <li><Check size={18} aria-hidden="true" /> o que a sua rotina precisa</li>
+            <li><Check size={18} aria-hidden="true" /> que tipo de produto procurar e o que evitar</li>
+            <li><Check size={18} aria-hidden="true" /> quando é hora de procurar um dermatologista</li>
+          </ul>
+        </div>
+        <div className="row wrap" style={{ gap: 'var(--space-4)', alignItems: 'center' }}>
+          <button className="btn btn-primary btn-lg" onClick={onStart}>Começar o teste <ArrowRight size={18} aria-hidden="true" /></button>
+          <Link to="/conhecer" className="small">Pular e conhecer o app</Link>
+        </div>
+        <p className="xs muted" style={{ margin: 0 }}>
+          6 perguntas. Não pedimos e-mail nem foto, e suas respostas não saem do seu navegador. Conteúdo educativo: não é diagnóstico.
+        </p>
+      </div>
+    </section>
   );
 }
 
 export function Teste() {
   const [a, setA] = useState<TesteAnswers>(emptyTeste);
   const [i, setI] = useState(0);
+  const [started, setStarted] = useState(false);
   const [done, setDone] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const list = steps(a);
@@ -203,10 +221,12 @@ export function Teste() {
   useEffect(() => {
     window.scrollTo(0, 0);
     if (done) document.getElementById('resultado')?.focus({ preventScroll: true });
-    else if (i > 0) headingRef.current?.focus({ preventScroll: true });
-  }, [i, done]);
+    else if (started) headingRef.current?.focus({ preventScroll: true });
+  }, [i, done, started]);
 
   const restart = () => { setA(emptyTeste()); setI(0); setDone(false); };
+
+  if (!started) return <Intro onStart={() => setStarted(true)} />;
 
   return (
     <section className="section">
@@ -230,7 +250,6 @@ export function Teste() {
                 {last ? 'Ver meu resultado' : 'Continuar'} <ArrowRight size={18} aria-hidden="true" />
               </button>
             </div>
-            {i === 0 && <p className="xs muted">Leva cerca de 1 minuto. Não pedimos e-mail nem foto, e suas respostas não saem do seu navegador.</p>}
           </>
         )}
       </div>

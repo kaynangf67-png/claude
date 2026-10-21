@@ -31,8 +31,8 @@ function DemoAccessControlsInner() {
         <FlaskConical size={14} aria-hidden="true" style={{ verticalAlign: '-2px' }} /> <strong>Somente demonstração.</strong> Em produção, o acesso só é concedido pelo servidor depois de uma compra verificada.
       </p>
       <div className="row wrap">
-        <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => run(() => demo.grantDemoAccess())}>Simular compra (30 dias)</button>
-        <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => run(() => demo.expireDemoAccess())}>Simular bônus expirado</button>
+        <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => run(() => demo.grantDemoAccess())}>Simular compra</button>
+        <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => run(() => demo.expireDemoAccess())}>Simular acesso expirado</button>
         <button type="button" className="btn btn-ghost" disabled={busy} onClick={() => run(() => demo.removeDemoAccess())}>Remover acesso</button>
       </div>
     </div>

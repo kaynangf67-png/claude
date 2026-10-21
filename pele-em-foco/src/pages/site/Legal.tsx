@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ConfigPending } from '../../components/ui';
-import { BONUS_DAYS, launch } from '../../config/launch';
+import { launch } from '../../config/launch';
 
 function Draft() {
   return (
@@ -34,7 +34,7 @@ export function Privacidade() {
         <ul>
           <li><strong>Conta:</strong> e-mail, senha (guardada pelo provedor de autenticação apenas em formato criptográfico, nunca em texto), nome opcional e a data em que você aceitou o aviso educativo.</li>
           <li><strong>Uso do app:</strong> os passos da rotina que você marca, por data, e as anotações opcionais do diário (observações, produtos usados e texto livre).</li>
-          <li><strong>Acesso:</strong> o vínculo entre sua conta e a compra (número do pedido e e-mail recebidos da Cakto) e as datas de início e fim do bônus.</li>
+          <li><strong>Acesso:</strong> o vínculo entre sua conta e a compra (número do pedido e e-mail recebidos da Cakto) e a data de liberação do acesso.</li>
           <li>Os dados ficam no banco de dados do app, hospedado no Supabase. Regras no próprio banco garantem que cada conta só leia e altere os próprios registros.</li>
           <li>Não pedimos fotos do rosto, documentos ou diagnósticos. O diário é opcional e serve para observações pessoais; evite escrever informações de saúde que você não queira registrar.</li>
           <li>Você pode exportar seus dados, apagar rotina e diário ou excluir a conta inteira em Perfil, a qualquer momento.</li>
@@ -58,20 +58,17 @@ export function Termos() {
         <p className="small muted">Versão de outubro de 2026.</p>
 
         <h2>O produto</h2>
-        <p>O Pele em Foco é composto por um e-book em PDF e, como bônus, acesso a um aplicativo web de organização de rotina. Fornecedor: {responsible()}. O pagamento é processado pela Cakto.</p>
+        <p>O Pele em Foco é um aplicativo web educativo de organização da rotina de cuidados com a pele, vendido por pagamento único. Fornecedor: {responsible()}. O pagamento é processado pela Cakto.</p>
 
         <h2>Natureza educativa</h2>
         <p>O conteúdo é informativo e educativo. Não constitui diagnóstico, prescrição ou tratamento e não substitui consulta com médico dermatologista. Resultados variam de pessoa para pessoa e não são garantidos.</p>
 
-        <h2>Uso do e-book</h2>
-        <p>A compra dá direito a uso pessoal. Não é permitido revender, redistribuir ou publicar o arquivo, no todo ou em parte.</p>
-
-        <h2>Bônus: app Pele em Foco</h2>
+        <h2>Acesso ao app</h2>
         <ul>
-          <li>Quem compra o e-book recebe <strong>{BONUS_DAYS} dias de acesso ao app</strong>, contados a partir da ativação: o momento em que a compra aprovada é vinculada a uma conta com o mesmo e-mail, já confirmado.</li>
-          <li>Cada compra ativa o bônus uma única vez. Reembolso ou contestação do pagamento encerram o acesso.</li>
-          <li>Depois do período, não há cobrança automática. Você continua podendo ver, exportar e apagar seus registros.</li>
-          <li>O app é fornecido como bônus, sem garantia de disponibilidade ininterrupta.</li>
+          <li>A compra dá <strong>acesso vitalício</strong> ao app, sem mensalidade nem cobrança automática, para uso pessoal. O acesso é liberado quando a compra aprovada é vinculada a uma conta com o mesmo e-mail, já confirmado.</li>
+          <li>Cada compra libera uma única conta. Não é permitido compartilhar a conta, revender o acesso ou copiar o conteúdo.</li>
+          <li>Reembolso ou contestação do pagamento encerram o acesso. Seus registros continuam disponíveis para exportar ou apagar.</li>
+          <li>“Vitalício” vale enquanto o app for oferecido. Não há garantia de disponibilidade ininterrupta. Se o app for descontinuado, avisaremos com pelo menos 30 dias de antecedência pelo e-mail da conta, e você poderá exportar seus registros.</li>
         </ul>
 
         <h2>Reembolso</h2>

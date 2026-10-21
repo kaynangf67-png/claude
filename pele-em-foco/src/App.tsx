@@ -1,9 +1,9 @@
-import { BrowserRouter, MemoryRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, MemoryRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { SessionProvider } from './app/session';
 import { AppLayout } from './components/AppLayout';
 import { SiteLayout } from './components/SiteLayout';
 import { GuestOnly, RequireAuth, RequireBackend } from './components/guards';
-import { Landing } from './pages/site/Landing';
+import { Conhecer } from './pages/site/Landing';
 import { Obrigado } from './pages/site/Obrigado';
 import { Teste } from './pages/site/Teste';
 import { NotFound, Privacidade, Termos } from './pages/site/Legal';
@@ -30,9 +30,10 @@ export function App() {
       <SessionProvider>
         <Routes>
           <Route element={<SiteLayout />}>
-            <Route index element={<Landing />} />
+            <Route index element={<Teste />} />
+            <Route path="conhecer" element={<Conhecer />} />
             <Route path="obrigado" element={<Obrigado />} />
-            <Route path="teste" element={<Teste />} />
+            <Route path="teste" element={<Navigate to="/" replace />} />
             <Route path="privacidade" element={<Privacidade />} />
             <Route path="termos" element={<Termos />} />
             <Route path="*" element={<NotFound />} />

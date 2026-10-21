@@ -32,7 +32,7 @@ describe('modo demonstração reproduz as regras do banco', () => {
     await demo.grantDemoAccess();
     const a = await demo.getAccess();
     expect(a.status).toBe('active');
-    expect(Date.parse(a.expiresAt!) - Date.parse(a.startsAt!)).toBe(30 * 86_400_000);
+    expect(a.expiresAt).toBeNull(); // vitalício
     await demo.setCompletion('2026-10-20', 'manha', 'limpeza', true);
     await demo.setCompletion('2026-10-20', 'manha', 'limpeza', true);
     expect(await demo.listCompletions('2026-10-20', '2026-10-20')).toHaveLength(1);

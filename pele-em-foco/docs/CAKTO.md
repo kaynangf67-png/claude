@@ -8,18 +8,12 @@ Pesquisado em 20/10/2026 na central de ajuda, no blog, na página de reembolso e
 2. Preço: o valor que você definir (é o mesmo texto de `VITE_PRICE_LABEL`).
 3. Taxas informadas pela Cakto (confira no painel antes de precificar): Pix 0% + R$ 2,49; cartão 4,99% + R$ 2,49; sem mensalidade.
 
-## 2. Escolher como entregar o PDF
+## 2. Entrega
 
-Na seção de entrega do produto há duas opções. Escolha uma e use o mesmo valor em `VITE_CAKTO_DELIVERY`:
-
-| Opção | Como funciona | Prós | Contras |
-|---|---|---|---|
-| **Acesso por e-mail** (`email`) | O PDF (ou link) chega no e-mail de confirmação da compra | Menos atrito: o cliente baixa direto | Você controla pouco o texto do e-mail |
-| **Cakto Members** (`members`) | O cliente recebe login e senha e acessa em aluno.cakto.com.br | Lugar fixo para o PDF, o link do app e futuras atualizações | Mais um login; há relatos públicos de dificuldade de acesso após a compra |
-
-**Recomendação:** comece por **e-mail**. Para um e-book barato, cada passo extra até o arquivo gera chamado no suporte. O link do app já está na última página do PDF e em `/obrigado`, então não depende do texto do e-mail.
-
-Seja qual for a escolha, suba o PDF **gerado com `ebook/config.json` preenchido** (principalmente `appUrl` e `bonusEndDate`), para o link do app aparecer impresso no e-book.
+O produto é o acesso ao app, não um arquivo. Na seção de entrega do produto:
+- **Não suba PDF.** Se a Cakto exigir um conteúdo, use o link `https://SEU-DOMINIO/obrigado` (passo a passo para criar a conta).
+- Nome e descrição do produto: “App Pele em Foco — acesso vitalício”. Remova qualquer menção a e-book.
+- Não use Cakto Members: o acesso é na conta do próprio app.
 
 ## 3. Página de obrigado
 
@@ -43,12 +37,13 @@ Em **Produtos → seu produto → Ver links**, copie o link da oferta (`https://
 ## 6. Compra de teste (obrigatória antes de anunciar)
 
 - [ ] Compra com Pix de valor real (ou cupom de 100%, se a Cakto permitir no seu plano), com um e-mail seu.
-- [ ] O e-mail da Cakto chegou? O PDF abre? O link do app na última página funciona?
+- [ ] O e-mail da Cakto chegou com o link para criar a conta?
+- [ ] Criar a conta com o e-mail da compra e confirmar libera o acesso vitalício?
 - [ ] O redirecionamento para `/obrigado` aconteceu?
 - [ ] Pedido de reembolso em app.cakto.com.br/refund funciona e o estorno aparece?
 - [ ] Repetir no celular.
 
-## 7. Webhook (ativa e revoga o bônus de 30 dias)
+## 7. Webhook (registra a compra e revoga em reembolso)
 
 Implementado em `supabase/functions/cakto-webhook` (lógica em `_shared/cakto.ts`, testada). **Ainda não implantado nem testado com a Cakto real.**
 

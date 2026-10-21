@@ -74,7 +74,7 @@ describe('validação de formulários', () => {
 });
 
 describe('configuração de lançamento', () => {
-  const empty: Launch = { caktoDelivery: 'email', priceLabel: null, checkoutUrl: null, refundDays: 7, supportEmail: null, businessName: null, businessDocument: null, siteUrl: null };
+  const empty: Launch = { priceLabel: null, checkoutUrl: null, refundDays: 7, supportEmail: null, businessName: null, businessDocument: null, siteUrl: null };
   it('lista o que falta preencher', () => {
     expect(missingLaunchConfig(empty)).toHaveLength(4);
     const full = { ...empty, priceLabel: 'R$ 27', checkoutUrl: 'https://pay.cakto.com.br/abc123', supportEmail: 'a@b.c', businessName: 'X', businessDocument: '1' };

@@ -27,14 +27,13 @@ export function SiteLayout() {
         <div className="container">
           <Brand />
           <nav aria-label="Seções" className="site-nav">
-            <Link to="/teste">Teste grátis</Link>
-            <Link to="/#conteudo-do-guia">O guia</Link>
-            <Link to="/#bonus">App bônus</Link>
-            <Link to="/#perguntas">Perguntas</Link>
+            <Link to="/">Teste grátis</Link>
+            <Link to="/conhecer#recursos">O app</Link>
+            <Link to="/conhecer#perguntas">Perguntas</Link>
           </nav>
           <div className="row">
             <Link to="/entrar" className="btn btn-ghost">Entrar</Link>
-            {pathname === '/' ? <CheckoutButton size="sm" label="Quero o guia" /> : <Link to="/" className="btn btn-secondary">Conhecer o guia</Link>}
+            {pathname === '/conhecer' ? <CheckoutButton size="sm" label="Quero o app" /> : <Link to="/conhecer" className="btn btn-secondary">Conhecer o app</Link>}
           </div>
         </div>
       </header>

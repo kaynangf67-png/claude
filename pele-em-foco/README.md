@@ -1,6 +1,8 @@
 # Pele em Foco
 
-Produto digital educativo em português: **e-book** sobre acne, pele oleosa e rotina básica + **app web** com contas, rotina, diário e biblioteca (bônus de **30 dias** para quem compra) + **página de vendas** com checkout na Cakto.
+Produto digital educativo em português: **app web** com contas, rotina, diário, biblioteca e guia de produtos, vendido por **pagamento único com acesso vitalício**. A página inicial é um **teste grátis com imagens** que apresenta o problema e termina na oferta do app, com checkout na Cakto.
+
+> Desde 21/10/2026 o e-book **não é mais vendido**. A pasta `ebook/` ficou só como histórico.
 
 > Conteúdo educativo. O app não faz diagnóstico, não indica tratamento e não garante resultado.
 
@@ -9,20 +11,20 @@ Produto digital educativo em português: **e-book** sobre acne, pele oleosa e ro
 | Parte | Situação |
 |---|---|
 | App, telas e regras no navegador | Pronto. Testado em modo demonstração (unitário + ponta a ponta, celular e desktop) |
-| Banco (schema, RLS, ativação de 30 dias, revogação) | Pronto. Testado em Postgres 16 local com um *stub* do Supabase (`npm run test:db`) |
+| Banco (schema, RLS, ativação vitalícia, revogação) | Pronto. Testado em Postgres 16 local com um *stub* do Supabase (`npm run test:db`) |
 | Supabase real (Auth, e-mails, Edge Functions) | **Não conectado.** Nenhum projeto foi criado, nenhum deploy feito |
 | Webhook da Cakto | Código pronto e lógica testada. **Não implantado nem testado com a Cakto real** |
-| Página de vendas e e-book | Prontos. O checkout depende do link da sua oferta |
+| Teste (`/`) e página do app (`/conhecer`) | Prontos. O checkout depende do link da sua oferta |
 
-Até o Supabase e a Cakto estarem conectados e testados (seção “Antes de clientes reais”), **ninguém consegue ativar o bônus de verdade**.
+Até o Supabase e a Cakto estarem conectados e testados (seção “Antes de clientes reais”), **ninguém consegue ativar o acesso de verdade**.
 
-## Como funciona o acesso de 30 dias
+## Como funciona o acesso
 
-1. A pessoa compra o e-book na Cakto.
+1. A pessoa faz o teste em `/` (ou vai direto a `/conhecer`) e compra o app na Cakto.
 2. A Cakto chama a Edge Function `cakto-webhook`, que valida o segredo e grava a compra em `verified_purchases` (tabela que o navegador não lê nem escreve).
 3. A pessoa cria a conta no app **com o mesmo e-mail** e confirma o e-mail.
-4. Ao entrar, o app chama `claim_verified_purchase()` no banco. A função confere e-mail confirmado + compra aprovada e ainda não usada, e cria em `access_entitlements` um acesso de **30 dias a partir desse momento**.
-5. Rotina, diário (criar/editar) e biblioteca são liberados **pelo RLS do banco** só enquanto o acesso estiver ativo. Depois dos 30 dias, a pessoa ainda lê, exporta e apaga os próprios dados.
+4. Ao entrar, o app chama `claim_verified_purchase()` no banco. A função confere e-mail confirmado + compra aprovada e ainda não usada, e cria em `access_entitlements` um acesso **vitalício** (`expires_at = 'infinity'`, migration `20261021120000_lifetime_access.sql`).
+5. Rotina, diário (criar/editar) e biblioteca são liberados **pelo RLS do banco** só enquanto o acesso estiver ativo. Se o acesso for encerrado (reembolso, chargeback), a pessoa ainda lê, exporta e apaga os próprios dados.
 6. Reembolso ou chargeback na Cakto → o webhook marca a compra e **revoga** o acesso.
 
 Nada disso depende de flag no navegador, parâmetro de URL ou `localStorage`. Uma conta nova não tem acesso, e o usuário não consegue inserir nem alterar o próprio acesso (testado).

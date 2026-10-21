@@ -32,9 +32,9 @@ export function AccessLocked({ compact = false }: { compact?: boolean }) {
         <div className="stack">
           {status === 'expired' && (
             <>
-              <h2 id="acesso-titulo" className="h3">Seu período de bônus terminou</h2>
+              <h2 id="acesso-titulo" className="h3">Seu acesso terminou</h2>
               <p className="muted" style={{ marginBottom: 0 }}>
-                Os 30 dias de acesso ao app terminaram em <strong>{access?.expiresAt ? formatDateTimeBR(access.expiresAt) : '—'}</strong>.
+                O acesso ao app terminou em <strong>{access?.expiresAt ? formatDateTimeBR(access.expiresAt) : '—'}</strong>.
                 Seus registros continuam guardados: você pode ver o histórico do diário, exportar ou apagar seus dados em <Link to="/app/perfil">Perfil</Link>.
               </p>
             </>
@@ -51,7 +51,7 @@ export function AccessLocked({ compact = false }: { compact?: boolean }) {
             <>
               <h2 id="acesso-titulo" className="h3">Seu acesso ainda não está ativo</h2>
               <p className="muted" style={{ marginBottom: 0 }}>
-                O app é um bônus de 30 dias para quem comprou o e-book Pele em Foco. A ativação acontece automaticamente quando a compra
+                O app é liberado para quem comprou o Pele em Foco. A ativação acontece automaticamente quando a compra
                 aprovada na Cakto é vinculada a esta conta — use <strong>o mesmo e-mail da compra</strong> ({user?.email}).
               </p>
               {mode === 'supabase' && lastClaim && CLAIM_HINT[lastClaim] && <Notice>{CLAIM_HINT[lastClaim]}</Notice>}

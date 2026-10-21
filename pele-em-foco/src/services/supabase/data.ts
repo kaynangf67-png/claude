@@ -26,7 +26,7 @@ export class SupabaseDataService implements DataService {
     const { data, error } = await this.db.rpc('get_my_access');
     if (error) throw translateError(error);
     const row = (data as { status: AccessInfo['status']; starts_at: string | null; expires_at: string | null; source: string | null }[])[0];
-    return row ? { status: row.status, startsAt: row.starts_at, expiresAt: row.expires_at, source: row.source } : { status: 'none', startsAt: null, expiresAt: null, source: null };
+    return row ? { status: row.status, startsAt: row.starts_at, expiresAt: row.expires_at === 'infinity' ? null : row.expires_at, source: row.source } : { status: 'none', startsAt: null, expiresAt: null, source: null };
   }
 
   async claimAccess(): Promise<ClaimResult> {

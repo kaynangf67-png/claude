@@ -101,9 +101,9 @@ export function Profile() {
           <Spinner />
         ) : access.status === 'active' ? (
           <div className="card-sage stack">
-            <p className="row" style={{ marginBottom: 0 }}><CalendarClock aria-hidden="true" /> <span>Bônus ativo até <strong>{formatDateTimeBR(access.expiresAt!)}</strong>.</span></p>
+            <p className="row" style={{ marginBottom: 0 }}><CalendarClock aria-hidden="true" /> <span>{access.expiresAt ? <>Acesso ativo até <strong>{formatDateTimeBR(access.expiresAt)}</strong>.</> : <>Acesso <strong>vitalício</strong> ativo.</>}</span></p>
             <p className="small muted" style={{ marginBottom: 0 }}>
-              Ativado em {formatDateTimeBR(access.startsAt!)}{access.source === 'demo' ? ' (demonstração)' : ''}. São 30 dias a partir da ativação. Depois, você continua podendo ver, exportar e apagar seus dados.
+              Ativado em {formatDateTimeBR(access.startsAt!)}{access.source === 'demo' ? ' (demonstração)' : ''}. Sem mensalidade e sem cobrança automática.
             </p>
             {mode === 'demo' && <DemoAccessControls />}
           </div>
@@ -125,7 +125,7 @@ export function Profile() {
           )}
           <li>Não pedimos fotos do rosto, documentos nem informações médicas.</li>
           <li>Senhas são gerenciadas pelo provedor de autenticação; nunca as guardamos em texto.</li>
-          <li>Você pode exportar tudo ou apagar a qualquer momento, mesmo depois do fim do bônus.</li>
+          <li>Você pode exportar tudo ou apagar a qualquer momento, mesmo se o acesso for encerrado.</li>
         </ul>
         <div className="row wrap">
           <button className="btn btn-secondary" onClick={() => void exportData()}><Download size={18} aria-hidden="true" /> Exportar meus dados</button>
@@ -156,7 +156,7 @@ export function Profile() {
         onConfirm={() => void runDelete()}
       >
         {confirm === 'account' ? (
-          <p>Sua conta, perfil, rotina, diário e o vínculo do bônus serão excluídos definitivamente. Uma compra já usada não reativa o bônus em outra conta. Exporte seus dados antes, se quiser guardar.</p>
+          <p>Sua conta, perfil, rotina, diário e o vínculo da compra serão excluídos definitivamente. Uma compra já usada não libera o acesso em outra conta. Exporte seus dados antes, se quiser guardar.</p>
         ) : (
           <p>Todos os registros de rotina e diário desta conta serão apagados. A conta e o acesso continuam. Não dá para desfazer.</p>
         )}
