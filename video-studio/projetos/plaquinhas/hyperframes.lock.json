@@ -1,0 +1,17 @@
+{
+  "assets/avatar.jpg": "a300f59c31d2ea16195a2ff9a9af50b29c6aecc05d505d69f2a2132a53b99032",
+  "assets/sfx-production.wav": "1f67e32b14a9ed2e9445c6031859054d3ab9b30194f8dd2a03b86aef52635ad9",
+  "compositions/apple-money-count.html": "689aa4fc8e0b8565cc4042178b4fd8300a52bcc17552e34e93f15745496f53d0",
+  "compositions/components/badge-pop.html": "7b3f813eedab71b59e45598a48dd398c6931a00751845fe2c258fbcd62b743f0",
+  "compositions/components/camera-shake.html": "3f64f5da225acb5b408847fef9c388f889b1bf1e8d85ec95f0f4316839a60db4",
+  "compositions/components/caption-emoji-pop.html": "79e7cad5cf54dec70e7af59c8d0583531017bacca6bc9ee057bfad386904eb9b",
+  "compositions/components/caption-pill-karaoke.html": "cdbbc72af7fbac440c0bf5750cf9e3d4ded20f26588b00ac79399342ca60b3e3",
+  "compositions/components/confetti.html": "e1aab1fba4eac8fcbed7367d94a262c41b08dc26cd723a3a0cde51158f7c864f",
+  "compositions/components/count-up.html": "6b34b9873a243fedb060d23f4eb5cef1b61a5b169ec1ae064030b70b48beea66",
+  "compositions/components/headline-slam.html": "b16ac28b01bf7f352d6a3f267838253de85794cd9bedd8065b48d7675e9295cd",
+  "compositions/components/number-pop-in.html": "25bb2a0a3e2dc9a067cfb016d7d8a971b70774652a0a4dca200c9173a1fc4e48",
+  "compositions/components/social-proof-card.html": "66bf596ea2fd55b6d36902e695d047e751aff80ce16f6e006b8a5ddd57713892",
+  "compositions/components/star-rating-fill.html": "6d9c5ecd6fe80a7608db0118e20c29e5e9b64d3a4d9659977ed5402509aebc57",
+  "compositions/flash-through-white.html": "0b5f25cd3eca2de71269475e1178a8a0667afa5f7bc08bb9cf80b49dd6f97596",
+  "compositions/tiktok-follow.html": "0c3fec5c55afcf64f4fab9c98194db1f18b22bab43ec99d0ee1797b4804e3e1a"
+}

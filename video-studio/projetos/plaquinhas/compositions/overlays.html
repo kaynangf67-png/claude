@@ -1,0 +1,108 @@
+<template>
+  <script src="assets/js/gsap.min.js"></script>
+  <script src="assets/js/lottie.min.js"></script>
+  <style>
+    @font-face { font-family: "Noto Color Emoji"; src: local("Noto Color Emoji"); }
+    #root { position: absolute; inset: 0; pointer-events: none; font-family: Montserrat; }
+    #root .emo { position: absolute; }
+    #root .emo-in { width: 100%; height: 100%; filter: drop-shadow(0 14px 22px rgba(0,0,0,.35)); }
+    #root .chip { position: absolute; display: flex; align-items: center; gap: 14px; padding: 18px 34px;
+      border-radius: 999px; font-weight: 900; font-size: 54px; letter-spacing: -0.01em;
+      box-shadow: 0 16px 36px rgba(0,0,0,.28); }
+    #root .chip i { font-style: normal; font-family: "Noto Color Emoji"; font-size: 46px; }
+    #root #ov-nfc { left: 70px; top: 300px; background: #1A73E8; color: #fff; }
+    #root #ov-qr { right: 70px; top: 300px; background: #fff; color: #111; }
+    #root #ov-gratis { position: absolute; left: 0; right: 0; top: 250px; display: flex; justify-content: center; }
+    #root #ov-gratis b { display: inline-block; padding: 14px 46px; border: 10px solid #00B84A; color: #00B84A;
+      background: rgba(255,255,255,.92); border-radius: 22px; font-weight: 900; font-size: 104px;
+      letter-spacing: 0.02em; box-shadow: 0 18px 40px rgba(0,0,0,.25); }
+    #root #ov-preco { position: absolute; left: 0; right: 0; top: 215px; height: 330px; }
+    #root .pc { position: absolute; left: 50%; width: 560px; margin-left: -280px; padding: 20px 30px 24px;
+      border-radius: 34px; text-align: center; box-shadow: 0 22px 48px rgba(0,0,0,.30); }
+    #root .pc small { display: block; font-size: 46px; font-weight: 800; letter-spacing: 0.12em; opacity: .85; }
+    #root .pc b { display: block; font-size: 112px; font-weight: 900; line-height: 1; letter-spacing: -0.03em; }
+    #root #pc-compra { top: 0; background: #fff; color: #111; }
+    #root #pc-venda { top: 0; background: #00B84A; color: #fff; }
+    #root #pc-seta { position: absolute; left: 50%; top: 120px; width: 120px; margin-left: -60px; text-align: center;
+      font-family: "Noto Color Emoji"; font-size: 96px; }
+    #root #ov-dias { position: absolute; left: 0; right: 0; top: 590px; display: flex; justify-content: center; }
+    #root #ov-dias b { font-family: Montserrat, "Noto Color Emoji"; display: inline-block; padding: 14px 34px; border-radius: 999px; background: #FFE500; color: #111;
+      font-weight: 900; font-size: 52px; box-shadow: 0 14px 30px rgba(0,0,0,.28); }
+    #root #ov-confete { left: 0; top: 0; width: 1080px; height: 1920px; }
+    #root .pt { position: absolute; left: 540px; top: 380px; width: 18px; height: 30px; border-radius: 4px; opacity: 0; }
+  </style>
+  <div id="root" data-composition-id="overlays" data-layout-allow-overlap>
+    <div id="em-dinheiro" class="clip emo" data-start="3.02" data-duration="1.70" style="left:800px;top:440px;width:240px;height:240px"><div class="emo-in" id="em-dinheiro-in"></div></div>
+    <div id="em-olhada" class="clip emo" data-start="4.96" data-duration="1.70" style="left:40px;top:440px;width:240px;height:240px"><div class="emo-in" id="em-olhada-in"></div></div>
+    <div id="em-pensa" class="clip emo" data-start="25.69" data-duration="1.60" style="left:800px;top:440px;width:240px;height:240px"><div class="emo-in" id="em-pensa-in"></div></div>
+    <div id="em-lucro" class="clip emo" data-start="39.69" data-duration="1.90" style="left:40px;top:440px;width:240px;height:240px"><div class="emo-in" id="em-lucro-in"></div></div>
+    <div id="em-massa" class="clip emo" data-start="53.56" data-duration="1.60" style="left:800px;top:440px;width:240px;height:240px"><div class="emo-in" id="em-massa-in"></div></div>
+    <div id="em-dinheiro2" class="clip emo" data-start="59.57" data-duration="1.70" style="left:40px;top:440px;width:240px;height:240px"><div class="emo-in" id="em-dinheiro2-in"></div></div>
+    <div id="ov-nfc" class="clip chip" data-start="8.47" data-duration="2.46"><span class="chip-in" id="ov-nfc-in"><i>📶</i> NFC</span></div>
+    <div id="ov-qr" class="clip chip" data-start="8.95" data-duration="1.98"><span class="chip-in" id="ov-qr-in"><i>🔳</i> QR CODE</span></div>
+    <div id="ov-gratis" class="clip" data-start="13.97" data-duration="1.70"><b id="ov-gratis-in">GRÁTIS</b></div>
+    <div id="ov-preco" class="clip" data-start="43.08" data-duration="8.04">
+      <div id="pc-compra" class="pc"><small>VOCÊ COMPRA</small><b>R$20</b></div>
+      <div id="pc-venda" class="pc"><small>VOCÊ VENDE</small><b id="pc-venda-v">R$90</b></div>
+    </div>
+    <div id="ov-dias" class="clip" data-start="64.90" data-duration="2.64"><b id="ov-dias-in">EM 3 DIAS</b></div>
+    <div id="ov-confete" class="clip" data-start="66.34" data-duration="1.6" data-layout-ignore>
+      <span class="pt" style="background:#FFE500"></span><span class="pt" style="background:#00B84A"></span><span class="pt" style="background:#1A73E8"></span><span class="pt" style="background:#FF3B30"></span><span class="pt" style="background:#FFFFFF"></span><span class="pt" style="background:#FFE500"></span><span class="pt" style="background:#00B84A"></span><span class="pt" style="background:#1A73E8"></span><span class="pt" style="background:#FF3B30"></span><span class="pt" style="background:#FFFFFF"></span><span class="pt" style="background:#FFE500"></span><span class="pt" style="background:#00B84A"></span><span class="pt" style="background:#1A73E8"></span><span class="pt" style="background:#FF3B30"></span><span class="pt" style="background:#FFFFFF"></span><span class="pt" style="background:#FFE500"></span><span class="pt" style="background:#00B84A"></span><span class="pt" style="background:#1A73E8"></span><span class="pt" style="background:#FF3B30"></span><span class="pt" style="background:#FFFFFF"></span><span class="pt" style="background:#FFE500"></span><span class="pt" style="background:#00B84A"></span><span class="pt" style="background:#1A73E8"></span><span class="pt" style="background:#FF3B30"></span><span class="pt" style="background:#FFFFFF"></span><span class="pt" style="background:#FFE500"></span><span class="pt" style="background:#00B84A"></span><span class="pt" style="background:#1A73E8"></span><span class="pt" style="background:#FF3B30"></span><span class="pt" style="background:#FFFFFF"></span><span class="pt" style="background:#FFE500"></span><span class="pt" style="background:#00B84A"></span><span class="pt" style="background:#1A73E8"></span><span class="pt" style="background:#FF3B30"></span><span class="pt" style="background:#FFFFFF"></span><span class="pt" style="background:#FFE500"></span><span class="pt" style="background:#00B84A"></span><span class="pt" style="background:#1A73E8"></span><span class="pt" style="background:#FF3B30"></span><span class="pt" style="background:#FFFFFF"></span><span class="pt" style="background:#FFE500"></span><span class="pt" style="background:#00B84A"></span><span class="pt" style="background:#1A73E8"></span><span class="pt" style="background:#FF3B30"></span><span class="pt" style="background:#FFFFFF"></span>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var tl = gsap.timeline({ paused: true });
+      function pop(sel, a, b) {
+        tl.fromTo(sel, { scale: 0.2, opacity: 0, rotation: -12 }, { scale: 1, opacity: 1, rotation: 0, duration: 0.42, ease: "back.out(2.6)" }, a);
+        tl.to(sel, { scale: 0.6, opacity: 0, duration: 0.18, ease: "power2.in" }, b - 0.2);
+      }
+      function emo(id, code, a, d) {
+        var anim = lottie.loadAnimation({ container: document.getElementById(id + "-in"), renderer: "svg",
+          loop: true, autoplay: false, path: "assets/lottie/" + code + ".json" });
+        window.__hfLottie = window.__hfLottie || []; window.__hfLottie.push(anim);
+        pop("#" + id + "-in", a, a + d);
+        tl.fromTo("#" + id + "-in", { y: 0 }, { y: -14, duration: d / 2, ease: "sine.inOut", yoyo: true, repeat: 1 }, a + 0.4);
+      }
+      emo("em-dinheiro", "1f911", 3.02, 1.70);
+      emo("em-olhada", "1f440", 4.96, 1.70);
+      emo("em-pensa", "1f914", 25.69, 1.60);
+      emo("em-lucro", "1f680", 39.69, 1.90);
+      emo("em-massa", "1f4aa", 53.56, 1.60);
+      emo("em-dinheiro2", "1f4b8", 59.57, 1.70);
+      // selos NFC / QR CODE
+      [["#ov-nfc-in", 8.47], ["#ov-qr-in", 8.95]].forEach(function (c) {
+        tl.fromTo(c[0], { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.35, ease: "back.out(3)" }, c[1]);
+      });
+      tl.to(["#ov-nfc-in", "#ov-qr-in"], { scale: 0.7, opacity: 0, duration: 0.18, ease: "power2.in" }, 10.73);
+      // carimbo GRÁTIS
+      tl.fromTo("#ov-gratis-in", { scale: 2.6, opacity: 0, rotation: 14 }, { scale: 1, opacity: 1, rotation: -6, duration: 0.2, ease: "power4.in" }, 13.97);
+      tl.fromTo("#ov-gratis-in", { x: 0 }, { x: 10, duration: 0.03, yoyo: true, repeat: 3, ease: "none" }, 14.17);
+      tl.to("#ov-gratis-in", { scale: 0.7, opacity: 0, duration: 0.18 }, 15.47);
+      // card de preço
+      var a = 43.08, v = 48.40, b = 51.12;
+      tl.fromTo("#pc-compra", { y: -60, opacity: 0, scale: 0.6 }, { y: 0, opacity: 1, scale: 1, duration: 0.4, ease: "back.out(2)" }, a);
+      tl.set("#pc-venda", { opacity: 0 }, a);
+      tl.to("#pc-compra", { x: -250, y: -10, scale: 0.62, duration: 0.35, ease: "power3.inOut" }, v - 0.25);
+      tl.fromTo("#pc-venda", { opacity: 0, x: 120, scale: 0.4 }, { opacity: 1, x: 150, scale: 0.9, duration: 0.42, ease: "back.out(2.4)" }, v);
+      tl.fromTo("#pc-venda", { boxShadow: "0 0 0 0 rgba(0,184,74,.7)" }, { boxShadow: "0 0 0 34px rgba(0,184,74,0)", duration: 0.7, ease: "power2.out" }, v + 0.35);
+      tl.to(["#pc-compra", "#pc-venda"], { opacity: 0, y: -40, duration: 0.25, ease: "power2.in" }, b - 0.25);
+      // EM 3 DIAS
+      tl.fromTo("#ov-dias-in", { scale: 0, opacity: 0, rotation: -8 }, { scale: 1, opacity: 1, rotation: -4, duration: 0.4, ease: "back.out(2.8)" }, 64.90);
+      tl.to("#ov-dias-in", { opacity: 0, scale: 0.7, duration: 0.18 }, 67.34);
+      // confete (trajetórias determinísticas com gravidade)
+      var pts = document.querySelectorAll("#ov-confete .pt"), c0 = 66.34;
+      pts.forEach(function (p, i) {
+        var ang = -Math.PI / 2 + Math.cos(i * 2.17) * 1.25, vel = 900 + (i * 137 % 600);
+        var vx = Math.cos(ang) * vel, vy = Math.sin(ang) * vel, T = 1.55;
+        tl.fromTo(p, { x: 0, y: 0, opacity: 1, rotation: 0 }, { x: vx * T * 0.62, duration: T, ease: "power1.out" }, c0);
+        tl.set(p, { x: 0, y: 0, opacity: 0, rotation: 0 }, 0);
+        tl.fromTo(p, { y: 0 }, { y: vy * 0.35, duration: 0.45, ease: "power2.out", immediateRender: false }, c0);
+        tl.to(p, { y: vy * 0.35 + 1300, duration: T - 0.45, ease: "power2.in" }, c0 + 0.45);
+        tl.to(p, { rotation: (i % 2 ? 1 : -1) * (360 + i * 40), duration: T, ease: "none" }, c0);
+        tl.to(p, { opacity: 0, duration: 0.25 }, c0 + T - 0.25);
+      });
+      window.__timelines["overlays"] = tl;
+    })();
+  </script>
+</template>

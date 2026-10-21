@@ -1,0 +1,150 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; pointer-events: none; }
+    #root .band { position: absolute; left: 0; right: 0; top: 1110px; height: 210px; }
+    #root .grp { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      opacity: 0; overflow: visible; }
+    #root .line { display: flex; gap: 0 34px; justify-content: center; align-items: center; width: 100%;
+      flex-wrap: wrap; padding: 0 70px; }
+    #root .w { display: inline-block; font-family: Montserrat; font-weight: 900; font-size: 84px;
+      line-height: 1.05; letter-spacing: -0.02em; color: #fff; -webkit-text-stroke: 9px #000;
+      paint-order: stroke fill; text-shadow: 0 8px 18px rgba(0,0,0,.45); transform-origin: 50% 60%; }
+  </style>
+  <div id="root" data-composition-id="legendas">
+    <div class="band" data-layout-allow-overflow>
+      <div id="lg-g0" class="grp" data-a="0.100" data-b="0.490"><div class="line"><span id="lg-w0-0" class="w" data-t="0.060">VOU</span><span id="lg-w0-1" class="w" data-t="0.220">TE</span><span id="lg-w0-2" class="w" data-t="0.300">MOSTRAR</span></div></div>
+      <div id="lg-g1" class="grp" data-a="0.490" data-b="1.050"><div class="line"><span id="lg-w1-0" class="w" data-t="0.540">AGORA</span><span id="lg-w1-1" class="w" data-t="0.700">UMA</span><span id="lg-w1-2" class="w" data-t="0.860">IDEIA</span></div></div>
+      <div id="lg-g2" class="grp" data-a="1.050" data-b="1.770"><div class="line"><span id="lg-w2-0" class="w" data-t="1.100">DE</span><span id="lg-w2-1" class="w key" data-t="1.180">RENDA</span><span id="lg-w2-2" class="w key" data-t="1.500">EXTRA</span></div></div>
+      <div id="lg-g3" class="grp" data-a="1.770" data-b="2.330"><div class="line"><span id="lg-w3-0" class="w" data-t="1.820">QUE</span><span id="lg-w3-1" class="w" data-t="1.900">PODE</span><span id="lg-w3-2" class="w" data-t="2.140">FAZER</span></div></div>
+      <div id="lg-g4" class="grp" data-a="2.330" data-b="3.050"><div class="line"><span id="lg-w4-0" class="w" data-t="2.380">VOCÊ</span><span id="lg-w4-1" class="w" data-t="2.540">GANHAR</span><span id="lg-w4-2" class="w" data-t="2.860">MUITO</span></div></div>
+      <div id="lg-g5" class="grp" data-a="3.050" data-b="3.770"><div class="line"><span id="lg-w5-0" class="w key" data-t="3.100">DINHEIRO</span><span id="lg-w5-1" class="w" data-t="3.500">ATÉ</span><span id="lg-w5-2" class="w" data-t="3.740">O</span></div></div>
+      <div id="lg-g6" class="grp" data-a="3.770" data-b="4.580"><div class="line"><span id="lg-w6-0" class="w" data-t="3.820">FINAL</span><span id="lg-w6-1" class="w" data-t="4.060">DESSE</span><span id="lg-w6-2" class="w" data-t="4.300">MÊS.</span></div></div>
+      <div id="lg-g7" class="grp" data-a="4.580" data-b="5.380"><div class="line"><span id="lg-w7-0" class="w" data-t="4.630">DÁ</span><span id="lg-w7-1" class="w" data-t="4.950">UMA</span><span id="lg-w7-2" class="w" data-t="5.110">OLHADA</span></div></div>
+      <div id="lg-g8" class="grp" data-a="5.380" data-b="6.420"><div class="line"><span id="lg-w8-0" class="w" data-t="5.430">SÓ</span><span id="lg-w8-1" class="w" data-t="5.670">NESSAS</span><span id="lg-w8-2" class="w key" data-t="5.990">PLAQUINHAS</span></div></div>
+      <div id="lg-g9" class="grp" data-a="6.420" data-b="7.220"><div class="line"><span id="lg-w9-0" class="w" data-t="6.470">AQUI</span><span id="lg-w9-1" class="w" data-t="6.630">DE</span><span id="lg-w9-2" class="w key" data-t="6.710">AVALIAÇÃO.</span></div></div>
+      <div id="lg-g10" class="grp" data-a="7.220" data-b="7.860"><div class="line"><span id="lg-w10-0" class="w" data-t="7.270">É</span><span id="lg-w10-1" class="w" data-t="7.430">UMA</span><span id="lg-w10-2" class="w key" data-t="7.510">PLAQUINHA</span></div></div>
+      <div id="lg-g11" class="grp" data-a="7.860" data-b="8.980"><div class="line"><span id="lg-w11-0" class="w" data-t="7.910">DE</span><span id="lg-w11-1" class="w key" data-t="7.990">AVALIAÇÃO</span><span id="lg-w11-2" class="w key" data-t="8.550">NFC</span></div></div>
+      <div id="lg-g12" class="grp" data-a="8.980" data-b="9.700"><div class="line"><span id="lg-w12-0" class="w key" data-t="9.030">QR</span><span id="lg-w12-1" class="w key" data-t="9.430">CODE,</span></div></div>
+      <div id="lg-g13" class="grp" data-a="9.700" data-b="9.860"><div class="line"><span id="lg-w13-0" class="w" data-t="9.750">TÁ?</span></div></div>
+      <div id="lg-g14" class="grp" data-a="9.860" data-b="10.660"><div class="line"><span id="lg-w14-0" class="w" data-t="9.910">QUE</span><span id="lg-w14-1" class="w" data-t="10.070">ELA</span><span id="lg-w14-2" class="w" data-t="10.230">PERMITE</span></div></div>
+      <div id="lg-g15" class="grp" data-a="10.660" data-b="11.540"><div class="line"><span id="lg-w15-0" class="w" data-t="10.710">QUE</span><span id="lg-w15-1" class="w" data-t="10.870">QUALQUER</span><span id="lg-w15-2" class="w" data-t="11.190">DONO</span></div></div>
+      <div id="lg-g16" class="grp" data-a="11.540" data-b="12.980"><div class="line"><span id="lg-w16-0" class="w" data-t="11.590">DE</span><span id="lg-w16-1" class="w" data-t="11.750">RESTAURANTE</span><span id="lg-w16-2" class="w" data-t="12.390">CONSIGA</span></div></div>
+      <div id="lg-g17" class="grp" data-a="12.980" data-b="14.420"><div class="line"><span id="lg-w17-0" class="w key" data-t="13.030">AVALIAÇÕES</span><span id="lg-w17-1" class="w" data-t="13.830">DE</span><span id="lg-w17-2" class="w key" data-t="14.070">GRAÇA</span></div></div>
+      <div id="lg-g18" class="grp" data-a="14.420" data-b="15.349"><div class="line"><span id="lg-w18-0" class="w" data-t="14.470">DE</span><span id="lg-w18-1" class="w" data-t="14.630">QUALQUER</span><span id="lg-w18-2" class="w" data-t="14.950">CLIENTE.</span></div></div>
+      <div id="lg-g19" class="grp" data-a="15.349" data-b="16.209"><div class="line"><span id="lg-w19-0" class="w" data-t="15.399">O</span><span id="lg-w19-1" class="w" data-t="15.459">CLIENTE</span><span id="lg-w19-2" class="w" data-t="15.779">ACABOU</span></div></div>
+      <div id="lg-g20" class="grp" data-a="16.209" data-b="16.929"><div class="line"><span id="lg-w20-0" class="w" data-t="16.259">DE</span><span id="lg-w20-1" class="w" data-t="16.339">GASTAR</span><span id="lg-w20-2" class="w" data-t="16.819">DE</span></div></div>
+      <div id="lg-g21" class="grp" data-a="16.929" data-b="17.729"><div class="line"><span id="lg-w21-0" class="w" data-t="16.979">FAZER</span><span id="lg-w21-1" class="w" data-t="17.219">UMA</span><span id="lg-w21-2" class="w" data-t="17.379">COMPRA</span></div></div>
+      <div id="lg-g22" class="grp" data-a="17.729" data-b="18.529"><div class="line"><span id="lg-w22-0" class="w" data-t="17.779">NO</span><span id="lg-w22-1" class="w" data-t="17.939">COMÉRCIO</span><span id="lg-w22-2" class="w" data-t="18.419">DE</span></div></div>
+      <div id="lg-g23" class="grp" data-a="18.529" data-b="19.360"><div class="line"><span id="lg-w23-0" class="w" data-t="18.579">UM</span><span id="lg-w23-1" class="w" data-t="18.659">SERVIÇO.</span></div></div>
+      <div id="lg-g24" class="grp" data-a="19.760" data-b="20.400"><div class="line"><span id="lg-w24-0" class="w" data-t="19.810">O</span><span id="lg-w24-1" class="w" data-t="19.890">CLIENTE</span><span id="lg-w24-2" class="w" data-t="20.290">SÓ</span></div></div>
+      <div id="lg-g25" class="grp" data-a="20.400" data-b="21.360"><div class="line"><span id="lg-w25-0" class="w" data-t="20.450">APROXIMA</span><span id="lg-w25-1" class="w" data-t="20.930">O</span><span id="lg-w25-2" class="w" data-t="21.010">TELEFONE</span></div></div>
+      <div id="lg-g26" class="grp" data-a="21.360" data-b="21.840"><div class="line"><span id="lg-w26-0" class="w" data-t="21.410">DELE</span><span id="lg-w26-1" class="w" data-t="21.650">AQUI,</span></div></div>
+      <div id="lg-g27" class="grp" data-a="21.840" data-b="22.320"><div class="line"><span id="lg-w27-0" class="w" data-t="21.890">QUE</span><span id="lg-w27-1" class="w" data-t="22.050">ELE</span><span id="lg-w27-2" class="w" data-t="22.210">JÁ</span></div></div>
+      <div id="lg-g28" class="grp" data-a="22.320" data-b="23.120"><div class="line"><span id="lg-w28-0" class="w" data-t="22.370">É</span><span id="lg-w28-1" class="w" data-t="22.450">REDIRECIONADO</span><span id="lg-w28-2" class="w" data-t="23.090">PARA</span></div></div>
+      <div id="lg-g29" class="grp" data-a="23.120" data-b="23.680"><div class="line"><span id="lg-w29-0" class="w" data-t="23.170">A</span><span id="lg-w29-1" class="w" data-t="23.250">PÁGINA</span><span id="lg-w29-2" class="w" data-t="23.570">LÁ</span></div></div>
+      <div id="lg-g30" class="grp" data-a="23.680" data-b="24.001"><div class="line"><span id="lg-w30-0" class="w" data-t="23.730">DO</span><span id="lg-w30-1" class="w key" data-t="23.810">GOOGLE.</span></div></div>
+      <div id="lg-g31" class="grp" data-a="24.001" data-b="24.621"><div class="line"><span id="lg-w31-0" class="w" data-t="24.051">PARA</span><span id="lg-w31-1" class="w" data-t="24.191">PODER</span><span id="lg-w31-2" class="w" data-t="24.431">DEIXAR</span></div></div>
+      <div id="lg-g32" class="grp" data-a="24.621" data-b="25.181"><div class="line"><span id="lg-w32-0" class="w" data-t="24.671">UMA</span><span id="lg-w32-1" class="w key" data-t="24.751">AVALIAÇÃO</span><span id="lg-w32-2" class="w" data-t="25.151">PARA</span></div></div>
+      <div id="lg-g33" class="grp" data-a="25.181" data-b="25.521"><div class="line"><span id="lg-w33-0" class="w" data-t="25.231">O</span><span id="lg-w33-1" class="w key" data-t="25.311">NEGÓCIO.</span></div></div>
+      <div id="lg-g34" class="grp" data-a="25.521" data-b="26.461"><div class="line"><span id="lg-w34-0" class="w" data-t="25.571">ENTÃO</span><span id="lg-w34-1" class="w" data-t="25.791">PENSA</span><span id="lg-w34-2" class="w" data-t="26.111">COMIGO,</span></div></div>
+      <div id="lg-g35" class="grp" data-a="26.461" data-b="27.581"><div class="line"><span id="lg-w35-0" class="w" data-t="26.511">QUANTAS</span><span id="lg-w35-1" class="w key" data-t="26.831">BARBEARIAS,</span></div></div>
+      <div id="lg-g36" class="grp" data-a="27.581" data-b="28.461"><div class="line"><span id="lg-w36-0" class="w" data-t="27.631">QUANTOS</span><span id="lg-w36-1" class="w" data-t="27.871">COMÉRCIOS</span><span id="lg-w36-2" class="w" data-t="28.351">NÃO</span></div></div>
+      <div id="lg-g37" class="grp" data-a="28.461" data-b="29.021"><div class="line"><span id="lg-w37-0" class="w" data-t="28.511">TEM</span><span id="lg-w37-1" class="w" data-t="28.671">NA</span><span id="lg-w37-2" class="w" data-t="28.831">SUA</span></div></div>
+      <div id="lg-g38" class="grp" data-a="29.021" data-b="29.981"><div class="line"><span id="lg-w38-0" class="w" data-t="29.071">CIDADE</span><span id="lg-w38-1" class="w" data-t="29.311">QUE</span><span id="lg-w38-2" class="w" data-t="29.711">TALVEZ</span></div></div>
+      <div id="lg-g39" class="grp" data-a="29.981" data-b="30.941"><div class="line"><span id="lg-w39-0" class="w" data-t="30.031">HOJE</span><span id="lg-w39-1" class="w" data-t="30.351">PRECISEM</span><span id="lg-w39-2" class="w" data-t="30.751">DE</span></div></div>
+      <div id="lg-g40" class="grp" data-a="30.941" data-b="31.981"><div class="line"><span id="lg-w40-0" class="w key" data-t="30.991">AVALIAÇÕES</span><span id="lg-w40-1" class="w" data-t="31.631">PARA</span><span id="lg-w40-2" class="w" data-t="31.791">PODER</span></div></div>
+      <div id="lg-g41" class="grp" data-a="31.981" data-b="32.941"><div class="line"><span id="lg-w41-0" class="w" data-t="32.031">AUMENTAR</span><span id="lg-w41-1" class="w" data-t="32.431">A</span><span id="lg-w41-2" class="w" data-t="32.511">PRESENÇA</span></div></div>
+      <div id="lg-g42" class="grp" data-a="32.941" data-b="33.729"><div class="line"><span id="lg-w42-0" class="w" data-t="32.991">NA</span><span id="lg-w42-1" class="w key" data-t="33.151">INTERNET?</span></div></div>
+      <div id="lg-g43" class="grp" data-a="33.729" data-b="33.839"><div class="line"><span id="lg-w43-0" class="w" data-t="33.779">TÁ.</span></div></div>
+      <div id="lg-g44" class="grp" data-a="33.839" data-b="34.699"><div class="line"><span id="lg-w44-0" class="w" data-t="33.889">ESSA</span><span id="lg-w44-1" class="w" data-t="34.189">DAQUI</span><span id="lg-w44-2" class="w" data-t="34.589">VOCÊ</span></div></div>
+      <div id="lg-g45" class="grp" data-a="34.699" data-b="35.899"><div class="line"><span id="lg-w45-0" class="w" data-t="34.749">PODE</span><span id="lg-w45-1" class="w" data-t="34.989">COMPRAR</span><span id="lg-w45-2" class="w" data-t="35.389">DIRETAMENTE</span></div></div>
+      <div id="lg-g46" class="grp" data-a="35.899" data-b="36.939"><div class="line"><span id="lg-w46-0" class="w" data-t="35.949">DE</span><span id="lg-w46-1" class="w" data-t="36.109">UM</span><span id="lg-w46-2" class="w key" data-t="36.189">FORNECEDOR,</span></div></div>
+      <div id="lg-g47" class="grp" data-a="36.939" data-b="37.259"><div class="line"><span id="lg-w47-0" class="w" data-t="36.989">TÁ?</span></div></div>
+      <div id="lg-g48" class="grp" data-a="37.259" data-b="37.979"><div class="line"><span id="lg-w48-0" class="w" data-t="37.309">E</span><span id="lg-w48-1" class="w" data-t="37.549">VOCÊ,</span></div></div>
+      <div id="lg-g49" class="grp" data-a="37.979" data-b="38.779"><div class="line"><span id="lg-w49-0" class="w" data-t="38.029">UM</span><span id="lg-w49-1" class="w" data-t="38.269">CUSTO,</span></div></div>
+      <div id="lg-g50" class="grp" data-a="38.779" data-b="39.579"><div class="line"><span id="lg-w50-0" class="w" data-t="38.829">VOCÊ</span><span id="lg-w50-1" class="w" data-t="39.069">PODE</span><span id="lg-w50-2" class="w" data-t="39.309">TER</span></div></div>
+      <div id="lg-g51" class="grp" data-a="39.579" data-b="40.274"><div class="line"><span id="lg-w51-0" class="w" data-t="39.629">UM</span><span id="lg-w51-1" class="w key" data-t="39.789">LUCRO.</span></div></div>
+      <div id="lg-g52" class="grp" data-a="40.274" data-b="41.154"><div class="line"><span id="lg-w52-0" class="w" data-t="40.324">MUITO</span><span id="lg-w52-1" class="w" data-t="40.724">GRANDE</span><span id="lg-w52-2" class="w" data-t="41.044">COM</span></div></div>
+      <div id="lg-g53" class="grp" data-a="41.154" data-b="41.954"><div class="line"><span id="lg-w53-0" class="w" data-t="41.204">ESSAS</span><span id="lg-w53-1" class="w key" data-t="41.444">PLAQUINHAS.</span></div></div>
+      <div id="lg-g54" class="grp" data-a="41.954" data-b="42.274"><div class="line"><span id="lg-w54-0" class="w" data-t="42.004">POR</span><span id="lg-w54-1" class="w" data-t="42.084">EXEMPLO,</span></div></div>
+      <div id="lg-g55" class="grp" data-a="42.274" data-b="42.958"><div class="line"><span id="lg-w55-0" class="w" data-t="42.324">VOCÊ</span><span id="lg-w55-1" class="w" data-t="42.484">PODE</span><span id="lg-w55-2" class="w" data-t="42.724">COMPRAR.</span></div></div>
+      <div id="lg-g56" class="grp" data-a="42.958" data-b="43.978"><div class="line"><span id="lg-w56-0" class="w" data-t="43.008">POR</span><span id="lg-w56-1" class="w money" data-t="43.228">R$20,</span></div></div>
+      <div id="lg-g57" class="grp" data-a="43.978" data-b="45.178"><div class="line"><span id="lg-w57-0" class="w" data-t="44.028">DEPENDENDO</span><span id="lg-w57-1" class="w" data-t="44.748">DA</span><span id="lg-w57-2" class="w" data-t="44.908">QUANTIDADE</span></div></div>
+      <div id="lg-g58" class="grp" data-a="45.178" data-b="45.658"><div class="line"><span id="lg-w58-0" class="w" data-t="45.228">QUE</span><span id="lg-w58-1" class="w" data-t="45.388">VOCÊ</span><span id="lg-w58-2" class="w" data-t="45.548">FOR</span></div></div>
+      <div id="lg-g59" class="grp" data-a="45.658" data-b="45.978"><div class="line"><span id="lg-w59-0" class="w" data-t="45.708">COMPRAR,</span></div></div>
+      <div id="lg-g60" class="grp" data-a="45.978" data-b="46.538"><div class="line"><span id="lg-w60-0" class="w" data-t="46.028">VOCÊ</span><span id="lg-w60-1" class="w" data-t="46.188">CONSEGUE</span><span id="lg-w60-2" class="w" data-t="46.508">UM</span></div></div>
+      <div id="lg-g61" class="grp" data-a="46.538" data-b="46.805"><div class="line"><span id="lg-w61-0" class="w" data-t="46.588">DESCONTO.</span></div></div>
+      <div id="lg-g62" class="grp" data-a="46.805" data-b="47.505"><div class="line"><span id="lg-w62-0" class="w" data-t="46.855">E</span><span id="lg-w62-1" class="w" data-t="46.995">VENDER</span><span id="lg-w62-2" class="w" data-t="47.395">POR</span></div></div>
+      <div id="lg-g63" class="grp" data-a="47.505" data-b="47.985"><div class="line"><span id="lg-w63-0" class="w money" data-t="47.555">R$70,</span></div></div>
+      <div id="lg-g64" class="grp" data-a="47.985" data-b="48.465"><div class="line"><span id="lg-w64-0" class="w money" data-t="48.035">R$80,</span></div></div>
+      <div id="lg-g65" class="grp" data-a="48.465" data-b="49.025"><div class="line"><span id="lg-w65-0" class="w money" data-t="48.515">R$90.</span></div></div>
+      <div id="lg-g66" class="grp" data-a="49.025" data-b="49.665"><div class="line"><span id="lg-w66-0" class="w" data-t="49.075">TEM</span><span id="lg-w66-1" class="w" data-t="49.235">GENTE</span><span id="lg-w66-2" class="w" data-t="49.395">VENDENDO</span></div></div>
+      <div id="lg-g67" class="grp" data-a="49.665" data-b="50.305"><div class="line"><span id="lg-w67-0" class="w" data-t="49.715">ISSO</span><span id="lg-w67-1" class="w" data-t="49.875">DAQUI</span><span id="lg-w67-2" class="w" data-t="50.195">POR</span></div></div>
+      <div id="lg-g68" class="grp" data-a="50.305" data-b="51.223"><div class="line"><span id="lg-w68-0" class="w money" data-t="50.355">R$90.</span></div></div>
+      <div id="lg-g69" class="grp" data-a="51.223" data-b="51.843"><div class="line"><span id="lg-w69-0" class="w" data-t="51.273">NÃO</span><span id="lg-w69-1" class="w" data-t="51.413">TÔ</span><span id="lg-w69-2" class="w" data-t="51.653">DIZENDO</span></div></div>
+      <div id="lg-g70" class="grp" data-a="51.843" data-b="52.483"><div class="line"><span id="lg-w70-0" class="w" data-t="51.893">QUE</span><span id="lg-w70-1" class="w" data-t="52.053">É</span><span id="lg-w70-2" class="w" data-t="52.213">FÁCIL,</span></div></div>
+      <div id="lg-g71" class="grp" data-a="52.483" data-b="53.123"><div class="line"><span id="lg-w71-0" class="w" data-t="52.533">VOCÊ</span><span id="lg-w71-1" class="w" data-t="52.773">VAI</span><span id="lg-w71-2" class="w" data-t="52.853">PRECISAR</span></div></div>
+      <div id="lg-g72" class="grp" data-a="53.123" data-b="53.603"><div class="line"><span id="lg-w72-0" class="w" data-t="53.173">BOTAR</span><span id="lg-w72-1" class="w" data-t="53.413">A</span><span id="lg-w72-2" class="w" data-t="53.493">MÃO</span></div></div>
+      <div id="lg-g73" class="grp" data-a="53.603" data-b="54.083"><div class="line"><span id="lg-w73-0" class="w" data-t="53.653">NA</span><span id="lg-w73-1" class="w" data-t="53.813">MASSA,</span></div></div>
+      <div id="lg-g74" class="grp" data-a="54.083" data-b="54.643"><div class="line"><span id="lg-w74-0" class="w" data-t="54.133">MAS</span><span id="lg-w74-1" class="w" data-t="54.293">VOCÊ</span><span id="lg-w74-2" class="w" data-t="54.533">PODE</span></div></div>
+      <div id="lg-g75" class="grp" data-a="54.643" data-b="55.923"><div class="line"><span id="lg-w75-0" class="w" data-t="54.693">COMPRAR</span><span id="lg-w75-1" class="w" data-t="55.013">ESSAS</span><span id="lg-w75-2" class="w key" data-t="55.253">PLAQUINHAS</span></div></div>
+      <div id="lg-g76" class="grp" data-a="55.923" data-b="57.183"><div class="line"><span id="lg-w76-0" class="w" data-t="55.973">E</span><span id="lg-w76-1" class="w" data-t="56.053">REVENDER</span><span id="lg-w76-2" class="w" data-t="56.693">AMANHÃ.</span></div></div>
+      <div id="lg-g77" class="grp" data-a="57.183" data-b="58.203"><div class="line"><span id="lg-w77-0" class="w" data-t="57.233">PARA</span><span id="lg-w77-1" class="w" data-t="57.453">ALGUNS</span><span id="lg-w77-2" class="w" data-t="57.693">COMÉRCIOS</span></div></div>
+      <div id="lg-g78" class="grp" data-a="58.203" data-b="58.763"><div class="line"><span id="lg-w78-0" class="w" data-t="58.253">NA</span><span id="lg-w78-1" class="w" data-t="58.333">SUA</span><span id="lg-w78-2" class="w" data-t="58.493">CIDADE</span></div></div>
+      <div id="lg-g79" class="grp" data-a="58.763" data-b="59.643"><div class="line"><span id="lg-w79-0" class="w" data-t="58.813">E</span><span id="lg-w79-1" class="w" data-t="58.973">LEVANTAR</span><span id="lg-w79-2" class="w" data-t="59.453">MUITO</span></div></div>
+      <div id="lg-g80" class="grp" data-a="59.643" data-b="59.960"><div class="line"><span id="lg-w80-0" class="w key" data-t="59.693">DINHEIRO.</span></div></div>
+      <div id="lg-g81" class="grp" data-a="59.960" data-b="60.180"><div class="line"><span id="lg-w81-0" class="w" data-t="60.010">TÁ,</span></div></div>
+      <div id="lg-g82" class="grp" data-a="60.180" data-b="60.660"><div class="line"><span id="lg-w82-0" class="w" data-t="60.230">ISSO</span><span id="lg-w82-1" class="w" data-t="60.470">É</span><span id="lg-w82-2" class="w" data-t="60.630">O</span></div></div>
+      <div id="lg-g83" class="grp" data-a="60.660" data-b="61.060"><div class="line"><span id="lg-w83-0" class="w" data-t="60.710">QUE</span><span id="lg-w83-1" class="w" data-t="60.790">EU</span><span id="lg-w83-2" class="w" data-t="60.870">TENHO</span></div></div>
+      <div id="lg-g84" class="grp" data-a="61.060" data-b="61.700"><div class="line"><span id="lg-w84-0" class="w" data-t="61.110">FEITO</span><span id="lg-w84-1" class="w" data-t="61.350">NOS</span><span id="lg-w84-2" class="w" data-t="61.510">ÚLTIMOS</span></div></div>
+      <div id="lg-g85" class="grp" data-a="61.700" data-b="62.180"><div class="line"><span id="lg-w85-0" class="w key" data-t="61.750">DIAS</span><span id="lg-w85-1" class="w" data-t="61.990">E</span><span id="lg-w85-2" class="w" data-t="62.150">EU</span></div></div>
+      <div id="lg-g86" class="grp" data-a="62.180" data-b="62.980"><div class="line"><span id="lg-w86-0" class="w" data-t="62.230">JÁ</span><span id="lg-w86-1" class="w" data-t="62.390">CONSEGUI</span><span id="lg-w86-2" class="w" data-t="62.790">FAZER</span></div></div>
+      <div id="lg-g87" class="grp" data-a="62.980" data-b="63.700"><div class="line"><span id="lg-w87-0" class="w" data-t="63.030">MUITA</span><span id="lg-w87-1" class="w key" data-t="63.270">GRANA</span><span id="lg-w87-2" class="w" data-t="63.590">COM</span></div></div>
+      <div id="lg-g88" class="grp" data-a="63.700" data-b="63.860"><div class="line"><span id="lg-w88-0" class="w" data-t="63.750">ISSO.</span></div></div>
+      <div id="lg-g89" class="grp" data-a="63.860" data-b="64.180"><div class="line"><span id="lg-w89-0" class="w" data-t="63.910">SE</span><span id="lg-w89-1" class="w" data-t="64.070">EU</span><span id="lg-w89-2" class="w" data-t="64.150">NÃO</span></div></div>
+      <div id="lg-g90" class="grp" data-a="64.180" data-b="64.500"><div class="line"><span id="lg-w90-0" class="w" data-t="64.230">ME</span><span id="lg-w90-1" class="w" data-t="64.310">ENGANO,</span></div></div>
+      <div id="lg-g91" class="grp" data-a="64.500" data-b="64.820"><div class="line"><span id="lg-w91-0" class="w" data-t="64.550">EU</span><span id="lg-w91-1" class="w" data-t="64.630">ACHO</span><span id="lg-w91-2" class="w" data-t="64.710">QUE</span></div></div>
+      <div id="lg-g92" class="grp" data-a="64.820" data-b="65.460"><div class="line"><span id="lg-w92-0" class="w" data-t="64.870">EM</span><span id="lg-w92-1" class="w key" data-t="64.950">TRÊS</span><span id="lg-w92-2" class="w key" data-t="65.190">DIAS</span></div></div>
+      <div id="lg-g93" class="grp" data-a="65.460" data-b="66.340"><div class="line"><span id="lg-w93-0" class="w" data-t="65.510">EU</span><span id="lg-w93-1" class="w" data-t="65.590">CONSEGUI</span><span id="lg-w93-2" class="w" data-t="65.910">LEVANTAR</span></div></div>
+      <div id="lg-g94" class="grp" data-a="66.340" data-b="67.102"><div class="line"><span id="lg-w94-0" class="w money" data-t="66.390">R$500.</span></div></div>
+      <div id="lg-g95" class="grp" data-a="67.102" data-b="67.424"><div class="line"><span id="lg-w95-0" class="w" data-t="67.152">ENTÃO,</span></div></div>
+      <div id="lg-g96" class="grp" data-a="67.424" data-b="68.064"><div class="line"><span id="lg-w96-0" class="w" data-t="67.474">TÁ</span><span id="lg-w96-1" class="w" data-t="67.714">PRECISANDO</span><span id="lg-w96-2" class="w" data-t="68.034">DE</span></div></div>
+      <div id="lg-g97" class="grp" data-a="68.064" data-b="68.704"><div class="line"><span id="lg-w97-0" class="w" data-t="68.114">UMA</span><span id="lg-w97-1" class="w key" data-t="68.274">RENDA</span><span id="lg-w97-2" class="w key" data-t="68.514">EXTRA?</span></div></div>
+      <div id="lg-g98" class="grp" data-a="68.704" data-b="69.184"><div class="line"><span id="lg-w98-0" class="w" data-t="68.754">EU</span><span id="lg-w98-1" class="w" data-t="68.834">VOU</span><span id="lg-w98-2" class="w" data-t="68.994">TENTAR</span></div></div>
+      <div id="lg-g99" class="grp" data-a="69.184" data-b="69.984"><div class="line"><span id="lg-w99-0" class="w" data-t="69.234">DEIXAR</span><span id="lg-w99-1" class="w" data-t="69.474">O</span><span id="lg-w99-2" class="w key" data-t="69.554">FORNECEDOR</span></div></div>
+      <div id="lg-g100" class="grp" data-a="69.984" data-b="70.384"><div class="line"><span id="lg-w100-0" class="w" data-t="70.034">DE</span><span id="lg-w100-1" class="w" data-t="70.194">ONDE</span><span id="lg-w100-2" class="w" data-t="70.354">EU</span></div></div>
+      <div id="lg-g101" class="grp" data-a="70.384" data-b="71.184"><div class="line"><span id="lg-w101-0" class="w" data-t="70.434">CONSIGO</span><span id="lg-w101-1" class="w" data-t="70.754">COMPRAR</span><span id="lg-w101-2" class="w" data-t="71.074">ESSAS</span></div></div>
+      <div id="lg-g102" class="grp" data-a="71.184" data-b="71.984"><div class="line"><span id="lg-w102-0" class="w key" data-t="71.234">PLAQUINHAS</span><span id="lg-w102-1" class="w" data-t="71.714">EM</span><span id="lg-w102-2" class="w" data-t="71.794">ALGUM</span></div></div>
+      <div id="lg-g103" class="grp" data-a="71.984" data-b="72.464"><div class="line"><span id="lg-w103-0" class="w" data-t="72.034">LUGAR</span><span id="lg-w103-1" class="w" data-t="72.274">AQUI</span><span id="lg-w103-2" class="w" data-t="72.434">NA</span></div></div>
+      <div id="lg-g104" class="grp" data-a="72.464" data-b="72.800"><div class="line"><span id="lg-w104-0" class="w" data-t="72.514">TELA.</span></div></div>
+      <div id="lg-g105" class="grp" data-a="72.800" data-b="73.280"><div class="line"><span id="lg-w105-0" class="w" data-t="72.850">SE</span><span id="lg-w105-1" class="w" data-t="73.010">EU</span><span id="lg-w105-2" class="w" data-t="73.090">FOSSE</span></div></div>
+      <div id="lg-g106" class="grp" data-a="73.280" data-b="73.440"><div class="line"><span id="lg-w106-0" class="w" data-t="73.330">VOCÊ,</span></div></div>
+      <div id="lg-g107" class="grp" data-a="73.440" data-b="74.080"><div class="line"><span id="lg-w107-0" class="w" data-t="73.490">EU</span><span id="lg-w107-1" class="w" data-t="73.570">NÃO</span><span id="lg-w107-2" class="w" data-t="73.730">PERDIA</span></div></div>
+      <div id="lg-g108" class="grp" data-a="74.080" data-b="74.320"><div class="line"><span id="lg-w108-0" class="w" data-t="74.130">TEMPO,</span></div></div>
+      <div id="lg-g109" class="grp" data-a="74.320" data-b="74.800"><div class="line"><span id="lg-w109-0" class="w" data-t="74.370">ENTÃO</span><span id="lg-w109-1" class="w" data-t="74.610">JÁ</span><span id="lg-w109-2" class="w" data-t="74.770">ME</span></div></div>
+      <div id="lg-g110" class="grp" data-a="74.800" data-b="75.440"><div class="line"><span id="lg-w110-0" class="w key" data-t="74.850">SEGUE</span><span id="lg-w110-1" class="w" data-t="75.170">SE</span><span id="lg-w110-2" class="w" data-t="75.330">QUER</span></div></div>
+      <div id="lg-g111" class="grp" data-a="75.440" data-b="76.080"><div class="line"><span id="lg-w111-0" class="w" data-t="75.490">MAIS</span><span id="lg-w111-1" class="w" data-t="75.730">VÍDEOS</span><span id="lg-w111-2" class="w" data-t="75.970">COMO</span></div></div>
+      <div id="lg-g112" class="grp" data-a="76.080" data-b="76.210"><div class="line"><span id="lg-w112-0" class="w" data-t="76.130">ESSE.</span></div></div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var tl = gsap.timeline({ paused: true });
+      document.querySelectorAll("#root .grp").forEach(function (g) {
+        var a = +g.dataset.a, b = +g.dataset.b;
+        var din = Math.min(0.13, (b - a) * 0.4), dout = Math.min(0.08, (b - a) * 0.25);
+        tl.fromTo(g, { opacity: 0, scale: 0.86, y: 18 }, { opacity: 1, scale: 1, y: 0, duration: din, ease: "back.out(2.4)" }, a);
+        tl.to(g, { opacity: 0, duration: dout, ease: "power2.in" }, b - dout);
+        tl.set(g, { opacity: 0, visibility: "hidden" }, b);
+        g.querySelectorAll(".w").forEach(function (w) {
+          var t = Math.max(a, +w.dataset.t - 0.03);
+          var cor = w.classList.contains("money") ? "#2BE36B" : (w.classList.contains("key") ? "#FFE500" : "#FFFFFF");
+          var ativo = w.classList.contains("money") ? "#2BE36B" : "#FFE500";
+          tl.fromTo(w, { color: "#FFFFFF", scale: 1 }, { color: ativo, scale: 1.07, duration: 0.07, ease: "power2.out" }, t);
+          tl.to(w, { color: cor, scale: 1, duration: 0.16, ease: "power2.out" }, t + 0.16);
+        });
+      });
+      window.__timelines["legendas"] = tl;
+    })();
+  </script>
+</template>
