@@ -1,8 +1,8 @@
 // Edge Function: recebe o webhook da Cakto e registra a compra verificada.
-// A ativação dos 30 dias acontece quando a pessoa entra no app com o MESMO e-mail
-// (confirmado) — função public.claim_verified_purchase().
+// A liberação do acesso (vitalício) acontece quando a pessoa entra no app com o MESMO
+// e-mail (confirmado) — função public.claim_verified_purchase().
 //
-// STATUS: código pronto, NÃO implantado nem testado contra a Cakto real.
+// STATUS: implantado em 21/10/2026; ainda NÃO testado contra a Cakto real.
 // Deploy: supabase functions deploy cakto-webhook --no-verify-jwt
 // Secrets: supabase secrets set CAKTO_WEBHOOK_SECRET=... CAKTO_PRODUCT_ID=...
 import { createClient } from 'npm:@supabase/supabase-js@2';

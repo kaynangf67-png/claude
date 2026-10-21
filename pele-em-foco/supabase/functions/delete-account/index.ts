@@ -1,7 +1,7 @@
 // Edge Function: exclui a conta do usuário autenticado (auth.users) e, em cascata,
 // perfil, rotina, diário e acesso. Precisa da service_role, por isso roda no servidor.
 //
-// STATUS: código pronto, NÃO implantado nem testado.
+// STATUS: implantado em 21/10/2026; ainda NÃO testado pelo app real.
 // Deploy: supabase functions deploy delete-account   (com verificação de JWT, o padrão)
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
