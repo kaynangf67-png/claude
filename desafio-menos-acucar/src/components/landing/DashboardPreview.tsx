@@ -10,7 +10,7 @@ export function DashboardPreview() {
   const done = new Set([1, 2, 4, 5]);
   return (
     <figure className="relative mx-auto w-full max-w-[380px]">
-      <div className="rounded-[1.75rem] border border-line bg-paper p-2.5 shadow-raised">
+      <div className="rounded-[1.75rem] border border-line bg-paper p-2.5 text-left shadow-raised">
         <div className="overflow-hidden rounded-[1.25rem] border border-line/70 bg-paper" aria-hidden="true">
           <div className="flex items-center justify-between px-4 pt-4">
             <div>

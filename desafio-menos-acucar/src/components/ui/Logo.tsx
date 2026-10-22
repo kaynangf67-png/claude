@@ -17,7 +17,7 @@ export function Logo({ href = "/", className, compact }: { href?: string; classN
     <Link href={href} className={cn("inline-flex items-center gap-2.5 rounded-md", className)} aria-label="Desafio Menos Açúcar — página inicial">
       <LogoMark />
       {!compact && (
-        <span className="leading-none">
+        <span className="leading-none whitespace-nowrap">
           <span className="block text-[0.6875rem] font-semibold tracking-[0.14em] text-muted uppercase">Desafio</span>
           <span className="font-display block text-lg font-semibold tracking-tight text-forest">Menos Açúcar</span>
         </span>
