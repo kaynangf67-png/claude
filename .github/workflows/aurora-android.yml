@@ -109,6 +109,18 @@ jobs:
           working-directory: aurora
           script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
 
+      - name: Resumo das falhas instrumentadas
+        if: failure()
+        working-directory: aurora
+        run: |
+          python3 - <<'PY'
+          import glob, re, html
+          for f in glob.glob('app/build/outputs/androidTest-results/connected/**/*.xml', recursive=True):
+              s = open(f, encoding='utf-8').read()
+              for name, cls, msg in re.findall(r'<testcase name="([^"]+)" classname="([^"]+)"[^>]*>\s*<failure message="([^"]*)"', s):
+                  print(f"FALHOU {cls.split('.')[-1]}.{name}: {html.unescape(msg)[:1500]}")
+          PY
+
       - name: Publicar relatórios instrumentados
         if: always()
         uses: actions/upload-artifact@v4
