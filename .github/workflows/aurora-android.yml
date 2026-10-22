@@ -48,9 +48,15 @@ jobs:
       - name: Lint
         run: ./gradlew :app:lintDebug --stacktrace
 
-      - name: Esquemas do banco (registro no log)
+      - name: Esquema do banco versionado confere com o gerado
+        # O build regera app/schemas; qualquer diferença significa esquema alterado sem ser versionado.
         run: |
-          for f in $(find app/schemas -name '*.json' | sort); do echo "=== SCHEMA $f"; cat "$f"; echo; echo "=== END $f"; done
+          git status --short app/schemas
+          if ! git diff --ignore-all-space --exit-code app/schemas || [ -n "$(git status --porcelain app/schemas)" ]; then
+            for f in $(git status --porcelain app/schemas | awk '{print $2}'); do echo "=== GERADO $f"; cat "$f"; done
+            echo "::error::Esquema do Room diferente do versionado. Atualize app/schemas."
+            exit 1
+          fi
 
       - name: Publicar APK
         uses: actions/upload-artifact@v4
