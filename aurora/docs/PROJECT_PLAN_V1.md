@@ -1,4 +1,6 @@
-# Aurora — Plano do Projeto
+# Aurora — Plano do Projeto (v1, histórico)
+
+> Substituído por [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md). Mantido pelo registro do ambiente e das versões escolhidas.
 
 Assistente pessoal nativo para Android, em português do Brasil, para uso pessoal (1 usuário).
 Prioridades: confiabilidade, privacidade e custo operacional mínimo.

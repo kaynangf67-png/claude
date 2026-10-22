@@ -1,23 +1,28 @@
 # Aurora — Arquitetura
 
-## Visão geral
+> Este documento descreve o **estado atual** (commit `bd9a89b`) e, na última seção, a **arquitetura-alvo** da
+> especificação mestre. Plano de transição: [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md).
+
+## Visão geral (estado atual)
 
 ```
 aurora/
 ├── core/   build Gradle incluída (Kotlin/JVM puro, sem Android)
-│   ├── model/        Task, Reminder, Note, MemoryEntry, ConversationMessage, Recurrence
+│   ├── model/        Task, Reminder, Note, MemoryEntry, ConversationMessage, CalendarEvent, Recurrence
+│   ├── text/         PtText (normalização), PtBrFormat (datas, horas, recorrência em pt-BR)
 │   ├── time/         PtBrDateTimeParser, RecurrenceCalculator
-│   ├── intent/       LocalIntentParser (regras em pt-BR, sem rede)
+│   ├── intent/       LocalIntentParser + PendingRequest (esclarecimento/confirmação)
 │   ├── tools/        AssistantTool (tipado), ToolValidator, ToolCatalog (schemas para a IA)
 │   ├── repository/   interfaces de persistência e integrações (implementadas no app)
-│   ├── planning/     DailyPlanner (sugestões, nunca altera compromissos sozinho)
-│   ├── provider/     AssistantProvider (interface), AnthropicProvider, UsageBudget, preços
-│   └── orchestrator/ AssistantOrchestrator, ToolExecutor, ConversationState
+│   ├── planning/     AgendaBuilder, DailyPlanner (sugestões, nunca altera compromissos)
+│   ├── provider/     AssistantProvider, AnthropicProvider, ModelCatalog/ModelPrice, UsageLedger
+│   └── orchestrator/ AssistantOrchestrator, ToolExecutor, AssistantDependencies
 └── app/    módulo Android (Compose, Room, DataStore, AlarmManager, Speech, TTS)
-    ├── data/         Room (entidades, DAOs, migrações), repositórios, SettingsStore, SecretStore
-    ├── reminders/    AlarmReminderScheduler, ReminderReceiver, RescheduleReceiver, notificações
+    ├── AppContainer, AuroraApp, MainActivity
+    ├── data/         Room (entidades, DAOs), repositórios, SettingsStore, SecretStore, DataExporter
+    ├── reminders/    AlarmReminderScheduler, receivers, RescheduleWorker, Notifications
     ├── voice/        SpeechInput (SpeechRecognizer), SpeechOutput (TextToSpeech)
-    ├── system/       CalendarReader, AppLauncher, ShareHelper, PermissionStatus
+    ├── system/       AndroidCalendarSource, AndroidAppLauncher, AndroidCapabilities, AndroidConnectivity
     └── ui/           tema, navegação e telas (MVVM com ViewModel + StateFlow)
 ```
 
@@ -114,3 +119,59 @@ Opções a prototipar (M9):
 
 Fallbacks já implementáveis: atalho do launcher ("Falar com a Aurora"), atividade para `ACTION_ASSIST`,
 ação na notificação, bloco de Configurações Rápidas.
+
+## Arquitetura-alvo (especificação mestre)
+
+### Organização
+
+O `core` continua sendo o lugar de **todas as regras**. O `app` passa a se organizar por funcionalidade:
+
+```
+core/   model · text · time · intent · tools · orchestrator · provider · repository
+        + agenda (tarefas, compromissos, CommitmentChange)
+        + focus (objetivos, marcos, sessões, coaching, "Retomar o foco")
+        + knowledge (notas, livros, tags, ligações, busca, recuperação com referências)
+        + habits (frequência, consistência)
+        + reviews (briefing, revisão diária/semanal: fatos × interpretação)
+app/    data (Room v2+, migrações, DAOs, repositórios) · voice · androidintegration (alarmes, notificações,
+        calendário, compartilhar, atalhos, bloco rápido, widget) · settings
+        ui: home · focus · knowledge · projects · settings · conversation · shared components
+```
+
+Módulos Gradle separados por pilar só se o tempo de build justificar; por enquanto, pacotes bastam.
+
+### Os cinco pilares sobre um modelo único
+
+```
+                 ┌──────────── AssistantOrchestrator (voz e texto) ────────────┐
+                 │ intenções locais · ferramentas tipadas · validação · IA     │
+                 └──────┬──────────┬───────────┬───────────┬─────────┬─────────┘
+                        │          │           │           │         │
+                    Agenda      Foco       Caderno      Hábitos   Revisões
+                        │          │           │           │         │
+                        └──────────┴─── Repositórios (interfaces no core) ──┘
+                                              │
+                                     Room (um banco, FKs)
+```
+
+- Uma `KnowledgeNote` ligada a um `Project` é **um** registro, lido pelo Caderno e pela tela do projeto.
+- Criar tarefa a partir de nota grava `Task.sourceNoteId`; nunca automaticamente, sempre com confirmação.
+- O coaching e as revisões leem **somente** registros (`CommitmentChange`, `FocusSession`, `HabitCheckIn`,
+  status de tarefas). A IA recebe esses fatos já calculados e só interpreta.
+
+### Procedência das respostas
+
+Toda resposta do assistente passará a carregar a origem de cada afirmação:
+
+| Origem | Exemplo | Exibição |
+|---|---|---|
+| Registro local | "Você concluiu 4 tarefas esta semana" | com link para os registros |
+| Conversa atual | algo dito há pouco pelo usuário | sem marcação especial |
+| Sugestão da IA | "Que tal começar por 5 minutos?" | rotulada como sugestão |
+| Precisa de busca externa | pergunta factual fora dos registros | dito explicitamente |
+
+### Sessões de foco sem serviço em primeiro plano
+
+O timer é derivado de horários gravados (início, pausas, fim), não de um processo rodando. Um alarme agenda a
+notificação de fim. Assim o tempo continua correto se o Android encerrar o app, sem precisar de serviço de
+primeiro plano (que exige justificativa de tipo no Android 14+).

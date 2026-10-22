@@ -4,8 +4,8 @@ App nativo (Kotlin + Jetpack Compose) de assistente pessoal por voz, em portugu�
 Cuida de tarefas, lembretes, notas, memória e agenda **localmente**, e usa IA (Anthropic Claude) só quando você
 configura uma chave e o pedido não pode ser resolvido no aparelho.
 
-> Status: em desenvolvimento. Veja [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) e
-> [KNOWN_LIMITATIONS.md](KNOWN_LIMITATIONS.md) antes de confiar em qualquer recurso.
+> Status: em desenvolvimento. Veja [IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md) e
+> [KNOWN_LIMITATIONS.md](docs/KNOWN_LIMITATIONS.md) antes de confiar em qualquer recurso.
 
 ## O que ela faz
 
@@ -77,10 +77,10 @@ O app estima o gasto do mês e bloqueia novas chamadas ao atingir o limite (padr
 
 ## Estrutura
 
-Veja [ARCHITECTURE.md](ARCHITECTURE.md) e [PROJECT_PLAN.md](PROJECT_PLAN.md).
+Veja [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), [docs/PROJECT_AUDIT.md](docs/PROJECT_AUDIT.md) e [docs/IMPLEMENTATION_PLAN.md](docs/IMPLEMENTATION_PLAN.md).
 
 ## Limitações principais
 
-- A ativação por "Ei, Aurora" ainda **não existe** (estudo de viabilidade feito; ver KNOWN_LIMITATIONS.md).
+- A ativação por "Ei, Aurora" ainda **não existe** (estudo de viabilidade feito; ver docs/KNOWN_LIMITATIONS.md).
 - Nada foi testado ainda em aparelho físico.
 - Apenas APK de debug; não está pronto para a Play Store.
