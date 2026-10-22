@@ -118,11 +118,14 @@ jobs:
         working-directory: aurora
         run: |
           python3 - <<'PY'
-          import glob, re, html
-          for f in glob.glob('app/build/outputs/androidTest-results/connected/**/*.xml', recursive=True):
-              s = open(f, encoding='utf-8').read()
-              for name, cls, msg in re.findall(r'<testcase name="([^"]+)" classname="([^"]+)"[^>]*>\s*<failure message="([^"]*)"', s):
-                  print(f"FALHOU {cls.split('.')[-1]}.{name}: {html.unescape(msg)[:1500]}")
+          import glob, xml.etree.ElementTree as ET
+          files = glob.glob('app/build/outputs/androidTest-results/**/*.xml', recursive=True)
+          print("arquivos:", files)
+          for f in files:
+              for tc in ET.parse(f).getroot().iter('testcase'):
+                  for fail in list(tc.findall('failure')) + list(tc.findall('error')):
+                      text = (fail.get('message') or '') + '\n' + (fail.text or '')
+                      print(f"FALHOU {tc.get('classname')}.{tc.get('name')}:\n" + "\n".join(text.strip().splitlines()[:25]))
           PY
 
       - name: Publicar relatórios instrumentados
