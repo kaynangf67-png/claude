@@ -9,6 +9,7 @@ import br.dev.aurora.core.model.KnowledgeNote
 import br.dev.aurora.core.model.Project
 import br.dev.aurora.core.model.Task
 import br.dev.aurora.data.db.AuroraDatabase
+import br.dev.aurora.data.db.FtsQuery
 import br.dev.aurora.data.repo.RoomCommitmentChangeRepository
 import br.dev.aurora.data.repo.RoomNoteRepository
 import br.dev.aurora.data.repo.RoomProjectRepository
@@ -61,5 +62,8 @@ class RelationsTest {
         assertEquals(listOf(id), notes.search("habitos", 5).map { it.id })
         assertEquals(listOf(id), notes.search("consistencia", 5).map { it.id })
         assertEquals("hábitos pequenos", notes.get(id)!!.originalContent)
+        // Direto no índice FTS (sem a busca linear de reserva): acentos ignorados e prefixo funcionando.
+        assertEquals(listOf(id), db.notes().search(FtsQuery.build("hábito")!!, 5).map { it.id })
+        assertEquals(listOf(id), db.notes().search(FtsQuery.build("consist")!!, 5).map { it.id })
     }
 }
