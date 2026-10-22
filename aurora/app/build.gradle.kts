@@ -63,6 +63,10 @@ dependencies {
     implementation("br.dev.aurora:core")
 
     implementation(libs.kotlinx.coroutines.android)
+    // O APK de teste reaproveita as bibliotecas do app; sem isto, o room-testing roda com uma
+    // kotlinx-serialization mais antiga e falha com AbstractMethodError.
+    runtimeOnly(libs.kotlinx.serialization.core)
+    runtimeOnly(libs.kotlinx.serialization.json)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)

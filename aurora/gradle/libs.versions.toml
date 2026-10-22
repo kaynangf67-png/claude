@@ -3,6 +3,8 @@ agp = "9.4.0"
 kotlin = "2.3.21"
 ksp = "2.3.12"
 coroutines = "1.11.0"
+# Alinha a serialização usada por Navigation e Room (inclusive room-testing) numa versão só.
+serialization = "1.10.0"
 anthropic = "3.1.0"
 okhttp = "4.12.0" # mesma versão usada pelo SDK da Anthropic
 composeBom = "2026.09.00"
@@ -21,6 +23,8 @@ materialIcons = "1.7.8"
 [libraries]
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
+kotlinx-serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serialization-core", version.ref = "serialization" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 anthropic-java = { module = "com.anthropic:anthropic-java", version.ref = "anthropic" }
 okhttp-mockwebserver = { module = "com.squareup.okhttp3:mockwebserver", version.ref = "okhttp" }
