@@ -76,6 +76,21 @@ Registro honesto do que **não** funciona, do que **não foi verificado** e do p
 - As tabelas de objetivos, marcos, sessões de foco, hábitos, livros, tags e ligações **existem no banco, mas ainda
   não têm telas**. Isso é intencional: o esquema foi criado de uma vez para evitar várias migrações seguidas.
 - O tema claro e a nova navegação nunca foram vistos rodando; só compilam.
-- Tarefas criadas por voz ainda não recebem projeto nem duração estimada (só pelo editor).
+- Tarefas criadas por voz recebem projeto (se ele já existir), mas ainda não duração estimada.
 - Mudanças de status feitas pela tela de tarefas gravam histórico; mudanças diretas no banco por outros caminhos
   (nenhum hoje) não gravariam.
+
+## Fase 2 (tarefas, projetos, histórico)
+
+- **Projeto por voz só vincula projetos que já existem.** "No projeto Mudança" sem projeto com esse nome cria a
+  tarefa sem projeto e avisa. Criar projeto por voz não foi implementado de propósito (evita projetos duplicados
+  por erro de reconhecimento de fala).
+- O motivo é reconhecido só depois de "porque", "pois", "por causa de", "já que", "visto que" ou "motivo".
+  Um título de tarefa que contenha "pois" num comando de adiar/cancelar seria cortado ali.
+- Mudar o status para "Cancelada" pelo editor grava o histórico **sem motivo**; o motivo só é pedido pelo menu
+  "Cancelar tarefa…" ou por voz.
+- Pela IA, alterar o prazo com `update_task` grava "remarcada" sem motivo (não há ferramenta de adiamento
+  com motivo para a IA ainda).
+- "Tempo gasto" é só informado manualmente; não há cronômetro (Modo Foco é a Fase 4).
+- Notas aparecem no projeto, mas vinculá-las pela UI depende do Caderno (Fase 3).
+

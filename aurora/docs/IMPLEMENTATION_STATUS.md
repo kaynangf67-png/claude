@@ -2,14 +2,14 @@
 
 Legenda: ✅ verificado · 🟡 implementado, não verificado em execução · ⏳ pendente · ❌ não planejado agora
 
-Atualizado em 22/10/2026 (Fase 1 da especificação mestre).
+Atualizado em 22/10/2026 (Fase 2 da especificação mestre).
 
 ## Verificação
 
 | O quê | Como | Resultado |
 |---|---|---|
 | `core` compila | `./gradlew -p core test` (local) | ✅ |
-| Testes do `core` | 100 testes JUnit (parser, recorrência, fuso, orquestrador, validador, planejador, provedor) | ✅ 100/100 |
+| Testes do `core` | 124 testes JUnit (parser, recorrência, fuso, orquestrador, validador, planejador, provedor, filtros) | ✅ 124/124 |
 | `app` compila / APK de debug | GitHub Actions (`.github/workflows/aurora-android.yml`) | ✅ run #4 (commit b851667) |
 | Testes unitários do `app` (mapeadores, busca) | GitHub Actions | ✅ |
 | Android Lint (`lintDebug`) | GitHub Actions | ✅ sem erros |
@@ -72,3 +72,16 @@ válido por 90 dias. Ele **não foi instalado nem executado** em nenhum aparelho
 
 Não feito nesta fase (previsto em fases seguintes): telas de objetivos/sessões de foco/hábitos/livros, tags e
 ligações na UI, captura pelo menu Compartilhar, coaching, revisões.
+
+## Fase 2 — Tarefas, projetos e histórico de compromissos
+
+| Item | Status | Verificação |
+|---|---|---|
+| Tarefa + histórico gravados na mesma transação (`upsertWithChange`) | ✅ core · ⏳ emulador | `core`: falha simulada não altera a tarefa; `TaskTransactionTest` (emulador) força erro no INSERT do histórico e confere o rollback |
+| Cancelar tarefa (voz, IA e tela) sem apagar; confirmação obrigatória; motivo opcional | ✅ core · 🟡 UI | testes do parser e do orquestrador ("cancela a tarefa academia porque machuquei o joelho") |
+| Motivo do adiamento ("adia isso para sexta porque…") e status "Adiada" | ✅ core · 🟡 UI | testes do parser (motivo antes/depois da data, pendente até a data) e do orquestrador |
+| Projeto por voz/IA ("cria uma tarefa X no projeto Y", "move a tarefa X para o projeto Y", `list_tasks` por projeto) | ✅ core | projeto inexistente **não é criado**; o usuário é avisado |
+| Filtros por status, prioridade e projeto (`TaskFilter` no core) | ✅ core · 🟡 UI | `TaskFilterTest` |
+| Histórico factual no editor de tarefa; campo "tempo gasto" | 🟡 | compila; não visto rodando |
+| Projetos listam notas vinculadas | 🟡 | compila; notas ainda não podem ser vinculadas pela UI (Fase 3) |
+
