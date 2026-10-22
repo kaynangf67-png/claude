@@ -1,7 +1,13 @@
+import path from "node:path";
 import type { NextConfig } from "next";
+
+// O repositório tem outros projetos com package-lock.json na raiz; fixa a raiz neste app.
+const appRoot = path.resolve(__dirname);
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  turbopack: { root: appRoot },
+  outputFileTracingRoot: appRoot,
   poweredByHeader: false,
   async headers() {
     return [
