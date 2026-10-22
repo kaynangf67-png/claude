@@ -76,6 +76,7 @@ class LocalIntentParser(private val dateParser: PtBrDateTimeParser = PtBrDateTim
         }
         REMINDER.find(f)?.let { return reminder(u, it.range, now) }
         CREATE_TASK.find(f)?.let { return task(u, it.range, now) }
+        schedule(u, now)?.let { return it }
         SAVE_MEMORY.find(f)?.let { m ->
             // "lembra que amanhã às 10 tenho reunião" com horário é, na prática, um lembrete.
             val parsed = dateParser.parse(u.original, now)
@@ -175,9 +176,9 @@ class LocalIntentParser(private val dateParser: PtBrDateTimeParser = PtBrDateTim
         }
     }
 
-    private fun reminder(u: Utterance, trigger: IntRange, now: ZonedDateTime): LocalIntent {
+    private fun reminder(u: Utterance, trigger: IntRange, now: ZonedDateTime, extraSpans: List<IntRange> = emptyList()): LocalIntent {
         val parsed = dateParser.parse(u.original, now)
-        val title = cleanTitle(PtText.removeSpans(u.original, parsed.spans + listOf(trigger)))
+        val title = cleanTitle(PtText.removeSpans(u.original, parsed.spans + listOf(trigger) + extraSpans))
             ?.let(PtText::capitalizeFirst)
         return when (val r = dateParser.resolve(parsed, now)) {
             is WhenResolution.Resolved -> if (title == null) {
@@ -199,6 +200,32 @@ class LocalIntentParser(private val dateParser: PtBrDateTimeParser = PtBrDateTim
                 PendingRequest.ReminderNeedsWhen(title ?: "Lembrete", parsed.recurrence, null),
             )
         }
+    }
+
+    /**
+     * "agende uma reunião às 2:30", "marca dentista sexta às 10", "adiciona na agenda buscar na escola daqui 5 horas".
+     * Vira lembrete (aparece na agenda e notifica). Só vale com verbo de criação no início E (horário ou palavra
+     * de agenda), para não capturar "cria uma nota" nem "marca como feita".
+     */
+    private fun schedule(u: Utterance, now: ZonedDateTime): LocalIntent? {
+        val verb = SCHEDULE_VERB.find(u.folded) ?: return null
+        if (NOT_SCHEDULE.containsMatchIn(u.folded)) return null
+        val parsed = dateParser.parse(u.original, now)
+        val hasWhen = parsed.time != null || parsed.relative != null || parsed.date != null
+        if (!hasWhen && !AGENDA_WORD.containsMatchIn(u.folded)) return null
+        // "uma agenda", "no lembrete", "na minha agenda", "um compromisso" não fazem parte do assunto.
+        val filler = SCHEDULE_FILLER.findAll(u.folded).map { it.range }.toList() +
+            // Artigo logo após o verbo: "agende uma reunião" → "Reunião".
+            listOfNotNull(Regex("^\\s*(?:um|uma)\\s").find(u.folded.substring(verb.range.last + 1))?.let {
+                (verb.range.last + 1 + it.range.first)..(verb.range.last + 1 + it.range.last)
+            })
+        val title = cleanTitle(PtText.removeSpans(u.original, parsed.spans + listOf(verb.range) + filler))
+        // "agenda de amanhã" é pergunta (substantivo), não pedido de agendar.
+        if (title == null && verb.value.trim() == "agenda") return null
+        if (title == null && !hasWhen) {
+            return LocalIntent.Reply("O que devo agendar e para quando? Por exemplo: \"agenda reunião amanhã às 15h\".")
+        }
+        return reminder(u, verb.range, now, filler)
     }
 
     private fun task(u: Utterance, trigger: IntRange, now: ZonedDateTime): LocalIntent {
@@ -330,7 +357,7 @@ class LocalIntentParser(private val dateParser: PtBrDateTimeParser = PtBrDateTim
                 "(?:\\s+(?:a\\s+|uma\\s+|essa\\s+|esta\\s+|ai\\s+|aqui\\s+)?(?:ideia|nota|isso|isto|aqui|ai))?\\b\\s*:?",
         )
         private val CREATE_TASK = Regex(
-            "$START(?:(?:cri[ae]r?|adicion[ae]r?|coloc[ae]r?|marc[ae]r?|bot[ae]r?|inclu[ia]r?|cadastr[ae]r?|anot[ae]r?)\\s+" +
+            "$START(?:(?:cri[ae]r?|adicion[ae]r?|(?:coloc(?:a|ar)|coloque)|(?:marc(?:a|ar)|marque)|bot[ae]r?|inclu[ia]r?|cadastr[ae]r?|anot[ae]r?)\\s+" +
                 "(?:uma\\s+)?(?:nova\\s+)?tarefa(?:\\s+recorrente)?|nova\\s+tarefa(?:\\s+recorrente)?|tarefa(?:\\s+recorrente)?\\s*:)\\b\\s*:?",
         )
         private val LIST_REMINDERS = Regex("\\b(?:quais|qual|lista|listar|mostr[ae]|ver|meus|tenho)\\b.*\\blembretes\\b|^lembretes$")
@@ -342,27 +369,36 @@ class LocalIntentParser(private val dateParser: PtBrDateTimeParser = PtBrDateTim
             "\\b(?:agenda|compromissos?|o que (?:eu )?tenho (?:hoje|amanha|pra hoje|para hoje|pra amanha|para amanha)|como (?:esta|e|vai ser) (?:o )?meu dia|resumo do dia)\\b",
         )
         private val POSTPONE = Regex(
-            "$START(?:adi[ae]r?|adiar|empurr[ae]r?|transfer[ei]r?|remarc[ae]r?|reagend[ae]r?)\\b",
+            "$START(?:adi[ae]r?|adiar|empurr[ae]r?|transfer[ei]r?|(?:remarc(?:a|ar)|remarque)|reagend[ae]r?)\\b",
         )
         private val COMPLETE = Regex(
-            "$START(?:conclu[ia]r?|conclui|finaliz[ae]r?|termin(?:ei|ar|a|e)|complet[ae]r?|risc[ae]r?|" +
-                "marc[ae]r?\\s+(?:a\\s+tarefa\\s+.*\\s+)?como\\s+(?:feit[ao]|conclu[ií]d[ao])|ja\\s+fiz)\\b",
+            "$START(?:conclu[ia]r?|conclui|finaliz[ae]r?|termin(?:ei|ar|a|e)|complet[ae]r?|(?:risc(?:a|ar)|risque)|" +
+                "(?:marc(?:a|ar)|marque)\\s+(?:a\\s+tarefa\\s+.*\\s+)?como\\s+(?:feit[ao]|conclu[ií]d[ao])|ja\\s+fiz)\\b",
         )
         private val CANCEL_TASK = Regex(
             "$START(?:cancel[ae]r?|desist[aei]r?\\s+d[ae])\\s+(?:a\\s+|essa\\s+|esta\\s+)?tarefa\\b",
         )
         private val MOVE_TO_PROJECT = Regex(
-            "$START(?:mov[ae]r?|coloc[ae]r?|vincul[ae]r?|pass[ae]r?|bot[ae]r?)\\s+(?:a|essa|esta)\\s+tarefa\\s+(.+?)\\s+(?:para o|pra o|pro|no|ao|para)\\s+projeto\\s+(.+)$",
+            "$START(?:mov[ae]r?|(?:coloc(?:a|ar)|coloque)|vincul[ae]r?|pass[ae]r?|bot[ae]r?)\\s+(?:a|essa|esta)\\s+tarefa\\s+(.+?)\\s+(?:para o|pra o|pro|no|ao|para)\\s+projeto\\s+(.+)$",
         )
         private val PROJECT_CLAUSE = Regex("\\s+(?:no|do|para o|pro|ao|pra o)\\s+projeto\\s+(\\S.*)$")
         private val REASON = Regex("(?:\\s*,\\s*|\\s+)(?:porque|pois|por causa d[eoa]s?|ja que|visto que|motivo:?)\\s+(\\S.*)$")
-        private val DELETE_TASK = Regex("$START(?:apag[ae]r?|exclu[ia]r?|delet[ae]r?|remov[ae]r?)\\s+(?:a\\s+|essa\\s+)?tarefa\\b")
+        private val SCHEDULE_VERB = Regex(
+            "$START(?:agend[ae]r?|(?:marc(?:a|ar)|marque)|adicion[ae]r?|(?:coloc(?:a|ar)|coloque)|bot[ae]r?|inclu[ia]r?|program[ae]r?|cri[ae]r?)\\b",
+        )
+        private val NOT_SCHEDULE = Regex("\\b(?:nota|ideia|tarefa|como feit[ao]|como conclu)")
+        private val AGENDA_WORD = Regex("\\b(?:agenda|compromisso|evento|reuniao|consulta|calendario)\\b")
+        private val SCHEDULE_FILLER = Regex(
+            "\\b(?:(?:n|d)?(?:a|o)s?\\s+|em\\s+|para\\s+(?:a|o)\\s+|uma?\\s+|um\\s+)?(?:minha\\s+|meu\\s+)?" +
+                "(?:agenda|lembretes?|compromisso|evento|calendario)\\b",
+        )
+        private val DELETE_TASK = Regex("$START(?:(?:apag(?:a|ar)|apague)|exclu[ia]r?|delet[ae]r?|remov[ae]r?)\\s+(?:a\\s+|essa\\s+)?tarefa\\b")
         private val CANCEL_REMINDER = Regex(
-            "$START(?:cancel[ae]r?|apag[ae]r?|exclu[ia]r?|desativ[ae]r?|remov[ae]r?|delet[ae]r?)\\s+(?:o\\s+|esse\\s+|este\\s+)?lembrete\\b",
+            "$START(?:cancel[ae]r?|(?:apag(?:a|ar)|apague)|exclu[ia]r?|desativ[ae]r?|remov[ae]r?|delet[ae]r?)\\s+(?:o\\s+|esse\\s+|este\\s+)?lembrete\\b",
         )
         private val SEARCH_NOTES = Regex(
             "(?:o que (?:eu )?anotei (?:sobre|de)|procur[ae]r?\\s+(?:nas\\s+)?(?:minhas\\s+)?notas(?:\\s+(?:por|sobre|de))?|" +
-                "busc[ae]r?\\s+(?:nas\\s+)?(?:minhas\\s+)?notas(?:\\s+(?:por|sobre|de))?)\\b",
+                "(?:busc(?:a|ar)|busque)\\s+(?:nas\\s+)?(?:minhas\\s+)?notas(?:\\s+(?:por|sobre|de))?)\\b",
         )
         private val SEARCH_MEMORY = Regex("(?:o que (?:voce )?(?:sabe|lembra) (?:sobre (?:mim|isso)|de mim)|o que voce sabe sobre|do que voce lembra(?: sobre)?)\\b")
         private val OPEN_APP = Regex("$START(?:abr[ae]|abrir|inici[ae]r?|execut[ae]r?)\\s+(?:o\\s+|a\\s+)?(?:app\\s+|aplicativo\\s+)?(?:do\\s+|da\\s+)?")

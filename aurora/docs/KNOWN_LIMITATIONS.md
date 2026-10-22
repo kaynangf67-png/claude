@@ -94,3 +94,10 @@ Registro honesto do que **não** funciona, do que **não foi verificado** e do p
 - "Tempo gasto" é só informado manualmente; não há cronômetro (Modo Foco é a Fase 4).
 - Notas aparecem no projeto, mas vinculá-las pela UI depende do Caderno (Fase 3).
 
+## "Agendar" (após o primeiro teste em aparelho)
+
+- "Agende/marque/adicione na agenda …" cria um **lembrete da Aurora** (aparece na agenda e notifica), não um
+  evento no Google Agenda. Criar eventos no calendário do aparelho não está implementado.
+- "2:30" sem "da tarde/da manhã" é resolvido para o próximo horário possível (às 10:55, vira 14:30) e a resposta
+  diz o horário escolhido. Para madrugada, diga "02:30" ou "duas e meia da manhã".
+

@@ -9,7 +9,7 @@ Atualizado em 22/10/2026 (Fase 2 da especificação mestre).
 | O quê | Como | Resultado |
 |---|---|---|
 | `core` compila | `./gradlew -p core test` (local) | ✅ |
-| Testes do `core` | 124 testes JUnit (parser, recorrência, fuso, orquestrador, validador, planejador, provedor, filtros) | ✅ 124/124 |
+| Testes do `core` | 131 testes JUnit (parser, recorrência, fuso, orquestrador, validador, planejador, provedor, filtros, frases reais) | ✅ 131/131 |
 | `app` compila / APK de debug | GitHub Actions (`.github/workflows/aurora-android.yml`) | ✅ run #4 (commit b851667) |
 | Testes unitários do `app` (mapeadores, busca) | GitHub Actions | ✅ |
 | Android Lint (`lintDebug`) | GitHub Actions | ✅ sem erros |
@@ -86,4 +86,23 @@ CI run #21 (commit a77f5b8) verde: core, testes unitários do app, APK, lint, es
 | Filtros por status, prioridade e projeto (`TaskFilter` no core) | ✅ core · 🟡 UI | `TaskFilterTest` |
 | Histórico factual no editor de tarefa; campo "tempo gasto" | 🟡 | compila; não visto rodando |
 | Projetos listam notas vinculadas | 🟡 | compila; notas ainda não podem ser vinculadas pela UI (Fase 3) |
+
+## Primeiro teste em aparelho real (22/10/2026)
+
+Feito pelo usuário com o APK da run #21, tema escuro, sem chave de IA.
+
+| O quê | Resultado |
+|---|---|
+| App abre, conversa, tema escuro | ✅ visto em print |
+| Reconhecimento de voz (transcrição pt-BR) | ✅ |
+| Fala da resposta (TTS) | ✅ ("Falando…" / "Parar fala") |
+| "tudo bem?" / "quero ver sua agenda de hoje" | ✅ |
+| "agende uma reunião para as 2:30" | ❌ → corrigido (lembrete às 14:30, horário dito na resposta) |
+| "Marque uma agenda no lembrete para daqui 5 horas buscar na escola" | ❌ mostrou a agenda → corrigido (lembrete "Buscar na escola") |
+| "adicione na agenda" | ❌ mostrou a agenda → corrigido (pergunta o quê e quando) |
+
+Causas: verbos de agendar não reconhecidos; qualquer frase com "agenda" virava consulta; "2:30" escrito pelo
+reconhecedor era lido como 02:30; verbos no subjuntivo ("marque", "coloque", "apague", "risque") não casavam.
+As frases estão em `RealDevicePhrasesTest`. Ainda não testados em aparelho: notificação de lembrete, tarefas,
+adiar/cancelar, histórico, tema claro.
 

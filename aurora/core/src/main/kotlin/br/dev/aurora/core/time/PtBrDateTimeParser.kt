@@ -208,7 +208,11 @@ class PtBrDateTimeParser {
             val period = m.group("p")
             // Formas escritas com dígitos ("9:30", "9h", "21h") seguem o relógio de 24 horas.
             val hourWord = m.group("hw")
-            val explicit24h = period == null && (index == 0 || hourWord == "h" || hourWord == "hs" || hourRaw >= 13 || hourRaw == 0)
+            // Exceção: "2:30" sem zero à esquerda é como o reconhecedor de voz escreve "duas e meia" — é ambíguo
+            // (02:30 ou 14:30) e segue a mesma regra de "às duas e meia". "02:30" continua sendo 02:30.
+            val spokenColon = index == 0 && m.value.contains(':') && !m.group("h")!!.startsWith("0")
+            val explicit24h = period == null && !(spokenColon && hourRaw in 1..11) &&
+                (index == 0 || hourWord == "h" || hourWord == "hs" || hourRaw >= 13 || hourRaw == 0)
             val resolved = if (explicit24h) hourRaw.takeIf { it in 0..23 } else applyPeriod(hourRaw, period)
             if (resolved == null || minute !in 0..59) continue
             periodAssumed = period == null && !explicit24h && hourRaw in 1..11
