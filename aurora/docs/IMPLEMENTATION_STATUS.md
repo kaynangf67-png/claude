@@ -59,7 +59,7 @@ válido por 90 dias. Ele **não foi instalado nem executado** em nenhum aparelho
 |---|---|---|
 | Esquema Room v1 versionado em `app/schemas` | ✅ | CI compara o esquema gerado com o versionado (falha se divergir) |
 | Esquema v2: objetivos, marcos, projetos, histórico de compromissos, sessões de foco, hábitos, livros, notas do Caderno, tags, ligações, FTS4 | ✅ | `2.json` conferido byte a byte (SHA-256) com o gerado pelo Room |
-| Migração automática 1→2 (status antigos → novos, notas reindexadas) | ver CI | `MigrationTest` no emulador: dados da v1 preservados, esquema validado, busca encontra notas antigas |
+| Migração automática 1→2 (status antigos → novos, notas reindexadas) | ✅ run #18 | `MigrationTest` no emulador: dados da v1 preservados, esquema validado, busca encontra notas antigas |
 | Chaves estrangeiras (SET NULL / CASCADE) | ✅ | `RelationsTest` no emulador |
 | Busca de texto completo sem acento | ✅ | `RelationsTest` consulta o índice FTS diretamente |
 | Tarefa com 5 status, duração estimada, projeto | 🟡 | compila; UI não testada em aparelho |
