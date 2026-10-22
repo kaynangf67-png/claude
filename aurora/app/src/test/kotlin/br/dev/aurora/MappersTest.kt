@@ -24,7 +24,7 @@ class MappersTest {
 
     @Test fun `tarefa ida e volta preserva todos os campos`() {
         val task = Task(
-            id = 7, title = "Academia", description = "perna", priority = Priority.HIGH, status = TaskStatus.PENDING,
+            id = 7, title = "Academia", description = "perna", priority = Priority.HIGH, status = TaskStatus.IN_PROGRESS, estimatedMinutes = 30, projectId = 4,
             dueAt = t0, dueAllDay = false, recurrence = Recurrence(Frequency.WEEKLY, 1, setOf(DayOfWeek.MONDAY, DayOfWeek.THURSDAY)),
             createdAt = t0, updatedAt = t0,
         )
@@ -40,7 +40,7 @@ class MappersTest {
         val e = TaskEntity(1, "x", "", "URGENTE", "???", null, false, "FREQ=NUNCA", 0, 0, null)
         val m = e.toModel()
         assertEquals(Priority.MEDIUM, m.priority)
-        assertEquals(TaskStatus.PENDING, m.status)
+        assertEquals(TaskStatus.TODO, m.status)
         assertNull(m.recurrence)
     }
 

@@ -1,9 +1,13 @@
 package br.dev.aurora.core.repository
 
 import br.dev.aurora.core.model.CalendarEvent
+import br.dev.aurora.core.model.CommitmentChange
 import br.dev.aurora.core.model.ConversationMessage
 import br.dev.aurora.core.model.MemoryEntry
-import br.dev.aurora.core.model.Note
+import br.dev.aurora.core.model.KnowledgeNote
+import br.dev.aurora.core.model.Milestone
+import br.dev.aurora.core.model.Objective
+import br.dev.aurora.core.model.Project
 import br.dev.aurora.core.model.Reminder
 import br.dev.aurora.core.model.Task
 import java.time.Instant
@@ -26,12 +30,36 @@ interface ReminderRepository {
     suspend fun delete(id: Long)
 }
 
+/** Notas do Caderno. A busca usa índice de texto completo no app. */
 interface NoteRepository {
-    fun observeAll(): Flow<List<Note>>
-    suspend fun get(id: Long): Note?
-    suspend fun search(query: String, limit: Int = 10): List<Note>
-    suspend fun upsert(note: Note): Long
+    fun observeAll(): Flow<List<KnowledgeNote>>
+    suspend fun get(id: Long): KnowledgeNote?
+    suspend fun search(query: String, limit: Int = 10): List<KnowledgeNote>
+    suspend fun upsert(note: KnowledgeNote): Long
     suspend fun delete(id: Long)
+}
+
+interface ProjectRepository {
+    fun observeAll(): Flow<List<Project>>
+    suspend fun get(id: Long): Project?
+    suspend fun upsert(project: Project): Long
+    suspend fun delete(id: Long)
+}
+
+interface ObjectiveRepository {
+    fun observeAll(): Flow<List<Objective>>
+    suspend fun get(id: Long): Objective?
+    suspend fun upsert(objective: Objective): Long
+    suspend fun delete(id: Long)
+    fun observeMilestones(objectiveId: Long): Flow<List<Milestone>>
+    suspend fun upsertMilestone(milestone: Milestone): Long
+    suspend fun deleteMilestone(id: Long)
+}
+
+/** Histórico factual de mudanças em compromissos (só inclusão; nunca editado). */
+interface CommitmentChangeRepository {
+    suspend fun record(change: CommitmentChange): Long
+    suspend fun forTask(taskId: Long): List<CommitmentChange>
 }
 
 interface MemoryRepository {

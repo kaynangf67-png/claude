@@ -95,7 +95,7 @@ class AgendaViewModel(private val c: AppContainer) : ViewModel() {
     fun buildPlan() {
         viewModelScope.launch {
             val day = state.value.days.firstOrNull { it.date == selected.value } ?: return@launch
-            val pending = c.tasks.getAll().filter { !it.isCompleted }
+            val pending = c.tasks.getAll().filter { it.isOpen }
             _plan.value = DailyPlanner().plan(day, pending, ZonedDateTime.now())
         }
     }

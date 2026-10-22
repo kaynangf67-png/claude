@@ -17,6 +17,8 @@ object DataExporter {
                 .put("dueAt", it.dueAt?.toString()).put("dueAllDay", it.dueAllDay)
                 .put("recurrence", it.recurrence?.toRule()).put("createdAt", it.createdAt.toString())
                 .put("updatedAt", it.updatedAt.toString()).put("completedAt", it.completedAt?.toString())
+                .put("estimatedMinutes", it.estimatedMinutes).put("actualMinutes", it.actualMinutes)
+                .put("projectId", it.projectId).put("objectiveId", it.objectiveId)
         }))
         root.put("reminders", JSONArray(c.reminders.getAll().map {
             JSONObject().put("id", it.id).put("title", it.title).put("details", it.details)
@@ -25,7 +27,9 @@ object DataExporter {
                 .put("updatedAt", it.updatedAt.toString()).put("lastFiredAt", it.lastFiredAt?.toString())
         }))
         root.put("notes", JSONArray(c.db.notes().getAll().map {
-            JSONObject().put("id", it.id).put("title", it.title).put("content", it.content)
+            JSONObject().put("id", it.id).put("title", it.title).put("originalContent", it.originalContent)
+                .put("editedContent", it.editedContent).put("type", it.type).put("processingStatus", it.processingStatus)
+                .put("source", it.source).put("sourceUrl", it.sourceUrl).put("projectId", it.projectId)
                 .put("createdAt", Instant.ofEpochMilli(it.createdAt).toString()).put("updatedAt", Instant.ofEpochMilli(it.updatedAt).toString())
         }))
         root.put("memory", JSONArray(c.memory.getAll().map {

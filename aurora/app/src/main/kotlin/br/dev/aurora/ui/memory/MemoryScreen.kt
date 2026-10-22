@@ -50,13 +50,13 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import br.dev.aurora.core.model.MemoryCategory
 import br.dev.aurora.core.model.MemoryEntry
-import br.dev.aurora.core.model.Note
+import br.dev.aurora.core.model.KnowledgeNote
 import br.dev.aurora.ui.appViewModel
 import br.dev.aurora.ui.components.ConfirmDialog
 import br.dev.aurora.ui.components.EmptyText
 
 private sealed interface Editing {
-    data class NoteEdit(val note: Note?) : Editing
+    data class NoteEdit(val note: KnowledgeNote?) : Editing
     data class MemoryEdit(val entry: MemoryEntry?) : Editing
 }
 
@@ -69,7 +69,7 @@ fun MemoryScreen(openNewNote: Boolean) {
     val memories by vm.memories.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var editing by remember { mutableStateOf<Editing?>(null) }
-    var deleteNote by remember { mutableStateOf<Note?>(null) }
+    var deleteNote by remember { mutableStateOf<KnowledgeNote?>(null) }
     var deleteMemory by remember { mutableStateOf<MemoryEntry?>(null) }
     var confirmClear by remember { mutableStateOf(false) }
     var openedNew by rememberSaveable { mutableStateOf(false) }
@@ -84,7 +84,7 @@ fun MemoryScreen(openNewNote: Boolean) {
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        topBar = { TopAppBar(title = { Text("Memória") }, colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)) },
+        topBar = { TopAppBar(title = { Text("Caderno") }, colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)) },
         floatingActionButton = {
             FloatingActionButton(onClick = { editing = if (tab == MemoryTab.NOTES) Editing.NoteEdit(null) else Editing.MemoryEdit(null) }) {
                 Icon(Icons.Filled.Add, if (tab == MemoryTab.NOTES) "Nova nota" else "Novo fato")
@@ -93,13 +93,13 @@ fun MemoryScreen(openNewNote: Boolean) {
     ) { padding ->
         LazyColumn(
             Modifier.fillMaxSize().padding(padding),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, bottom = 120.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(selected = tab == MemoryTab.NOTES, onClick = { vm.setTab(MemoryTab.NOTES) }, label = { Text("Notas") })
-                    FilterChip(selected = tab == MemoryTab.MEMORY, onClick = { vm.setTab(MemoryTab.MEMORY) }, label = { Text("Fatos e preferências") })
+                    FilterChip(selected = tab == MemoryTab.MEMORY, onClick = { vm.setTab(MemoryTab.MEMORY) }, label = { Text("Memória da Aurora") })
                 }
             }
             item {
@@ -176,7 +176,7 @@ fun MemoryScreen(openNewNote: Boolean) {
 }
 
 @Composable
-private fun NoteDialog(note: Note?, onDismiss: () -> Unit, onSave: (String, String) -> Unit) {
+private fun NoteDialog(note: KnowledgeNote?, onDismiss: () -> Unit, onSave: (String, String) -> Unit) {
     var title by remember { mutableStateOf(note?.title.orEmpty()) }
     var content by remember { mutableStateOf(note?.content.orEmpty()) }
     AlertDialog(
@@ -186,6 +186,13 @@ private fun NoteDialog(note: Note?, onDismiss: () -> Unit, onSave: (String, Stri
             Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedTextField(title, { title = it }, label = { Text("Título (opcional)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(content, { content = it }, label = { Text("Conteúdo") }, modifier = Modifier.fillMaxWidth().heightIn(min = 140.dp))
+                if (note != null) {
+                    Text(
+                        "O texto original fica guardado; aqui você edita uma versão sua.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         },
         confirmButton = { TextButton(onClick = { onSave(title, content) }, enabled = content.isNotBlank()) { Text("Salvar") } },

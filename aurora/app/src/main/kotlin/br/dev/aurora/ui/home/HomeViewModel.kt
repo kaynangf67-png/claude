@@ -5,7 +5,6 @@ import androidx.lifecycle.viewModelScope
 import br.dev.aurora.AppContainer
 import br.dev.aurora.core.model.CalendarEvent
 import br.dev.aurora.core.model.Task
-import br.dev.aurora.core.model.TaskStatus
 import br.dev.aurora.core.planning.AgendaBuilder
 import br.dev.aurora.core.planning.AgendaDay
 import br.dev.aurora.core.planning.ReminderOccurrence
@@ -63,7 +62,7 @@ class HomeViewModel(private val c: AppContainer) : ViewModel() {
             now = now,
             assistantName = settings.assistantName,
             today = day,
-            pendingTasks = tasks.filter { it.status == TaskStatus.PENDING }
+            pendingTasks = tasks.filter { it.isOpen }
                 .sortedWith(compareByDescending<Task> { AgendaBuilder.priorityWeight(it.priority) }.thenBy { it.dueAt ?: Instant.MAX })
                 .take(4),
             nextReminder = next,

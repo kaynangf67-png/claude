@@ -2,16 +2,24 @@ package br.dev.aurora.data.repo
 
 import br.dev.aurora.core.model.ConversationMessage
 import br.dev.aurora.core.model.MemoryEntry
-import br.dev.aurora.core.model.Note
+import br.dev.aurora.core.model.CommitmentChange
+import br.dev.aurora.core.model.KnowledgeNote
+import br.dev.aurora.core.model.Milestone
+import br.dev.aurora.core.model.Objective
+import br.dev.aurora.core.model.Project
 import br.dev.aurora.core.model.Reminder
 import br.dev.aurora.core.model.Task
+import br.dev.aurora.core.repository.CommitmentChangeRepository
 import br.dev.aurora.core.repository.ConversationRepository
 import br.dev.aurora.core.repository.MemoryRepository
 import br.dev.aurora.core.repository.NoteRepository
+import br.dev.aurora.core.repository.ObjectiveRepository
+import br.dev.aurora.core.repository.ProjectRepository
 import br.dev.aurora.core.repository.ReminderRepository
 import br.dev.aurora.core.repository.TaskRepository
 import br.dev.aurora.core.text.PtText
 import br.dev.aurora.data.db.AuroraDatabase
+import br.dev.aurora.data.db.FtsQuery
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -59,13 +67,44 @@ private val STOP_WORDS = setOf(
 )
 
 class RoomNoteRepository(private val db: AuroraDatabase) : NoteRepository {
-    override fun observeAll(): Flow<List<Note>> = db.notes().observeAll().map { l -> l.map { it.toModel() } }
+    override fun observeAll(): Flow<List<KnowledgeNote>> = db.notes().observeAll().map { l -> l.map { it.toModel() } }
     override suspend fun get(id: Long) = db.notes().get(id)?.toModel()
-    override suspend fun search(query: String, limit: Int): List<Note> =
-        db.notes().getAll().map { it.toModel() }.filter { matchesQuery(it.title + " " + it.content, query) }
+
+    /** Índice de texto completo; sem resultado (ou consulta inválida), cai na busca linear por palavras. */
+    override suspend fun search(query: String, limit: Int): List<KnowledgeNote> {
+        val fts = FtsQuery.build(query)?.let { m -> runCatching { db.notes().search(m, limit) }.getOrNull() }.orEmpty()
+        if (fts.isNotEmpty()) return fts.map { it.toModel() }
+        return db.notes().getAll().map { it.toModel() }
+            .filter { matchesQuery(it.title + " " + it.content, query) }
             .sortedByDescending { it.updatedAt }.take(limit)
-    override suspend fun upsert(note: Note) = upsertedId(note.id, db.notes().upsert(note.toEntity()))
+    }
+
+    override suspend fun upsert(note: KnowledgeNote) = upsertedId(note.id, db.notes().upsert(note.toEntity()))
     override suspend fun delete(id: Long) = db.notes().delete(id)
+}
+
+class RoomProjectRepository(private val db: AuroraDatabase) : ProjectRepository {
+    override fun observeAll(): Flow<List<Project>> = db.projects().observeAll().map { l -> l.map { it.toModel() } }
+    override suspend fun get(id: Long) = db.projects().get(id)?.toModel()
+    override suspend fun upsert(project: Project) = upsertedId(project.id, db.projects().upsert(project.toEntity()))
+    override suspend fun delete(id: Long) = db.projects().delete(id)
+}
+
+class RoomObjectiveRepository(private val db: AuroraDatabase) : ObjectiveRepository {
+    override fun observeAll(): Flow<List<Objective>> = db.objectives().observeAll().map { l -> l.map { it.toModel() } }
+    override suspend fun get(id: Long) = db.objectives().get(id)?.toModel()
+    override suspend fun upsert(objective: Objective) = upsertedId(objective.id, db.objectives().upsert(objective.toEntity()))
+    override suspend fun delete(id: Long) = db.objectives().delete(id)
+    override fun observeMilestones(objectiveId: Long): Flow<List<Milestone>> =
+        db.objectives().observeMilestones(objectiveId).map { l -> l.map { it.toModel() } }
+    override suspend fun upsertMilestone(milestone: Milestone) =
+        upsertedId(milestone.id, db.objectives().upsertMilestone(milestone.toEntity()))
+    override suspend fun deleteMilestone(id: Long) = db.objectives().deleteMilestone(id)
+}
+
+class RoomCommitmentChangeRepository(private val db: AuroraDatabase) : CommitmentChangeRepository {
+    override suspend fun record(change: CommitmentChange) = db.commitmentChanges().insert(change.toEntity())
+    override suspend fun forTask(taskId: Long) = db.commitmentChanges().forTask(taskId).map { it.toModel() }
 }
 
 class RoomMemoryRepository(private val db: AuroraDatabase) : MemoryRepository {

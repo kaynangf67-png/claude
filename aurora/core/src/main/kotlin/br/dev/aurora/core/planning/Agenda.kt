@@ -37,7 +37,7 @@ object AgendaBuilder {
         val end = date.plusDays(1).atStartOfDay(zone).toInstant()
         val today = now.atZone(zone).toLocalDate()
 
-        val pending = tasks.filter { !it.isCompleted }
+        val pending = tasks.filter { it.isOpen }
         val due = pending.filter { t -> t.dueAt?.let { dueDate(t, zone) == date } == true }
             .sortedWith(compareBy<Task>({ it.dueAllDay }, { it.dueAt }).thenByDescending { it.priority })
         // Atrasadas = pendentes com prazo em dia anterior a hoje (aparecem em hoje e em dias futuros).

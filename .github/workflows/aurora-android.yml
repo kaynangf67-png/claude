@@ -52,7 +52,11 @@ jobs:
         # O build regera app/schemas; qualquer diferença significa esquema alterado sem ser versionado.
         run: |
           novos=$(git ls-files --others --exclude-standard app/schemas)
-          for f in $novos; do echo "=== NÃO VERSIONADO $f"; cat "$f"; echo; done
+          # Versão compacta (uma linha) + SHA-256 para copiar e conferir o arquivo gerado.
+          for f in $novos $(git diff --name-only app/schemas); do
+            echo "=== GERADO $f"
+            python3 -c "import json,sys,hashlib;c=json.dumps(json.load(open(sys.argv[1])),separators=(',',':'),ensure_ascii=False);print('SHA256',hashlib.sha256(c.encode()).hexdigest());print(c)" "$f"
+          done
           if ! git diff --ignore-all-space --exit-code app/schemas || [ -n "$novos" ]; then
             echo "::error::Esquema do Room diferente do versionado. Atualize app/schemas."
             exit 1

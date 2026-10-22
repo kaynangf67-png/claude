@@ -1,7 +1,9 @@
 package br.dev.aurora.core.orchestrator
 
 import br.dev.aurora.core.model.MemoryEntry
-import br.dev.aurora.core.model.Note
+import br.dev.aurora.core.model.ChangeType
+import br.dev.aurora.core.model.CommitmentChange
+import br.dev.aurora.core.model.KnowledgeNote
 import br.dev.aurora.core.model.Reminder
 import br.dev.aurora.core.model.Task
 import br.dev.aurora.core.model.TaskStatus
@@ -11,6 +13,7 @@ import br.dev.aurora.core.planning.DailyPlanner
 import br.dev.aurora.core.repository.AppLaunchResult
 import br.dev.aurora.core.repository.AppLauncher
 import br.dev.aurora.core.repository.CalendarSource
+import br.dev.aurora.core.repository.CommitmentChangeRepository
 import br.dev.aurora.core.repository.DeviceCapabilities
 import br.dev.aurora.core.repository.MemoryRepository
 import br.dev.aurora.core.repository.NoteRepository
@@ -49,6 +52,8 @@ class AssistantDependencies(
     val calendar: CalendarSource,
     val apps: AppLauncher,
     val capabilities: DeviceCapabilities,
+    /** Histórico factual de mudanças (adiamentos, remarcações, conclusões). */
+    val commitments: CommitmentChangeRepository,
 )
 
 /** Executa ferramentas já validadas. Só reporta sucesso depois que a persistência foi concluída. */
@@ -127,6 +132,7 @@ class ToolExecutor(
         t.dueDateTime?.let { updated = updated.copy(dueAt = it.toInstant(), dueAllDay = false) }
         t.dueDate?.let { updated = updated.copy(dueAt = it.atStartOfDay(zone).toInstant(), dueAllDay = true) }
         deps.tasks.upsert(updated)
+        if (updated.dueAt != task.dueAt) record(task.id, ChangeType.RESCHEDULED, task.dueAt, updated.dueAt)
         return ToolOutcome(true, "Tarefa \"${updated.title}\" atualizada.", referenced = ItemPointer(ItemKind.TASK, task.id))
     }
 
@@ -142,10 +148,12 @@ class ToolExecutor(
             val zone = now().zone
             val next = RecurrenceCalculator.nextOccurrence(rule, due.atZone(zone).toLocalDateTime(), maxOf(due, instant), zone)
             deps.tasks.upsert(task.copy(dueAt = next, updatedAt = instant))
+            record(task.id, ChangeType.COMPLETED, due, next)
             val nextText = PtBrFormat.day(next.atZone(zone).toLocalDate(), now().toLocalDate())
             return ToolOutcome(true, "Feito! \"${task.title}\" concluída. A próxima é $nextText.", referenced = ItemPointer(ItemKind.TASK, task.id))
         }
-        deps.tasks.upsert(task.copy(status = TaskStatus.COMPLETED, completedAt = instant, updatedAt = instant))
+        deps.tasks.upsert(task.copy(status = TaskStatus.DONE, completedAt = instant, updatedAt = instant))
+        record(task.id, ChangeType.COMPLETED, task.dueAt, task.dueAt)
         return ToolOutcome(true, "Feito! Marquei \"${task.title}\" como concluída.", referenced = ItemPointer(ItemKind.TASK, task.id))
     }
 
@@ -160,12 +168,12 @@ class ToolExecutor(
 
     private suspend fun listTasks(t: AssistantTool.ListTasks): ToolOutcome {
         val zone = now().zone
-        val all = deps.tasks.getAll().filter { t.includeCompleted || !it.isCompleted }
+        val all = deps.tasks.getAll().filter { t.includeCompleted || it.isOpen }
         val selected = if (t.date != null) {
             val today = now().toLocalDate()
             all.filter { task ->
                 val d = AgendaBuilder.dueDate(task, zone)
-                d == t.date || (t.date == today && d != null && d < today && !task.isCompleted)
+                d == t.date || (t.date == today && d != null && d < today && task.isOpen)
             }
         } else {
             all
@@ -178,6 +186,10 @@ class ToolExecutor(
         val msg = "Você tem ${PtBrFormat.plural(selected.size, "tarefa", "tarefas")}$whenText: ${PtBrFormat.joinPt(names)}$extra."
         val forModel = selected.take(30).joinToString("\n") { "[id ${it.id}] ${describeTaskShort(it)}" + (dueText(it)?.let { d -> ", prazo $d" } ?: "") }
         return ToolOutcome(true, msg, forModel)
+    }
+
+    private suspend fun record(taskId: Long, type: ChangeType, from: java.time.Instant?, to: java.time.Instant?, reason: String? = null) {
+        deps.commitments.record(CommitmentChange(taskId = taskId, type = type, fromDueAt = from, toDueAt = to, reason = reason, createdAt = now().toInstant()))
     }
 
     // ---------- Lembretes ----------
@@ -286,6 +298,7 @@ class ToolExecutor(
                 }
                 val updated = task.copy(dueAt = dueAt, dueAllDay = allDay, updatedAt = now().toInstant())
                 deps.tasks.upsert(updated)
+                record(task.id, ChangeType.POSTPONED, task.dueAt, dueAt)
                 ToolOutcome(true, "Adiei \"${task.title}\" para ${dueText(updated)}.", referenced = ItemPointer(ItemKind.TASK, task.id))
             }
             ItemKind.REMINDER -> {
@@ -336,7 +349,7 @@ class ToolExecutor(
 
     private suspend fun dailyPlan(date: LocalDate): ToolOutcome {
         val day = buildAgenda(date)
-        val pending = deps.tasks.getAll().filter { !it.isCompleted }
+        val pending = deps.tasks.getAll().filter { it.isOpen }
         val plan = planner.plan(day, pending, now())
         val dayText = PtBrFormat.day(date, now().toLocalDate())
         val fixed = (day.events.filter { !it.allDay }.map { PtBrFormat.time(it.start.atZone(now().zone).toLocalTime()) + " " + it.title } +
@@ -358,7 +371,7 @@ class ToolExecutor(
         val title = t.title ?: t.content.split(Regex("\\s+")).take(6).joinToString(" ").let {
             if (t.content.length > it.length) "$it…" else it
         }
-        val id = deps.notes.upsert(Note(title = title, content = t.content, createdAt = instant, updatedAt = instant))
+        val id = deps.notes.upsert(KnowledgeNote(title = title, originalContent = t.content, createdAt = instant, updatedAt = instant))
         return ToolOutcome(true, "Anotado: \"${t.content.take(120)}\".", "Nota criada com id $id.")
     }
 
@@ -397,7 +410,7 @@ class ToolExecutor(
 
     private suspend fun findTasks(query: String, pendingOnly: Boolean): List<Task> {
         val q = PtText.fold(query).trim()
-        val candidates = deps.tasks.getAll().filter { !pendingOnly || !it.isCompleted }
+        val candidates = deps.tasks.getAll().filter { !pendingOnly || it.isOpen }
         val exact = candidates.filter { PtText.fold(it.title).trim() == q }
         if (exact.isNotEmpty()) return exact
         val words = q.split(' ').filter { it.length > 2 }

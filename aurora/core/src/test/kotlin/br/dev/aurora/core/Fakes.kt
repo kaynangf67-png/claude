@@ -3,7 +3,7 @@ package br.dev.aurora.core
 import br.dev.aurora.core.model.CalendarEvent
 import br.dev.aurora.core.model.ConversationMessage
 import br.dev.aurora.core.model.MemoryEntry
-import br.dev.aurora.core.model.Note
+import br.dev.aurora.core.model.KnowledgeNote
 import br.dev.aurora.core.model.Reminder
 import br.dev.aurora.core.model.Task
 import br.dev.aurora.core.orchestrator.AssistantDependencies
@@ -12,6 +12,8 @@ import br.dev.aurora.core.provider.UsageLedger
 import br.dev.aurora.core.repository.AppLaunchResult
 import br.dev.aurora.core.repository.AppLauncher
 import br.dev.aurora.core.repository.CalendarSource
+import br.dev.aurora.core.repository.CommitmentChangeRepository
+import br.dev.aurora.core.model.CommitmentChange
 import br.dev.aurora.core.repository.Connectivity
 import br.dev.aurora.core.repository.ConversationRepository
 import br.dev.aurora.core.repository.DeviceCapabilities
@@ -57,13 +59,13 @@ class InMemoryReminders : ReminderRepository {
 }
 
 class InMemoryNotes : NoteRepository {
-    val items = mutableMapOf<Long, Note>()
+    val items = mutableMapOf<Long, KnowledgeNote>()
     private var next = 1L
-    override fun observeAll(): Flow<List<Note>> = MutableStateFlow(items.values.toList())
+    override fun observeAll(): Flow<List<KnowledgeNote>> = MutableStateFlow(items.values.toList())
     override suspend fun get(id: Long) = items[id]
     override suspend fun search(query: String, limit: Int) =
         items.values.filter { PtText.fold(it.content).contains(PtText.fold(query)) }.take(limit)
-    override suspend fun upsert(note: Note): Long {
+    override suspend fun upsert(note: KnowledgeNote): Long {
         val id = if (note.id == 0L) next++ else note.id
         items[id] = note.copy(id = id)
         return id
@@ -95,6 +97,12 @@ class InMemoryConversation : ConversationRepository {
     override suspend fun recent(conversationId: String, limit: Int) = items.filter { it.conversationId == conversationId }.takeLast(limit)
     override suspend fun add(message: ConversationMessage): Long { items += message.copy(id = items.size + 1L); return items.size.toLong() }
     override suspend fun clearAll() = items.clear()
+}
+
+class InMemoryCommitments : CommitmentChangeRepository {
+    val items = mutableListOf<CommitmentChange>()
+    override suspend fun record(change: CommitmentChange): Long { items += change.copy(id = items.size + 1L); return items.size.toLong() }
+    override suspend fun forTask(taskId: Long) = items.filter { it.taskId == taskId }
 }
 
 class FakeScheduler(var outcome: ScheduleOutcome = ScheduleOutcome.EXACT) : ReminderScheduler {
@@ -140,5 +148,6 @@ class TestWorld {
     val calendar = FakeCalendar()
     val apps = FakeApps()
     val capabilities = FakeCapabilities()
-    val deps = AssistantDependencies(tasks, reminders, notes, memory, scheduler, calendar, apps, capabilities)
+    val commitments = InMemoryCommitments()
+    val deps = AssistantDependencies(tasks, reminders, notes, memory, scheduler, calendar, apps, capabilities, commitments)
 }

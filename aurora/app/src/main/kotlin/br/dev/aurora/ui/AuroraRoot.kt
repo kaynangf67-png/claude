@@ -3,10 +3,12 @@ package br.dev.aurora.ui
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.FabPosition
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -20,6 +22,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -28,13 +31,14 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import br.dev.aurora.ui.agenda.AgendaScreen
+import br.dev.aurora.R
 import br.dev.aurora.ui.conversation.ConversationScreen
+import br.dev.aurora.ui.focus.FocusHubScreen
+import br.dev.aurora.ui.focus.FocusSection
 import br.dev.aurora.ui.home.HomeScreen
 import br.dev.aurora.ui.memory.MemoryScreen
-import br.dev.aurora.ui.reminders.RemindersScreen
+import br.dev.aurora.ui.projects.ProjectsScreen
 import br.dev.aurora.ui.settings.SettingsScreen
-import br.dev.aurora.ui.tasks.TasksScreen
 import kotlinx.coroutines.flow.StateFlow
 
 /** Pedido vindo de fora da UI: atalho do launcher, gesto de assistente ou notificação. */
@@ -46,16 +50,15 @@ sealed interface LaunchRequest {
 
 object Routes {
     const val HOME = "inicio"
-    const val AGENDA = "agenda"
-    const val TASKS = "tarefas?nova={nova}"
-    const val REMINDERS = "lembretes?novo={novo}"
-    const val MEMORY = "memoria?nota={nota}"
-    const val SETTINGS = "ajustes"
+    const val FOCUS = "foco?secao={secao}&nova={nova}&novo={novo}"
+    const val NOTEBOOK = "caderno?nota={nota}"
+    const val PROJECTS = "projetos"
+    const val SETTINGS = "configuracoes"
     const val CONVERSATION = "conversa?ouvir={ouvir}&texto={texto}"
 
-    fun tasks(new: Boolean = false) = "tarefas?nova=$new"
-    fun reminders(new: Boolean = false) = "lembretes?novo=$new"
-    fun memory(newNote: Boolean = false) = "memoria?nota=$newNote"
+    fun focus(section: FocusSection = FocusSection.TASKS, newTask: Boolean = false, newReminder: Boolean = false) =
+        "foco?secao=${section.name}&nova=$newTask&novo=$newReminder"
+    fun notebook(newNote: Boolean = false) = "caderno?nota=$newNote"
     fun conversation(listen: Boolean = false, text: String = "") =
         "conversa?ouvir=$listen&texto=${android.net.Uri.encode(text)}"
 }
@@ -64,10 +67,10 @@ private data class Tab(val route: String, val base: String, val label: String, v
 
 private val tabs = listOf(
     Tab(Routes.HOME, "inicio", "Início", Icons.Filled.Home),
-    Tab(Routes.AGENDA, "agenda", "Agenda", Icons.Filled.DateRange),
-    Tab(Routes.tasks(), "tarefas", "Tarefas", Icons.AutoMirrored.Filled.List),
-    Tab(Routes.reminders(), "lembretes", "Lembretes", Icons.Filled.Notifications),
-    Tab(Routes.memory(), "memoria", "Memória", Icons.Filled.Star),
+    Tab(Routes.focus(), "foco", "Foco", Icons.Filled.CheckCircle),
+    Tab(Routes.notebook(), "caderno", "Caderno", Icons.Filled.Create),
+    Tab(Routes.PROJECTS, "projetos", "Projetos", Icons.AutoMirrored.Filled.List),
+    Tab(Routes.SETTINGS, "configuracoes", "Configurações", Icons.Filled.Settings),
 )
 
 @Composable
@@ -77,8 +80,8 @@ fun AuroraRoot(launchRequest: StateFlow<LaunchRequest?>, onLaunchHandled: () -> 
     LaunchedEffect(request) {
         when (request) {
             LaunchRequest.Listen -> nav.navigate(Routes.conversation(listen = true)) { launchSingleTop = true }
-            LaunchRequest.NewTask -> nav.navigate(Routes.tasks(new = true)) { launchSingleTop = true }
-            LaunchRequest.Reminders -> nav.navigate(Routes.reminders()) { launchSingleTop = true }
+            LaunchRequest.NewTask -> nav.navigateTab(Routes.focus(FocusSection.TASKS, newTask = true))
+            LaunchRequest.Reminders -> nav.navigateTab(Routes.focus(FocusSection.REMINDERS))
             null -> return@LaunchedEffect
         }
         onLaunchHandled()
@@ -98,39 +101,58 @@ fun AuroraRoot(launchRequest: StateFlow<LaunchRequest?>, onLaunchHandled: () -> 
                             selected = currentBase == tab.base,
                             onClick = { nav.navigateTab(tab.route) },
                             icon = { Icon(tab.icon, contentDescription = null) },
-                            label = { Text(tab.label) },
+                            label = { Text(tab.label, maxLines = 1) },
                             colors = NavigationBarItemDefaults.colors(indicatorColor = MaterialTheme.colorScheme.primaryContainer),
                         )
                     }
                 }
             }
         },
+        // Falar/capturar sempre à mão, no centro (os botões "+" de cada tela ficam à direita).
+        floatingActionButton = {
+            if (showBar) {
+                FloatingActionButton(
+                    onClick = { nav.navigate(Routes.conversation(listen = true)) },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                ) { Icon(painterResource(R.drawable.ic_mic), contentDescription = "Falar com a Aurora") }
+            }
+        },
+        floatingActionButtonPosition = FabPosition.Center,
     ) { padding ->
         NavHost(nav, startDestination = Routes.HOME, modifier = Modifier.padding(padding)) {
             composable(Routes.HOME) {
                 HomeScreen(
                     onTalk = { nav.navigate(Routes.conversation(listen = true)) },
                     onAsk = { text -> nav.navigate(Routes.conversation(text = text)) },
-                    onOpenSettings = { nav.navigate(Routes.SETTINGS) },
-                    onOpenTasks = { nav.navigateTab(Routes.tasks(it)) },
-                    onOpenReminders = { nav.navigateTab(Routes.reminders(it)) },
-                    onOpenAgenda = { nav.navigateTab(Routes.AGENDA) },
-                    onNewNote = { nav.navigateTab(Routes.memory(newNote = true)) },
+                    onOpenSettings = { nav.navigateTab(Routes.SETTINGS) },
+                    onOpenTasks = { nav.navigateTab(Routes.focus(FocusSection.TASKS, newTask = it)) },
+                    onOpenReminders = { nav.navigateTab(Routes.focus(FocusSection.REMINDERS, newReminder = it)) },
+                    onOpenAgenda = { nav.navigateTab(Routes.focus(FocusSection.AGENDA)) },
+                    onNewNote = { nav.navigateTab(Routes.notebook(newNote = true)) },
                 )
             }
-            composable(Routes.AGENDA) {
-                AgendaScreen(onAskPlan = { text -> nav.navigate(Routes.conversation(text = text)) })
+            composable(
+                Routes.FOCUS,
+                arguments = listOf(
+                    navArgument("secao") { type = NavType.StringType; defaultValue = FocusSection.TASKS.name },
+                    navArgument("nova") { type = NavType.BoolType; defaultValue = false },
+                    navArgument("novo") { type = NavType.BoolType; defaultValue = false },
+                ),
+            ) {
+                val section = FocusSection.entries.firstOrNull { s -> s.name == it.arguments?.getString("secao") } ?: FocusSection.TASKS
+                FocusHubScreen(
+                    initial = section,
+                    openNewTask = it.arguments?.getBoolean("nova") == true,
+                    openNewReminder = it.arguments?.getBoolean("novo") == true,
+                    onAskPlan = { text -> nav.navigate(Routes.conversation(text = text)) },
+                )
             }
-            composable(Routes.TASKS, arguments = listOf(navArgument("nova") { type = NavType.BoolType; defaultValue = false })) {
-                TasksScreen(openNew = it.arguments?.getBoolean("nova") == true)
-            }
-            composable(Routes.REMINDERS, arguments = listOf(navArgument("novo") { type = NavType.BoolType; defaultValue = false })) {
-                RemindersScreen(openNew = it.arguments?.getBoolean("novo") == true)
-            }
-            composable(Routes.MEMORY, arguments = listOf(navArgument("nota") { type = NavType.BoolType; defaultValue = false })) {
+            composable(Routes.NOTEBOOK, arguments = listOf(navArgument("nota") { type = NavType.BoolType; defaultValue = false })) {
                 MemoryScreen(openNewNote = it.arguments?.getBoolean("nota") == true)
             }
-            composable(Routes.SETTINGS) { SettingsScreen(onBack = { nav.popBackStack() }) }
+            composable(Routes.PROJECTS) { ProjectsScreen() }
+            composable(Routes.SETTINGS) { SettingsScreen() }
             composable(
                 Routes.CONVERSATION,
                 arguments = listOf(

@@ -108,6 +108,17 @@ class AssistantOrchestratorTest {
         assertTrue(reply.text.startsWith("Adiei"), reply.text)
     }
 
+    @Test fun `adiar e concluir ficam registrados no historico`() = runTest {
+        say("cria uma tarefa enviar relatório para amanhã")
+        say("adia isso para segunda")
+        say("concluí a tarefa enviar relatório")
+        val changes = world.commitments.items.map { it.type }
+        assertEquals(listOf(br.dev.aurora.core.model.ChangeType.POSTPONED, br.dev.aurora.core.model.ChangeType.COMPLETED), changes)
+        val postponed = world.commitments.items.first()
+        assertEquals(LocalDate.of(2026, 10, 23), postponed.fromDueAt!!.atZone(zone).toLocalDate())
+        assertEquals(LocalDate.of(2026, 10, 26), postponed.toDueAt!!.atZone(zone).toLocalDate())
+    }
+
     @Test fun `adia lembrete mantem horario`() = runTest {
         say("me lembra amanhã às 15h de pagar o boleto")
         say("adia isso para segunda")
@@ -149,14 +160,14 @@ class AssistantOrchestratorTest {
         clock = ZonedDateTime.of(2026, 10, 26, 18, 0, 0, 0, zone)
         say("concluí a tarefa revisar orçamento")
         val after = world.tasks.getAll().single()
-        assertEquals(TaskStatus.PENDING, after.status)
+        assertEquals(TaskStatus.TODO, after.status)
         assertEquals(LocalDate.of(2026, 11, 2), after.dueAt!!.atZone(zone).toLocalDate())
     }
 
     @Test fun `concluir tarefa simples`() = runTest {
         say("cria uma tarefa lavar o carro")
         say("marca como feita")
-        assertEquals(TaskStatus.COMPLETED, world.tasks.getAll().single().status)
+        assertEquals(TaskStatus.DONE, world.tasks.getAll().single().status)
     }
 
     @Test fun `listar tarefas de hoje inclui atrasadas`() = runTest {

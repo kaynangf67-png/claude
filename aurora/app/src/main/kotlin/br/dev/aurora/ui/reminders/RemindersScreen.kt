@@ -70,7 +70,7 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 
 @Composable
-fun RemindersScreen(openNew: Boolean) {
+fun RemindersScreen(openNew: Boolean, showTopBar: Boolean = true) {
     val vm = appViewModel { RemindersViewModel(it) }
     val s by vm.state.collectAsStateWithLifecycle()
     val perms by vm.permissions.collectAsStateWithLifecycle()
@@ -99,13 +99,15 @@ fun RemindersScreen(openNew: Boolean) {
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        topBar = { TopAppBar(title = { Text("Lembretes") }, colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background)) },
+        topBar = {
+            if (showTopBar) TopAppBar(title = { Text("Lembretes") }, colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background))
+        },
         floatingActionButton = { FloatingActionButton(onClick = { editing = ReminderDraft() }) { Icon(Icons.Filled.Add, "Novo lembrete") } },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         LazyColumn(
             Modifier.fillMaxSize().padding(padding),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, bottom = 120.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             if (!perms.notifications) {

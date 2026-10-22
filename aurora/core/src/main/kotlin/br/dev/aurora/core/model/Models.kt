@@ -8,7 +8,17 @@ enum class Priority(val label: String) {
     HIGH("alta"),
 }
 
-enum class TaskStatus { PENDING, COMPLETED }
+enum class TaskStatus(val label: String) {
+    TODO("A fazer"),
+    IN_PROGRESS("Em andamento"),
+    DONE("Concluída"),
+    POSTPONED("Adiada"),
+    CANCELLED("Cancelada"),
+    ;
+
+    /** Ainda exige ação: a fazer, em andamento ou adiada. */
+    val isOpen: Boolean get() = this == TODO || this == IN_PROGRESS || this == POSTPONED
+}
 
 /**
  * Uma tarefa. [dueAt] é um instante absoluto (UTC). Quando [dueAllDay] é verdadeiro, só a data local
@@ -20,15 +30,24 @@ data class Task(
     val title: String,
     val description: String = "",
     val priority: Priority = Priority.MEDIUM,
-    val status: TaskStatus = TaskStatus.PENDING,
+    val status: TaskStatus = TaskStatus.TODO,
     val dueAt: Instant? = null,
     val dueAllDay: Boolean = false,
     val recurrence: Recurrence? = null,
     val createdAt: Instant,
     val updatedAt: Instant,
     val completedAt: Instant? = null,
+    val estimatedMinutes: Int? = null,
+    /** Tempo efetivamente registrado (sessões de foco ou informado pelo usuário). */
+    val actualMinutes: Int? = null,
+    val projectId: Long? = null,
+    val objectiveId: Long? = null,
+    val milestoneId: Long? = null,
+    /** Nota do Caderno que originou a tarefa (criada sempre com confirmação). */
+    val sourceNoteId: Long? = null,
 ) {
-    val isCompleted: Boolean get() = status == TaskStatus.COMPLETED
+    val isCompleted: Boolean get() = status == TaskStatus.DONE
+    val isOpen: Boolean get() = status.isOpen
 }
 
 data class Reminder(
@@ -42,14 +61,7 @@ data class Reminder(
     val updatedAt: Instant,
     /** Último disparo efetivo (para lembretes concluídos ou recorrentes). */
     val lastFiredAt: Instant? = null,
-)
-
-data class Note(
-    val id: Long = 0,
-    val title: String,
-    val content: String,
-    val createdAt: Instant,
-    val updatedAt: Instant,
+    val taskId: Long? = null,
 )
 
 enum class MemoryCategory(val label: String) {

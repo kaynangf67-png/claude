@@ -48,7 +48,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 @Composable
-fun AgendaScreen(onAskPlan: (String) -> Unit) {
+fun AgendaScreen(onAskPlan: (String) -> Unit, showTopBar: Boolean = true) {
     val vm = appViewModel { AgendaViewModel(it) }
     val s by vm.state.collectAsStateWithLifecycle()
     val plan by vm.plan.collectAsStateWithLifecycle()
@@ -59,10 +59,12 @@ fun AgendaScreen(onAskPlan: (String) -> Unit) {
     }
 
     Column(Modifier.fillMaxSize()) {
-        TopAppBar(
-            title = { Text("Agenda") },
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
-        )
+        if (showTopBar) {
+            TopAppBar(
+                title = { Text("Agenda") },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
+            )
+        }
         LazyColumn(
             Modifier.fillMaxSize(),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp, vertical = 8.dp),

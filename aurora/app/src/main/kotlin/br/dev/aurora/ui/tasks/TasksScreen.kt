@@ -3,6 +3,8 @@
 package br.dev.aurora.ui.tasks
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -46,16 +48,20 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import br.dev.aurora.core.model.Priority
+import br.dev.aurora.core.model.Project
+import br.dev.aurora.core.model.TaskStatus
 import br.dev.aurora.core.model.Task
 import br.dev.aurora.core.text.PtBrFormat
 import br.dev.aurora.ui.appViewModel
 import br.dev.aurora.ui.components.ConfirmDialog
 import br.dev.aurora.ui.components.DateButton
 import br.dev.aurora.ui.components.EmptyText
+import br.dev.aurora.ui.components.LoadingRow
 import br.dev.aurora.ui.components.PriorityDot
 import br.dev.aurora.ui.components.RecurrenceChoice
 import br.dev.aurora.ui.components.RecurrenceSelector
@@ -66,9 +72,11 @@ import java.time.ZoneId
 import java.time.ZonedDateTime
 
 @Composable
-fun TasksScreen(openNew: Boolean) {
+fun TasksScreen(openNew: Boolean, showTopBar: Boolean = true) {
     val vm = appViewModel { TasksViewModel(it) }
-    val tasks by vm.tasks.collectAsStateWithLifecycle()
+    val tasksOrNull by vm.tasks.collectAsStateWithLifecycle()
+    val tasks = tasksOrNull.orEmpty()
+    val projects by vm.projects.collectAsStateWithLifecycle()
     val filter by vm.currentFilter.collectAsStateWithLifecycle()
     val message by vm.message.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
@@ -92,7 +100,9 @@ fun TasksScreen(openNew: Boolean) {
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(title = { Text("Tarefas") }, colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background))
+            if (showTopBar) {
+                TopAppBar(title = { Text("Tarefas") }, colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background))
+            }
         },
         floatingActionButton = {
             FloatingActionButton(onClick = { editing = TaskDraft() }) { Icon(Icons.Filled.Add, "Nova tarefa") }
@@ -101,7 +111,7 @@ fun TasksScreen(openNew: Boolean) {
     ) { padding ->
         LazyColumn(
             Modifier.fillMaxSize().padding(padding),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, bottom = 96.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 16.dp, end = 16.dp, bottom = 120.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             item {
@@ -111,7 +121,9 @@ fun TasksScreen(openNew: Boolean) {
                     }
                 }
             }
-            if (tasks.isEmpty()) {
+            if (tasksOrNull == null) {
+                item { LoadingRow() }
+            } else if (tasks.isEmpty()) {
                 item {
                     EmptyText(
                         when (filter) {
@@ -136,7 +148,7 @@ fun TasksScreen(openNew: Boolean) {
     }
 
     editing?.let { draft ->
-        TaskDialog(draft, onDismiss = { editing = null }, onSave = { vm.save(it); editing = null })
+        TaskDialog(draft, projects, onDismiss = { editing = null }, onSave = { vm.save(it); editing = null })
     }
     deleting?.let { task ->
         ConfirmDialog(
@@ -174,6 +186,10 @@ private fun TaskRow(task: Task, overdue: Boolean, onToggle: () -> Unit, onEdit: 
                 val parts = buildList {
                     if (due != null) add(if (task.dueAllDay) PtBrFormat.day(due.toLocalDate(), now.toLocalDate()) else PtBrFormat.dateTime(due, now))
                     task.recurrence?.let { add(PtBrFormat.recurrence(it)) }
+                    if (task.status == TaskStatus.IN_PROGRESS || task.status == TaskStatus.POSTPONED || task.status == TaskStatus.CANCELLED) {
+                        add(task.status.label.lowercase())
+                    }
+                    task.estimatedMinutes?.let { add("~$it min") }
                     if (task.priority == Priority.HIGH) add("prioridade alta")
                 }
                 if (parts.isNotEmpty()) {
@@ -199,7 +215,7 @@ private fun TaskRow(task: Task, overdue: Boolean, onToggle: () -> Unit, onEdit: 
 }
 
 @Composable
-private fun TaskDialog(initial: TaskDraft, onDismiss: () -> Unit, onSave: (TaskDraft) -> Unit) {
+private fun TaskDialog(initial: TaskDraft, projects: List<Project>, onDismiss: () -> Unit, onSave: (TaskDraft) -> Unit) {
     var d by remember { mutableStateOf(initial) }
     var recurrence by remember { mutableStateOf(RecurrenceChoice.from(initial.recurrence)) }
     AlertDialog(
@@ -222,6 +238,32 @@ private fun TaskDialog(initial: TaskDraft, onDismiss: () -> Unit, onSave: (TaskD
                 }
                 Text("Repetição", style = MaterialTheme.typography.labelLarge)
                 RecurrenceSelector(recurrence) { recurrence = it }
+                var estimate by remember { mutableStateOf(initial.estimatedMinutes?.toString().orEmpty()) }
+                OutlinedTextField(
+                    estimate,
+                    { v -> estimate = v.filter(Char::isDigit).take(4); d = d.copy(estimatedMinutes = estimate.toIntOrNull()?.takeIf { it > 0 }) },
+                    label = { Text("Duração estimada (minutos, opcional)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (projects.isNotEmpty() || d.projectId != null) {
+                    Text("Projeto", style = MaterialTheme.typography.labelLarge)
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(selected = d.projectId == null, onClick = { d = d.copy(projectId = null) }, label = { Text("Nenhum") })
+                        projects.forEach { p ->
+                            FilterChip(selected = d.projectId == p.id, onClick = { d = d.copy(projectId = p.id) }, label = { Text(p.name) })
+                        }
+                    }
+                }
+                if (initial.id != 0L) {
+                    Text("Status", style = MaterialTheme.typography.labelLarge)
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TaskStatus.entries.forEach { st ->
+                            FilterChip(selected = d.status == st, onClick = { d = d.copy(status = st) }, label = { Text(st.label) })
+                        }
+                    }
+                }
                 if (recurrence != RecurrenceChoice.NONE && d.date == null) {
                     Text("Escolha a data da primeira vez para a repetição funcionar.", style = MaterialTheme.typography.bodySmall, color = AuroraColors.Warning)
                 }

@@ -21,6 +21,8 @@ import kotlinx.coroutines.flow.map
 
 private val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
+enum class ThemeMode(val label: String) { SYSTEM("Sistema"), LIGHT("Claro"), DARK("Escuro") }
+
 data class UserSettings(
     val assistantName: String = "Aurora",
     val speechEnabled: Boolean = true,
@@ -35,6 +37,7 @@ data class UserSettings(
     val monthlyBudgetUsd: Double = 5.0,
     val calendarEnabled: Boolean = false,
     val keepConversationHistory: Boolean = true,
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
 )
 
 data class UsageSummary(val month: String, val usd: Double, val requests: Long, val inputTokens: Long, val outputTokens: Long)
@@ -55,6 +58,7 @@ class SettingsStore(private val context: Context) : UsageLedger {
         val budget = doublePreferencesKey("monthly_budget_usd")
         val calendar = booleanPreferencesKey("calendar_enabled")
         val history = booleanPreferencesKey("keep_history")
+        val theme = stringPreferencesKey("theme_mode")
         val usageMonth = stringPreferencesKey("usage_month")
         val usageUsd = doublePreferencesKey("usage_usd")
         val usageRequests = longPreferencesKey("usage_requests")
@@ -77,6 +81,7 @@ class SettingsStore(private val context: Context) : UsageLedger {
             monthlyBudgetUsd = p[K.budget] ?: d.monthlyBudgetUsd,
             calendarEnabled = p[K.calendar] ?: d.calendarEnabled,
             keepConversationHistory = p[K.history] ?: d.keepConversationHistory,
+            themeMode = ThemeMode.entries.firstOrNull { it.name == p[K.theme] } ?: d.themeMode,
         )
     }
 
@@ -97,6 +102,7 @@ class SettingsStore(private val context: Context) : UsageLedger {
             p[K.budget] = new.monthlyBudgetUsd.coerceIn(0.0, 1000.0)
             p[K.calendar] = new.calendarEnabled
             p[K.history] = new.keepConversationHistory
+            p[K.theme] = new.themeMode.name
         }
     }
 

@@ -23,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -57,6 +58,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import br.dev.aurora.core.provider.ModelCatalog
+import br.dev.aurora.data.settings.ThemeMode
 import br.dev.aurora.ui.appViewModel
 import br.dev.aurora.ui.components.ConfirmDialog
 import br.dev.aurora.ui.components.SectionCard
@@ -65,7 +67,7 @@ import br.dev.aurora.voice.TtsStatus
 import java.time.LocalDate
 
 @Composable
-fun SettingsScreen(onBack: () -> Unit) {
+fun SettingsScreen(onBack: (() -> Unit)? = null) {
     val vm = appViewModel { SettingsViewModel(it) }
     val s by vm.settings.collectAsStateWithLifecycle()
     val usage by vm.usage.collectAsStateWithLifecycle()
@@ -101,17 +103,25 @@ fun SettingsScreen(onBack: () -> Unit) {
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("Ajustes") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar") } },
+                title = { Text("Configurações") },
+                navigationIcon = { if (onBack != null) IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar") } },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
             )
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         Column(
-            Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(16.dp),
+            Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 112.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            SectionCard(title = "Aparência") {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ThemeMode.entries.forEach { mode ->
+                        FilterChip(selected = s.themeMode == mode, onClick = { vm.update { it.copy(themeMode = mode) } }, label = { Text(mode.label) })
+                    }
+                }
+            }
+
             SectionCard(title = "Assistente") {
                 var name by remember(s.assistantName) { mutableStateOf(s.assistantName) }
                 OutlinedTextField(

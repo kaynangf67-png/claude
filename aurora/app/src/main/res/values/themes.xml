@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Aurora" parent="android:Theme.Material.NoActionBar">
+    <!-- Tema da janela antes do Compose desenhar: segue o modo do sistema para não piscar a cor errada. -->
+    <style name="Theme.Aurora" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/aurora_bg</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>

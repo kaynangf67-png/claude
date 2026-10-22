@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import br.dev.aurora.AppContainer
 import br.dev.aurora.core.model.MemoryCategory
 import br.dev.aurora.core.model.MemoryEntry
-import br.dev.aurora.core.model.Note
+import br.dev.aurora.core.model.KnowledgeNote
 import br.dev.aurora.core.text.PtText
 import java.time.Instant
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,7 +25,7 @@ class MemoryViewModel(private val c: AppContainer) : ViewModel() {
 
     private fun matches(text: String, q: String) = q.isBlank() || PtText.fold(text).contains(PtText.fold(q.trim()))
 
-    val notes: StateFlow<List<Note>> = combine(c.notes.observeAll(), query) { all, q ->
+    val notes: StateFlow<List<KnowledgeNote>> = combine(c.notes.observeAll(), query) { all, q ->
         all.filter { matches(it.title + " " + it.content, q) }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
@@ -44,13 +44,17 @@ class MemoryViewModel(private val c: AppContainer) : ViewModel() {
             val existing = if (id != 0L) c.notes.get(id) else null
             val finalTitle = title.trim().ifEmpty { content.trim().split(Regex("\\s+")).take(6).joinToString(" ") }
             c.notes.upsert(
-                existing?.copy(title = finalTitle, content = content.trim(), updatedAt = now)
-                    ?: Note(title = finalTitle, content = content.trim(), createdAt = now, updatedAt = now),
+                // Edição nunca sobrescreve o original: vai para a versão editada (ou é descartada se igual).
+                existing?.copy(
+                    title = finalTitle,
+                    editedContent = content.trim().takeIf { it != existing.originalContent },
+                    updatedAt = now,
+                ) ?: KnowledgeNote(title = finalTitle, originalContent = content.trim(), createdAt = now, updatedAt = now),
             )
         }
     }
 
-    fun deleteNote(note: Note) {
+    fun deleteNote(note: KnowledgeNote) {
         viewModelScope.launch { c.notes.delete(note.id) }
     }
 

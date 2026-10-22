@@ -10,9 +10,12 @@ import br.dev.aurora.core.provider.AnthropicProvider
 import br.dev.aurora.core.provider.AssistantProvider
 import br.dev.aurora.core.repository.ConversationRepository
 import br.dev.aurora.data.db.AuroraDatabase
+import br.dev.aurora.data.repo.RoomCommitmentChangeRepository
 import br.dev.aurora.data.repo.RoomConversationRepository
 import br.dev.aurora.data.repo.RoomMemoryRepository
 import br.dev.aurora.data.repo.RoomNoteRepository
+import br.dev.aurora.data.repo.RoomObjectiveRepository
+import br.dev.aurora.data.repo.RoomProjectRepository
 import br.dev.aurora.data.repo.RoomReminderRepository
 import br.dev.aurora.data.repo.RoomTaskRepository
 import br.dev.aurora.data.settings.SecretStore
@@ -37,6 +40,9 @@ class AppContainer(val context: Context) {
     val reminders = RoomReminderRepository(db)
     val notes = RoomNoteRepository(db)
     val memory = RoomMemoryRepository(db)
+    val projects = RoomProjectRepository(db)
+    val objectives = RoomObjectiveRepository(db)
+    val commitmentChanges = RoomCommitmentChangeRepository(db)
     val settings = SettingsStore(context)
     val secrets = SecretStore(context)
     val scheduler = AlarmReminderScheduler(context)
@@ -54,6 +60,7 @@ class AppContainer(val context: Context) {
         calendar = calendar,
         apps = AndroidAppLauncher(context),
         capabilities = capabilities,
+        commitments = commitmentChanges,
     )
 
     /** Ações disparadas pela UI usam as mesmas regras (e mensagens) do assistente. */
@@ -94,9 +101,15 @@ class AppContainer(val context: Context) {
     /** Apaga tudo: dados, alarmes, configurações e a chave da IA. */
     suspend fun deleteAllData() {
         reminders.getAll().forEach { scheduler.cancel(it.id) }
+        // Ordem respeita as chaves estrangeiras (filhos com CASCADE/SET NULL são tratados pelo banco).
+        db.focusSessions().clear()
+        db.habits().clear()
         db.tasks().clear()
         db.reminders().clear()
         db.notes().clear()
+        db.books().clear()
+        db.projects().clear()
+        db.objectives().clear()
         db.memory().clear()
         clearConversation()
         secrets.clearApiKey()
