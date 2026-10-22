@@ -27,3 +27,16 @@ dist/
 
 # Playwright MCP output (snapshots, console logs)
 .playwright-mcp/
+
+# Android / Gradle (aurora/)
+.gradle/
+build/
+local.properties
+*.aab
+*.keystore
+*.jks
+captures/
+.idea/
+*.iml
+.kotlin/
+secrets.properties
