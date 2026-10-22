@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_mic"
+        android:shortcutId="falar"
+        android:shortcutLongLabel="@string/shortcut_listen_long"
+        android:shortcutShortLabel="@string/shortcut_listen_short">
+        <intent
+            android:action="br.dev.aurora.action.LISTEN"
+            android:targetClass="br.dev.aurora.MainActivity"
+            android:targetPackage="br.dev.aurora" />
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:icon="@drawable/ic_mic"
+        android:shortcutId="tarefa"
+        android:shortcutLongLabel="@string/shortcut_task_long"
+        android:shortcutShortLabel="@string/shortcut_task_short">
+        <intent
+            android:action="br.dev.aurora.action.NEW_TASK"
+            android:targetClass="br.dev.aurora.MainActivity"
+            android:targetPackage="br.dev.aurora" />
+    </shortcut>
+</shortcuts>

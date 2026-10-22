@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Aurora</string>
+    <string name="shortcut_listen_short">Falar</string>
+    <string name="shortcut_listen_long">Falar com a Aurora</string>
+    <string name="shortcut_task_short">Nova tarefa</string>
+    <string name="shortcut_task_long">Criar tarefa</string>
+    <string name="channel_reminders">Lembretes</string>
+    <string name="channel_reminders_desc">Avisos dos lembretes que você criou</string>
+</resources>
