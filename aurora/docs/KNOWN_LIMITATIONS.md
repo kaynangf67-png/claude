@@ -70,3 +70,12 @@ Registro honesto do que **não** funciona, do que **não foi verificado** e do p
 ## Distribuição
 
 - Só APK de debug. Sem assinatura de release, sem minificação (R8) validada, sem revisão de políticas da Play Store.
+
+## Fase 1 (banco v2, tema, navegação)
+
+- As tabelas de objetivos, marcos, sessões de foco, hábitos, livros, tags e ligações **existem no banco, mas ainda
+  não têm telas**. Isso é intencional: o esquema foi criado de uma vez para evitar várias migrações seguidas.
+- O tema claro e a nova navegação nunca foram vistos rodando; só compilam.
+- Tarefas criadas por voz ainda não recebem projeto nem duração estimada (só pelo editor).
+- Mudanças de status feitas pela tela de tarefas gravam histórico; mudanças diretas no banco por outros caminhos
+  (nenhum hoje) não gravariam.

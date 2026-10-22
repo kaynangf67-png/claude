@@ -2,7 +2,7 @@
 
 Legenda: ✅ verificado · 🟡 implementado, não verificado em execução · ⏳ pendente · ❌ não planejado agora
 
-Atualizado em 22/10/2026.
+Atualizado em 22/10/2026 (Fase 1 da especificação mestre).
 
 ## Verificação
 
@@ -51,3 +51,24 @@ Atualizado em 22/10/2026.
 
 O APK fica no artefato **aurora-debug-apk** da execução (Actions → Aurora Android → run → Artifacts),
 válido por 90 dias. Ele **não foi instalado nem executado** em nenhum aparelho ou emulador.
+
+
+## Fase 1 — Fundação (especificação mestre)
+
+| Item | Status | Verificação |
+|---|---|---|
+| Esquema Room v1 versionado em `app/schemas` | ✅ | CI compara o esquema gerado com o versionado (falha se divergir) |
+| Esquema v2: objetivos, marcos, projetos, histórico de compromissos, sessões de foco, hábitos, livros, notas do Caderno, tags, ligações, FTS4 | ✅ | `2.json` conferido byte a byte (SHA-256) com o gerado pelo Room |
+| Migração automática 1→2 (status antigos → novos, notas reindexadas) | ver CI | `MigrationTest` no emulador: dados da v1 preservados, esquema validado, busca encontra notas antigas |
+| Chaves estrangeiras (SET NULL / CASCADE) | ✅ | `RelationsTest` no emulador |
+| Busca de texto completo sem acento | ✅ | `RelationsTest` consulta o índice FTS diretamente |
+| Tarefa com 5 status, duração estimada, projeto | 🟡 | compila; UI não testada em aparelho |
+| Histórico de compromissos (adiar, remarcar, concluir, cancelar, reabrir) | ✅ core · 🟡 UI | teste do orquestrador no `core` |
+| Nota preserva o original; edição separada | ✅ | teste de domínio + `RelationsTest` |
+| Tema claro e escuro (sistema/claro/escuro) | 🟡 | compila; visual não verificado |
+| Navegação Início · Foco · Caderno · Projetos · Configurações + botão de falar central | 🟡 | compila |
+| Tela de Projetos (criar, editar, status, excluir sem apagar tarefas) | 🟡 | compila; exclusão coberta por `RelationsTest` |
+| Estados de carregamento | ⚠️ | Tarefas e Projetos; Lembretes e Caderno ainda não |
+
+Não feito nesta fase (previsto em fases seguintes): telas de objetivos/sessões de foco/hábitos/livros, tags e
+ligações na UI, captura pelo menu Compartilhar, coaching, revisões.
