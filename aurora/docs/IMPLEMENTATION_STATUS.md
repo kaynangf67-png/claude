@@ -75,9 +75,11 @@ ligações na UI, captura pelo menu Compartilhar, coaching, revisões.
 
 ## Fase 2 — Tarefas, projetos e histórico de compromissos
 
+CI run #21 (commit a77f5b8) verde: core, testes unitários do app, APK, lint, esquema e testes instrumentados no emulador API 34.
+
 | Item | Status | Verificação |
 |---|---|---|
-| Tarefa + histórico gravados na mesma transação (`upsertWithChange`) | ✅ core · ⏳ emulador | `core`: falha simulada não altera a tarefa; `TaskTransactionTest` (emulador) força erro no INSERT do histórico e confere o rollback |
+| Tarefa + histórico gravados na mesma transação (`upsertWithChange`) | ✅ run #21 | `core`: falha simulada não altera a tarefa; `TaskTransactionTest` (emulador) força erro no INSERT do histórico e confere o rollback |
 | Cancelar tarefa (voz, IA e tela) sem apagar; confirmação obrigatória; motivo opcional | ✅ core · 🟡 UI | testes do parser e do orquestrador ("cancela a tarefa academia porque machuquei o joelho") |
 | Motivo do adiamento ("adia isso para sexta porque…") e status "Adiada" | ✅ core · 🟡 UI | testes do parser (motivo antes/depois da data, pendente até a data) e do orquestrador |
 | Projeto por voz/IA ("cria uma tarefa X no projeto Y", "move a tarefa X para o projeto Y", `list_tasks` por projeto) | ✅ core | projeto inexistente **não é criado**; o usuário é avisado |
