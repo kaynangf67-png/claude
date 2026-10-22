@@ -10,8 +10,9 @@ Atualizado em 22/10/2026.
 |---|---|---|
 | `core` compila | `./gradlew -p core test` (local) | ✅ |
 | Testes do `core` | 100 testes JUnit (parser, recorrência, fuso, orquestrador, validador, planejador, provedor) | ✅ 100/100 |
-| `app` compila / APK de debug | GitHub Actions (`.github/workflows/aurora-android.yml`) | ver seção "CI" abaixo |
-| Testes unitários do `app` | GitHub Actions | ver seção "CI" |
+| `app` compila / APK de debug | GitHub Actions (`.github/workflows/aurora-android.yml`) | ✅ run #4 (commit b851667) |
+| Testes unitários do `app` (mapeadores, busca) | GitHub Actions | ✅ |
+| Android Lint (`lintDebug`) | GitHub Actions | ✅ sem erros |
 | Execução em emulador/aparelho | — | ⏳ não feito |
 
 ## Marcos
@@ -41,4 +42,12 @@ Atualizado em 22/10/2026.
 
 ## CI
 
-Os resultados do CI são registrados aqui a cada rodada.
+| Run | Resultado | Causa / correção |
+|---|---|---|
+| #1 | ❌ | `android-actions/setup-android@v3` quebrado (pacote `tools`); removido, o runner já tem o SDK |
+| #2 | ❌ | AndroidX atual exige `compileSdk` 37 → ajustado (targetSdk segue 36) |
+| #3 | ❌ | app compilou; teste unitário sem `kotlin-test-junit` → corrigido |
+| #4 | ✅ | testes do core e do app, APK de debug, lint |
+
+O APK fica no artefato **aurora-debug-apk** da execução (Actions → Aurora Android → run → Artifacts),
+válido por 90 dias. Ele **não foi instalado nem executado** em nenhum aparelho ou emulador.
