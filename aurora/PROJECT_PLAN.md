@@ -31,7 +31,7 @@ Consequência: o módulo `core` (Kotlin/JVM puro: domínio, parser de datas, orq
 | WorkManager | 2.12.0 | idem |
 | Activity / Lifecycle / Navigation / Core | 1.13.0 / 2.11.0 / 2.10.2 / 1.19.1 | idem |
 | Anthropic Java SDK | 3.1.0 | Maven Central |
-| compileSdk / targetSdk / minSdk | 36 / 36 / 26 | minSdk 26 por `java.time` e pelo SDK da Anthropic (Jackson) |
+| compileSdk / targetSdk / minSdk | 37 / 36 / 26 | minSdk 26 por `java.time` e pelo SDK da Anthropic (Jackson) |
 
 ## Marcos
 

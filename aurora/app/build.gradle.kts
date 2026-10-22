@@ -6,7 +6,8 @@ plugins {
 
 android {
     namespace = "br.dev.aurora"
-    compileSdk = 36
+    // AndroidX atual (Compose 1.12, Lifecycle 2.11) exige compilar contra a API 37.
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "br.dev.aurora"
