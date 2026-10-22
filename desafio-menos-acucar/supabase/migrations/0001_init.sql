@@ -52,6 +52,8 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
+revoke execute on function public.handle_new_user() from public, anon, authenticated;
+
 create or replace function public.touch_updated_at()
 returns trigger
 language plpgsql
@@ -62,6 +64,8 @@ begin
   return new;
 end;
 $$;
+
+revoke execute on function public.touch_updated_at() from public, anon, authenticated;
 
 create trigger profiles_touch before update on public.profiles
   for each row execute function public.touch_updated_at();
@@ -103,7 +107,9 @@ create trigger quiz_touch before update on public.quiz_responses
 -- ---------------------------------------------------------------------------
 -- Dia liberado do desafio (calculado no servidor, no fuso do perfil)
 -- ---------------------------------------------------------------------------
-create or replace function public.challenge_unlocked_day(p_user uuid)
+-- Sem parâmetro de propósito: só calcula o dia de quem chama (auth.uid()),
+-- para ninguém descobrir em que dia outra pessoa está.
+create or replace function public.my_unlocked_day()
 returns integer
 language sql
 stable
@@ -115,11 +121,11 @@ as $$
     else greatest(1, least(21, ((now() at time zone p.time_zone)::date - p.challenge_started_on) + 1))
   end
   from public.profiles p
-  where p.id = p_user;
+  where p.id = auth.uid();
 $$;
 
-revoke all on function public.challenge_unlocked_day(uuid) from public, anon;
-grant execute on function public.challenge_unlocked_day(uuid) to authenticated;
+revoke all on function public.my_unlocked_day() from public, anon;
+grant execute on function public.my_unlocked_day() to authenticated;
 
 -- Inicia o Dia 1 (idempotente) e marca o onboarding como concluído.
 create or replace function public.start_challenge()
@@ -165,7 +171,7 @@ create policy "missões: concluir liberadas" on public.mission_completions
   for insert to authenticated
   with check (
     user_id = (select auth.uid())
-    and day <= public.challenge_unlocked_day((select auth.uid()))
+    and day <= (select public.my_unlocked_day())
   );
 
 -- completed_at sempre vem do servidor.

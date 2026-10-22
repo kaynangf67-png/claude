@@ -16,7 +16,7 @@ select public.start_challenge();
 insert into public.quiz_responses (user_id,goal,moments,frequency,difficulty,daily_time,alternatives,budget)
  values ('11111111-1111-1111-1111-111111111111','doces','{tarde}','uma_vez_dia','emocional','5','{frutas}','economico');
 select public.start_challenge();
-select challenge_started_on is not null as iniciou, public.challenge_unlocked_day(id) as dia from public.profiles;
+select challenge_started_on is not null as iniciou, public.my_unlocked_day() as dia from public.profiles;
 \echo '--- 3. quiz com momento inválido deve FALHAR'
 update public.quiz_responses set moments='{hacker}';
 \echo '--- 4. concluir Dia 1 OK; Dia 2 (bloqueado) deve FALHAR; Dia 1 de novo deve FALHAR'
