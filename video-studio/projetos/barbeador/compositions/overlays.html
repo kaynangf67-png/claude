@@ -1,0 +1,120 @@
+<template>
+  <script src="assets/js/gsap.min.js"></script>
+  <style>
+    #root { position: absolute; inset: 0; pointer-events: none; font-family: Montserrat; }
+    #root .tag { display: inline-flex; align-items: center; gap: 18px; padding: 16px 30px; border-radius: 22px;
+      font-weight: 900; font-size: 52px; letter-spacing: 0.01em; box-shadow: 0 16px 34px rgba(0,0,0,.30); }
+    #root .tag .n { display: inline-grid; place-items: center; width: 62px; height: 62px; border-radius: 50%;
+      background: #FFE500; color: #111; font-size: 38px; }
+    #root .dark { background: rgba(17,17,17,.92); color: #fff; }
+    #root #ov-tres { position: absolute; left: 60px; top: 230px; display: flex; flex-direction: column; gap: 18px; align-items: flex-start; }
+    #root #ov-agua { position: absolute; left: 0; right: 0; top: 260px; display: flex; justify-content: center; }
+    #root #ov-agua .tag { background: #1E88E5; color: #fff; font-size: 64px; }
+    #root #ov-ceram { position: absolute; left: 0; right: 0; top: 240px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+    #root #ov-ceram .tag { background: #fff; color: #111; font-size: 60px; }
+    #root #ov-ceram small { display: inline-block; padding: 10px 26px; border-radius: 999px; background: #00B84A; color: #fff;
+      font-weight: 900; font-size: 40px; letter-spacing: 0.06em; }
+    #root #ov-nao { position: absolute; right: 50px; top: 230px; display: flex; flex-direction: column; gap: 16px; align-items: flex-end; }
+    #root #ov-nao .tag { position: relative; background: #fff; color: #111; font-size: 48px; }
+    #root #ov-nao .risco { position: absolute; left: 18px; right: 18px; top: 50%; height: 9px; margin-top: -4px;
+      background: #FF3B30; border-radius: 6px; transform-origin: 0 50%; }
+    #root #ov-kit { position: absolute; left: 60px; top: 220px; display: flex; flex-direction: column; gap: 16px; align-items: flex-start; }
+    #root #kit-tit { display: inline-block; padding: 12px 28px; border-radius: 18px; background: #FFE500; color: #111;
+      font-weight: 900; font-size: 46px; letter-spacing: 0.02em; box-shadow: 0 14px 30px rgba(0,0,0,.28); }
+    #root .ck { display: inline-flex; align-items: center; gap: 18px; padding: 14px 28px 14px 18px; border-radius: 20px;
+      background: rgba(17,17,17,.92); color: #fff; font-weight: 900; font-size: 46px; box-shadow: 0 14px 30px rgba(0,0,0,.28); }
+    #root .ck .box { position: relative; width: 54px; height: 54px; border-radius: 14px; background: #00B84A; }
+    #root .ck .v { position: absolute; left: 17px; top: 6px; width: 18px; height: 32px; border-right: 8px solid #fff;
+      border-bottom: 8px solid #fff; transform: rotate(45deg); transform-origin: 50% 50%; }
+    #root #ov-preco { position: absolute; left: 0; right: 0; top: 230px; display: flex; flex-direction: column; align-items: center; gap: 22px; }
+    #root #pr-de { position: relative; display: inline-block; padding: 12px 34px; border-radius: 22px; background: #fff; color: #111;
+      font-weight: 900; font-size: 96px; letter-spacing: -0.02em; box-shadow: 0 16px 34px rgba(0,0,0,.28); }
+    #root #pr-de small { display: block; font-size: 32px; letter-spacing: 0.12em; color: #666; text-align: center; }
+    #root #pr-risco { position: absolute; left: 20px; right: 20px; top: 58%; height: 12px; margin-top: -6px; background: #FF3B30;
+      border-radius: 8px; transform-origin: 0 50%; transform: rotate(-6deg); }
+    #root #pr-agora { display: inline-block; padding: 18px 40px; border-radius: 26px; background: #00B84A; color: #fff;
+      font-weight: 900; font-size: 64px; box-shadow: 0 16px 34px rgba(0,0,0,.28); }
+    #root #ov-cta { position: absolute; left: 0; right: 0; top: 850px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    #root #cta-pill { display: inline-block; padding: 20px 46px; border-radius: 999px; background: #FE2C55; color: #fff;
+      font-weight: 900; font-size: 58px; letter-spacing: 0.02em; box-shadow: 0 18px 38px rgba(254,44,85,.45); }
+    #root .chev { width: 70px; height: 70px; border-right: 16px solid #FE2C55; border-bottom: 16px solid #FE2C55;
+      transform: rotate(45deg); border-radius: 6px; }
+  </style>
+  <div id="root" data-composition-id="overlays" data-layout-allow-overlap>
+    <div id="ov-tres" class="clip" data-start="6.05" data-duration="5.63">
+      <div id="tr-1" class="tag dark"><span class="n">1</span>NARIZ</div>
+      <div id="tr-2" class="tag dark"><span class="n">2</span>CABELO</div>
+      <div id="tr-3" class="tag dark"><span class="n">3</span>BARBA</div>
+    </div>
+    <div id="ov-agua" class="clip" data-start="14.01" data-duration="1.70"><div id="ag-in" class="tag">À PROVA D'ÁGUA</div></div>
+    <div id="ov-ceram" class="clip" data-start="16.10" data-duration="3.10">
+      <div id="ce-in" class="tag">LÂMINA DE CERÂMICA</div><small id="ce-sub">EVITA CORTES</small>
+    </div>
+    <div id="ov-nao" class="clip" data-start="24.50" data-duration="3.73">
+      <div id="na-1" class="tag">CORTES<span class="risco" id="na-r1"></span></div>
+      <div id="na-2" class="tag">IRRITAÇÃO<span class="risco" id="na-r2"></span></div>
+      <div id="na-3" class="tag">PELOS ENCRAVADOS<span class="risco" id="na-r3"></span></div>
+    </div>
+    <div id="ov-kit" class="clip" data-start="28.33" data-duration="11.65">
+      <div id="kit-tit">O KIT VEM COMPLETO</div>
+      <div id="ck-1" class="ck"><span class="box"><span class="v" id="v-1"></span></span>3 CABEÇAS</div>
+      <div id="ck-2" class="ck"><span class="box"><span class="v" id="v-2"></span></span>PENTE DE 3 NÍVEIS</div>
+      <div id="ck-3" class="ck"><span class="box"><span class="v" id="v-3"></span></span>CABO DE CARGA</div>
+      <div id="ck-4" class="ck"><span class="box"><span class="v" id="v-4"></span></span>KIT DE LIMPEZA</div>
+    </div>
+    <div id="ov-preco" class="clip" data-start="42.22" data-duration="4.38">
+      <div id="pr-de"><small>COSTUMA CUSTAR</small>+ DE R$100<span id="pr-risco"></span></div>
+      <div id="pr-agora">PREÇO DE PROMOÇÃO</div>
+    </div>
+    <div id="ov-cta" class="clip" data-start="48.05" data-duration="3.41">
+      <div id="cta-pill">TOQUE NO CARRINHO</div>
+      <div id="cta-ch" style="display:flex;flex-direction:column;align-items:center;margin-top:10px">
+        <div class="chev" id="ch1"></div><div class="chev" id="ch2" style="margin-top:-30px"></div>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var tl = gsap.timeline({ paused: true });
+      function entra(sel, t, from) {
+        tl.fromTo(sel, Object.assign({ opacity: 0, scale: 0.4 }, from || {}), { opacity: 1, scale: 1, x: 0, y: 0, rotation: 0, duration: 0.38, ease: "back.out(2.4)" }, t);
+      }
+      function sai(sel, t) { tl.to(sel, { opacity: 0, scale: 0.7, duration: 0.18, ease: "power2.in" }, t - 0.18); }
+      // 3 em 1
+      entra("#tr-1", 6.05, { x: -80 }); entra("#tr-2", 7.44, { x: -80 }); entra("#tr-3", 10.18, { x: -80 });
+      sai(["#tr-1", "#tr-2", "#tr-3"], 11.68);
+      // à prova d'água
+      entra("#ag-in", 14.01, { y: -40 });
+      tl.fromTo("#ag-in", { boxShadow: "0 0 0 0 rgba(30,136,229,.75)" }, { boxShadow: "0 0 0 36px rgba(30,136,229,0)", duration: 0.8, ease: "power2.out" }, 14.31);
+      sai("#ag-in", 15.71);
+      // cerâmica
+      entra("#ce-in", 16.10, { y: -40 }); entra("#ce-sub", 16.90, { y: 20 });
+      sai(["#ce-in", "#ce-sub"], 19.20);
+      // sem cortes / irritação / pelos encravados: aparece e é riscado na fala
+      [["#na-1", "#na-r1", 24.50], ["#na-2", "#na-r2", 25.06], ["#na-3", "#na-r3", 26.86]].forEach(function (r) {
+        entra(r[0], r[2], { x: 80 });
+        tl.fromTo(r[1], { scaleX: 0 }, { scaleX: 1, duration: 0.22, ease: "power3.out" }, r[2] + 0.4);
+      });
+      sai(["#na-1", "#na-2", "#na-3"], 28.23);
+      // kit completo: cada item entra quando é falado
+      entra("#kit-tit", 28.33, { y: -30 });
+      [["#ck-1", "#v-1", 30.13], ["#ck-2", "#v-2", 33.57], ["#ck-3", "#v-3", 37.41], ["#ck-4", "#v-4", 38.69]].forEach(function (r) {
+        entra(r[0], r[2], { x: -80 });
+        tl.fromTo(r[1], { scale: 0, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.25, ease: "back.out(3)" }, r[2] + 0.25);
+      });
+      sai(["#kit-tit", "#ck-1", "#ck-2", "#ck-3", "#ck-4"], 39.99);
+      // preço
+      entra("#pr-de", 42.22, { y: -30 });
+      tl.set("#pr-agora", { opacity: 0 }, 42.22);
+      tl.fromTo("#pr-risco", { scaleX: 0 }, { scaleX: 1, duration: 0.25, ease: "power3.out" }, 43.84);
+      tl.to("#pr-de", { scale: 0.72, opacity: 0.85, duration: 0.3, ease: "power2.out" }, 44.09);
+      tl.fromTo("#pr-agora", { opacity: 0, scale: 0.3, rotation: -6 }, { opacity: 1, scale: 1, rotation: -3, duration: 0.42, ease: "back.out(2.8)" }, 44.15);
+      sai(["#pr-de", "#pr-agora"], 46.59);
+      // CTA carrinho (até o fim)
+      entra("#cta-pill", 48.05, { y: 40 });
+      tl.fromTo("#cta-pill", { scale: 1 }, { scale: 1.07, duration: 0.32, ease: "sine.inOut", yoyo: true, repeat: 8 }, 48.50);
+      tl.fromTo(["#ch1", "#ch2"], { y: -10, opacity: 0.35 }, { y: 14, opacity: 1, duration: 0.4, ease: "sine.inOut", stagger: 0.12, yoyo: true, repeat: 6 }, 48.34);
+      window.__timelines["overlays"] = tl;
+    })();
+  </script>
+</template>
