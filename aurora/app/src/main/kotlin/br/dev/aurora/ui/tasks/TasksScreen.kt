@@ -52,10 +52,14 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import kotlinx.coroutines.flow.flowOf
+import br.dev.aurora.core.model.ChangeType
+import br.dev.aurora.core.model.CommitmentChange
 import br.dev.aurora.core.model.Priority
 import br.dev.aurora.core.model.Project
 import br.dev.aurora.core.model.TaskStatus
 import br.dev.aurora.core.model.Task
+import br.dev.aurora.core.query.ProjectScope
 import br.dev.aurora.core.text.PtBrFormat
 import br.dev.aurora.ui.appViewModel
 import br.dev.aurora.ui.components.ConfirmDialog
@@ -67,7 +71,9 @@ import br.dev.aurora.ui.components.RecurrenceChoice
 import br.dev.aurora.ui.components.RecurrenceSelector
 import br.dev.aurora.ui.components.TimeButton
 import br.dev.aurora.ui.theme.AuroraColors
+import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.temporal.TemporalAdjusters
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
@@ -77,11 +83,14 @@ fun TasksScreen(openNew: Boolean, showTopBar: Boolean = true) {
     val tasksOrNull by vm.tasks.collectAsStateWithLifecycle()
     val tasks = tasksOrNull.orEmpty()
     val projects by vm.projects.collectAsStateWithLifecycle()
-    val filter by vm.currentFilter.collectAsStateWithLifecycle()
+    val view by vm.currentView.collectAsStateWithLifecycle()
+    val extra by vm.currentExtra.collectAsStateWithLifecycle()
     val message by vm.message.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     var editing by remember { mutableStateOf<TaskDraft?>(null) }
     var deleting by remember { mutableStateOf<Task?>(null) }
+    var postponing by remember { mutableStateOf<Task?>(null) }
+    var cancelling by remember { mutableStateOf<Task?>(null) }
     var openedNew by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(openNew) {
@@ -115,9 +124,34 @@ fun TasksScreen(openNew: Boolean, showTopBar: Boolean = true) {
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TaskFilter.entries.forEach { f ->
-                        FilterChip(selected = filter == f, onClick = { vm.setFilter(f) }, label = { Text(f.label) })
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TaskView.entries.forEach { v ->
+                            FilterChip(selected = view == v, onClick = { vm.setView(v) }, label = { Text(v.label) })
+                        }
+                    }
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(selected = extra.priority == null, onClick = { vm.setPriority(null) }, label = { Text("Toda prioridade") })
+                        Priority.entries.reversed().forEach { p ->
+                            FilterChip(
+                                selected = extra.priority == p,
+                                onClick = { vm.setPriority(if (extra.priority == p) null else p) },
+                                label = { Text(p.label.replaceFirstChar { it.uppercase() }) },
+                            )
+                        }
+                    }
+                    if (projects.isNotEmpty()) {
+                        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(selected = extra.project == ProjectScope.Any, onClick = { vm.setProject(ProjectScope.Any) }, label = { Text("Todo projeto") })
+                            FilterChip(selected = extra.project == ProjectScope.None, onClick = { vm.setProject(ProjectScope.None) }, label = { Text("Sem projeto") })
+                            projects.forEach { p ->
+                                FilterChip(
+                                    selected = extra.project == ProjectScope.Only(p.id),
+                                    onClick = { vm.setProject(ProjectScope.Only(p.id)) },
+                                    label = { Text(p.name) },
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -126,10 +160,12 @@ fun TasksScreen(openNew: Boolean, showTopBar: Boolean = true) {
             } else if (tasks.isEmpty()) {
                 item {
                     EmptyText(
-                        when (filter) {
-                            TaskFilter.PENDING -> "Nenhuma tarefa pendente. Toque em + ou diga \"cria uma tarefa…\"."
-                            TaskFilter.OVERDUE -> "Nada atrasado."
-                            TaskFilter.DONE -> "Nenhuma tarefa concluída ainda."
+                        when {
+                            !extra.isDefault -> "Nenhuma tarefa com esses filtros."
+                            view == TaskView.OPEN -> "Nenhuma tarefa aberta. Toque em + ou diga \"cria uma tarefa…\"."
+                            view == TaskView.OVERDUE -> "Nada atrasado."
+                            view == TaskView.DONE -> "Nenhuma tarefa concluída ainda."
+                            else -> "Nenhuma tarefa cancelada."
                         },
                     )
                 }
@@ -140,7 +176,8 @@ fun TasksScreen(openNew: Boolean, showTopBar: Boolean = true) {
                     overdue = vm.isOverdue(task),
                     onToggle = { if (task.isCompleted) vm.reopen(task) else vm.complete(task) },
                     onEdit = { editing = vm.draftOf(task) },
-                    onPostpone = { vm.postponeToTomorrow(task) },
+                    onPostpone = { postponing = task },
+                    onCancel = { cancelling = task },
                     onDelete = { deleting = task },
                 )
             }
@@ -148,7 +185,15 @@ fun TasksScreen(openNew: Boolean, showTopBar: Boolean = true) {
     }
 
     editing?.let { draft ->
-        TaskDialog(draft, projects, onDismiss = { editing = null }, onSave = { vm.save(it); editing = null })
+        val history by remember(draft.id) { if (draft.id == 0L) flowOf(emptyList()) else vm.history(draft.id) }
+            .collectAsStateWithLifecycle(emptyList())
+        TaskDialog(draft, projects, history, onDismiss = { editing = null }, onSave = { vm.save(it); editing = null })
+    }
+    postponing?.let { task ->
+        PostponeDialog(task, onDismiss = { postponing = null }, onConfirm = { date, reason -> vm.postpone(task, date, reason); postponing = null })
+    }
+    cancelling?.let { task ->
+        CancelTaskDialog(task, onDismiss = { cancelling = null }, onConfirm = { reason -> vm.cancel(task, reason); cancelling = null })
     }
     deleting?.let { task ->
         ConfirmDialog(
@@ -162,7 +207,15 @@ fun TasksScreen(openNew: Boolean, showTopBar: Boolean = true) {
 }
 
 @Composable
-private fun TaskRow(task: Task, overdue: Boolean, onToggle: () -> Unit, onEdit: () -> Unit, onPostpone: () -> Unit, onDelete: () -> Unit) {
+private fun TaskRow(
+    task: Task,
+    overdue: Boolean,
+    onToggle: () -> Unit,
+    onEdit: () -> Unit,
+    onPostpone: () -> Unit,
+    onCancel: () -> Unit,
+    onDelete: () -> Unit,
+) {
     var menu by remember { mutableStateOf(false) }
     val zone = ZoneId.systemDefault()
     val now = ZonedDateTime.now(zone)
@@ -189,7 +242,11 @@ private fun TaskRow(task: Task, overdue: Boolean, onToggle: () -> Unit, onEdit: 
                     if (task.status == TaskStatus.IN_PROGRESS || task.status == TaskStatus.POSTPONED || task.status == TaskStatus.CANCELLED) {
                         add(task.status.label.lowercase())
                     }
-                    task.estimatedMinutes?.let { add("~$it min") }
+                    when {
+                        task.estimatedMinutes != null && task.actualMinutes != null -> add("${task.actualMinutes} de ~${task.estimatedMinutes} min")
+                        task.estimatedMinutes != null -> add("~${task.estimatedMinutes} min")
+                        task.actualMinutes != null -> add("${task.actualMinutes} min gastos")
+                    }
                     if (task.priority == Priority.HIGH) add("prioridade alta")
                 }
                 if (parts.isNotEmpty()) {
@@ -202,7 +259,10 @@ private fun TaskRow(task: Task, overdue: Boolean, onToggle: () -> Unit, onEdit: 
             }
             IconButton(onClick = { menu = true }) { Icon(Icons.Filled.MoreVert, "Mais opções") }
             DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
-                if (!task.isCompleted) DropdownMenuItem(text = { Text("Adiar para amanhã") }, onClick = { menu = false; onPostpone() })
+                if (task.isOpen) {
+                    DropdownMenuItem(text = { Text("Adiar…") }, onClick = { menu = false; onPostpone() })
+                    DropdownMenuItem(text = { Text("Cancelar tarefa…") }, onClick = { menu = false; onCancel() })
+                }
                 DropdownMenuItem(text = { Text("Editar") }, onClick = { menu = false; onEdit() })
                 DropdownMenuItem(
                     text = { Text("Excluir") },
@@ -215,7 +275,13 @@ private fun TaskRow(task: Task, overdue: Boolean, onToggle: () -> Unit, onEdit: 
 }
 
 @Composable
-private fun TaskDialog(initial: TaskDraft, projects: List<Project>, onDismiss: () -> Unit, onSave: (TaskDraft) -> Unit) {
+private fun TaskDialog(
+    initial: TaskDraft,
+    projects: List<Project>,
+    history: List<CommitmentChange>,
+    onDismiss: () -> Unit,
+    onSave: (TaskDraft) -> Unit,
+) {
     var d by remember { mutableStateOf(initial) }
     var recurrence by remember { mutableStateOf(RecurrenceChoice.from(initial.recurrence)) }
     AlertDialog(
@@ -247,6 +313,17 @@ private fun TaskDialog(initial: TaskDraft, projects: List<Project>, onDismiss: (
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier.fillMaxWidth(),
                 )
+                if (initial.id != 0L) {
+                    var spent by remember { mutableStateOf(initial.actualMinutes?.toString().orEmpty()) }
+                    OutlinedTextField(
+                        spent,
+                        { v -> spent = v.filter(Char::isDigit).take(5); d = d.copy(actualMinutes = spent.toIntOrNull()?.takeIf { it > 0 }) },
+                        label = { Text("Tempo gasto (minutos, opcional)") },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
                 if (projects.isNotEmpty() || d.projectId != null) {
                     Text("Projeto", style = MaterialTheme.typography.labelLarge)
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -267,6 +344,12 @@ private fun TaskDialog(initial: TaskDraft, projects: List<Project>, onDismiss: (
                 if (recurrence != RecurrenceChoice.NONE && d.date == null) {
                     Text("Escolha a data da primeira vez para a repetição funcionar.", style = MaterialTheme.typography.bodySmall, color = AuroraColors.Warning)
                 }
+                if (history.isNotEmpty()) {
+                    Text("Histórico", style = MaterialTheme.typography.labelLarge)
+                    history.asReversed().forEach { ch ->
+                        Text(describeChange(ch), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
             }
         },
         confirmButton = {
@@ -276,5 +359,69 @@ private fun TaskDialog(initial: TaskDraft, projects: List<Project>, onDismiss: (
             }) { Text("Salvar") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
+    )
+}
+
+/** Linha factual do histórico: data, o que mudou, prazos e motivo (sem interpretação). */
+private fun describeChange(ch: CommitmentChange): String {
+    val zone = ZoneId.systemDefault()
+    val now = ZonedDateTime.now(zone)
+    val fmt = { i: java.time.Instant -> PtBrFormat.dateTime(i.atZone(zone), now) }
+    val whenText = ch.createdAt.atZone(zone).let { "${it.dayOfMonth}/${it.monthValue} ${PtBrFormat.time(it.toLocalTime())}" }
+    val dates = when {
+        ch.fromDueAt != null && ch.toDueAt != null && ch.fromDueAt != ch.toDueAt -> ": ${fmt(ch.fromDueAt!!)} → ${fmt(ch.toDueAt!!)}"
+        ch.fromDueAt == null && ch.toDueAt != null && ch.type != ChangeType.COMPLETED -> ": prazo ${fmt(ch.toDueAt!!)}"
+        else -> ""
+    }
+    val reason = ch.reason?.let { " — motivo: $it" } ?: ""
+    return "$whenText · ${ch.type.label.replaceFirstChar { it.uppercase() }}$dates$reason"
+}
+
+@Composable
+private fun PostponeDialog(task: Task, onDismiss: () -> Unit, onConfirm: (LocalDate, String?) -> Unit) {
+    val today = LocalDate.now()
+    val options = listOf(
+        "Amanhã" to today.plusDays(1),
+        "Próxima segunda" to today.with(TemporalAdjusters.next(DayOfWeek.MONDAY)),
+        "Em uma semana" to today.plusWeeks(1),
+    )
+    var date by remember { mutableStateOf<LocalDate?>(today.plusDays(1)) }
+    var reason by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Adiar \"${task.title}\"") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    options.forEach { (label, d) -> FilterChip(selected = date == d, onClick = { date = d }, label = { Text(label) }) }
+                }
+                DateButton(date, "Escolher data", { date = it })
+                if (task.dueAt != null && !task.dueAllDay) {
+                    Text("O horário atual da tarefa é mantido.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                OutlinedTextField(reason, { reason = it.take(200) }, label = { Text("Motivo (opcional)") }, modifier = Modifier.fillMaxWidth())
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = date != null, onClick = { date?.let { onConfirm(it, reason) } }) { Text("Adiar") }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Voltar") } },
+    )
+}
+
+@Composable
+private fun CancelTaskDialog(task: Task, onDismiss: () -> Unit, onConfirm: (String?) -> Unit) {
+    var reason by remember { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Cancelar tarefa?") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("\"${task.title}\" deixa de ficar pendente, mas continua no histórico (aba Canceladas). Nada é apagado.")
+                OutlinedTextField(reason, { reason = it.take(200) }, label = { Text("Motivo (opcional)") }, modifier = Modifier.fillMaxWidth())
+            }
+        },
+        confirmButton = { TextButton(onClick = { onConfirm(reason) }) { Text("Cancelar tarefa") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Voltar") } },
     )
 }

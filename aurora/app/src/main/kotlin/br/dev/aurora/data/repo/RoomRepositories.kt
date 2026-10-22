@@ -20,6 +20,7 @@ import br.dev.aurora.core.repository.TaskRepository
 import br.dev.aurora.core.text.PtText
 import br.dev.aurora.data.db.AuroraDatabase
 import br.dev.aurora.data.db.FtsQuery
+import androidx.room.withTransaction
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -31,6 +32,14 @@ class RoomTaskRepository(private val db: AuroraDatabase) : TaskRepository {
     override suspend fun getAll() = db.tasks().getAll().map { it.toModel() }
     override suspend fun get(id: Long) = db.tasks().get(id)?.toModel()
     override suspend fun upsert(task: Task) = upsertedId(task.id, db.tasks().upsert(task.toEntity()))
+
+    /** Tarefa e histórico na mesma transação: se a gravação do histórico falhar, a tarefa volta ao que era. */
+    override suspend fun upsertWithChange(task: Task, change: CommitmentChange): Long = db.withTransaction {
+        val id = upsertedId(task.id, db.tasks().upsert(task.toEntity()))
+        db.commitmentChanges().insert(change.copy(taskId = id).toEntity())
+        id
+    }
+
     override suspend fun delete(id: Long) = db.tasks().delete(id)
 }
 
@@ -85,6 +94,7 @@ class RoomNoteRepository(private val db: AuroraDatabase) : NoteRepository {
 
 class RoomProjectRepository(private val db: AuroraDatabase) : ProjectRepository {
     override fun observeAll(): Flow<List<Project>> = db.projects().observeAll().map { l -> l.map { it.toModel() } }
+    override suspend fun getAll() = db.projects().getAll().map { it.toModel() }
     override suspend fun get(id: Long) = db.projects().get(id)?.toModel()
     override suspend fun upsert(project: Project) = upsertedId(project.id, db.projects().upsert(project.toEntity()))
     override suspend fun delete(id: Long) = db.projects().delete(id)
@@ -105,6 +115,8 @@ class RoomObjectiveRepository(private val db: AuroraDatabase) : ObjectiveReposit
 class RoomCommitmentChangeRepository(private val db: AuroraDatabase) : CommitmentChangeRepository {
     override suspend fun record(change: CommitmentChange) = db.commitmentChanges().insert(change.toEntity())
     override suspend fun forTask(taskId: Long) = db.commitmentChanges().forTask(taskId).map { it.toModel() }
+    override fun observeForTask(taskId: Long): Flow<List<CommitmentChange>> =
+        db.commitmentChanges().observeForTask(taskId).map { l -> l.map { it.toModel() } }
 }
 
 class RoomMemoryRepository(private val db: AuroraDatabase) : MemoryRepository {

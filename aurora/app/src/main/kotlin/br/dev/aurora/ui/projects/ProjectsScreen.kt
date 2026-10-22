@@ -102,7 +102,7 @@ fun ProjectsScreen() {
                                             p.status.label,
                                             PtBrFormat.plural(summary.openTasks.size, "tarefa aberta", "tarefas abertas"),
                                             PtBrFormat.plural(summary.doneCount, "concluída", "concluídas"),
-                                            PtBrFormat.plural(summary.noteCount, "nota", "notas"),
+                                            PtBrFormat.plural(summary.notes.size, "nota", "notas"),
                                         ).joinToString(" · "),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -117,7 +117,7 @@ fun ProjectsScreen() {
                                 }
                                 if (summary.openTasks.isEmpty()) {
                                     Text(
-                                        "Sem tarefas abertas. Vincule tarefas pelo editor de tarefas (aba Foco).",
+                                        "Sem tarefas abertas. Vincule pelo editor de tarefas (aba Foco) ou por voz: \"cria uma tarefa … no projeto ${p.name}\".",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.padding(top = 8.dp),
@@ -132,6 +132,24 @@ fun ProjectsScreen() {
                                                 style = MaterialTheme.typography.bodyMedium,
                                             )
                                         }
+                                    }
+                                }
+                                if (summary.notes.isNotEmpty()) {
+                                    Text("Notas", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 12.dp))
+                                    summary.notes.take(MAX_NOTES).forEach { n ->
+                                        Text(
+                                            n.title.ifBlank { n.content.take(60) },
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            maxLines = 1,
+                                            modifier = Modifier.padding(top = 6.dp, end = 12.dp),
+                                        )
+                                    }
+                                    if (summary.notes.size > MAX_NOTES) {
+                                        Text(
+                                            "e mais ${summary.notes.size - MAX_NOTES}",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
                                     }
                                 }
                             }
@@ -180,3 +198,5 @@ private fun ProjectDialog(project: Project?, onDismiss: () -> Unit, onSave: (Str
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
     )
 }
+
+private const val MAX_NOTES = 5

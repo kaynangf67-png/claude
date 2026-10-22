@@ -12,12 +12,15 @@ import br.dev.aurora.core.model.Recurrence
 import br.dev.aurora.core.model.Task
 import br.dev.aurora.core.model.TaskStatus
 import br.dev.aurora.core.planning.AgendaBuilder
+import br.dev.aurora.core.query.ProjectScope
+import br.dev.aurora.core.query.TaskFilter
 import br.dev.aurora.core.tools.AssistantTool
 import br.dev.aurora.core.tools.ItemRef
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -27,7 +30,13 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-enum class TaskFilter(val label: String) { PENDING("Pendentes"), OVERDUE("Atrasadas"), DONE("Concluídas") }
+/** Abas da lista. Prioridade e projeto são filtros adicionais (ver [TaskFilter] do core). */
+enum class TaskView(val label: String) {
+    OPEN("Abertas"),
+    OVERDUE("Atrasadas"),
+    DONE("Concluídas"),
+    CANCELLED("Canceladas"),
+}
 
 /** Dados do formulário de tarefa (criação ou edição). */
 data class TaskDraft(
@@ -41,11 +50,16 @@ data class TaskDraft(
     val status: TaskStatus = TaskStatus.TODO,
     val projectId: Long? = null,
     val estimatedMinutes: Int? = null,
+    /** Tempo gasto informado pelo usuário (minutos). */
+    val actualMinutes: Int? = null,
 )
 
 class TasksViewModel(private val c: AppContainer) : ViewModel() {
-    private val filter = MutableStateFlow(TaskFilter.PENDING)
-    val currentFilter: StateFlow<TaskFilter> = filter.asStateFlow()
+    private val view = MutableStateFlow(TaskView.OPEN)
+    val currentView: StateFlow<TaskView> = view.asStateFlow()
+    private val extra = MutableStateFlow(TaskFilter())
+    /** Filtros de prioridade e projeto (o status vem da aba). */
+    val currentExtra: StateFlow<TaskFilter> = extra.asStateFlow()
 
     val projects: StateFlow<List<Project>> = c.projects.observeAll()
         .map { l -> l.filter { it.status == GoalStatus.ACTIVE } }
@@ -55,24 +69,42 @@ class TasksViewModel(private val c: AppContainer) : ViewModel() {
     val message: StateFlow<String?> = _message.asStateFlow()
 
     /** `null` enquanto carrega. */
-    val tasks: StateFlow<List<Task>?> = combine(c.tasks.observeAll(), filter) { all, f ->
+    val tasks: StateFlow<List<Task>?> = combine(c.tasks.observeAll(), view, extra) { all, v, x ->
         val zone = ZoneId.systemDefault()
         val today = LocalDate.now(zone)
-        when (f) {
-            TaskFilter.PENDING -> all.filter { it.isOpen }
+        val byStatus = when (v) {
+            TaskView.OPEN, TaskView.OVERDUE -> x.copy(statuses = emptySet())
+            TaskView.DONE -> x.copy(statuses = setOf(TaskStatus.DONE))
+            TaskView.CANCELLED -> x.copy(statuses = setOf(TaskStatus.CANCELLED))
+        }
+        val selected = byStatus.apply(all)
+        when (v) {
+            TaskView.OPEN -> selected
                 .sortedWith(compareBy<Task> { it.dueAt ?: Instant.MAX }.thenByDescending { AgendaBuilder.priorityWeight(it.priority) })
-            TaskFilter.OVERDUE -> all.filter { t -> t.isOpen && isOverdue(t, today, zone) }.sortedBy { it.dueAt }
-            TaskFilter.DONE -> all.filter { it.isCompleted }.sortedByDescending { it.completedAt }
+            TaskView.OVERDUE -> selected.filter { isOverdue(it, today, zone) }.sortedBy { it.dueAt }
+            TaskView.DONE -> selected.sortedByDescending { it.completedAt }
+            TaskView.CANCELLED -> selected.sortedByDescending { it.updatedAt }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Histórico factual de uma tarefa (adiamentos, remarcações, cancelamento, conclusões). */
+    fun history(taskId: Long): Flow<List<CommitmentChange>> = c.commitmentChanges.observeForTask(taskId)
 
     fun isOverdue(t: Task, today: LocalDate = LocalDate.now(), zone: ZoneId = ZoneId.systemDefault()): Boolean {
         val due = t.dueAt ?: return false
         return if (t.dueAllDay) due.atZone(zone).toLocalDate() < today else due < Instant.now()
     }
 
-    fun setFilter(f: TaskFilter) {
-        filter.value = f
+    fun setView(v: TaskView) {
+        view.value = v
+    }
+
+    fun setPriority(p: Priority?) {
+        extra.value = extra.value.copy(priority = p)
+    }
+
+    fun setProject(scope: ProjectScope) {
+        extra.value = extra.value.copy(project = scope)
     }
 
     fun consumeMessage() {
@@ -86,6 +118,7 @@ class TasksViewModel(private val c: AppContainer) : ViewModel() {
             id = task.id, title = task.title, description = task.description, priority = task.priority,
             date = due?.toLocalDate(), time = if (task.dueAllDay) null else due?.toLocalTime(), recurrence = task.recurrence,
             status = task.status, projectId = task.projectId, estimatedMinutes = task.estimatedMinutes,
+            actualMinutes = task.actualMinutes,
         )
     }
 
@@ -113,12 +146,13 @@ class TasksViewModel(private val c: AppContainer) : ViewModel() {
                 val existing = c.tasks.get(d.id) ?: return@launch
                 val now = Instant.now()
                 val newDue = dueDateTime?.toInstant() ?: dueDate?.atStartOfDay(zone)?.toInstant()
-                c.tasks.upsert(
+                val updated =
                     existing.copy(
                         status = d.status,
                         completedAt = if (d.status == TaskStatus.DONE) existing.completedAt ?: now else null,
                         projectId = d.projectId,
                         estimatedMinutes = d.estimatedMinutes,
+                        actualMinutes = d.actualMinutes,
                         title = title,
                         description = d.description.trim(),
                         priority = d.priority,
@@ -126,8 +160,7 @@ class TasksViewModel(private val c: AppContainer) : ViewModel() {
                         dueAllDay = dueDate != null,
                         recurrence = d.recurrence,
                         updatedAt = now,
-                    ),
-                )
+                    )
                 // Histórico factual: mudanças de status e de prazo ficam registradas.
                 val change = when {
                     d.status != existing.status && d.status == TaskStatus.DONE -> ChangeType.COMPLETED
@@ -137,8 +170,14 @@ class TasksViewModel(private val c: AppContainer) : ViewModel() {
                     newDue != existing.dueAt -> ChangeType.RESCHEDULED
                     else -> null
                 }
-                change?.let {
-                    c.commitmentChanges.record(CommitmentChange(taskId = existing.id, type = it, fromDueAt = existing.dueAt, toDueAt = newDue, createdAt = now))
+                // Tarefa e histórico gravados juntos (mesma transação).
+                if (change != null) {
+                    c.tasks.upsertWithChange(
+                        updated,
+                        CommitmentChange(taskId = existing.id, type = change, fromDueAt = existing.dueAt, toDueAt = newDue, createdAt = now),
+                    )
+                } else {
+                    c.tasks.upsert(updated)
                 }
                 _message.value = "Tarefa atualizada."
             }
@@ -154,15 +193,26 @@ class TasksViewModel(private val c: AppContainer) : ViewModel() {
     fun reopen(task: Task) {
         viewModelScope.launch {
             val now = Instant.now()
-            c.tasks.upsert(task.copy(status = TaskStatus.TODO, completedAt = null, updatedAt = now))
-            c.commitmentChanges.record(CommitmentChange(taskId = task.id, type = ChangeType.REOPENED, fromDueAt = task.dueAt, toDueAt = task.dueAt, createdAt = now))
+            c.tasks.upsertWithChange(
+                task.copy(status = TaskStatus.TODO, completedAt = null, updatedAt = now),
+                CommitmentChange(taskId = task.id, type = ChangeType.REOPENED, fromDueAt = task.dueAt, toDueAt = task.dueAt, createdAt = now),
+            )
         }
     }
 
-    fun postponeToTomorrow(task: Task) {
+    /** Adia para [date], mantendo o horário se a tarefa tiver um. O motivo é opcional e vai para o histórico. */
+    fun postpone(task: Task, date: LocalDate, reason: String?) {
         viewModelScope.launch {
-            val tomorrow = LocalDate.now().plusDays(1)
-            _message.value = c.actions.execute(AssistantTool.Postpone(ItemRef.ById(task.id), tomorrow, null), null).message
+            val tool = AssistantTool.Postpone(ItemRef.ById(task.id), date, null, reason?.trim()?.takeIf { it.isNotEmpty() })
+            _message.value = c.actions.execute(tool, null).message
+        }
+    }
+
+    /** Chamado depois da confirmação no diálogo: a tarefa fica como "Cancelada", não é apagada. */
+    fun cancel(task: Task, reason: String?) {
+        viewModelScope.launch {
+            val tool = AssistantTool.CancelTask(ItemRef.ById(task.id), reason?.trim()?.takeIf { it.isNotEmpty() })
+            _message.value = c.actions.execute(tool, null).message
         }
     }
 

@@ -61,6 +61,7 @@ class AppContainer(val context: Context) {
         apps = AndroidAppLauncher(context),
         capabilities = capabilities,
         commitments = commitmentChanges,
+        projects = projects,
     )
 
     /** Ações disparadas pela UI usam as mesmas regras (e mensagens) do assistente. */

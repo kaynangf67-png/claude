@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import br.dev.aurora.AppContainer
 import br.dev.aurora.core.model.GoalStatus
+import br.dev.aurora.core.model.KnowledgeNote
 import br.dev.aurora.core.model.Project
 import br.dev.aurora.core.model.Task
 import java.time.Instant
@@ -15,7 +16,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-data class ProjectSummary(val project: Project, val openTasks: List<Task>, val doneCount: Int, val noteCount: Int)
+data class ProjectSummary(val project: Project, val openTasks: List<Task>, val doneCount: Int, val notes: List<KnowledgeNote>)
 
 class ProjectsViewModel(private val c: AppContainer) : ViewModel() {
     private val _message = MutableStateFlow<String?>(null)
@@ -25,7 +26,7 @@ class ProjectsViewModel(private val c: AppContainer) : ViewModel() {
     val projects: StateFlow<List<ProjectSummary>?> = combine(c.projects.observeAll(), c.tasks.observeAll(), c.notes.observeAll()) { projects, tasks, notes ->
         projects.map { p ->
             val linked = tasks.filter { it.projectId == p.id }
-            ProjectSummary(p, linked.filter { it.isOpen }, linked.count { it.isCompleted }, notes.count { it.projectId == p.id })
+            ProjectSummary(p, linked.filter { it.isOpen }, linked.count { it.isCompleted }, notes.filter { it.projectId == p.id }.sortedByDescending { it.updatedAt })
         }.sortedWith(compareBy<ProjectSummary> { it.project.status.ordinal }.thenByDescending { it.project.updatedAt })
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 

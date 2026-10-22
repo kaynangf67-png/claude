@@ -85,6 +85,9 @@ interface ProjectDao {
     @Query("SELECT * FROM projects WHERE id = :id")
     suspend fun get(id: Long): ProjectEntity?
 
+    @Query("SELECT * FROM projects ORDER BY name ASC")
+    suspend fun getAll(): List<ProjectEntity>
+
     @Upsert
     suspend fun upsert(entity: ProjectEntity): Long
 
@@ -129,6 +132,9 @@ interface CommitmentChangeDao {
 
     @Query("SELECT * FROM commitment_changes WHERE task_id = :taskId ORDER BY created_at ASC")
     suspend fun forTask(taskId: Long): List<CommitmentChangeEntity>
+
+    @Query("SELECT * FROM commitment_changes WHERE task_id = :taskId ORDER BY created_at ASC")
+    fun observeForTask(taskId: Long): Flow<List<CommitmentChangeEntity>>
 }
 
 @Dao
