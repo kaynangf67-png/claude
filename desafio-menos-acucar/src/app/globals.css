@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+/* Design tokens — Desafio Menos Açúcar
+   Verde fresco (#58A878) tem contraste baixo com fundo claro: use só em preenchimentos,
+   ícones e detalhes. Texto e botões usam o verde floresta. O cinza secundário foi
+   escurecido em relação ao briefing (#737A72 → #646B63) para passar de 4.5:1 no fundo off-white. */
+@theme {
+  --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display-serif), ui-serif, Georgia, serif;
+
+  --color-forest-950: #0b2a20;
+  --color-forest-900: #10392c;
+  --color-forest: #174d3c;
+  --color-forest-700: #1f5f4b;
+  --color-fresh: #58a878;
+  /* Verde para texto: mesma família do fresco, com contraste AA em fundo claro e escuro. */
+  --color-leaf: #2f7a4f;
+  --color-leaf-light: #a6d8b8;
+  --color-fresh-100: #e3f1e8;
+  --color-fresh-50: #f0f7f2;
+  --color-paper: #f8f7f1;
+  --color-sand: #ede9df;
+  --color-sand-200: #e2ddd0;
+  --color-line: #dcd7ca;
+  --color-ink: #202720;
+  --color-muted: #646b63;
+  --color-amber: #b7791f;
+  --color-amber-50: #fbf3e4;
+  --color-danger: #a33a2c;
+  --color-danger-50: #fbecea;
+
+  --radius-card: 0.75rem;
+
+  --shadow-card: 0 1px 0 rgb(32 39 32 / 0.04), 0 1px 2px rgb(32 39 32 / 0.04);
+  --shadow-raised: 0 1px 2px rgb(32 39 32 / 0.05), 0 8px 24px -12px rgb(23 77 60 / 0.18);
+
+  --animate-rise: rise 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  --animate-pop: pop 360ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes pop {
+    from {
+      opacity: 0;
+      transform: scale(0.92);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-paper text-ink font-sans antialiased;
+  }
+  ::selection {
+    background: var(--color-fresh-100);
+    color: var(--color-forest-900);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-forest);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Espaço para a navegação inferior + área segura do iPhone */
+.pb-safe-nav {
+  padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+}
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom);
+}

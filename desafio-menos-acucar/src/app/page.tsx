@@ -1,0 +1,285 @@
+import {
+  ArrowDown,
+  BookOpenText,
+  CalendarCheck2,
+  ClipboardList,
+  Compass,
+  Leaf,
+  ListChecks,
+  NotebookPen,
+  Repeat2,
+  ShieldCheck,
+  Sparkles,
+  Timer,
+  Trophy,
+  X,
+} from "lucide-react";
+import Link from "next/link";
+import { DashboardPreview } from "@/components/landing/DashboardPreview";
+import { Faq } from "@/components/landing/Faq";
+import { HeaderAuthLink, StartCta } from "@/components/landing/StartCta";
+import { Logo } from "@/components/ui/Logo";
+import { WEEK_THEMES } from "@/domain/missions";
+
+const BENEFITS = [
+  {
+    icon: Compass,
+    title: "Entenda seus gatilhos",
+    text: "Descubra em que horários, lugares e situações a vontade de doce aparece. Com isso, fica mais fácil se preparar, em vez de depender só da força de vontade.",
+  },
+  {
+    icon: Repeat2,
+    title: "Trocas que cabem na sua rotina",
+    text: "Um guia com alternativas práticas de comida, bebida e estratégias sem comida, ordenadas pelo que combina com você, seu tempo e seu orçamento.",
+  },
+  {
+    icon: Leaf,
+    title: "Progresso sem culpa",
+    text: "Perdeu um dia? A missão continua lá. Comeu um doce? Faz parte. O desafio registra o que você fez, sem contar o que deixou de fazer.",
+  },
+];
+
+const STEPS = [
+  {
+    icon: ClipboardList,
+    title: "Conte sobre a sua rotina",
+    text: "Um questionário de cerca de 2 minutos sobre seus horários, dificuldades e preferências. Sem perguntas sobre peso ou saúde.",
+  },
+  {
+    icon: CalendarCheck2,
+    title: "Faça uma missão por dia",
+    text: "Atividades curtas e práticas, com versão rápida para os dias corridos. Cada missão concluída soma XP e libera conquistas.",
+  },
+  {
+    icon: NotebookPen,
+    title: "Monte o seu plano",
+    text: "Ao longo dos 21 dias você salva as estratégias que funcionaram. No fim, elas viram um plano pessoal para continuar.",
+  },
+];
+
+const INCLUDED = [
+  { icon: ListChecks, text: "21 missões diárias, organizadas em três semanas: perceber, ajustar e sustentar" },
+  { icon: Timer, text: "Versão rápida de cada missão para os dias em que o tempo é curto" },
+  { icon: BookOpenText, text: "Guia de alternativas e estratégias, personalizado pelas suas respostas" },
+  { icon: NotebookPen, text: "Espaço para reflexões curtas depois de cada missão" },
+  { icon: Trophy, text: "XP, níveis e conquistas para acompanhar o caminho" },
+  { icon: Sparkles, text: "Relatório final com o que você fez e as estratégias que quer manter" },
+];
+
+const NOT_INCLUDED = [
+  "Dieta, cardápio fechado ou contagem de calorias",
+  "Diagnóstico, tratamento ou acompanhamento de saúde",
+  "Promessa de emagrecimento ou de “acabar com a vontade”",
+];
+
+export default function LandingPage() {
+  return (
+    <>
+      <header className="sticky top-0 z-30 border-b border-line/70 bg-paper/90 backdrop-blur supports-[backdrop-filter]:bg-paper/75">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+          <Logo />
+          <nav aria-label="Seções da página" className="hidden items-center gap-1 text-sm font-medium text-muted md:flex">
+            <a href="#como-funciona" className="rounded-md px-3 py-2 hover:text-forest">
+              Como funciona
+            </a>
+            <a href="#o-que-inclui" className="rounded-md px-3 py-2 hover:text-forest">
+              O que inclui
+            </a>
+            <a href="#duvidas" className="rounded-md px-3 py-2 hover:text-forest">
+              Dúvidas
+            </a>
+          </nav>
+          <div className="flex items-center gap-1">
+            <HeaderAuthLink />
+            <StartCta size="sm" label="Começar" className="hidden sm:inline-flex" />
+          </div>
+        </div>
+      </header>
+
+      <main id="conteudo">
+        {/* Hero */}
+        <section className="relative overflow-hidden">
+          <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 pt-10 pb-16 sm:px-6 md:pt-16 lg:grid-cols-[1.1fr_1fr] lg:gap-16 lg:pb-24">
+            <div className="animate-rise">
+              <p className="inline-flex items-center gap-2 rounded-md border border-line bg-white px-2.5 py-1 text-xs font-semibold text-forest">
+                <span className="size-1.5 rounded-full bg-fresh" aria-hidden />
+                Desafio de 21 dias
+              </p>
+              <h1 className="font-display mt-5 text-[2.5rem] leading-[1.05] font-semibold tracking-tight text-forest sm:text-5xl lg:text-[3.6rem]">
+                Menos açúcar no automático.
+                <span className="block text-ink/85 italic">Mais escolhas suas.</span>
+              </h1>
+              <p className="mt-5 max-w-xl text-lg leading-relaxed text-muted">
+                Em 21 dias, com uma missão curta por dia, você entende quando e por que o doce aparece na sua rotina e testa ajustes
+                práticos, sem dieta, sem proibição e sem culpa.
+              </p>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+                <StartCta />
+                <a href="#como-funciona" className="inline-flex h-12 items-center justify-center gap-2 rounded-lg px-4 font-semibold text-forest hover:bg-forest/[0.06]">
+                  Ver como funciona <ArrowDown className="size-4" aria-hidden />
+                </a>
+              </div>
+              <ul className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted">
+                <li className="flex items-center gap-2">
+                  <Timer className="size-4 text-fresh" aria-hidden /> Missões de 5 a 20 minutos
+                </li>
+                <li className="flex items-center gap-2">
+                  <ShieldCheck className="size-4 text-fresh" aria-hidden /> Sem pedir dados de saúde
+                </li>
+                <li className="flex items-center gap-2">
+                  <Leaf className="size-4 text-fresh" aria-hidden /> No seu ritmo
+                </li>
+              </ul>
+            </div>
+            <div className="animate-rise [animation-delay:120ms]">
+              <DashboardPreview />
+            </div>
+          </div>
+        </section>
+
+        {/* Como funciona (explicação curta) */}
+        <section id="como-funciona" className="scroll-mt-20 border-y border-line bg-white">
+          <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-20">
+            <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:gap-16">
+              <div>
+                <p className="text-sm font-semibold text-leaf">Como funciona</p>
+                <h2 className="font-display mt-2 text-3xl leading-tight font-semibold text-forest sm:text-4xl">
+                  Hábito se constrói com pequenas ações repetidas, não com regras rígidas.
+                </h2>
+                <p className="mt-4 leading-relaxed text-muted">
+                  O desafio divide os 21 dias em três fases. Primeiro você observa, depois ajusta o ambiente e testa trocas, e por fim
+                  junta o que funcionou num plano seu. Uma nova missão é liberada por dia, e você pode fazer as anteriores quando quiser.
+                </p>
+              </div>
+              <ol className="grid gap-3">
+                {([1, 2, 3] as const).map((w) => (
+                  <li key={w} className="flex gap-4 rounded-card border border-line bg-paper p-5">
+                    <span className="font-display grid size-11 shrink-0 place-items-center rounded-lg bg-forest text-lg font-semibold text-paper">
+                      {w}
+                    </span>
+                    <div>
+                      <p className="text-xs font-semibold tracking-wider text-muted uppercase">
+                        Semana {w} · dias {w * 7 - 6} a {w * 7}
+                      </p>
+                      <p className="font-display mt-0.5 text-xl font-semibold text-ink">{WEEK_THEMES[w].title}</p>
+                      <p className="mt-1 text-[0.9375rem] text-muted">{WEEK_THEMES[w].description}</p>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </div>
+        </section>
+
+        {/* Benefícios */}
+        <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-24">
+          <div className="max-w-2xl">
+            <p className="text-sm font-semibold text-leaf">Por que é diferente</p>
+            <h2 className="font-display mt-2 text-3xl leading-tight font-semibold text-forest sm:text-4xl">
+              Feito para a vida real, com rotina corrida, festa de aniversário e café da tarde.
+            </h2>
+          </div>
+          <div className="mt-10 grid gap-4 md:grid-cols-3">
+            {BENEFITS.map((b) => (
+              <article key={b.title} className="rounded-card border border-line bg-white p-6">
+                <b.icon className="size-6 text-forest" strokeWidth={1.75} aria-hidden />
+                <h3 className="mt-5 text-lg font-semibold text-ink">{b.title}</h3>
+                <p className="mt-2 leading-relaxed text-muted">{b.text}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        {/* Três passos */}
+        <section className="bg-forest text-paper">
+          <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-20">
+            <p className="text-sm font-semibold text-leaf-light">A experiência</p>
+            <h2 className="font-display mt-2 max-w-2xl text-3xl leading-tight font-semibold sm:text-4xl">Três passos, do primeiro dia ao seu plano.</h2>
+            <ol className="mt-10 grid gap-8 md:grid-cols-3 md:gap-6">
+              {STEPS.map((s, i) => (
+                <li key={s.title} className="relative border-t border-paper/20 pt-6">
+                  <span className="text-sm font-semibold text-paper/60">Passo {i + 1}</span>
+                  <s.icon className="mt-3 size-6 text-fresh" strokeWidth={1.75} aria-hidden />
+                  <h3 className="mt-3 text-lg font-semibold">{s.title}</h3>
+                  <p className="mt-2 leading-relaxed text-paper/75">{s.text}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
+        {/* O que inclui */}
+        <section id="o-que-inclui" className="scroll-mt-20 mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-24">
+          <div className="grid gap-10 lg:grid-cols-[1fr_1fr] lg:gap-16">
+            <div>
+              <p className="text-sm font-semibold text-leaf">Transparência</p>
+              <h2 className="font-display mt-2 text-3xl leading-tight font-semibold text-forest sm:text-4xl">O que está incluído</h2>
+              <ul className="mt-8 grid gap-4">
+                {INCLUDED.map((it) => (
+                  <li key={it.text} className="flex gap-3">
+                    <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-fresh-100 text-forest">
+                      <it.icon className="size-[1.125rem]" strokeWidth={1.9} aria-hidden />
+                    </span>
+                    <span className="pt-1.5 leading-relaxed text-ink">{it.text}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="rounded-card border border-line bg-sand/60 p-6 sm:p-8 lg:self-start">
+              <h3 className="font-display text-2xl font-semibold text-ink">O que o desafio não é</h3>
+              <p className="mt-2 text-muted">Preferimos deixar claro desde o início.</p>
+              <ul className="mt-6 grid gap-3">
+                {NOT_INCLUDED.map((t) => (
+                  <li key={t} className="flex gap-3">
+                    <X className="mt-0.5 size-5 shrink-0 text-muted" aria-hidden />
+                    <span className="text-ink">{t}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-6 border-t border-line pt-5 text-sm leading-relaxed text-muted">
+                O conteúdo é educativo. Se você tem diabetes, outra condição de saúde, histórico de transtorno alimentar ou está gestante,
+                procure orientação profissional antes de mudar sua alimentação.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* FAQ */}
+        <section id="duvidas" className="scroll-mt-20 border-t border-line bg-white">
+          <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16 lg:py-24">
+            <div>
+              <p className="text-sm font-semibold text-leaf">Dúvidas</p>
+              <h2 className="font-display mt-2 text-3xl leading-tight font-semibold text-forest sm:text-4xl">Perguntas frequentes</h2>
+            </div>
+            <Faq />
+          </div>
+        </section>
+
+        {/* CTA final */}
+        <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-24">
+          <div className="rounded-card border border-line bg-white px-6 py-12 text-center sm:px-12">
+            <h2 className="font-display mx-auto max-w-2xl text-3xl leading-tight font-semibold text-forest sm:text-4xl">
+              O primeiro passo leva dois minutos.
+            </h2>
+            <p className="mx-auto mt-3 max-w-xl text-muted">
+              Responda o questionário inicial e receba a sua primeira missão hoje.
+            </p>
+            <div className="mt-8 flex justify-center">
+              <StartCta />
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer className="border-t border-line">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-8 text-sm text-muted sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <Logo />
+          <p className="max-w-md">Conteúdo educativo. Não substitui orientação de médicos ou nutricionistas.</p>
+          <Link href="/entrar" className="font-semibold text-forest hover:underline">
+            Já tenho conta
+          </Link>
+        </div>
+      </footer>
+    </>
+  );
+}
