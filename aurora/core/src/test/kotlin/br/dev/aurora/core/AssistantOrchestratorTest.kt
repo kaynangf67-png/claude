@@ -119,6 +119,96 @@ class AssistantOrchestratorTest {
         assertEquals(LocalDate.of(2026, 10, 26), postponed.toDueAt!!.atZone(zone).toLocalDate())
     }
 
+    @Test fun `adiar com motivo grava motivo e status adiada`() = runTest {
+        say("cria uma tarefa enviar relatório para amanhã")
+        val reply = say("adia isso para segunda porque o cliente pediu mais prazo")
+        val task = world.tasks.getAll().single()
+        assertEquals(TaskStatus.POSTPONED, task.status)
+        assertTrue(task.isOpen)
+        val change = world.commitments.items.single()
+        assertEquals("O cliente pediu mais prazo", change.reason)
+        assertTrue(reply.text.contains("Motivo registrado"), reply.text)
+    }
+
+    @Test fun `cancelar tarefa pede confirmacao mantem a tarefa e registra o motivo`() = runTest {
+        say("cria uma tarefa academia amanhã")
+        val ask = say("cancela a tarefa academia porque machuquei o joelho")
+        assertTrue(ask.awaitingUser)
+        assertTrue(ask.text.contains("cancelar a tarefa \"Academia\" (motivo: Machuquei o joelho)"), ask.text)
+        assertEquals(TaskStatus.TODO, world.tasks.getAll().single().status)
+        say("sim")
+        val task = world.tasks.getAll().single()
+        assertEquals(TaskStatus.CANCELLED, task.status)
+        val change = world.commitments.items.single()
+        assertEquals(br.dev.aurora.core.model.ChangeType.CANCELLED, change.type)
+        assertEquals("Machuquei o joelho", change.reason)
+    }
+
+    @Test fun `tarefa cancelada nao aparece como pendente`() = runTest {
+        say("cria uma tarefa academia")
+        say("cancela a tarefa academia")
+        say("sim")
+        val reply = say("quais são minhas tarefas?")
+        assertTrue(reply.text.contains("não tem tarefas pendentes"), reply.text)
+    }
+
+    @Test fun `falha ao gravar historico nao altera a tarefa`() = runTest {
+        say("cria uma tarefa enviar relatório para amanhã")
+        val before = world.tasks.getAll().single()
+        world.tasks.failNextChange = true
+        runCatching { say("adia isso para segunda") }
+        assertEquals(before, world.tasks.getAll().single())
+        assertTrue(world.commitments.items.isEmpty())
+    }
+
+    @Test fun `tarefa criada por voz entra no projeto existente`() = runTest {
+        val projectId = world.projects.upsert(br.dev.aurora.core.model.Project(name = "Reforma da Casa", createdAt = clock.toInstant(), updatedAt = clock.toInstant()))
+        val reply = say("cria uma tarefa comprar tinta no projeto reforma da casa")
+        assertEquals(projectId, world.tasks.getAll().single().projectId)
+        assertTrue(reply.text.contains("Projeto: Reforma da Casa"), reply.text)
+    }
+
+    @Test fun `projeto inexistente nao e inventado e o usuario e avisado`() = runTest {
+        val reply = say("cria uma tarefa comprar tinta no projeto Mudança")
+        val task = world.tasks.getAll().single()
+        assertEquals("Comprar tinta", task.title)
+        assertNull(task.projectId)
+        assertTrue(world.projects.items.isEmpty())
+        assertTrue(reply.text.contains("Não encontrei o projeto \"Mudança\""), reply.text)
+    }
+
+    @Test fun `mover tarefa para projeto por voz`() = runTest {
+        val projectId = world.projects.upsert(br.dev.aurora.core.model.Project(name = "Reforma", createdAt = clock.toInstant(), updatedAt = clock.toInstant()))
+        say("cria uma tarefa comprar tinta")
+        say("move a tarefa comprar tinta para o projeto Reforma")
+        assertEquals(projectId, world.tasks.getAll().single().projectId)
+        assertTrue(world.commitments.items.isEmpty(), "trocar de projeto não é mudança de prazo")
+    }
+
+    @Test fun `ia lista tarefas de um projeto`() = runTest {
+        val projectId = world.projects.upsert(br.dev.aurora.core.model.Project(name = "Reforma", createdAt = clock.toInstant(), updatedAt = clock.toInstant()))
+        say("cria uma tarefa comprar tinta no projeto Reforma")
+        say("cria uma tarefa pagar internet")
+        val p = ScriptedProvider(calls = listOf(ToolInvocation("list_tasks", mapOf("project" to "reforma"))))
+        provider = p
+        say("o que falta na reforma?")
+        val result = p.toolResults.single()
+        assertFalse(result.isError)
+        assertTrue(result.content.contains("Comprar tinta") && !result.content.contains("Pagar internet"), result.content)
+        assertEquals(projectId, world.tasks.getAll().first { it.title == "Comprar tinta" }.projectId)
+    }
+
+    @Test fun `ia cancela tarefa so depois da confirmacao`() = runTest {
+        say("cria uma tarefa academia")
+        provider = ScriptedProvider(calls = listOf(ToolInvocation("cancel_task", mapOf("task_title" to "academia", "reason" to "lesão"))))
+        val reply = say("não vou mais na academia, me machuquei")
+        assertTrue(reply.awaitingUser)
+        assertEquals(TaskStatus.TODO, world.tasks.getAll().single().status)
+        say("sim")
+        assertEquals(TaskStatus.CANCELLED, world.tasks.getAll().single().status)
+        assertEquals("lesão", world.commitments.items.single().reason)
+    }
+
     @Test fun `adia lembrete mantem horario`() = runTest {
         say("me lembra amanhã às 15h de pagar o boleto")
         say("adia isso para segunda")

@@ -19,6 +19,11 @@ interface TaskRepository {
     suspend fun get(id: Long): Task?
     /** Insere ou atualiza; retorna o id persistido. */
     suspend fun upsert(task: Task): Long
+    /**
+     * Salva a tarefa e registra a mudança no histórico na MESMA transação: ou as duas coisas ficam gravadas,
+     * ou nenhuma. [change] deve referenciar o id da tarefa (que já existe).
+     */
+    suspend fun upsertWithChange(task: Task, change: CommitmentChange): Long
     suspend fun delete(id: Long)
 }
 
@@ -41,6 +46,7 @@ interface NoteRepository {
 
 interface ProjectRepository {
     fun observeAll(): Flow<List<Project>>
+    suspend fun getAll(): List<Project>
     suspend fun get(id: Long): Project?
     suspend fun upsert(project: Project): Long
     suspend fun delete(id: Long)
@@ -60,6 +66,7 @@ interface ObjectiveRepository {
 interface CommitmentChangeRepository {
     suspend fun record(change: CommitmentChange): Long
     suspend fun forTask(taskId: Long): List<CommitmentChange>
+    fun observeForTask(taskId: Long): Flow<List<CommitmentChange>>
 }
 
 interface MemoryRepository {

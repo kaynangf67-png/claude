@@ -19,6 +19,8 @@ import br.dev.aurora.core.repository.ConversationRepository
 import br.dev.aurora.core.repository.DeviceCapabilities
 import br.dev.aurora.core.repository.MemoryRepository
 import br.dev.aurora.core.repository.NoteRepository
+import br.dev.aurora.core.repository.ProjectRepository
+import br.dev.aurora.core.model.Project
 import br.dev.aurora.core.repository.ReminderRepository
 import br.dev.aurora.core.repository.ReminderScheduler
 import br.dev.aurora.core.repository.ScheduleOutcome
@@ -30,7 +32,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 
 // Implementações em memória usadas SOMENTE nos testes.
 
-class InMemoryTasks : TaskRepository {
+class InMemoryTasks(private val commitments: InMemoryCommitments = InMemoryCommitments()) : TaskRepository {
+    /** Simula falha na gravação do histórico, para testar que a tarefa não muda sozinha. */
+    var failNextChange = false
     val items = MutableStateFlow<Map<Long, Task>>(emptyMap())
     private var next = 1L
     override fun observeAll(): Flow<List<Task>> = MutableStateFlow(items.value.values.toList())
@@ -39,6 +43,18 @@ class InMemoryTasks : TaskRepository {
     override suspend fun upsert(task: Task): Long {
         val id = if (task.id == 0L) next++ else task.id
         items.value = items.value + (id to task.copy(id = id))
+        return id
+    }
+    override suspend fun upsertWithChange(task: Task, change: CommitmentChange): Long {
+        if (failNextChange) { failNextChange = false; error("falha simulada") }
+        val before = items.value
+        val id = upsert(task)
+        try {
+            commitments.record(change.copy(taskId = id))
+        } catch (e: Exception) {
+            items.value = before
+            throw e
+        }
         return id
     }
     override suspend fun delete(id: Long) { items.value = items.value - id }
@@ -103,6 +119,21 @@ class InMemoryCommitments : CommitmentChangeRepository {
     val items = mutableListOf<CommitmentChange>()
     override suspend fun record(change: CommitmentChange): Long { items += change.copy(id = items.size + 1L); return items.size.toLong() }
     override suspend fun forTask(taskId: Long) = items.filter { it.taskId == taskId }
+    override fun observeForTask(taskId: Long): Flow<List<CommitmentChange>> = MutableStateFlow(items.filter { it.taskId == taskId })
+}
+
+class InMemoryProjects : ProjectRepository {
+    val items = mutableMapOf<Long, Project>()
+    private var next = 1L
+    override fun observeAll(): Flow<List<Project>> = MutableStateFlow(items.values.toList())
+    override suspend fun getAll() = items.values.toList()
+    override suspend fun get(id: Long) = items[id]
+    override suspend fun upsert(project: Project): Long {
+        val id = if (project.id == 0L) next++ else project.id
+        items[id] = project.copy(id = id)
+        return id
+    }
+    override suspend fun delete(id: Long) { items.remove(id) }
 }
 
 class FakeScheduler(var outcome: ScheduleOutcome = ScheduleOutcome.EXACT) : ReminderScheduler {
@@ -139,7 +170,8 @@ class FakeConnectivity(var online: Boolean = true) : Connectivity {
 }
 
 class TestWorld {
-    val tasks = InMemoryTasks()
+    val commitments = InMemoryCommitments()
+    val tasks = InMemoryTasks(commitments)
     val reminders = InMemoryReminders()
     val notes = InMemoryNotes()
     val memory = InMemoryMemory()
@@ -148,6 +180,6 @@ class TestWorld {
     val calendar = FakeCalendar()
     val apps = FakeApps()
     val capabilities = FakeCapabilities()
-    val commitments = InMemoryCommitments()
-    val deps = AssistantDependencies(tasks, reminders, notes, memory, scheduler, calendar, apps, capabilities, commitments)
+    val projects = InMemoryProjects()
+    val deps = AssistantDependencies(tasks, reminders, notes, memory, scheduler, calendar, apps, capabilities, commitments, projects)
 }

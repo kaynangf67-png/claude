@@ -77,6 +77,60 @@ class LocalIntentParserTest {
         assertEquals(LocalDate.of(2026, 10, 23), t.toDate)
     }
 
+    @Test fun `adia com motivo separa o motivo do alvo e da data`() {
+        val t = tool<AssistantTool.Postpone>("adia a tarefa relatório para sexta porque estou sem tempo")
+        assertEquals(ItemRef.ByTitle("relatório"), t.target)
+        assertEquals(LocalDate.of(2026, 10, 23), t.toDate)
+        assertEquals("Estou sem tempo", t.reason)
+    }
+
+    @Test fun `adia isso com motivo depois da virgula`() {
+        val t = tool<AssistantTool.Postpone>("adia isso para amanhã, pois o cliente remarcou")
+        assertEquals(ItemRef.LastMentioned, t.target)
+        assertEquals("O cliente remarcou", t.reason)
+    }
+
+    @Test fun `motivo dito antes da data fica pendente ate a data`() {
+        val intent = parser.parse("adia isso porque fiquei doente", now)
+        assertIs<LocalIntent.Clarify>(intent)
+        val pending = assertIs<PendingRequest.PostponeNeedsDate>(intent.pending)
+        assertEquals("Fiquei doente", pending.reason)
+        val follow = assertIs<LocalIntent.Tool>(parser.continuePending(pending, "segunda", now))
+        val t = assertIs<AssistantTool.Postpone>(follow.tool)
+        assertEquals("Fiquei doente", t.reason)
+        assertEquals(LocalDate.of(2026, 10, 26), t.toDate)
+    }
+
+    @Test fun `cancela tarefa com motivo e exige confirmacao`() {
+        val t = tool<AssistantTool.CancelTask>("cancela a tarefa academia porque machuquei o joelho")
+        assertEquals(ItemRef.ByTitle("academia"), t.target)
+        assertEquals("Machuquei o joelho", t.reason)
+        assertTrue(t.requiresConfirmation)
+    }
+
+    @Test fun `cancela essa tarefa usa o ultimo item`() {
+        val t = tool<AssistantTool.CancelTask>("cancela essa tarefa")
+        assertEquals(ItemRef.LastMentioned, t.target)
+        assertEquals(null, t.reason)
+    }
+
+    @Test fun `cancelar lembrete continua sendo lembrete`() {
+        tool<AssistantTool.CancelReminder>("cancela o lembrete do remédio")
+    }
+
+    @Test fun `cria tarefa no projeto separa o nome do projeto`() {
+        val t = tool<AssistantTool.CreateTask>("cria uma tarefa revisar contrato no projeto Reforma da casa amanhã")
+        assertEquals("Revisar contrato", t.title)
+        assertEquals("Reforma da casa", t.project)
+        assertEquals(LocalDate.of(2026, 10, 23), t.dueDate)
+    }
+
+    @Test fun `move tarefa para projeto`() {
+        val t = tool<AssistantTool.UpdateTask>("move a tarefa comprar tinta para o projeto Reforma")
+        assertEquals(ItemRef.ByTitle("comprar tinta"), t.target)
+        assertEquals("Reforma", t.project)
+    }
+
     @Test fun `adia tarefa nomeada`() {
         val t = tool<AssistantTool.Postpone>("adia a tarefa relatório para amanhã às 14h")
         assertEquals(ItemRef.ByTitle("relatório"), t.target)

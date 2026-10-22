@@ -41,20 +41,24 @@ class ToolValidator(private val now: () -> ZonedDateTime) {
                 dueDateTime = dt,
                 dueDate = d,
                 recurrence = recurrence(a["recurrence"]),
+                project = optText(a, "project", MAX_TITLE),
             )
         }
         ToolNames.UPDATE_TASK -> {
             val (dt, d) = due(a["due"])
             val title = optText(a, "title", MAX_TITLE)
             val priority = priority(a["priority"])
-            if (title == null && priority == null && dt == null && d == null) fail("nenhuma alteração informada")
-            AssistantTool.UpdateTask(target(a, "task_id", "task_title"), title, priority, dt, d)
+            val project = optText(a, "project", MAX_TITLE)
+            if (title == null && priority == null && dt == null && d == null && project == null) fail("nenhuma alteração informada")
+            AssistantTool.UpdateTask(target(a, "task_id", "task_title"), title, priority, dt, d, project)
         }
         ToolNames.COMPLETE_TASK -> AssistantTool.CompleteTask(target(a, "task_id", "task_title"))
         ToolNames.DELETE_TASK -> AssistantTool.DeleteTask(target(a, "task_id", "task_title"))
+        ToolNames.CANCEL_TASK -> AssistantTool.CancelTask(target(a, "task_id", "task_title"), optText(a, "reason", MAX_TITLE))
         ToolNames.LIST_TASKS -> AssistantTool.ListTasks(
             date = optDate(a["date"]),
             includeCompleted = a["include_completed"] as? Boolean ?: false,
+            project = optText(a, "project", MAX_TITLE),
         )
         ToolNames.CREATE_REMINDER -> AssistantTool.CreateReminder(
             title = text(a, "title", MAX_TITLE),

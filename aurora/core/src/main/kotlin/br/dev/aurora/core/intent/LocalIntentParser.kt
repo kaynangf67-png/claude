@@ -18,7 +18,7 @@ sealed interface PendingRequest {
     data class ReminderNeedsTitle(val at: ZonedDateTime, val recurrence: Recurrence?) : PendingRequest
     data class TaskNeedsTitle(val dueDateTime: ZonedDateTime?, val dueDate: LocalDate?, val recurrence: Recurrence?) : PendingRequest
     data object NoteNeedsContent : PendingRequest
-    data class PostponeNeedsDate(val target: ItemRef) : PendingRequest
+    data class PostponeNeedsDate(val target: ItemRef, val reason: String? = null) : PendingRequest
     data class Confirmation(val tool: AssistantTool, val summary: String) : PendingRequest
 }
 
@@ -50,6 +50,18 @@ class LocalIntentParser(private val dateParser: PtBrDateTimeParser = PtBrDateTim
         if (TIME_QUERY.containsMatchIn(f)) return LocalIntent.Reply(timeAnswer(now))
 
         POSTPONE.find(f)?.let { return postpone(u, it, now) }
+        CANCEL_TASK.find(f)?.let { m ->
+            val (body, reason) = splitReason(u.from(m.range.last + 1))
+            val rest = cleanTarget(body.original)
+            return LocalIntent.Tool(AssistantTool.CancelTask(rest?.let { ItemRef.ByTitle(it) } ?: ItemRef.LastMentioned, reason))
+        }
+        MOVE_TO_PROJECT.find(f)?.let { m ->
+            val target = cleanTarget(u.original.substring(m.groups[1]!!.range.first, m.groups[1]!!.range.last + 1))
+            val project = cleanTitle(u.original.substring(m.groups[2]!!.range.first))
+            if (target != null && project != null) {
+                return LocalIntent.Tool(AssistantTool.UpdateTask(ItemRef.ByTitle(target), project = project))
+            }
+        }
         COMPLETE.find(f)?.let { m ->
             val rest = cleanTarget(u.from(m.range.last + 1).original)
             return LocalIntent.Tool(AssistantTool.CompleteTask(rest?.let { ItemRef.ByTitle(it) } ?: ItemRef.LastMentioned))
@@ -157,7 +169,7 @@ class LocalIntentParser(private val dateParser: PtBrDateTimeParser = PtBrDateTim
             }
             is PendingRequest.PostponeNeedsDate -> {
                 val parsed = dateParser.parse(u.original, now)
-                postponeTool(pending.target, parsed, now)
+                postponeTool(pending.target, parsed, now, pending.reason ?: splitReason(u).second)
                     ?: LocalIntent.Clarify("Para quando? Por exemplo: \"sexta-feira\" ou \"amanhã às 10h\".", pending)
             }
         }
@@ -191,7 +203,11 @@ class LocalIntentParser(private val dateParser: PtBrDateTimeParser = PtBrDateTim
 
     private fun task(u: Utterance, trigger: IntRange, now: ZonedDateTime): LocalIntent {
         val parsed = dateParser.parse(u.original, now)
-        val title = cleanTitle(PtText.removeSpans(u.original, parsed.spans + listOf(trigger)))
+        val rawTitle = cleanTitle(PtText.removeSpans(u.original, parsed.spans + listOf(trigger)))
+        // "cria a tarefa revisar contrato no projeto Casa": o projeto sai do título.
+        val projectMatch = rawTitle?.let { PROJECT_CLAUSE.find(PtText.fold(it)) }
+        val project = projectMatch?.let { cleanTitle(rawTitle.substring(it.groups[1]!!.range.first)) }
+        val title = (if (projectMatch != null && project != null) cleanTitle(rawTitle.substring(0, projectMatch.range.first)) else rawTitle)
             ?.let(PtText::capitalizeFirst)
         var dueDateTime: ZonedDateTime? = null
         var dueDate: LocalDate? = null
@@ -206,10 +222,15 @@ class LocalIntentParser(private val dateParser: PtBrDateTimeParser = PtBrDateTim
             val suffix = parsed.recurrence?.let { " que devo repetir ${PtBrFormat.recurrence(it)}" } ?: ""
             return LocalIntent.Clarify("Qual é a tarefa$suffix?", PendingRequest.TaskNeedsTitle(dueDateTime, dueDate, parsed.recurrence))
         }
-        return LocalIntent.Tool(AssistantTool.CreateTask(title, dueDateTime = dueDateTime, dueDate = dueDate, recurrence = parsed.recurrence), assumed)
+        return LocalIntent.Tool(
+            AssistantTool.CreateTask(title, dueDateTime = dueDateTime, dueDate = dueDate, recurrence = parsed.recurrence, project = project),
+            assumed,
+        )
     }
 
-    private fun postpone(u: Utterance, m: MatchResult, now: ZonedDateTime): LocalIntent {
+    private fun postpone(full: Utterance, m: MatchResult, now: ZonedDateTime): LocalIntent {
+        // O motivo ("porque estou sem tempo") é separado antes, para não virar parte do alvo nem da data.
+        val (u, reason) = splitReason(full)
         val parsed = dateParser.parse(u.original, now)
         // Texto entre o verbo e o "para ..." identifica o alvo ("adia a reunião para sexta").
         val afterVerb = u.from(m.range.last + 1)
@@ -219,16 +240,26 @@ class LocalIntentParser(private val dateParser: PtBrDateTimeParser = PtBrDateTim
         })
         val target = cleanTarget(targetText.replace(Regex("\\s+(?:para|pra|pro)\\s*$", RegexOption.IGNORE_CASE), ""))
             ?.let { ItemRef.ByTitle(it) } ?: ItemRef.LastMentioned
-        return postponeTool(target, parsed, now)
-            ?: LocalIntent.Clarify("Para quando devo adiar?", PendingRequest.PostponeNeedsDate(target))
+        return postponeTool(target, parsed, now, reason)
+            ?: LocalIntent.Clarify("Para quando devo adiar?", PendingRequest.PostponeNeedsDate(target, reason))
     }
 
-    private fun postponeTool(target: ItemRef, parsed: ParsedWhen, now: ZonedDateTime): LocalIntent? =
+    private fun postponeTool(target: ItemRef, parsed: ParsedWhen, now: ZonedDateTime, reason: String?): LocalIntent? =
         when (val r = dateParser.resolve(parsed, now)) {
-            is WhenResolution.Resolved -> LocalIntent.Tool(AssistantTool.Postpone(target, null, r.dateTime), r.periodAssumed)
-            is WhenResolution.DateOnly -> LocalIntent.Tool(AssistantTool.Postpone(target, r.date, null))
+            is WhenResolution.Resolved -> LocalIntent.Tool(AssistantTool.Postpone(target, null, r.dateTime, reason), r.periodAssumed)
+            is WhenResolution.DateOnly -> LocalIntent.Tool(AssistantTool.Postpone(target, r.date, null, reason))
             else -> null
         }
+
+    /** Separa "..., porque X" / "... pois X" / "... por causa de X": devolve o texto antes e o motivo. */
+    private fun splitReason(u: Utterance): Pair<Utterance, String?> {
+        val m = REASON.find(u.folded) ?: return u to null
+        // Motivo fica quase literal: só espaços e pontuação final são ajustados.
+        val reason = PtText.collapseSpaces(u.original.substring(m.groups[1]!!.range.first)).trimEnd('.', '!', ' ')
+            .takeIf { it.any(Char::isLetterOrDigit) }?.let(PtText::capitalizeFirst)
+        val before = Utterance(u.original.substring(0, m.range.first), u.folded.substring(0, m.range.first))
+        return before to reason
+    }
 
     private fun stripFluff(text: String): Utterance {
         var u = Utterance(text, PtText.fold(text))
@@ -317,6 +348,14 @@ class LocalIntentParser(private val dateParser: PtBrDateTimeParser = PtBrDateTim
             "$START(?:conclu[ia]r?|conclui|finaliz[ae]r?|termin(?:ei|ar|a|e)|complet[ae]r?|risc[ae]r?|" +
                 "marc[ae]r?\\s+(?:a\\s+tarefa\\s+.*\\s+)?como\\s+(?:feit[ao]|conclu[ií]d[ao])|ja\\s+fiz)\\b",
         )
+        private val CANCEL_TASK = Regex(
+            "$START(?:cancel[ae]r?|desist[aei]r?\\s+d[ae])\\s+(?:a\\s+|essa\\s+|esta\\s+)?tarefa\\b",
+        )
+        private val MOVE_TO_PROJECT = Regex(
+            "$START(?:mov[ae]r?|coloc[ae]r?|vincul[ae]r?|pass[ae]r?|bot[ae]r?)\\s+(?:a|essa|esta)\\s+tarefa\\s+(.+?)\\s+(?:para o|pra o|pro|no|ao|para)\\s+projeto\\s+(.+)$",
+        )
+        private val PROJECT_CLAUSE = Regex("\\s+(?:no|do|para o|pro|ao|pra o)\\s+projeto\\s+(\\S.*)$")
+        private val REASON = Regex("(?:\\s*,\\s*|\\s+)(?:porque|pois|por causa d[eoa]s?|ja que|visto que|motivo:?)\\s+(\\S.*)$")
         private val DELETE_TASK = Regex("$START(?:apag[ae]r?|exclu[ia]r?|delet[ae]r?|remov[ae]r?)\\s+(?:a\\s+|essa\\s+)?tarefa\\b")
         private val CANCEL_REMINDER = Regex(
             "$START(?:cancel[ae]r?|apag[ae]r?|exclu[ia]r?|desativ[ae]r?|remov[ae]r?|delet[ae]r?)\\s+(?:o\\s+|esse\\s+|este\\s+)?lembrete\\b",

@@ -13,6 +13,7 @@ object ToolNames {
     const val UPDATE_TASK = "update_task"
     const val COMPLETE_TASK = "complete_task"
     const val DELETE_TASK = "delete_task"
+    const val CANCEL_TASK = "cancel_task"
     const val LIST_TASKS = "list_tasks"
     const val CREATE_REMINDER = "create_reminder"
     const val LIST_REMINDERS = "list_reminders"
@@ -52,6 +53,7 @@ object ToolCatalog {
         "required" to listOf("frequency"),
     )
     private val TASK_ID = int("Id da tarefa, se conhecido.")
+    private val PROJECT = str("Nome de um projeto existente do usuário. Se não existir, a tarefa fica sem projeto.")
     private val TASK_TITLE = str("Parte do título da tarefa, quando o id não é conhecido.")
     private val REMINDER_ID = int("Id do lembrete, se conhecido.")
     private val REMINDER_TITLE = str("Parte do título do lembrete, quando o id não é conhecido.")
@@ -65,12 +67,16 @@ object ToolCatalog {
                 "priority" to PRIORITY,
                 "due" to DUE,
                 "recurrence" to RECURRENCE,
+                "project" to PROJECT,
             ),
             listOf("title"),
         ),
         ToolSpec(
-            ToolNames.UPDATE_TASK, "Altera título, prioridade ou prazo de uma tarefa existente.",
-            mapOf("task_id" to TASK_ID, "task_title" to TASK_TITLE, "title" to str("Novo título."), "priority" to PRIORITY, "due" to DUE),
+            ToolNames.UPDATE_TASK, "Altera título, prioridade, prazo ou projeto de uma tarefa existente.",
+            mapOf(
+                "task_id" to TASK_ID, "task_title" to TASK_TITLE, "title" to str("Novo título."), "priority" to PRIORITY,
+                "due" to DUE, "project" to PROJECT,
+            ),
         ),
         ToolSpec(ToolNames.COMPLETE_TASK, "Marca uma tarefa como concluída.", mapOf("task_id" to TASK_ID, "task_title" to TASK_TITLE)),
         ToolSpec(
@@ -78,8 +84,17 @@ object ToolCatalog {
             mapOf("task_id" to TASK_ID, "task_title" to TASK_TITLE),
         ),
         ToolSpec(
-            ToolNames.LIST_TASKS, "Lista tarefas pendentes (opcionalmente de uma data).",
-            mapOf("date" to DATE, "include_completed" to mapOf("type" to "boolean", "description" to "Incluir concluídas.")),
+            ToolNames.CANCEL_TASK,
+            "Cancela uma tarefa sem excluí-la (fica no histórico). O app pedirá confirmação ao usuário.",
+            mapOf("task_id" to TASK_ID, "task_title" to TASK_TITLE, "reason" to str("Motivo dito pelo usuário, se houver.")),
+        ),
+        ToolSpec(
+            ToolNames.LIST_TASKS, "Lista tarefas pendentes (opcionalmente de uma data ou de um projeto).",
+            mapOf(
+                "date" to DATE,
+                "include_completed" to mapOf("type" to "boolean", "description" to "Incluir concluídas."),
+                "project" to str("Nome do projeto, para listar só as tarefas dele."),
+            ),
         ),
         ToolSpec(
             ToolNames.CREATE_REMINDER, "Cria um lembrete com notificação no horário indicado.",

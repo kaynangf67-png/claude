@@ -3,7 +3,9 @@ package br.dev.aurora.core.orchestrator
 import br.dev.aurora.core.model.MemoryEntry
 import br.dev.aurora.core.model.ChangeType
 import br.dev.aurora.core.model.CommitmentChange
+import br.dev.aurora.core.model.GoalStatus
 import br.dev.aurora.core.model.KnowledgeNote
+import br.dev.aurora.core.model.Project
 import br.dev.aurora.core.model.Reminder
 import br.dev.aurora.core.model.Task
 import br.dev.aurora.core.model.TaskStatus
@@ -17,6 +19,7 @@ import br.dev.aurora.core.repository.CommitmentChangeRepository
 import br.dev.aurora.core.repository.DeviceCapabilities
 import br.dev.aurora.core.repository.MemoryRepository
 import br.dev.aurora.core.repository.NoteRepository
+import br.dev.aurora.core.repository.ProjectRepository
 import br.dev.aurora.core.repository.ReminderRepository
 import br.dev.aurora.core.repository.ReminderScheduler
 import br.dev.aurora.core.repository.ScheduleOutcome
@@ -54,6 +57,7 @@ class AssistantDependencies(
     val capabilities: DeviceCapabilities,
     /** Histórico factual de mudanças (adiamentos, remarcações, conclusões). */
     val commitments: CommitmentChangeRepository,
+    val projects: ProjectRepository,
 )
 
 /** Executa ferramentas já validadas. Só reporta sucesso depois que a persistência foi concluída. */
@@ -68,6 +72,7 @@ class ToolExecutor(
         is AssistantTool.UpdateTask -> updateTask(tool, lastMentioned)
         is AssistantTool.CompleteTask -> completeTask(tool.target, lastMentioned)
         is AssistantTool.DeleteTask -> deleteTask(tool.target, lastMentioned)
+        is AssistantTool.CancelTask -> cancelTask(tool, lastMentioned)
         is AssistantTool.ListTasks -> listTasks(tool)
         is AssistantTool.CreateReminder -> createReminder(tool)
         AssistantTool.ListReminders -> listReminders()
@@ -89,6 +94,11 @@ class ToolExecutor(
             is Resolved.Found -> "excluir a tarefa \"${r.item.title}\""
             else -> "excluir a tarefa"
         }
+        is AssistantTool.CancelTask -> {
+            val name = (resolveTask(tool.target, lastMentioned, pendingOnly = true) as? Resolved.Found)?.item?.title
+            val base = if (name != null) "cancelar a tarefa \"$name\"" else "cancelar a tarefa"
+            tool.reason?.let { "$base (motivo: $it)" } ?: base
+        }
         is AssistantTool.CancelReminder -> when (val r = resolveReminder(tool.target, lastMentioned)) {
             is Resolved.Found -> "cancelar o lembrete \"${r.item.title}\""
             else -> "cancelar o lembrete"
@@ -107,9 +117,10 @@ class ToolExecutor(
             t.dueDate != null -> t.dueDate.atStartOfDay(zone).toInstant() to true
             else -> null to false
         }
+        val project = t.project?.let { findProject(it) }
         val task = Task(
             title = t.title, description = t.description, priority = t.priority, dueAt = dueAt, dueAllDay = allDay,
-            recurrence = t.recurrence, createdAt = instant, updatedAt = instant,
+            recurrence = t.recurrence, createdAt = instant, updatedAt = instant, projectId = (project as? ProjectMatch.One)?.project?.id,
         )
         val id = deps.tasks.upsert(task)
         val saved = task.copy(id = id)
@@ -117,7 +128,8 @@ class ToolExecutor(
         dueText(saved)?.let { parts += "para $it" }
         t.recurrence?.let { parts += "(${PtBrFormat.recurrence(it)})" }
         if (t.priority != br.dev.aurora.core.model.Priority.MEDIUM) parts += "— prioridade ${t.priority.label}"
-        return ToolOutcome(true, parts.joinToString(" ") + ".", "Tarefa criada com id $id.", ItemPointer(ItemKind.TASK, id))
+        val message = parts.joinToString(" ") + "." + projectNote(t.project, project)
+        return ToolOutcome(true, message, "Tarefa criada com id $id.${projectNote(t.project, project)}", ItemPointer(ItemKind.TASK, id))
     }
 
     private suspend fun updateTask(t: AssistantTool.UpdateTask, last: ItemPointer?): ToolOutcome {
@@ -131,9 +143,15 @@ class ToolExecutor(
         t.priority?.let { updated = updated.copy(priority = it) }
         t.dueDateTime?.let { updated = updated.copy(dueAt = it.toInstant(), dueAllDay = false) }
         t.dueDate?.let { updated = updated.copy(dueAt = it.atStartOfDay(zone).toInstant(), dueAllDay = true) }
-        deps.tasks.upsert(updated)
-        if (updated.dueAt != task.dueAt) record(task.id, ChangeType.RESCHEDULED, task.dueAt, updated.dueAt)
-        return ToolOutcome(true, "Tarefa \"${updated.title}\" atualizada.", referenced = ItemPointer(ItemKind.TASK, task.id))
+        val project = t.project?.let { findProject(it) }
+        if (project is ProjectMatch.One) updated = updated.copy(projectId = project.project.id)
+        if (updated.dueAt != task.dueAt) {
+            deps.tasks.upsertWithChange(updated, change(task.id, ChangeType.RESCHEDULED, task.dueAt, updated.dueAt))
+        } else {
+            deps.tasks.upsert(updated)
+        }
+        val message = "Tarefa \"${updated.title}\" atualizada." + projectNote(t.project, project)
+        return ToolOutcome(true, message, referenced = ItemPointer(ItemKind.TASK, task.id))
     }
 
     private suspend fun completeTask(target: ItemRef, last: ItemPointer?): ToolOutcome {
@@ -147,13 +165,14 @@ class ToolExecutor(
         if (rule != null && due != null) {
             val zone = now().zone
             val next = RecurrenceCalculator.nextOccurrence(rule, due.atZone(zone).toLocalDateTime(), maxOf(due, instant), zone)
-            deps.tasks.upsert(task.copy(dueAt = next, updatedAt = instant))
-            record(task.id, ChangeType.COMPLETED, due, next)
+            deps.tasks.upsertWithChange(task.copy(dueAt = next, updatedAt = instant), change(task.id, ChangeType.COMPLETED, due, next))
             val nextText = PtBrFormat.day(next.atZone(zone).toLocalDate(), now().toLocalDate())
             return ToolOutcome(true, "Feito! \"${task.title}\" concluída. A próxima é $nextText.", referenced = ItemPointer(ItemKind.TASK, task.id))
         }
-        deps.tasks.upsert(task.copy(status = TaskStatus.DONE, completedAt = instant, updatedAt = instant))
-        record(task.id, ChangeType.COMPLETED, task.dueAt, task.dueAt)
+        deps.tasks.upsertWithChange(
+            task.copy(status = TaskStatus.DONE, completedAt = instant, updatedAt = instant),
+            change(task.id, ChangeType.COMPLETED, task.dueAt, task.dueAt),
+        )
         return ToolOutcome(true, "Feito! Marquei \"${task.title}\" como concluída.", referenced = ItemPointer(ItemKind.TASK, task.id))
     }
 
@@ -166,9 +185,33 @@ class ToolExecutor(
         return ToolOutcome(true, "Tarefa \"${task.title}\" excluída.")
     }
 
+    private suspend fun cancelTask(t: AssistantTool.CancelTask, last: ItemPointer?): ToolOutcome {
+        val task = when (val r = resolveTask(t.target, last, pendingOnly = true)) {
+            is Resolved.Found -> r.item
+            is Resolved.Problem -> return r.outcome
+        }
+        val instant = now().toInstant()
+        deps.tasks.upsertWithChange(
+            task.copy(status = TaskStatus.CANCELLED, updatedAt = instant),
+            change(task.id, ChangeType.CANCELLED, task.dueAt, null, t.reason),
+        )
+        val why = t.reason?.let { " Motivo registrado: $it." } ?: ""
+        return ToolOutcome(true, "Tarefa \"${task.title}\" cancelada.$why", referenced = ItemPointer(ItemKind.TASK, task.id))
+    }
+
     private suspend fun listTasks(t: AssistantTool.ListTasks): ToolOutcome {
         val zone = now().zone
-        val all = deps.tasks.getAll().filter { t.includeCompleted || it.isOpen }
+        val projectFilter = t.project?.let { name ->
+            when (val m = findProject(name)) {
+                is ProjectMatch.One -> m.project
+                is ProjectMatch.Many ->
+                    return ToolOutcome(false, "Há mais de um projeto parecido com \"$name\": ${PtBrFormat.joinPt(m.names)}. Qual deles?")
+                ProjectMatch.None -> return ToolOutcome(false, "Não encontrei um projeto chamado \"$name\".")
+            }
+        }
+        val all = deps.tasks.getAll()
+            .filter { t.includeCompleted || it.isOpen }
+            .filter { projectFilter == null || it.projectId == projectFilter.id }
         val selected = if (t.date != null) {
             val today = now().toLocalDate()
             all.filter { task ->
@@ -179,7 +222,8 @@ class ToolExecutor(
             all
         }.sortedWith(compareByDescending<Task> { AgendaBuilder.priorityWeight(it.priority) }.thenBy { it.dueAt })
 
-        val whenText = t.date?.let { " para ${PtBrFormat.day(it, now().toLocalDate())}" } ?: ""
+        val whenText = (t.date?.let { " para ${PtBrFormat.day(it, now().toLocalDate())}" } ?: "") +
+            (projectFilter?.let { " no projeto \"${it.name}\"" } ?: "")
         if (selected.isEmpty()) return ToolOutcome(true, "Você não tem tarefas pendentes$whenText.")
         val names = selected.take(MAX_LIST).map { describeTaskShort(it) }
         val extra = if (selected.size > MAX_LIST) " e mais ${selected.size - MAX_LIST}" else ""
@@ -188,8 +232,34 @@ class ToolExecutor(
         return ToolOutcome(true, msg, forModel)
     }
 
-    private suspend fun record(taskId: Long, type: ChangeType, from: java.time.Instant?, to: java.time.Instant?, reason: String? = null) {
-        deps.commitments.record(CommitmentChange(taskId = taskId, type = type, fromDueAt = from, toDueAt = to, reason = reason, createdAt = now().toInstant()))
+    private fun change(taskId: Long, type: ChangeType, from: java.time.Instant?, to: java.time.Instant?, reason: String? = null) =
+        CommitmentChange(taskId = taskId, type = type, fromDueAt = from, toDueAt = to, reason = reason, createdAt = now().toInstant())
+
+    private sealed interface ProjectMatch {
+        data class One(val project: Project) : ProjectMatch
+        data class Many(val names: List<String>) : ProjectMatch
+        data object None : ProjectMatch
+    }
+
+    /** Projeto pelo nome: igual (sem acentos/maiúsculas) primeiro, depois "contém". Só projetos ativos ou pausados. */
+    private suspend fun findProject(name: String): ProjectMatch {
+        val q = PtText.fold(name).trim()
+        if (q.isEmpty()) return ProjectMatch.None
+        val all = deps.projects.getAll().filter { it.status == GoalStatus.ACTIVE || it.status == GoalStatus.PAUSED }
+        val found = all.filter { PtText.fold(it.name).trim() == q }.ifEmpty { all.filter { PtText.fold(it.name).contains(q) } }
+        return when (found.size) {
+            0 -> ProjectMatch.None
+            1 -> ProjectMatch.One(found.first())
+            else -> ProjectMatch.Many(found.take(3).map { "\"${it.name}\"" })
+        }
+    }
+
+    /** Aviso honesto quando o projeto pedido não foi vinculado. */
+    private fun projectNote(requested: String?, match: ProjectMatch?): String = when {
+        requested == null -> ""
+        match is ProjectMatch.One -> " Projeto: ${match.project.name}."
+        match is ProjectMatch.Many -> " Não vinculei a nenhum projeto: há mais de um parecido com \"$requested\" (${PtBrFormat.joinPt(match.names)})."
+        else -> " Não encontrei o projeto \"$requested\", então a tarefa ficou sem projeto."
     }
 
     // ---------- Lembretes ----------
@@ -296,10 +366,10 @@ class ToolExecutor(
                     t.toDate != null -> t.toDate.atStartOfDay(zone).toInstant() to true
                     else -> return ToolOutcome(false, "Para quando devo adiar?")
                 }
-                val updated = task.copy(dueAt = dueAt, dueAllDay = allDay, updatedAt = now().toInstant())
-                deps.tasks.upsert(updated)
-                record(task.id, ChangeType.POSTPONED, task.dueAt, dueAt)
-                ToolOutcome(true, "Adiei \"${task.title}\" para ${dueText(updated)}.", referenced = ItemPointer(ItemKind.TASK, task.id))
+                val updated = task.copy(dueAt = dueAt, dueAllDay = allDay, status = TaskStatus.POSTPONED, updatedAt = now().toInstant())
+                deps.tasks.upsertWithChange(updated, change(task.id, ChangeType.POSTPONED, task.dueAt, dueAt, t.reason))
+                val why = t.reason?.let { " Motivo registrado: $it." } ?: ""
+                ToolOutcome(true, "Adiei \"${task.title}\" para ${dueText(updated)}.$why", referenced = ItemPointer(ItemKind.TASK, task.id))
             }
             ItemKind.REMINDER -> {
                 val reminder = when (val r = resolveReminder(t.target, last)) {

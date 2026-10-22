@@ -28,6 +28,8 @@ sealed interface AssistantTool {
         val dueDateTime: ZonedDateTime? = null,
         val dueDate: LocalDate? = null,
         val recurrence: Recurrence? = null,
+        /** Nome do projeto dito pelo usuário; só é vinculado se existir um projeto com esse nome. */
+        val project: String? = null,
     ) : AssistantTool
 
     data class UpdateTask(
@@ -36,6 +38,7 @@ sealed interface AssistantTool {
         val priority: Priority? = null,
         val dueDateTime: ZonedDateTime? = null,
         val dueDate: LocalDate? = null,
+        val project: String? = null,
     ) : AssistantTool
 
     data class CompleteTask(val target: ItemRef) : AssistantTool
@@ -44,7 +47,12 @@ sealed interface AssistantTool {
         override val requiresConfirmation get() = true
     }
 
-    data class ListTasks(val date: LocalDate? = null, val includeCompleted: Boolean = false) : AssistantTool
+    /** Cancela sem apagar: a tarefa continua no histórico com o status "Cancelada" e o motivo, se houver. */
+    data class CancelTask(val target: ItemRef, val reason: String? = null) : AssistantTool {
+        override val requiresConfirmation get() = true
+    }
+
+    data class ListTasks(val date: LocalDate? = null, val includeCompleted: Boolean = false, val project: String? = null) : AssistantTool
 
     data class CreateReminder(
         val title: String,
@@ -58,7 +66,13 @@ sealed interface AssistantTool {
     data class RescheduleReminder(val target: ItemRef, val at: ZonedDateTime) : AssistantTool
 
     /** Adia uma tarefa ou lembrete (o alvo pode ser qualquer um dos dois). */
-    data class Postpone(val target: ItemRef, val toDate: LocalDate?, val toDateTime: ZonedDateTime?) : AssistantTool
+    data class Postpone(
+        val target: ItemRef,
+        val toDate: LocalDate?,
+        val toDateTime: ZonedDateTime?,
+        /** Motivo dito pelo usuário ("porque estou sem tempo"); guardado no histórico da tarefa. */
+        val reason: String? = null,
+    ) : AssistantTool
 
     data class CancelReminder(val target: ItemRef) : AssistantTool {
         override val requiresConfirmation get() = true
