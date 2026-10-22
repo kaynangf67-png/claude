@@ -58,7 +58,9 @@ for k, w in enumerate(words):
     cur.append(w)
     nxt = words[k + 1] if k + 1 < len(words) else None
     pausa = (nxt["start"] - w["end"]) if nxt else 9
-    if len(cur) == 3 or re.search(r"[.?!,:]$", w["text"]) or pausa >= 0.15 or not nxt:
+    chars = len(" ".join(x["text"] for x in cur))
+    prox = chars + 1 + len(nxt["text"]) if nxt else 0
+    if len(cur) == 4 or prox > 20 or re.search(r"[.?!,:]$", w["text"]) or pausa >= 0.15 or not nxt:
         groups.append(cur)
         cur = []
 
@@ -83,13 +85,13 @@ def legendas_html():
 LEGENDAS = f"""<template>
   <style>
     #root {{ position: absolute; inset: 0; pointer-events: none; }}
-    #root .band {{ position: absolute; left: 0; right: 0; top: 1110px; height: 210px; }}
+    #root .band {{ position: absolute; left: 0; right: 0; top: 1225px; height: 100px; }}
     #root .grp {{ position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
       opacity: 0; overflow: visible; }}
-    #root .line {{ display: flex; gap: 0 34px; justify-content: center; align-items: center; width: 100%;
-      flex-wrap: wrap; padding: 0 70px; }}
-    #root .w {{ display: inline-block; font-family: Montserrat; font-weight: 900; font-size: 84px;
-      line-height: 1.05; letter-spacing: -0.02em; color: #fff; -webkit-text-stroke: 9px #000;
+    #root .line {{ display: flex; gap: 0 22px; justify-content: center; align-items: center; width: 100%;
+      flex-wrap: nowrap; white-space: nowrap; padding: 0 60px; }}
+    #root .w {{ display: inline-block; font-family: Montserrat; font-weight: 900; font-size: 62px;
+      line-height: 1.05; letter-spacing: -0.01em; color: #fff; -webkit-text-stroke: 7px #000;
       paint-order: stroke fill; text-shadow: 0 8px 18px rgba(0,0,0,.45); transform-origin: 50% 60%; }}
   </style>
   <div id="root" data-composition-id="legendas">
