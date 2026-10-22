@@ -1,0 +1,9 @@
+{
+  "assets/fonts/courier-prime-700.woff2": "654a1d16c0b027ead89781bd3a4360d7f0af17a3ddf78c287d0e1843c6bca8d7",
+  "assets/fonts/permanent-marker-400.woff2": "8963f64fa28dc4aea162405d784baa23ff6499df554d9b4cdee898e28d19cca4",
+  "compositions/components/cta-close.html": "1aff42f1ddfaebcd961b64987e59ed8a3bd1961b4d40d44d24e117093801c46f",
+  "compositions/components/gesture-tap.html": "b589375e1a8bd427bb1aff4654725611e5dc12c0e90b7d904dfe58ea741dfaf8",
+  "compositions/components/marker-checklist-card.html": "c99d951e0f361447109f50b5301cbbd8bcfed621cd7a66d92d9c5a65ec1614f0",
+  "compositions/components/strikethrough-replace.html": "8ef7447fe6e1f122cec5f601b3388b8cb4c18eb0c7341dd7e5af3dac53e65e10",
+  "compositions/mk-specs-list.html": "a6c68fd7cdec5b30d043ffe89562149d3e54806bf045cc867bd068059d979fe8"
+}
