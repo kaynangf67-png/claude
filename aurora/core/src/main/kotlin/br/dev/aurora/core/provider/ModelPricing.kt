@@ -23,7 +23,11 @@ object ModelCatalog {
         ModelOption("claude-haiku-5-5", "Claude Haiku 5.5", ModelPrice(0.10, 0.50), "Mais barato e rápido."),
     )
 
-    const val DEFAULT_MODEL = "claude-opus-5-5"
+    /**
+     * Padrão = o mais barato. Um assistente pessoal faz muitas chamadas curtas; Opus custa ~40x mais por
+     * conversa. Quem quiser mais qualidade escolhe outro modelo em Ajustes, sabendo o custo.
+     */
+    const val DEFAULT_MODEL = "claude-haiku-5-5"
 
     fun price(modelId: String): ModelPrice = options.firstOrNull { it.id == modelId }?.price
         // Modelo desconhecido: estima pelo mais caro para não subestimar gastos.
