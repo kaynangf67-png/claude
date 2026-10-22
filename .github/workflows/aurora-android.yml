@@ -45,6 +45,9 @@ jobs:
       - name: APK de debug
         run: ./gradlew :app:assembleDebug --stacktrace
 
+      - name: Compilar testes instrumentados
+        run: ./gradlew :app:compileDebugAndroidTestKotlin
+
       - name: Lint
         run: ./gradlew :app:lintDebug --stacktrace
 
@@ -107,7 +110,7 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           working-directory: aurora
-          script: ./gradlew :app:connectedDebugAndroidTest --stacktrace
+          script: ./gradlew :app:connectedDebugAndroidTest > it.log 2>&1 || (grep -E "^e: |FAILED|Exception|Error" it.log | head -60; tail -30 it.log; exit 1)
 
       - name: Resumo das falhas instrumentadas
         if: failure()
