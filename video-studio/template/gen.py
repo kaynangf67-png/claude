@@ -51,6 +51,9 @@ while i < len(raw):
     i += 1
 
 
+words = [w for w in words if w["text"]]  # correção para "" apaga a palavra (ex.: gaguejada)
+
+
 def limpa(t):
     return re.sub(r"[^\wÀ-ú$']", "", t).lower()
 
