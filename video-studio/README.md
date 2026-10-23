@@ -1,54 +1,35 @@
-# Video Studio (edição de vídeo pelo Claude Code)
+# Video Studio
 
-Kit para editar vídeo de ponta a ponta dentro do Claude Code, sem interface gráfica:
-você manda o vídeo e pede a edição em texto; o Claude executa.
+Kit para editar vídeos verticais de venda (TikTok, TikTok Shop, Mercado Livre) dentro do Claude Code.
 
-## Instalar (a cada sessão nova)
+**Como usar:** numa sessão do Claude Code neste repositório, envie o vídeo e diga "edita esse vídeo"
+(diga também onde vai postar e o produto). O Claude segue a skill `editar-video`
+(`.claude/skills/editar-video/SKILL.md`), que tem o fluxo completo e o estilo combinado.
 
-O ambiente na nuvem é apagado ao fim da sessão, então rode:
+## Fluxo
 
-```bash
-bash video-studio/setup.sh
-```
+| Passo | Comando | O que faz |
+|---|---|---|
+| 0 | `bash video-studio/setup.sh` | instala tudo (o ambiente é apagado entre sessões) |
+| 1 | `pipeline/mapear.py VIDEO DIR` | frames com horário + fala com tempo de cada palavra e pausas |
+| 2 | `pipeline/montar.py DIR --vel 1.15` | corta conforme `tomadas.json`, remove pausas > 0,3 s, acelera, re-transcreve para conferir |
+| 3 | `pipeline/projeto.sh gerar DIR "t1,t2"` | projeto HyperFrames a partir de `edicao.json` + snapshots para revisão |
+| 4 | `pipeline/projeto.sh render DIR NOME` | vídeo final em `saida/NOME.mp4` (-14 LUFS) e projeto em `projetos/NOME/` |
 
-Leva alguns minutos na primeira vez (inclui ~560 MB do modelo de transcrição).
+## Pastas
 
-## O que vem instalado
+- `pipeline/` scripts do fluxo; `palavras.py` é a transcrição com tempo por palavra (Parakeet v3).
+- `template/` modelo do projeto HyperFrames (`gen.py` lê `edicao.json`).
+- `projetos/` projetos de vídeos já feitos (sem o vídeo pesado), para reaproveitar.
+- `saida/` vídeos finais (fora do git).
+- `scripts/` utilitários antigos: `transcrever.py` (SRT com Whisper) e `queimar-legenda.sh`.
 
-| Etapa | Ferramenta |
-|---|---|
-| Cortar, juntar, acelerar, cor, zoom, crop 9:16, exportar | `ffmpeg` (x264/x265/AV1, vidstab, loudnorm, drawtext) |
-| Cortar silêncios / "respiros" automaticamente | `auto-editor` |
-| Detectar cortes de cena | `scenedetect` |
-| Montagem com timeline em código | `moviepy`, `melt` (motor MLT do Kdenlive/Shotcut) |
-| Transcrição e legendas (offline) | `scripts/transcrever.py` (Whisper large-v3-turbo + VAD) |
-| Legenda queimada estilo Reels | `scripts/queimar-legenda.sh` |
-| Áudio: volume padrão, ruído, efeitos | `ffmpeg-normalize`, `noisereduce`, `sox`, `pydub`, `librosa` |
-| Imagem / thumbnail | `imagemagick`, `pillow` |
-| Inspeção de arquivos | `ffprobe`, `mediainfo`, `mkvtoolnix` |
-| Fontes | Montserrat, Roboto, Open Sans, Noto (com emoji) |
+## Estilo padrão
 
-## Exemplos
+Limpo, no modelo de @dosufinds: sem emojis, sem efeitos sonoros, legenda pequena de uma linha,
+no máximo 2–3 selos e um CTA final. Detalhes e regras técnicas na skill.
 
-```bash
-# Legenda .srt em português
-python3 video-studio/scripts/transcrever.py video.mp4 --lingua pt
+## Limites do ambiente
 
-# Queimar a legenda no vídeo
-video-studio/scripts/queimar-legenda.sh video.mp4 video.srt final.mp4
-
-# Cortar silêncios
-auto-editor video.mp4 -o cortado.mp4 --no-open
-
-# Padronizar volume (-14 LUFS, padrão de YouTube/Instagram)
-ffmpeg-normalize video.mp4 -t -14 -c:a aac -o normalizado.mp4
-```
-
-## Limitações
-
-- **Sem GPU**: tudo roda na CPU (4 núcleos). Exportar 4K ou vídeos longos é lento.
-- **Rede restrita**: Hugging Face, YouTube e Google Fonts são bloqueados. O `yt-dlp`
-  está instalado, mas não baixa do YouTube daqui.
-- **Sem preview em tempo real**: você revisa por frames exportados ou pelo arquivo final.
-- Para enviar os vídeos brutos, use o repositório (arquivos grandes: Git LFS) ou outro meio
-  que o ambiente consiga acessar.
+Sem GPU (render ~3–5 min por vídeo de 40 s). Hugging Face, YouTube e bancos de imagem/música são
+bloqueados; música se coloca no próprio TikTok/CapCut.
