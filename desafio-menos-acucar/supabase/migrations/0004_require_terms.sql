@@ -1,4 +1,4 @@
--- Aplicar SÓ depois que a versão do app com o aceite no cadastro estiver publicada.
+-- Aplicado depois que a versão do app com o aceite no cadastro foi publicada.
 -- Volta a exigir o aceite do aviso de privacidade no próprio banco (defesa além da interface).
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = '' as $$

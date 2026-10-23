@@ -1,7 +1,7 @@
 -- TEMPORÁRIO (aplicado em produção junto com 0002): enquanto o site publicado for a versão
 -- anterior, que não envia terms_version, o cadastro não pode exigir o aceite, senão todo
 -- cadastro falha. Contas sem aceite veem a tela de consentimento (ConsentGate) no app novo.
--- Depois que a versão nova estiver no ar, aplique supabase/pending/0004_require_terms.sql.
+-- Substituído por 0004_require_terms.sql depois do deploy.
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = '' as $$
 declare
