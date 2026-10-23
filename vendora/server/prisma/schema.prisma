@@ -1,0 +1,206 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  /// Sobrescritas de limites por marketplace (ProfileOverrides por canal).
+  settings     Json     @default("{}")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions     Session[]
+  products     Product[]
+  listings     Listing[]
+  assets       Asset[]
+  connections  MarketplaceConnection[]
+  oauthStates  OAuthState[]
+  usageEvents  UsageEvent[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  /// SHA-256 do token. O token em si só existe no cookie do usuário.
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+enum ProductStatus {
+  extracted
+  partial
+  failed
+  manual
+}
+
+model Product {
+  id            String        @id @default(cuid())
+  userId        String
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceUrl     String?
+  sourceDomain  String?
+  method        String
+  status        ProductStatus
+  /// ProductData (campos extraídos ou informados).
+  data          Json
+  /// Status de cada campo: confirmed | inferred | user | missing.
+  fieldStatus   Json
+  failureReason String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  listings      Listing[]
+  assets        Asset[]
+
+  @@index([userId, createdAt])
+}
+
+enum Marketplace {
+  mercado_livre
+  shopee
+  tiktok_shop
+}
+
+enum ListingStatus {
+  draft
+  saved
+  exported
+}
+
+model Listing {
+  id          String           @id @default(cuid())
+  userId      String
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  marketplace Marketplace
+  status      ListingStatus    @default(draft)
+  /// Cópia do título da versão atual, para listagem rápida no histórico.
+  title       String
+  currentVersion Int           @default(1)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  versions    ListingVersion[]
+
+  @@index([userId, updatedAt])
+}
+
+enum VersionSource {
+  ai
+  basic
+  user
+}
+
+model ListingVersion {
+  id        String        @id @default(cuid())
+  listingId String
+  listing   Listing       @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  version   Int
+  /// ListingContent
+  content   Json
+  source    VersionSource
+  provider  String?
+  model     String?
+  /// Alertas gerados na validação (afirmações sem fonte, regras do canal).
+  warnings  Json          @default("[]")
+  createdAt DateTime      @default(now())
+
+  @@unique([listingId, version])
+}
+
+enum AssetKind {
+  original
+  edited
+}
+
+model Asset {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  productId   String?
+  product     Product?  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  /// Para imagens editadas: a original de onde vieram. A original nunca é sobrescrita.
+  parentId    String?
+  parent      Asset?    @relation("AssetDerivation", fields: [parentId], references: [id], onDelete: SetNull)
+  derived     Asset[]   @relation("AssetDerivation")
+  kind        AssetKind
+  storageKey  String    @unique
+  mimeType    String
+  width       Int
+  height      Int
+  sizeBytes   Int
+  sourceUrl   String?
+  /// Operações aplicadas (recorte, ajustes, fundo), para auditoria.
+  edits       Json?
+  /// true quando a imagem é uma composição promocional (não é a foto real do produto).
+  promotional Boolean   @default(false)
+  isMain      Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  @@index([userId, productId])
+  @@index([createdAt])
+}
+
+enum ConnectionStatus {
+  connected
+  expired
+  revoked
+}
+
+model MarketplaceConnection {
+  id              String           @id @default(cuid())
+  userId          String
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  marketplace     Marketplace
+  externalUserId  String
+  /// Tokens cifrados com AES-256-GCM (TOKEN_ENCRYPTION_KEY).
+  accessTokenEnc  String
+  refreshTokenEnc String?
+  expiresAt       DateTime
+  scopes          String?
+  status          ConnectionStatus @default(connected)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([userId, marketplace])
+}
+
+model OAuthState {
+  state        String      @id
+  userId       String
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  marketplace  Marketplace
+  codeVerifier String
+  expiresAt    DateTime
+  createdAt    DateTime    @default(now())
+}
+
+enum UsageType {
+  analysis
+  generation
+  image_process
+  export
+}
+
+model UsageEvent {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      UsageType
+  createdAt DateTime  @default(now())
+
+  @@index([userId, type, createdAt])
+}

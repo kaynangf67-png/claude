@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="pt-BR"><head>
+<meta charset="utf-8">
+<title>Garrafa Térmica Teste | Loja de Testes</title>
+<meta property="og:title" content="Garrafa (OG) — não deve vencer o JSON-LD">
+<!-- FIXTURE DE TESTE: produto fictício, usado apenas na suíte automatizada. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    { "@type": "BreadcrumbList", "itemListElement": [] },
+    {
+      "@type": "Product",
+      "name": "Garrafa Térmica Inox 500ml TX-500",
+      "brand": { "@type": "Brand", "name": "Termix" },
+      "model": "TX-500",
+      "gtin13": "7890000000001",
+      "sku": "TX500-PRETA",
+      "description": "<p>Garrafa térmica de aço inox com parede dupla.</p><p>Mantém a temperatura por até 12 horas.</p>",
+      "image": ["/img/garrafa-1.jpg", { "@type": "ImageObject", "url": "https://cdn.lojadetestes.com.br/garrafa-2.jpg" }],
+      "color": "Preta",
+      "material": "Aço inoxidável",
+      "weight": { "@type": "QuantitativeValue", "value": 350, "unitText": "g" },
+      "additionalProperty": [
+        { "@type": "PropertyValue", "name": "Capacidade", "value": "500 ml" },
+        { "@type": "PropertyValue", "name": "Tampa", "value": "Rosqueável" }
+      ],
+      "offers": { "@type": "Offer", "price": "89.90", "priceCurrency": "BRL" }
+    }
+  ]
+}
+</script>
+</head><body><h1>Garrafa</h1></body></html>
