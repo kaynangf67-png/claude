@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, Link2, PenLine, Plus, Sparkles, Trash2, Upload } from 'lucide-react';
+import { ArrowRight, Camera, PenLine, Plus, Sparkles, Trash2, Upload, X } from 'lucide-react';
 import { MARKETPLACE_IDS, MARKETPLACE_PROFILES, type MarketplaceId } from '@vendora/shared/marketplaces';
 import type { ProductData, Spec } from '@vendora/shared';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
@@ -8,6 +8,7 @@ import { FieldStatusBadge, MarketplaceChip, Notice, PageHeader, Spinner } from '
 import { api, ApiError, type Asset, type ListingDetail, type Product } from '../../lib/api';
 import { useAuth } from '../../lib/auth';
 import { FIELD_LABELS, formatPrice } from '../../lib/format';
+import { compressPhoto } from '../../lib/photos';
 import { useToast } from '../../lib/toast';
 
 type Phase = 'input' | 'analyzing' | 'review' | 'generating';
@@ -54,76 +55,139 @@ function diff(product: Product, draft: Draft): Partial<ProductData> {
   return out;
 }
 
+interface PickedPhoto {
+  id: string;
+  file: File;
+  preview: string;
+}
+
+const MAX_PHOTOS = 6;
+
+function MarketplacePicker({ value, onChange }: { value: MarketplaceId; onChange: (m: MarketplaceId) => void }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-3">
+      {MARKETPLACE_IDS.map((id) => (
+        <button
+          key={id}
+          type="button"
+          onClick={() => onChange(id)}
+          aria-pressed={value === id}
+          className={`rounded-2xl border p-4 text-left transition ${
+            value === id ? 'border-violet-brand bg-violet-brand/5 ring-4 ring-violet-brand/10' : 'border-ink-200 bg-white hover:border-ink-300'
+          }`}
+        >
+          <MarketplaceChip id={id} />
+          <p className="mt-3 text-xs text-ink-500">Título até {MARKETPLACE_PROFILES[id].title.maxLength.value} caracteres*</p>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function NewListingPage() {
   const [params, setParams] = useSearchParams();
   const navigate = useNavigate();
   const toast = useToast();
   const { meta } = useAuth();
   const [phase, setPhase] = useState<Phase>('input');
-  const [url, setUrl] = useState(params.get('url') ?? '');
+  const [step, setStep] = useState('');
+  const [photos, setPhotos] = useState<PickedPhoto[]>([]);
+  const [hint, setHint] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [product, setProduct] = useState<Product | null>(null);
   const [extraction, setExtraction] = useState<{ ok: boolean; reason?: string; notes?: string[] } | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [assets, setAssets] = useState<Asset[]>([]);
-  const [importing, setImporting] = useState(false);
   const [marketplace, setMarketplace] = useState<MarketplaceId>('mercado_livre');
   const [audience, setAudience] = useState('');
   const autoRan = useRef(false);
+  const fileInput = useRef<HTMLInputElement>(null);
 
-  async function importImages(p: Product) {
-    if (p.data.images.length === 0) return;
-    setImporting(true);
-    try {
-      const r = await api.post<{ assets: Asset[]; results: Array<{ ok: boolean }> }>(`/api/products/${p.id}/images/import`);
-      setAssets(r.assets);
-      const failed = r.results.filter((x) => !x.ok).length;
-      if (failed) toast('error', `${failed} imagem(ns) não puderam ser baixadas da página.`);
-    } catch (e) {
-      toast('error', e instanceof ApiError ? e.message : 'Falha ao baixar as imagens.');
-    } finally {
-      setImporting(false);
-    }
+  // Libera as prévias da memória só ao sair da página (cada remoção libera a sua).
+  const photosRef = useRef(photos);
+  photosRef.current = photos;
+  useEffect(() => () => photosRef.current.forEach((p) => URL.revokeObjectURL(p.preview)), []);
+
+  function addFiles(list: FileList | null) {
+    if (!list) return;
+    const accepted = [...list].filter((f) => /^image\/(jpeg|png|webp|heic|heif)$/i.test(f.type) || /\.(jpe?g|png|webp|heic)$/i.test(f.name));
+    if (accepted.length < list.length) toast('error', 'Alguns arquivos não são fotos e foram ignorados.');
+    setPhotos((cur) => {
+      const room = MAX_PHOTOS - cur.length;
+      if (accepted.length > room) toast('error', `Use até ${MAX_PHOTOS} fotos por produto.`);
+      return [
+        ...cur,
+        ...accepted.slice(0, Math.max(0, room)).map((file) => ({ id: crypto.randomUUID(), file, preview: URL.createObjectURL(file) })),
+      ];
+    });
   }
 
-  async function analyze(target: string) {
+  /** fotos → rascunho → envio → leitura pela IA → anúncio. Sem IA, cai na revisão manual com as fotos já salvas. */
+  async function runPhotos() {
+    if (photos.length === 0) return;
     setError(null);
     setPhase('analyzing');
+    let created: Product | null = null;
+    const uploaded: Asset[] = [];
     try {
-      const r = await api.post<{ product: Product; extraction: { ok: boolean; reason?: string; notes?: string[] } }>(
-        '/api/products/analyze',
-        { url: target },
-      );
-      setProduct(r.product);
-      setExtraction(r.extraction);
-      setDraft(toDraft(r.product.data));
-      setAssets([]);
-      setPhase('review');
-      setParams({ product: r.product.id }, { replace: true });
-      if (r.extraction.ok) void importImages(r.product);
+      setStep('Preparando…');
+      created = (await api.post<{ product: Product }>('/api/products/photo-draft', {})).product;
+      setParams({ product: created.id }, { replace: true });
+      for (const [i, p] of photos.entries()) {
+        setStep(`Enviando foto ${i + 1} de ${photos.length}…`);
+        const form = new FormData();
+        let blob: Blob = p.file;
+        try {
+          blob = await compressPhoto(p.file);
+        } catch {
+          // formato que o navegador não decodifica (ex.: HEIC em alguns aparelhos): envia o original
+        }
+        form.append('file', blob, `foto-${i + 1}.jpg`);
+        uploaded.push((await api.post<{ asset: Asset }>(`/api/products/${created.id}/images/upload`, form)).asset);
+      }
+      setStep('A IA está olhando as fotos…');
+      const read = await api.post<{ product: Product; assets: Asset[] }>(`/api/products/${created.id}/read-photos`, {
+        hint: hint.trim() || undefined,
+        marketplace,
+      });
+      setStep('Escrevendo título e descrição…');
+      setPhase('generating');
+      const r = await api.post<ListingDetail>('/api/listings', { productId: read.product.id, marketplace, audience: audience || undefined });
+      navigate(`/app/anuncios/${r.listing.id}`);
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Não foi possível analisar o link.');
+      const err = e instanceof ApiError ? e : null;
+      if (created && uploaded.length > 0 && err && ['vision_not_configured', 'not_a_product', 'ai_refused', 'ai_error', 'ai_auth'].includes(err.code)) {
+        // Fotos já estão salvas: o vendedor completa os dados e gera do mesmo jeito.
+        setProduct(created);
+        setAssets(uploaded);
+        setDraft({ ...toDraft(created.data), title: hint.trim() });
+        setExtraction({ ok: false, reason: err.message });
+        setPhase('review');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+      setError(err?.message ?? 'Não foi possível processar as fotos. Tente de novo.');
       setPhase('input');
     }
   }
 
-  // Abre direto na revisão (?product=) ou analisa o link vindo da página inicial (?url=).
+  // ?product= abre a revisão de um produto existente (ex.: "Criar outro" na tela do anúncio).
   useEffect(() => {
     if (autoRan.current) return;
     autoRan.current = true;
     const pid = params.get('product');
-    if (pid) {
-      setPhase('analyzing');
-      Promise.all([api.get<{ product: Product }>(`/api/products/${pid}`), api.get<{ assets: Asset[] }>(`/api/products/${pid}/assets`)])
-        .then(([p, a]) => {
-          setProduct(p.product);
-          setDraft(toDraft(p.product.data));
-          setAssets(a.assets);
-          setExtraction(p.product.status === 'failed' ? { ok: false, reason: p.product.failureReason ?? undefined } : { ok: true });
-          setPhase('review');
-        })
-        .catch(() => setPhase('input'));
-    } else if (params.get('url')) void analyze(params.get('url')!);
+    if (!pid) return;
+    setPhase('analyzing');
+    setStep('Carregando o produto…');
+    Promise.all([api.get<{ product: Product }>(`/api/products/${pid}`), api.get<{ assets: Asset[] }>(`/api/products/${pid}/assets`)])
+      .then(([p, a]) => {
+        setProduct(p.product);
+        setDraft(toDraft(p.product.data));
+        setAssets(a.assets);
+        setExtraction(p.product.status === 'failed' ? { ok: false, reason: p.product.failureReason ?? undefined } : { ok: true });
+        setPhase('review');
+      })
+      .catch(() => setPhase('input'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -150,7 +214,6 @@ export function NewListingPage() {
         const price = draft.price.trim() ? Number(draft.price.replace(',', '.')) : undefined;
         p = (
           await api.post<{ product: Product }>('/api/products/manual', {
-            sourceUrl: url.trim() && /^https?:\/\//.test(url.trim()) ? url.trim() : undefined,
             title: draft.title,
             brand: draft.brand || undefined,
             model: draft.model || undefined,
@@ -179,7 +242,13 @@ export function NewListingPage() {
       return;
     }
     const form = new FormData();
-    form.append('file', file);
+    let blob: Blob = file;
+    try {
+      blob = await compressPhoto(file);
+    } catch {
+      // envia o original
+    }
+    form.append('file', blob, 'foto.jpg');
     try {
       const r = await api.post<{ asset: Asset }>(`/api/products/${product.id}/images/upload`, form);
       setAssets((a) => [...a, r.asset]);
@@ -190,48 +259,115 @@ export function NewListingPage() {
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (url.trim()) void analyze(url.trim());
+    void runPhotos();
   };
+  const busy = phase === 'analyzing' || phase === 'generating';
 
   return (
     <>
-      <PageHeader title="Novo anúncio" subtitle="Colar o link → conferir os dados reais → escolher o canal → gerar." />
+      <PageHeader title="Novo anúncio" subtitle="Envie fotos do produto → a IA identifica o produto → título, descrição e fotos prontas para venda." />
 
-      {(phase === 'input' || phase === 'analyzing') && (
-        <form onSubmit={submit} className="card p-6 sm:p-8">
-          <label htmlFor="url" className="label">
-            Link do produto
-          </label>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <div className="relative flex-1">
-              <Link2 className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-ink-400" />
+      {(phase === 'input' || (busy && !draft)) && (
+        <form onSubmit={submit} className="space-y-6">
+          <section className="card p-6 sm:p-8">
+            <span className="label">Fotos do produto</span>
+            <div
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (!busy) addFiles(e.dataTransfer.files);
+              }}
+              className="grid grid-cols-3 gap-3 sm:grid-cols-6"
+            >
+              {photos.map((p, i) => (
+                <div key={p.id} className="group relative aspect-square overflow-hidden rounded-2xl border border-ink-200 bg-white">
+                  <img src={p.preview} alt={`Foto ${i + 1}`} className="h-full w-full object-cover" />
+                  {i === 0 && <span className="absolute bottom-1.5 left-1.5 rounded-full bg-violet-brand px-2 py-0.5 text-[10px] font-semibold text-white">Principal</span>}
+                  {!busy && (
+                    <button
+                      type="button"
+                      aria-label="Remover foto"
+                      onClick={() => {
+                        URL.revokeObjectURL(p.preview);
+                        setPhotos((cur) => cur.filter((x) => x.id !== p.id));
+                      }}
+                      className="absolute top-1.5 right-1.5 grid size-7 place-items-center rounded-full bg-white/90 text-ink-700 shadow"
+                    >
+                      <X className="size-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {photos.length < MAX_PHOTOS && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => fileInput.current?.click()}
+                  className={`flex aspect-square flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-ink-300 bg-white text-ink-500 transition hover:border-violet-brand hover:text-violet-brand ${
+                    photos.length === 0 ? 'col-span-3 aspect-auto py-12 sm:col-span-6' : ''
+                  }`}
+                >
+                  <Camera className="size-6" />
+                  <span className="text-sm font-semibold">{photos.length === 0 ? 'Tirar ou escolher fotos' : 'Adicionar'}</span>
+                  {photos.length === 0 && <span className="px-4 text-center text-xs">Até {MAX_PHOTOS} fotos. A primeira vira a foto principal.</span>}
+                </button>
+              )}
+            </div>
+            <input
+              ref={fileInput}
+              type="file"
+              accept="image/*"
+              multiple
+              className="sr-only"
+              onChange={(e) => {
+                addFiles(e.target.files);
+                e.target.value = '';
+              }}
+            />
+            <p className="mt-3 text-xs text-ink-500">
+              Dica: fotografe o produto inteiro, com boa luz, num fundo liso. Mostre etiqueta ou embalagem se quiser que a IA leia marca e
+              especificações.
+            </p>
+
+            <div className="mt-6">
+              <label className="label" htmlFor="hint">
+                O que é o produto? (opcional)
+              </label>
               <input
-                id="url"
-                className="input py-3 pl-10"
-                placeholder="Cole o link do produto aqui..."
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                disabled={phase === 'analyzing'}
-                inputMode="url"
-                autoFocus
+                id="hint"
+                className="input"
+                value={hint}
+                maxLength={300}
+                disabled={busy}
+                onChange={(e) => setHint(e.target.value)}
+                placeholder="Ex.: garrafa térmica 500 ml, nova, cor preta"
               />
+              <p className="mt-1 text-[11px] text-ink-500">Ajuda a IA. O que você escrever aqui entra como informação sua, não como algo visto na foto.</p>
             </div>
-            <button className="btn-primary py-3" disabled={phase === 'analyzing' || !url.trim()}>
-              {phase === 'analyzing' ? <Spinner /> : <Sparkles className="size-4" />}
-              {phase === 'analyzing' ? 'Lendo a página…' : 'Analisar produto'}
-            </button>
-          </div>
-          {error && (
-            <div className="mt-4">
-              <Notice tone="error">{error}</Notice>
-            </div>
+          </section>
+
+          <section className="card p-6">
+            <h2 className="text-base font-semibold">Canal de destino</h2>
+            <p className="mb-4 text-xs text-ink-500">Título, descrição e tamanho das fotos seguem as regras do canal.</p>
+            <MarketplacePicker value={marketplace} onChange={setMarketplace} />
+          </section>
+
+          {meta && !meta.vision && (
+            <Notice tone="warning">
+              A leitura de fotos por IA ainda não está ativada neste servidor. Você pode enviar as fotos mesmo assim: elas são guardadas e
+              você preenche nome e detalhes na próxima tela.
+            </Notice>
           )}
-          <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-ink-500">
-            <span>
-              Lemos apenas dados públicos da página{meta?.respectRobotsTxt ? ', respeitando o robots.txt do site' : ''}.
-            </span>
-            <button type="button" className="inline-flex items-center gap-1 font-semibold text-violet-brand hover:underline" onClick={startManual}>
-              <PenLine className="size-3.5" /> Prefiro digitar os dados
+          {error && <Notice tone="error">{error}</Notice>}
+
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <button type="button" className="inline-flex items-center gap-1 text-sm font-semibold text-violet-brand hover:underline" onClick={startManual} disabled={busy}>
+              <PenLine className="size-4" /> Prefiro digitar os dados
+            </button>
+            <button className="btn-primary px-6 py-3" disabled={busy || photos.length === 0}>
+              {busy ? <Spinner /> : <Sparkles className="size-4" />}
+              {busy ? step : 'Gerar meu anúncio'}
+              {!busy && <ArrowRight className="size-4" />}
             </button>
           </div>
         </form>
@@ -244,8 +380,8 @@ export function NewListingPage() {
               <Notice tone="warning">
                 {extraction.reason ? (
                   <>
-                    <strong>Não conseguimos ler esta página.</strong> {extraction.reason} Nada foi preenchido automaticamente — informe os dados
-                    abaixo.
+                    <strong>A IA não leu as fotos.</strong> {extraction.reason} Suas fotos foram guardadas; informe os dados abaixo e gere o
+                    anúncio.
                   </>
                 ) : (
                   'Cadastro manual: informe os dados reais do produto. A IA só usa o que você preencher.'
@@ -259,7 +395,7 @@ export function NewListingPage() {
                 <div>
                   <h2 className="text-base font-semibold">Dados do produto</h2>
                   <p className="text-xs text-ink-500">
-                    {product?.sourceDomain ? `Origem: ${product.sourceDomain}` : 'Origem: informado por você'} · Corrija o que estiver errado.
+                    {product?.method === 'photo' ? 'Lido das suas fotos' : product?.sourceDomain ? `Origem: ${product.sourceDomain}` : 'Informado por você'} · Corrija o que estiver errado.
                     Campos alterados passam a ser “Informado por você”.
                   </p>
                 </div>
@@ -382,11 +518,6 @@ export function NewListingPage() {
                   <span className="label mb-0">Fotos originais</span>
                   {product && <FieldStatusBadge status={product.fieldStatus.images} />}
                 </div>
-                {importing && (
-                  <p className="flex items-center gap-2 text-sm text-ink-500">
-                    <Spinner /> Baixando as imagens da página…
-                  </p>
-                )}
                 <div className="flex flex-wrap gap-3">
                   {assets
                     .filter((a) => a.kind === 'original')
@@ -400,7 +531,7 @@ export function NewListingPage() {
                       </span>
                       <input
                         type="file"
-                        accept="image/jpeg,image/png,image/webp"
+                        accept="image/*"
                         className="sr-only"
                         onChange={(e) => {
                           const f = e.target.files?.[0];
@@ -418,21 +549,8 @@ export function NewListingPage() {
             <section className="card p-6">
               <h2 className="text-base font-semibold">Canal de destino</h2>
               <p className="text-xs text-ink-500">Cada canal tem limites e orientações próprias.</p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                {MARKETPLACE_IDS.map((id) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setMarketplace(id)}
-                    aria-pressed={marketplace === id}
-                    className={`rounded-2xl border p-4 text-left transition ${
-                      marketplace === id ? 'border-violet-brand bg-violet-brand/5 ring-4 ring-violet-brand/10' : 'border-ink-200 bg-white hover:border-ink-300'
-                    }`}
-                  >
-                    <MarketplaceChip id={id} />
-                    <p className="mt-3 text-xs text-ink-500">Título até {MARKETPLACE_PROFILES[id].title.maxLength.value} caracteres*</p>
-                  </button>
-                ))}
+              <div className="mt-4">
+                <MarketplacePicker value={marketplace} onChange={setMarketplace} />
               </div>
               <p className="mt-2 text-[11px] text-ink-500">* Padrão do sistema; ajustável em Configurações.</p>
               <div className="mt-5">
@@ -467,10 +585,12 @@ export function NewListingPage() {
                 onClick={() => {
                   setPhase('input');
                   setProduct(null);
+                  setDraft(null);
+                  setPhotos([]);
                   setParams({}, { replace: true });
                 }}
               >
-                Analisar outro link
+                Começar de novo
               </button>
               <button className="btn-primary px-6 py-3" onClick={generate} disabled={phase === 'generating'}>
                 {phase === 'generating' ? <Spinner /> : <Sparkles className="size-4" />}

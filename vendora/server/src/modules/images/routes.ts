@@ -30,7 +30,7 @@ export function serializeAsset(ctx: AppContext, a: Asset) {
   };
 }
 
-async function storeAsset(
+export async function storeAsset(
   ctx: AppContext,
   args: {
     userId: string;

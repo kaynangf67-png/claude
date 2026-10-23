@@ -36,12 +36,12 @@ const STATUS_STYLE: Record<FieldStatus, { label: string; cls: string; hint: stri
   confirmed: {
     label: 'Confirmado',
     cls: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-    hint: 'Veio de dados estruturados da página ou da API oficial.',
+    hint: 'Veio de dados estruturados ou da API oficial do marketplace.',
   },
   inferred: {
     label: 'A confirmar',
     cls: 'bg-amber-50 text-amber-800 border-amber-200',
-    hint: 'Veio de metadados genéricos da página e pode estar incompleto.',
+    hint: 'Identificado pela IA nas fotos (ou em metadados genéricos). Confirme antes de publicar.',
   },
   user: { label: 'Informado por você', cls: 'bg-blue-50 text-blue-800 border-blue-200', hint: 'Preenchido ou corrigido por você.' },
   missing: { label: 'Não encontrado', cls: 'bg-ink-100 text-ink-500 border-ink-200', hint: 'Este dado não estava disponível.' },

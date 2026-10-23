@@ -8,7 +8,8 @@ import {
   History,
   ImageIcon,
   Layers3,
-  Link2,
+  Camera,
+  ScanEye,
   ShieldCheck,
   Sparkles,
   Wand2,
@@ -37,41 +38,34 @@ function Reveal({ children, delay = 0, className = '' }: { children: ReactNode; 
 
 function HeroInput() {
   const { user } = useAuth();
-  const navigate = useNavigate();
-  const [url, setUrl] = useState('');
-  function submit(e: FormEvent) {
-    e.preventDefault();
-    const target = `/app/novo${url.trim() ? `?url=${encodeURIComponent(url.trim())}` : ''}`;
-    navigate(user ? target : `/cadastro?next=${encodeURIComponent(target)}`);
-  }
+  const target = '/app/novo';
+  const href = user ? target : `/cadastro?next=${encodeURIComponent(target)}`;
   return (
-    <form onSubmit={submit} className="mx-auto mt-10 w-full max-w-2xl">
-      <div className="flex flex-col gap-2 rounded-2xl border border-ink-200 bg-white p-2 shadow-[var(--shadow-lift)] sm:flex-row">
-        <label htmlFor="hero-url" className="sr-only">
-          Link do produto
-        </label>
-        <div className="relative flex-1">
-          <Link2 className="pointer-events-none absolute top-1/2 left-4 size-4 -translate-y-1/2 text-ink-400" />
-          <input
-            id="hero-url"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="Cole o link do produto aqui..."
-            inputMode="url"
-            className="w-full rounded-xl bg-transparent py-3.5 pr-3 pl-11 text-[15px] placeholder:text-ink-400 focus:outline-none"
-          />
-        </div>
-        <button className="btn-primary px-6 py-3.5 text-[15px]">
-          Gerar meu anúncio <ArrowRight className="size-4" />
-        </button>
-      </div>
+    <div className="mx-auto mt-10 w-full max-w-2xl">
+      <Link
+        to={href}
+        className="group flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-violet-brand/30 bg-white px-6 py-8 shadow-[var(--shadow-lift)] transition hover:border-violet-brand sm:flex-row sm:justify-between sm:py-5"
+      >
+        <span className="flex items-center gap-3 text-left">
+          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-violet-brand/10 to-blue-brand/10 text-violet-brand">
+            <Camera className="size-5" />
+          </span>
+          <span>
+            <span className="block font-semibold text-ink-950">Envie as fotos do produto</span>
+            <span className="block text-sm text-ink-500">Do celular ou do computador. A IA faz o resto.</span>
+          </span>
+        </span>
+        <span className="btn-primary px-6 py-3.5 text-[15px]">
+          Gerar meu anúncio <ArrowRight className="size-4 transition group-hover:translate-x-0.5" />
+        </span>
+      </Link>
       <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
         <span className="text-xs text-ink-500">Para</span>
         {MARKETPLACE_IDS.map((id) => (
           <MarketplaceChip key={id} id={id} />
         ))}
       </div>
-    </form>
+    </div>
   );
 }
 
@@ -135,10 +129,10 @@ const BENEFITS = [
 ];
 
 const FEATURES = [
-  { icon: Link2, title: 'Leitura de links', text: 'Dados estruturados (JSON-LD, microdados) e metadados públicos, com origem de cada campo.' },
+  { icon: ScanEye, title: 'IA que lê as fotos', text: 'Identifica o produto, lê marca e textos da embalagem e aponta o que a foto não mostra.' },
   { icon: Sparkles, title: 'Textos com IA', text: 'Título, descrição e palavras-chave, com fatos separados de sugestões de marketing.' },
   { icon: Wand2, title: 'Editor de imagens', text: 'Recorte, luz, contraste, saturação, fundo branco e tamanho do canal, com desfazer e refazer.' },
-  { icon: ImageIcon, title: 'Originais preservadas', text: 'Toda edição é uma cópia. A foto real do produto fica guardada.' },
+  { icon: ImageIcon, title: 'Fotos prontas para venda', text: 'Fundo branco, produto centralizado e tamanho do canal, geradas automaticamente. A original fica guardada.' },
   { icon: History, title: 'Histórico e versões', text: 'Cada edição vira uma versão. Restaure qualquer uma quando quiser.' },
   { icon: FileDown, title: 'Exportação pronta', text: 'ZIP com texto e imagens, TXT para colar ou JSON para integrações.' },
 ];
@@ -149,8 +143,12 @@ const FAQ = [
     a: 'Ainda não. Hoje você exporta o anúncio e publica pelo painel do vendedor. A integração com o Mercado Livre já faz a autorização da conta; o envio automático só será anunciado depois de testado com contas reais.',
   },
   {
-    q: 'E se o site do produto bloquear a leitura?',
-    a: 'Mostramos o motivo (bloqueio, captcha, robots.txt) e você preenche os dados manualmente. Nunca exibimos dados como se a página tivesse sido lida quando não foi.',
+    q: 'A IA adivinha marca, medidas e peso pela foto?',
+    a: 'Não. Ela só usa o que dá para ver: marca e especificações apenas se estiverem escritas na foto ou na embalagem. O que a foto não mostra (peso, medidas, garantia) aparece numa lista para você confirmar.',
+  },
+  {
+    q: 'As fotos de venda são geradas por IA?',
+    a: 'Não inventamos imagens. As fotos de venda são a sua foto tratada: fundo branco, produto centralizado e tamanho certo para o canal. Assim o comprador vê o produto real.',
   },
   {
     q: 'A IA pode inventar características do produto?',
@@ -212,7 +210,7 @@ export function LandingPage() {
         <div className="relative mx-auto max-w-4xl text-center">
           <Reveal>
             <span className="inline-flex items-center gap-2 rounded-full border border-ink-200 bg-white px-3 py-1 text-xs font-medium text-ink-700 shadow-[var(--shadow-soft)]">
-              <Sparkles className="size-3.5 text-violet-brand" /> Do link ao anúncio, com inteligência artificial.
+              <Sparkles className="size-3.5 text-violet-brand" /> Da foto ao anúncio, com inteligência artificial.
             </span>
           </Reveal>
           <Reveal delay={0.05}>
@@ -222,8 +220,8 @@ export function LandingPage() {
           </Reveal>
           <Reveal delay={0.1}>
             <p className="mx-auto mt-6 max-w-2xl text-base text-ink-500 sm:text-lg">
-              Insira o link do produto, confira as informações reais e gere anúncios prontos para revisar e publicar nos seus marketplaces
-              favoritos.
+              Tire uma foto do produto. A IA identifica o que é, escreve título e descrição profissionais e prepara as fotos para publicar nos seus
+              marketplaces favoritos.
             </p>
           </Reveal>
           <Reveal delay={0.15}>
@@ -256,7 +254,7 @@ export function LandingPage() {
       <section id="como-funciona" className="pt-10">
         <Reveal className="mx-auto max-w-2xl px-4 text-center">
           <h2 className="text-3xl font-bold sm:text-4xl">Como funciona</h2>
-          <p className="mt-3 text-ink-500">Role para acompanhar o caminho do link até o anúncio.</p>
+          <p className="mt-3 text-ink-500">Role para acompanhar o caminho da foto até o anúncio.</p>
         </Reveal>
         <ProcessStage />
       </section>
@@ -342,8 +340,8 @@ export function LandingPage() {
         <Reveal>
           <div className="relative mx-auto max-w-5xl overflow-hidden rounded-[2rem] bg-gradient-to-br from-violet-brand to-blue-brand px-6 py-14 text-center text-white sm:px-12">
             <div className="pointer-events-none absolute -top-20 -right-20 size-72 rounded-full bg-white/10 blur-2xl" />
-            <h2 className="text-3xl font-bold text-white sm:text-4xl">Seu próximo anúncio começa com um link.</h2>
-            <p className="mx-auto mt-3 max-w-xl text-white/80">Cole o link, revise o que foi encontrado e exporte para o seu marketplace.</p>
+            <h2 className="text-3xl font-bold text-white sm:text-4xl">Seu próximo anúncio começa com uma foto.</h2>
+            <p className="mx-auto mt-3 max-w-xl text-white/80">Envie a foto, revise o que a IA escreveu e exporte para o seu marketplace.</p>
             <Link to={user ? '/app/novo' : '/cadastro'} className="btn mt-8 bg-white px-6 py-3 text-ink-950 hover:bg-white/90">
               Criar meu primeiro anúncio <ArrowRight className="size-4" />
             </Link>
@@ -354,7 +352,7 @@ export function LandingPage() {
       <footer className="border-t border-ink-200 px-4 py-10">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 text-sm text-ink-500 sm:flex-row">
           <Logo />
-          <p>Vendora AI · Do link ao anúncio, com inteligência artificial.</p>
+          <p>Vendora AI · Da foto ao anúncio, com inteligência artificial.</p>
         </div>
       </footer>
     </div>

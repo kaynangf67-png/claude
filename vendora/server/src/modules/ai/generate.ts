@@ -42,8 +42,18 @@ export function deterministicMissing(input: GenerationInput): Array<{ field: str
   if (!/peso|weight/.test(corpus)) out.push({ field: 'Peso', reason: 'Necessário para calcular o frete.' });
   if (!/dimens|largura|altura|comprimento|profundidade/.test(corpus))
     out.push({ field: 'Dimensões', reason: 'Necessárias para calcular o frete.' });
+  const labels: Record<string, string> = {
+    title: 'Nome do produto',
+    brand: 'Marca',
+    model: 'Modelo',
+    description: 'Descrição',
+    features: 'Características',
+    specifications: 'Especificações',
+    price: 'Preço',
+  };
   for (const [field, status] of Object.entries(st))
-    if (status === 'inferred') out.push({ field, reason: 'Veio de metadados genéricos da página; confirme.' });
+    if (status === 'inferred' && labels[field] && !out.some((o) => o.field === labels[field]))
+      out.push({ field: labels[field]!, reason: 'Identificado automaticamente (foto ou metadados); confirme se está certo.' });
   const where = { mercado_livre: 'no Mercado Livre', shopee: 'na Shopee', tiktok_shop: 'no TikTok Shop' }[input.marketplace];
   for (const field of MARKETPLACE_PROFILES[input.marketplace].sellerMustConfirm)
     out.push({ field, reason: `Obrigatório ${where}; confirme antes de publicar.` });

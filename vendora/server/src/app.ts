@@ -12,6 +12,7 @@ import { createDb } from './db';
 import { AppError } from './lib/errors';
 import { AnthropicGenerator } from './modules/ai/anthropic';
 import { BasicGenerator } from './modules/ai/basic';
+import { AnthropicPhotoReader } from './modules/ai/vision';
 import { authRoutes } from './modules/auth/routes';
 import { RemoveBgRemover } from './modules/images/backgroundRemoval';
 import { imageRoutes } from './modules/images/routes';
@@ -34,6 +35,12 @@ export function createContext(config: Config, overrides: Partial<AppContext> = {
     storage: overrides.storage ?? createStorage(config),
     fetcher: overrides.fetcher ?? safeFetch,
     generator: overrides.generator ?? generator,
+    photoReader:
+      overrides.photoReader !== undefined
+        ? overrides.photoReader
+        : config.AI_PROVIDER === 'anthropic' && config.ANTHROPIC_API_KEY
+          ? new AnthropicPhotoReader(config.ANTHROPIC_API_KEY, config.AI_MODEL)
+          : null,
     bgRemover: overrides.bgRemover !== undefined ? overrides.bgRemover : config.REMOVE_BG_API_KEY ? new RemoveBgRemover(config.REMOVE_BG_API_KEY) : null,
     adapters: overrides.adapters ?? createAdapters(config),
   };

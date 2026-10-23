@@ -1,5 +1,5 @@
 import { motion, useReducedMotion, useScroll, useSpring, useTransform, type MotionValue } from 'framer-motion';
-import { Check, ImageIcon, Link2, ScanSearch, Sparkles } from 'lucide-react';
+import { Camera, Check, ImageIcon, ScanSearch, Sparkles } from 'lucide-react';
 import { useRef, type ReactNode } from 'react';
 
 /**
@@ -11,8 +11,8 @@ import { useRef, type ReactNode } from 'react';
  */
 
 const STEPS = [
-  { icon: Link2, title: 'Você cola o link', text: 'Validamos o endereço e lemos só os dados públicos da página, respeitando o robots.txt da loja.' },
-  { icon: ScanSearch, title: 'Identificamos o produto', text: 'Título, marca, modelo, especificações e fotos — cada campo marcado como confirmado, a confirmar ou ausente.' },
+  { icon: Camera, title: 'Você envia as fotos', text: 'Do celular ou do computador. Pode ser a foto do produto e da embalagem.' },
+  { icon: ScanSearch, title: 'Identificamos o produto', text: 'A IA reconhece o produto e lê marca e textos visíveis. O que a foto não mostra vira uma lista para você confirmar.' },
   { icon: ImageIcon, title: 'Tratamos as imagens', text: 'Recorte, luz, fundo branco e tamanho certo para cada canal, sempre numa cópia. A foto original fica guardada.' },
   { icon: Sparkles, title: 'O anúncio fica pronto', text: 'Título, descrição e ficha técnica no formato do canal, com a lista do que você ainda precisa confirmar.' },
 ];
@@ -45,13 +45,16 @@ export function ProductGlyph({ className = '' }: { className?: string }) {
 const STEP_CARDS = [
   () => (
     <Card className="w-[290px]">
-      <p className="mb-3 text-[11px] font-semibold tracking-wide text-ink-500 uppercase">Link original</p>
-      <div className="flex items-center gap-2 rounded-xl border border-ink-200 bg-ink-50 px-3 py-2.5">
-        <Link2 className="size-4 text-violet-brand" />
-        <Bar w="70%" tone="bg-ink-300" />
+      <p className="mb-3 text-[11px] font-semibold tracking-wide text-ink-500 uppercase">Fotos enviadas</p>
+      <div className="grid grid-cols-3 gap-2">
+        {['from-stone-300 to-stone-400', 'from-amber-100 to-stone-300', 'from-stone-200 to-stone-300'].map((g) => (
+          <div key={g} className={`grid aspect-square place-items-center rounded-xl bg-gradient-to-br ${g}`}>
+            <ProductGlyph className="h-3/4" />
+          </div>
+        ))}
       </div>
       <div className="mt-3 flex items-center gap-1.5 text-[11px] text-emerald-700">
-        <Check className="size-3.5" /> Domínio público · leitura permitida
+        <Check className="size-3.5" /> 3 fotos · originais guardadas
       </div>
     </Card>
   ),

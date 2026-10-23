@@ -137,3 +137,47 @@ export async function applyEdits(buffer: Buffer, ops: EditOperations): Promise<{
   const out = await img.toBuffer({ resolveWithObject: true });
   return { buffer: out.data, width: out.info.width, height: out.info.height, format: fmt };
 }
+
+/**
+ * Foto pronta para venda: corta bordas de fundo uniforme, centraliza o produto
+ * num quadrado branco com margem e entrega no tamanho recomendado do canal.
+ * Só operações globais — nada é desenhado ou inventado sobre o produto.
+ * Se o fundo original não for liso, ele continua na foto (use a remoção de fundo).
+ */
+export async function makeSalePhoto(
+  buffer: Buffer,
+  targetSize: number,
+): Promise<{ buffer: Buffer; width: number; height: number; format: ImageFormat }> {
+  let base = await sharp(buffer, { limitInputPixels: LIMIT_INPUT_PIXELS }).rotate().flatten({ background: '#ffffff' }).toBuffer();
+  try {
+    // trim remove bordas da cor do canto superior esquerdo (fundo liso); falha silenciosa em fundos complexos.
+    const trimmed = await sharp(base).trim({ threshold: 18 }).toBuffer({ resolveWithObject: true });
+    const meta = await sharp(base).metadata();
+    // trim só remove linhas/colunas inteiras da cor do fundo, então não corta o produto;
+    // descarta apenas resultados degenerados (ruído ou foto praticamente vazia).
+    if (trimmed.info.width >= 32 && trimmed.info.height >= 32 && trimmed.info.width * trimmed.info.height > 0.005 * meta.width! * meta.height!)
+      base = trimmed.data;
+  } catch {
+    // imagem uniforme demais para recortar: mantém a original
+  }
+  // Quadro sempre no tamanho do canal; o produto ocupa até ~88% dele e nunca é ampliado
+  // (foto pequena fica com mais margem branca, sem perder nitidez).
+  const side = targetSize;
+  const inner = Math.round(side * 0.88);
+  const resized = await sharp(base)
+    .resize({ width: inner, height: inner, fit: 'inside', withoutEnlargement: true })
+    .toBuffer({ resolveWithObject: true });
+  const padX = side - resized.info.width;
+  const padY = side - resized.info.height;
+  const out = await sharp(resized.data)
+    .extend({
+      top: Math.floor(padY / 2),
+      bottom: Math.ceil(padY / 2),
+      left: Math.floor(padX / 2),
+      right: Math.ceil(padX / 2),
+      background: '#ffffff',
+    })
+    .jpeg({ quality: 90, mozjpeg: true })
+    .toBuffer({ resolveWithObject: true });
+  return { buffer: out.data, width: out.info.width, height: out.info.height, format: 'jpeg' };
+}

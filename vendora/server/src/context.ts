@@ -1,6 +1,7 @@
 import type { Config } from './config';
 import type { Db } from './db';
 import type { ListingGenerator } from './modules/ai/types';
+import type { PhotoReader } from './modules/ai/vision';
 import type { BackgroundRemover } from './modules/images/backgroundRemoval';
 import type { MarketplaceAdapter } from './modules/marketplaces/adapters';
 import type { ObjectStorage } from './modules/storage/storage';
@@ -14,6 +15,8 @@ export interface AppContext {
   storage: ObjectStorage;
   fetcher: Fetcher;
   generator: ListingGenerator;
+  /** Leitura de fotos por IA; null quando nenhum provedor está configurado. */
+  photoReader: PhotoReader | null;
   bgRemover: BackgroundRemover | null;
   adapters: Record<MarketplaceId, MarketplaceAdapter>;
 }

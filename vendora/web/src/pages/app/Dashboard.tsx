@@ -1,4 +1,4 @@
-import { ArrowRight, FileDown, Link2, Sparkles, Wand2 } from 'lucide-react';
+import { ArrowRight, Camera, FileDown, Sparkles, Wand2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { EmptyState, MarketplaceChip, PageHeader, Skeleton } from '../../components/ui';
@@ -21,9 +21,8 @@ export function Dashboard() {
     api.get<{ listings: ListingSummary[] }>('/api/listings').then((r) => setRecent(r.listings.slice(0, 5))).catch(() => setRecent([]));
   }, []);
 
-  const failed = usage?.totals.analysesByStatus.failed ?? 0;
   const stats = [
-    { label: 'Análises (30 dias)', value: usage?.last30Days.analysis ?? 0, icon: Link2 },
+    { label: 'Fotos analisadas (30 dias)', value: usage?.last30Days.analysis ?? 0, icon: Camera },
     { label: 'Textos gerados (30 dias)', value: usage?.last30Days.generation ?? 0, icon: Sparkles },
     { label: 'Imagens editadas (30 dias)', value: usage?.last30Days.image_process ?? 0, icon: Wand2 },
     { label: 'Exportações (30 dias)', value: usage?.last30Days.export ?? 0, icon: FileDown },
@@ -54,12 +53,6 @@ export function Dashboard() {
           </div>
         ))}
       </div>
-      {failed > 0 && (
-        <p className="mt-3 text-xs text-ink-500">
-          {failed} análise(s) não conseguiram ler a página (bloqueio do site ou falta de dados). Elas aparecem no fluxo de novo anúncio com
-          a opção de importação manual.
-        </p>
-      )}
 
       <section className="mt-10">
         <div className="mb-4 flex items-center justify-between">
@@ -79,15 +72,15 @@ export function Dashboard() {
         ) : recent.length === 0 ? (
           <EmptyState
             icon={<Sparkles className="size-5" />}
-            title="Seu primeiro anúncio começa com um link"
+            title="Seu primeiro anúncio começa com uma foto"
             action={
               <Link to="/app/novo" className="btn-primary">
                 Criar anúncio
               </Link>
             }
           >
-            Cole o link de um produto. A Vendora lê os dados públicos da página, mostra o que foi confirmado e o que falta, e gera o
-            anúncio para o canal escolhido. Se o site bloquear a leitura, você preenche os dados manualmente.
+            Envie fotos do produto. A IA identifica o que é, escreve título e descrição no padrão do canal escolhido e prepara as fotos
+            com fundo branco. O que a foto não mostra aparece numa lista para você confirmar.
           </EmptyState>
         ) : (
           <ul className="card divide-y divide-ink-100">

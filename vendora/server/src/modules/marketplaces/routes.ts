@@ -137,6 +137,7 @@ export function marketplaceRoutes(app: FastifyInstance, ctx: AppContext) {
   /** O que está realmente ativo neste servidor — a interface usa isto para não prometer o que não existe. */
   app.get('/api/meta', async () => ({
     ai: { provider: ctx.generator.id, model: ctx.generator.model },
+    vision: Boolean(ctx.photoReader),
     backgroundRemoval: ctx.bgRemover ? { provider: ctx.bgRemover.id } : null,
     storage: ctx.storage.driver,
     respectRobotsTxt: ctx.config.RESPECT_ROBOTS_TXT,

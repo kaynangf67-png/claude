@@ -1,10 +1,12 @@
 # Vendora AI
 
-> Do link ao anúncio, com inteligência artificial.
+> Da foto ao anúncio, com inteligência artificial.
 
-Plataforma SaaS que transforma o link (ou os dados) de um produto em anúncios para **Mercado Livre**, **Shopee** e **TikTok Shop**: lê os dados públicos da página, mostra o que foi confirmado e o que falta, gera título, descrição, ficha técnica e palavras-chave por canal, trata as imagens e exporta tudo para publicação.
+Plataforma SaaS que transforma fotos de um produto em anúncios para **Mercado Livre**, **Shopee** e **TikTok Shop**: a IA identifica o produto nas fotos, lê marca e textos visíveis, aponta o que a foto não mostra, gera título, descrição, ficha técnica e palavras-chave por canal e prepara fotos de venda (fundo branco, produto centralizado, tamanho do canal).
 
-Fluxo principal: **colar link → analisar → revisar → editar imagens → exportar.**
+Fluxo principal: **enviar fotos → IA lê as fotos → anúncio + fotos de venda → revisar → exportar.**
+
+A leitura por link continua no backend (`POST /api/products/analyze`, com proteção contra SSRF), mas saiu da interface.
 
 ---
 
@@ -17,7 +19,10 @@ Legenda: **1** implementado e testado · **2** implementado, não testado em amb
 | Cadastro, login, logout, sessão (cookie httpOnly, senha com scrypt) | 1 | Testes de integração + E2E no navegador |
 | Validação de URL e proteção contra SSRF (IPs privados, loopback, metadata, IPv6, DNS rebinding, redirects) | 1 | `test/url.test.ts` inclui um servidor local que **não** é alcançado |
 | Respeito ao `robots.txt`, detecção de bloqueio (403/429/captcha) | 1 | Com páginas de teste |
-| Extração de dados (JSON-LD, microdados, Open Graph, meta) com status por campo | 1 | Testada com páginas de teste fictícias |
+| Envio de fotos (até 6, reduzidas no aparelho antes do envio) | 1 | E2E no navegador, desktop e celular |
+| Leitura das fotos pela IA (Claude com visão, saída estruturada) | 2 · 3 | Testado com resposta simulada da API. **Exige `ANTHROPIC_API_KEY`**; sem ela, as fotos ficam salvas e o vendedor preenche os dados |
+| Fotos de venda automáticas (remove fundo liso das bordas, quadrado branco, tamanho do canal, sem ampliar o produto) | 1 | Fundos com textura não são removidos: use o editor ou a remoção de fundo |
+| Extração por link (JSON-LD, microdados, Open Graph, meta) — só API, fora da interface | 1 | Testada com páginas de teste fictícias |
 | Extração em **lojas reais** | 2 | A rede deste ambiente bloqueia sites externos; o código nunca foi exercitado contra uma loja real. Grandes marketplaces costumam bloquear robôs — a importação manual cobre esse caso |
 | Falha de extração registrada com motivo, sem dados inventados; importação manual | 1 | Testes + E2E |
 | Gerador básico (sem IA) + verificação de afirmações sem fonte | 1 | Medidas, %, garantias e certificações ausentes da origem viram alerta; especificações sem fonte são removidas |
