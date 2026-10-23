@@ -37,15 +37,16 @@ export function deterministicMissing(input: GenerationInput): Array<{ field: str
   if (!p.model) out.push({ field: 'Modelo', reason: 'Não encontrado na origem.' });
   if (!p.gtin) out.push({ field: 'Código universal (EAN/GTIN)', reason: 'Vários canais pedem o código de barras.' });
   if (!p.price) out.push({ field: 'Preço', reason: 'Não encontrado na origem.' });
-  if (p.images.length === 0) out.push({ field: 'Fotos', reason: 'Nenhuma imagem encontrada.' });
+  if (p.images.length === 0 && !input.imageCount) out.push({ field: 'Fotos', reason: 'Nenhuma imagem encontrada nem enviada.' });
   const corpus = norm(sourceCorpus(p));
   if (!/peso|weight/.test(corpus)) out.push({ field: 'Peso', reason: 'Necessário para calcular o frete.' });
   if (!/dimens|largura|altura|comprimento|profundidade/.test(corpus))
     out.push({ field: 'Dimensões', reason: 'Necessárias para calcular o frete.' });
   for (const [field, status] of Object.entries(st))
     if (status === 'inferred') out.push({ field, reason: 'Veio de metadados genéricos da página; confirme.' });
+  const where = { mercado_livre: 'no Mercado Livre', shopee: 'na Shopee', tiktok_shop: 'no TikTok Shop' }[input.marketplace];
   for (const field of MARKETPLACE_PROFILES[input.marketplace].sellerMustConfirm)
-    out.push({ field, reason: `Obrigatório no ${MARKETPLACE_PROFILES[input.marketplace].name}; confirme antes de publicar.` });
+    out.push({ field, reason: `Obrigatório ${where}; confirme antes de publicar.` });
   return out;
 }
 
@@ -67,6 +68,7 @@ export function postProcess(input: GenerationInput, raw: ListingContent): Genera
   const corpus = sourceCorpus(input.product);
   const corpusNorm = norm(corpus);
 
+  content.title = content.title.replace(/\s+/g, ' ').trim();
   if (content.title.length > input.rules.titleMax) {
     content.title = truncateAtWord(content.title, input.rules.titleMax);
     warnings.push({ field: 'title', message: `O título foi encurtado para caber em ${input.rules.titleMax} caracteres.` });

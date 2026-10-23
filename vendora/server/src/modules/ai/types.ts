@@ -11,6 +11,8 @@ export interface GenerationInput {
   /** Versão atual, quando se regenera só uma parte. */
   current?: ListingContent;
   audience?: string;
+  /** Fotos já guardadas para o produto (importadas ou enviadas pelo vendedor). */
+  imageCount?: number;
 }
 
 export interface ListingGenerator {

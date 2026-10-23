@@ -7,10 +7,15 @@ const STOPWORDS = new Set(
 
 /** Corta no último espaço antes do limite, sem deixar a frase pela metade com pontuação solta. */
 export function truncateAtWord(text: string, max: number): string {
-  const t = text.replace(/\s+/g, ' ').trim();
+  // Preserva quebras de linha (parágrafos e listas da descrição); só normaliza espaços.
+  const t = text
+    .replace(/[ \t]+/g, ' ')
+    .replace(/ *\n */g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
   if (t.length <= max) return t;
   const cut = t.slice(0, max + 1);
-  const lastSpace = cut.lastIndexOf(' ');
+  const lastSpace = Math.max(cut.lastIndexOf(' '), cut.lastIndexOf('\n'));
   return (lastSpace > max * 0.5 ? cut.slice(0, lastSpace) : t.slice(0, max)).replace(/[\s,;:\-–|/]+$/, '');
 }
 

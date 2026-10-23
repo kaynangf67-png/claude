@@ -23,7 +23,7 @@ export function testConfig(extra: Record<string, string> = {}) {
   });
 }
 
-type Route = Partial<FetchResult> & { body: Buffer | string };
+type Route = Partial<Omit<FetchResult, 'body'>> & { body: Buffer | string };
 
 /**
  * Fetcher falso: responde URLs conhecidas sem rede. Aplica a mesma validação de
@@ -42,7 +42,7 @@ export function fakeFetcher(routes: Record<string, Route>): Fetcher & { calls: s
       contentType: r.contentType ?? 'text/html; charset=utf-8',
       body: Buffer.isBuffer(r.body) ? r.body : Buffer.from(r.body),
     };
-  }) as Fetcher & { calls: string[] };
+  }) as unknown as Fetcher & { calls: string[] };
   fn.calls = calls;
   return fn;
 }

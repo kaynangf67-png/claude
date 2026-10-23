@@ -143,7 +143,9 @@ export function listingRoutes(app: FastifyInstance, ctx: AppContext) {
     if (!product) throw notFound('Produto');
     assertUsableProduct(product);
     const rules = await rulesFor(ctx, userId, body.marketplace);
+    const imageCount = await ctx.db.asset.count({ where: { productId: product.id, userId } });
     const { content, warnings } = await generateListing(ctx.generator, {
+      imageCount,
       product: product.data as ProductData,
       fieldStatus: product.fieldStatus as FieldStatusMap,
       marketplace: body.marketplace,
@@ -216,6 +218,7 @@ export function listingRoutes(app: FastifyInstance, ctx: AppContext) {
       part: part as GenerationPart,
       current,
       audience,
+      imageCount: await ctx.db.asset.count({ where: { productId: listing.productId, userId } }),
     };
     const raw = await ctx.generator.generate(input);
     // Ao regenerar uma parte, o resto do anúncio (inclusive edições do vendedor) é preservado.

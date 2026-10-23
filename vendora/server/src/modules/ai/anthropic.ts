@@ -13,13 +13,16 @@ export class AnthropicGenerator implements ListingGenerator {
     apiKey: string,
     readonly model: string,
     private readonly effort: 'low' | 'medium' | 'high',
+    /** Só para testes: substitui o transporte HTTP do SDK. */
+    fetchImpl?: typeof fetch,
   ) {
-    this.client = new Anthropic({ apiKey, maxRetries: 2, timeout: 120_000 });
+    this.client = new Anthropic({ apiKey, maxRetries: 2, timeout: 120_000, ...(fetchImpl ? { fetch: fetchImpl, maxRetries: 0 } : {}) });
   }
 
   async generate(input: GenerationInput): Promise<ListingContent> {
     try {
-      const response = await this.client.beta.messages.parse({
+      // create (e não parse): o parse automático lança erro antes de vermos stop_reason numa recusa.
+      const response = await this.client.beta.messages.create({
         model: this.model,
         max_tokens: 16000,
         // Se o modelo principal recusar, a própria API tenta o modelo de fallback padrão.
@@ -33,8 +36,16 @@ export class AnthropicGenerator implements ListingGenerator {
         throw new AppError(422, 'ai_refused', 'A IA recusou gerar este anúncio. Revise os dados do produto.');
       if (response.stop_reason === 'max_tokens')
         throw new AppError(502, 'ai_truncated', 'A resposta da IA foi cortada. Tente novamente.');
-      if (!response.parsed_output) throw new AppError(502, 'ai_invalid', 'A IA devolveu um formato inválido. Tente novamente.');
-      return response.parsed_output;
+      const text = response.content.map((b) => (b.type === 'text' ? b.text : '')).join('');
+      let json: unknown;
+      try {
+        json = JSON.parse(text);
+      } catch {
+        throw new AppError(502, 'ai_invalid', 'A IA devolveu um formato inválido. Tente novamente.');
+      }
+      const parsed = ListingContent.safeParse(json);
+      if (!parsed.success) throw new AppError(502, 'ai_invalid', 'A IA devolveu um formato inválido. Tente novamente.');
+      return parsed.data;
     } catch (err) {
       if (err instanceof AppError) throw err;
       if (err instanceof Anthropic.RateLimitError)

@@ -108,3 +108,9 @@ describe('prompt', () => {
     void withKey.db.$disconnect();
   });
 });
+
+describe('truncateAtWord', () => {
+  it('preserva parágrafos e listas', () => {
+    expect(truncateAtWord('Linha 1\n\nEspecificações:\n- A: 1', 100)).toBe('Linha 1\n\nEspecificações:\n- A: 1');
+  });
+});

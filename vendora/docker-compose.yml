@@ -1,0 +1,15 @@
+# Banco local para desenvolvimento e testes.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: vendora
+      POSTGRES_PASSWORD: vendora
+      POSTGRES_DB: vendora
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/create-test-db.sql:/docker-entrypoint-initdb.d/create-test-db.sql:ro
+volumes:
+  pgdata:

@@ -23,7 +23,7 @@ export function sessionCookieOptions(ctx: AppContext) {
 
 /** preHandler: exige sessão válida. Cada rota filtra os dados por request.userId. */
 export function requireAuth(ctx: AppContext) {
-  return async (request: FastifyRequest, _reply: FastifyReply) => {
+  return async (request: FastifyRequest, _reply?: FastifyReply) => {
     const token = request.cookies[SESSION_COOKIE];
     if (!token) throw new AppError(401, 'unauthenticated', 'Entre na sua conta para continuar.');
     const session = await ctx.db.session.findUnique({ where: { tokenHash: sha256(token) } });

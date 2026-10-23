@@ -58,8 +58,14 @@ export function authRoutes(app: FastifyInstance, ctx: AppContext) {
     return { ok: true };
   });
 
-  app.get('/api/auth/me', { preHandler: requireAuth(ctx) }, async (request) => {
-    const user = await ctx.db.user.findUniqueOrThrow({
+  /** Sem sessão responde { user: null } (200): visitantes da landing não geram erro no console. */
+  app.get('/api/auth/me', async (request) => {
+    try {
+      await requireAuth(ctx)(request, undefined as never);
+    } catch {
+      return { user: null };
+    }
+    const user = await ctx.db.user.findUnique({
       where: { id: uid(request) },
       select: { id: true, name: true, email: true, createdAt: true },
     });
