@@ -4,7 +4,6 @@ import cookie from '@fastify/cookie';
 import helmet from '@fastify/helmet';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
-import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { ZodError } from 'zod';
 import { allowedOrigins, type Config } from './config';
@@ -126,6 +125,9 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
 
   const dist = ctx.config.WEB_DIST_DIR ? path.resolve(ctx.config.WEB_DIST_DIR) : '';
   if (dist && existsSync(path.join(dist, 'index.html'))) {
+    // Import dinâmico: na Vercel o front é servido pela CDN e este módulo nem é carregado
+    // (ele faz require() de pacote ESM, que o runtime da Vercel não aceita).
+    const { default: fastifyStatic } = await import('@fastify/static');
     await app.register(fastifyStatic, { root: dist, wildcard: false });
     app.setNotFoundHandler((request, reply) => {
       if (request.url.startsWith('/api/'))
