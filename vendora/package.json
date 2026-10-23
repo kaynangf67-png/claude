@@ -15,6 +15,6 @@
     "test": "npm run test -w shared && npm run test -w server && npm run test -w web",
     "db:migrate": "npm run db:migrate -w server",
     "db:deploy": "npm run db:deploy -w server",
-    "vercel-build": "npm run db:generate -w server && (if [ -n \"$DATABASE_URL\" ]; then npm run db:deploy -w server; else echo 'DATABASE_URL ausente: migra\u00e7\u00f5es n\u00e3o aplicadas'; fi) && npm run build -w web"
+    "vercel-build": "npm run db:generate -w server && (if [ -n \"$DATABASE_URL\" ]; then npm run db:deploy -w server; else echo 'DATABASE_URL ausente: migra\u00e7\u00f5es n\u00e3o aplicadas'; fi) && npm run build -w server && npm run build -w web"
   }
 }

@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { FastifyInstance } from 'fastify';
-import { buildApp, createContext } from '../server/src/app';
-import { loadConfig } from '../server/src/config';
+import { buildApp, createContext } from './app';
+import { loadConfig } from './config';
 
 /**
  * Função serverless da Vercel: todas as rotas /api/* chegam aqui (ver vercel.json)
