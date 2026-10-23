@@ -62,6 +62,23 @@ export const signUpSchema = z.object({
     .string()
     .min(8, "A senha precisa ter pelo menos 8 caracteres.")
     .max(72, "A senha pode ter no máximo 72 caracteres."),
+  acceptTerms: z.literal(true, { error: "Para participar, confirme que tem 18 anos ou mais e que leu o aviso de privacidade." }),
+  /** Opcional e separado da participação. */
+  marketingOptIn: z.boolean(),
+});
+
+export const consentSchema = z.object({
+  acceptTerms: signUpSchema.shape.acceptTerms,
+  marketingOptIn: z.boolean(),
+});
+
+const answerText = z.string().trim().max(1000, "Use no máximo 1000 caracteres.");
+
+export const feedbackAnswersSchema = z.record(z.string().regex(/^[a-z0-9_]{1,40}$/), answerText);
+
+export const contactSchema = z.object({
+  assunto: z.enum(["sugestao", "problema", "privacidade", "outro"], { error: "Escolha um assunto." }),
+  mensagem: z.string().trim().min(3, "Escreva sua mensagem.").max(1000, "Use no máximo 1000 caracteres."),
 });
 
 export const signInSchema = z.object({

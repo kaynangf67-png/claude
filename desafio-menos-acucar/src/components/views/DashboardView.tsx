@@ -2,6 +2,7 @@
 
 import { ArrowRight, CalendarCheck2, Clock, Lightbulb, PartyPopper } from "lucide-react";
 import Link from "next/link";
+import { FeedbackPrompt } from "@/components/app/FeedbackPrompt";
 import { useChallenge } from "@/components/app/useChallenge";
 import { AchievementBadge, ActivityList, XpCard } from "@/components/app/widgets";
 import { ButtonLink } from "@/components/ui/Button";
@@ -99,6 +100,8 @@ export function DashboardView() {
           )}
         </div>
       </section>
+
+      <FeedbackPrompt data={data} unlockedDay={view.unlockedDay} completedCount={view.completedCount} />
 
       <div className="grid gap-3 sm:grid-cols-2">
         <XpCard xp={view.xp} level={view.level} />

@@ -73,3 +73,43 @@ export function TextArea({ label, error, hint, className, id, ...rest }: Omit<Co
     </div>
   );
 }
+
+export function Checkbox({
+  label,
+  checked,
+  onChange,
+  error,
+  className,
+  name,
+}: {
+  label: React.ReactNode;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  error?: string;
+  className?: string;
+  name: string;
+}) {
+  const id = useId();
+  return (
+    <div className={className}>
+      <label htmlFor={id} className="flex cursor-pointer items-start gap-3 text-sm leading-relaxed text-ink">
+        <input
+          id={id}
+          name={name}
+          type="checkbox"
+          checked={checked}
+          onChange={(e) => onChange(e.target.checked)}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? `${id}-erro` : undefined}
+          className="mt-0.5 size-5 shrink-0 cursor-pointer rounded border-line accent-[var(--color-forest)]"
+        />
+        <span>{label}</span>
+      </label>
+      {error && (
+        <p id={`${id}-erro`} className="mt-1.5 pl-8 text-sm text-danger">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}

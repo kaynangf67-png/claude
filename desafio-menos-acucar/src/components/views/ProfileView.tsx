@@ -3,6 +3,7 @@
 import { FastForward, LogOut, Pencil, RotateCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
+import { BetaAccessCard, ContactForm, MarketingConsent, SurveysCard } from "@/components/app/ProfileBeta";
 import { useChallenge } from "@/components/app/useChallenge";
 import { Button, ButtonLink } from "@/components/ui/Button";
 import { Card, SectionTitle } from "@/components/ui/Card";
@@ -109,20 +110,12 @@ export function ProfileView() {
 
       <section aria-labelledby="acesso">
         <SectionTitle id="acesso" title="Acesso" />
-        <Card className="p-5 text-sm leading-relaxed">
-          {backend.mode === "demo" ? (
-            <p>
-              <strong>Modo demonstração.</strong> Nenhum pagamento foi processado. Seus dados ficam só neste navegador e podem ser perdidos se você
-              limpar os dados do site.
-            </p>
-          ) : (
-            <p>
-              <strong>Acesso de desenvolvimento.</strong> A cobrança ainda não está ativa nesta versão, então nenhum pagamento foi feito ou é
-              necessário por enquanto.
-            </p>
-          )}
-        </Card>
+        <BetaAccessCard data={data} backend={backend} />
       </section>
+
+      <SurveysCard data={data} view={view} />
+
+      <MarketingConsent data={data} backend={backend} refresh={refresh} />
 
       <section aria-labelledby="respostas">
         <SectionTitle id="respostas" title="Suas respostas" />
@@ -177,13 +170,15 @@ export function ProfileView() {
         </section>
       )}
 
+      <ContactForm backend={backend} refresh={refresh} />
+
       <section aria-labelledby="zona">
         <SectionTitle id="zona" title="Recomeçar ou sair" />
         <Card className="grid gap-4 p-5">
           {confirmReset ? (
             <div className="grid gap-3">
               <Notice tone="error" title="Recomeçar do zero?">
-                Isso apaga suas missões concluídas, reflexões, estratégias salvas e respostas do questionário. Não dá para desfazer.
+                Isso apaga suas missões concluídas, reflexões, estratégias salvas e respostas do questionário. As pesquisas da Primeira Turma que você respondeu são mantidas. Não dá para desfazer.
               </Notice>
               <div className="flex flex-wrap gap-2">
                 <Button

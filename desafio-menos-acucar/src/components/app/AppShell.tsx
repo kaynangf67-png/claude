@@ -75,7 +75,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Logo href="/inicio" />
         </header>
         <main id="conteudo" className="pb-safe-nav mx-auto w-full max-w-3xl px-4 pt-6 md:px-8 md:pt-10 md:pb-16">
-          <RequireSession>{() => children}</RequireSession>
+          <RequireSession needsOnboarding={!pathname.startsWith("/admin")}>{() => children}</RequireSession>
         </main>
       </div>
 

@@ -7,6 +7,8 @@ export const env = {
   supabaseUrl: url,
   supabaseAnonKey: anonKey,
   siteUrl: process.env.NEXT_PUBLIC_SITE_URL ?? "",
+  /** Opcional: e-mail público do fundador para contato. Sem ele, o contato é só pelo formulário no app. */
+  contactEmail: process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "",
   /** Sem Supabase configurado, o app roda em modo demonstração (dados só no navegador). */
   isSupabaseConfigured: Boolean(url && anonKey),
 } as const;

@@ -2,6 +2,14 @@ import { ChevronDown } from "lucide-react";
 
 const ITEMS: { q: string; a: string }[] = [
   {
+    q: "O que é a Primeira Turma? Quanto custa?",
+    a: "É a turma de testes do desafio, gratuita. Você faz os 21 dias sem pagar nada e responde, se quiser, três pesquisas curtas para ajudar a melhorar o produto. Não pedimos cartão e não há cobrança no fim. Uma versão paga pode existir no futuro, mas participar agora não te compromete com ela.",
+  },
+  {
+    q: "Por que dizem que é uma versão em construção?",
+    a: "Porque é. O conteúdo está completo, mas algumas partes do app podem mudar durante a turma, e pode aparecer algum problema. Se acontecer, use “Fale com a gente” no seu Perfil.",
+  },
+  {
     q: "Preciso parar de comer doce?",
     a: "Não. O desafio não proíbe nenhum alimento. A proposta é entender quando e por que o doce aparece na sua rotina e testar ajustes que façam sentido para você. Comer um doce continua sendo uma escolha válida.",
   },
@@ -23,7 +31,7 @@ const ITEMS: { q: string; a: string }[] = [
   },
   {
     q: "Quais dados vocês pedem?",
-    a: "Nome, e-mail e as respostas do questionário inicial sobre seus hábitos e preferências. Não pedimos peso, exames, diagnóstico ou outros dados de saúde. As respostas servem só para personalizar dicas e a ordem do guia.",
+    a: "Nome, e-mail, as respostas do questionário inicial e das pesquisas, e o seu progresso. Não pedimos telefone, peso, exames, diagnóstico ou outros dados de saúde. Receber novidades por e-mail é opcional e separado da participação. Os detalhes estão no aviso de privacidade.",
   },
   {
     q: "Funciona no celular?",

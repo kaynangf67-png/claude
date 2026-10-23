@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const APP_PREFIXES = ["/inicio", "/desafio", "/guia", "/progresso", "/perfil", "/relatorio", "/onboarding"];
+const APP_PREFIXES = ["/inicio", "/desafio", "/guia", "/progresso", "/perfil", "/relatorio", "/onboarding", "/feedback", "/admin"];
 
 /**
  * Só age quando o Supabase está configurado: renova a sessão nos cookies e faz um

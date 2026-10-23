@@ -108,6 +108,9 @@ function Welcome({ name, answers, isRedo }: { name: string; answers: QuizAnswers
             <ButtonLink href="/desafio/1" size="lg" icon={<ArrowRight className="size-4" aria-hidden />}>
               Começar o Dia 1: {day1.title}
             </ButtonLink>
+            <ButtonLink href="/feedback/inicial" variant="secondary" size="lg">
+              Antes, responder 3 perguntas rápidas (opcional)
+            </ButtonLink>
             <ButtonLink href="/inicio" variant="ghost" size="lg">
               Ver meu painel primeiro
             </ButtonLink>

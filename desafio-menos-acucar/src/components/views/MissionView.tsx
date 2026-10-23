@@ -177,6 +177,12 @@ function MissionBody({ mission, data }: { mission: Mission; data: UserData }) {
             ))}
           </ol>
         )}
+        <p className="mt-3 flex gap-2 rounded-lg border border-line bg-white px-4 py-3 text-sm leading-relaxed text-ink">
+          <CircleCheck className="mt-0.5 size-4 shrink-0 text-forest" aria-hidden />
+          <span>
+            <strong className="font-semibold">Considere concluída quando</strong> {mission.doneWhen}
+          </span>
+        </p>
       </section>
 
       {strategy && <StrategyCard id={strategy.id} title={strategy.title} howTo={strategy.howTo}/>}

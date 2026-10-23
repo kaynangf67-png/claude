@@ -6,6 +6,7 @@ import { useEffect, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import { PageLoading } from "@/components/ui/Spinner";
 import type { UserData } from "@/domain/types";
+import { ConsentGate, NoAccess } from "./AccessGates";
 import { useSession } from "./SessionProvider";
 
 /**
@@ -17,7 +18,9 @@ export function RequireSession({ children, needsOnboarding = true }: { children:
   const router = useRouter();
   const pathname = usePathname();
 
-  const mustOnboard = status === "authenticated" && needsOnboarding && !data?.profile.onboardingCompletedAt;
+  const needsConsent = status === "authenticated" && !!data && !data.profile.termsAcceptedAt;
+  const blocked = status === "authenticated" && !!data && !data.access.active;
+  const mustOnboard = status === "authenticated" && !needsConsent && !blocked && needsOnboarding && !data?.profile.onboardingCompletedAt;
 
   useEffect(() => {
     if (status === "anonymous") router.replace(`/entrar?voltar=${encodeURIComponent(pathname)}`);
@@ -35,6 +38,8 @@ export function RequireSession({ children, needsOnboarding = true }: { children:
       </div>
     );
   }
+  if (status === "authenticated" && data && needsConsent) return <ConsentGate />;
+  if (status === "authenticated" && data && blocked) return <NoAccess />;
   if (status !== "authenticated" || !data || mustOnboard) return <PageLoading />;
   return <>{children(data)}</>;
 }

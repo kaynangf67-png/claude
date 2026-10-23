@@ -6,6 +6,8 @@ import {
   Compass,
   Leaf,
   ListChecks,
+  MessageSquareText,
+  FlaskConical,
   NotebookPen,
   Repeat2,
   ShieldCheck,
@@ -20,6 +22,24 @@ import { Faq } from "@/components/landing/Faq";
 import { HeaderAuthLink, StartCta } from "@/components/landing/StartCta";
 import { Logo } from "@/components/ui/Logo";
 import { WEEK_THEMES } from "@/domain/missions";
+
+const BETA_POINTS = [
+  {
+    icon: Sparkles,
+    title: "Acesso completo e gratuito",
+    text: "As 21 missões, o guia de alternativas, XP, conquistas e o relatório final. Sem cartão de crédito e sem cobrança no fim.",
+  },
+  {
+    icon: MessageSquareText,
+    title: "Sua opinião define a próxima versão",
+    text: "Três pesquisas curtas e opcionais: no início, no Dia 7 e no Dia 21. Críticas valem tanto quanto elogios.",
+  },
+  {
+    icon: FlaskConical,
+    title: "Uma versão em construção",
+    text: "Pode haver ajustes durante a turma. Se algo não funcionar, há um canal direto com o fundador dentro do app.",
+  },
+];
 
 const BENEFITS = [
   {
@@ -79,6 +99,9 @@ export default function LandingPage() {
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
           <Logo />
           <nav aria-label="Seções da página" className="hidden items-center gap-1 text-sm font-medium text-muted md:flex">
+            <a href="#primeira-turma" className="rounded-md px-3 py-2 hover:text-forest">
+              Primeira Turma
+            </a>
             <a href="#como-funciona" className="rounded-md px-3 py-2 hover:text-forest">
               Como funciona
             </a>
@@ -91,7 +114,7 @@ export default function LandingPage() {
           </nav>
           <div className="flex items-center gap-1">
             <HeaderAuthLink />
-            <StartCta size="sm" label="Começar" className="max-sm:hidden" />
+            <StartCta size="sm" label="Participar" className="max-sm:hidden" />
           </div>
         </div>
       </header>
@@ -103,7 +126,7 @@ export default function LandingPage() {
             <div className="animate-rise flex max-w-3xl flex-col items-center">
               <p className="inline-flex items-center gap-2 rounded-md border border-line bg-white px-2.5 py-1 text-xs font-semibold text-forest">
                 <span className="size-1.5 rounded-full bg-fresh" aria-hidden />
-                Desafio de 21 dias
+                Primeira Turma · beta gratuito
               </p>
               <h1 className="font-display mt-5 text-[2.25rem] leading-[1.08] font-semibold tracking-tight text-forest min-[400px]:text-[2.5rem] sm:text-5xl lg:text-[3.6rem]">
                 Menos açúcar no automático.
@@ -133,6 +156,34 @@ export default function LandingPage() {
             </div>
             <div className="animate-rise w-full [animation-delay:120ms]">
               <DashboardPreview />
+            </div>
+          </div>
+        </section>
+
+        {/* Primeira Turma (beta) */}
+        <section id="primeira-turma" className="scroll-mt-20 bg-forest text-paper">
+          <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:py-20">
+            <SectionIntro
+              dark
+              eyebrow="Primeira Turma"
+              title="Participe de graça e ajude a construir o desafio."
+              text="Esta é a primeira versão do Desafio Menos Açúcar. Quem entra agora faz os 21 dias sem pagar nada e, em troca, conta para a gente o que funcionou, o que não funcionou e o que faltou."
+            />
+            <ul className="mt-10 grid gap-3 md:grid-cols-3">
+              {BETA_POINTS.map((b) => (
+                <li key={b.title} className="flex flex-col items-center rounded-card border border-paper/15 bg-forest-900/40 p-6 text-center">
+                  <b.icon className="size-6 text-fresh" strokeWidth={1.75} aria-hidden />
+                  <h3 className="mt-4 font-semibold">{b.title}</h3>
+                  <p className="mt-2 text-[0.9375rem] leading-relaxed text-paper/75">{b.text}</p>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-10 flex flex-col items-center gap-3">
+              <StartCta label="Participar da Primeira Turma" variant="secondary" className="w-full border-transparent sm:w-auto" />
+              <p className="max-w-md text-center text-sm text-paper/70">
+                Pedimos só nome e e-mail. É uma versão inicial: algumas partes ainda vão mudar. Conteúdo educativo, não substitui orientação
+                profissional.
+              </p>
             </div>
           </div>
         </section>
@@ -252,6 +303,9 @@ export default function LandingPage() {
           <p className="max-w-md">Conteúdo educativo. Não substitui orientação de médicos ou nutricionistas.</p>
           <Link href="/entrar" className="font-semibold text-forest hover:underline">
             Já tenho conta
+          </Link>
+          <Link href="/privacidade" className="hover:text-forest hover:underline">
+            Aviso de privacidade
           </Link>
         </div>
       </footer>

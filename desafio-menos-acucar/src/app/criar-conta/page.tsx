@@ -9,8 +9,8 @@ export const metadata: Metadata = { title: "Criar conta" };
 export default function SignUpPage() {
   return (
     <AuthShell
-      title="Comece seu desafio"
-      subtitle="Crie sua conta para salvar seu progresso. Depois, um questionário rápido personaliza as missões."
+      title="Entre na Primeira Turma"
+      subtitle="Acesso gratuito aos 21 dias, em troca da sua opinião. Crie sua conta para salvar o progresso; depois, um questionário rápido personaliza as missões."
       footer={
         <>
           Já tem conta?{" "}

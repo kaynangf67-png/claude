@@ -50,6 +50,11 @@ export interface UserProfile {
   createdAt: string;
   /** Conta de exemplo do modo demonstração: a UI mostra um aviso permanente. */
   isSample?: boolean;
+  /** Versão do aviso de privacidade aceita (inclui a declaração de 18+). Nulo = ainda não aceitou. */
+  termsVersion: string | null;
+  termsAcceptedAt: string | null;
+  /** Comunicações futuras. Independente da participação no desafio. */
+  marketingOptIn: boolean;
 }
 
 export type MissionCategory = "observar" | "ambiente" | "trocar" | "planejar" | "emocoes" | "social" | "consolidar";
@@ -66,6 +71,8 @@ export interface Mission {
   /** Versão curta para quem tem 5 minutos. */
   quickVersion: string;
   reflectionPrompt: string;
+  /** Critério claro de conclusão, válido também para a versão rápida. */
+  doneWhen: string;
   minutes: number;
   /** Estratégia do guia relacionada, se houver. */
   strategyId?: string;
@@ -120,9 +127,24 @@ export interface Purchase {
   createdAt: string;
 }
 
+/** Regra de acesso: hoje vem do beta gratuito; no futuro, de uma compra verificada no servidor. */
+export interface AccessInfo {
+  active: boolean;
+  source: "beta" | "purchase" | "manual" | null;
+  cohort: string | null;
+}
+
+export interface FeedbackRecord {
+  stage: "inicial" | "dia7" | "dia21" | "geral";
+  createdAt: string;
+}
+
 export interface UserData {
   profile: UserProfile;
   quiz: QuizAnswers | null;
   completions: MissionCompletion[];
   strategies: SavedStrategy[];
+  access: AccessInfo;
+  /** Só as etapas e datas: as respostas não voltam para a tela. */
+  feedback: FeedbackRecord[];
 }

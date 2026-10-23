@@ -86,10 +86,22 @@ describe("visão do desafio", () => {
 
   it("indica espera pelo dia seguinte quando tudo o que foi liberado está feito", () => {
     const data: UserData = {
-      profile: { id: "u", displayName: "A", email: "a@a.com", challengeStartedOn: "2026-10-22", onboardingCompletedAt: "x", createdAt: "x" },
+      profile: {
+        id: "u",
+        displayName: "A",
+        email: "a@a.com",
+        challengeStartedOn: "2026-10-22",
+        onboardingCompletedAt: "x",
+        createdAt: "x",
+        termsVersion: "v",
+        termsAcceptedAt: "x",
+        marketingOptIn: false,
+      },
       quiz: null,
       completions: [c(1, "2026-10-22T10:00:00Z")],
       strategies: [],
+      access: { active: true, source: "beta", cohort: "primeira-turma" },
+      feedback: [],
     };
     expect(buildChallengeView(data, "2026-10-22").waitingForTomorrow).toBe(true);
   });

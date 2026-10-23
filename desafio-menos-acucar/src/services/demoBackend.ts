@@ -1,8 +1,9 @@
+import { isStageOpen, type FeedbackStage } from "@/domain/feedback";
 import { getGuideItem } from "@/domain/guide";
 import { addDays, unlockedDay } from "@/domain/progress";
 import type { MissionCompletion, QuizAnswers, SavedStrategy, UserData, UserProfile } from "@/domain/types";
 import { quizAnswersSchema } from "@/validation/schemas";
-import { fail, ok, type Backend, type CompleteMissionInput, type DemoTools, type Result } from "./backend";
+import { fail, ok, TERMS_VERSION, type AdminFeedbackRow, type AdminMetrics, type Backend, type CompleteMissionInput, type DemoTools, type Result } from "./backend";
 
 // MODO DEMONSTRAÇÃO — não é seguro e não pretende ser.
 // Tudo fica no localStorage deste navegador. A "senha" é guardada como hash SHA-256
@@ -14,7 +15,28 @@ const SAMPLE_EMAIL = "exemplo@desafio.local";
 interface DemoAccount {
   passwordHash: string;
   data: UserData;
+  /** Respostas de feedback ficam fora de UserData, como no modo real. */
+  feedbackAnswers?: { stage: FeedbackStage; answers: Record<string, string>; createdAt: string }[];
 }
+
+const BETA_ACCESS = { active: true, source: "beta", cohort: "primeira-turma" } as const;
+
+/** Contas salvas por versões anteriores do app não têm os campos do beta. */
+function normalize(data: UserData): UserData {
+  return {
+    ...data,
+    profile: {
+      ...data.profile,
+      termsVersion: data.profile.termsVersion ?? null,
+      termsAcceptedAt: data.profile.termsAcceptedAt ?? null,
+      marketingOptIn: data.profile.marketingOptIn ?? false,
+    },
+    access: data.access ?? { ...BETA_ACCESS },
+    feedback: data.feedback ?? [],
+  };
+}
+
+const DEMO_ADMIN_MESSAGE = "O painel do fundador só funciona com o banco de dados conectado. No modo demonstração não há participantes reais.";
 
 interface DemoStore {
   sessionUserId: string | null;
@@ -71,6 +93,7 @@ export class DemoBackend implements Backend {
     const store = this.read();
     const acc = store.sessionUserId ? store.accounts[store.sessionUserId] : undefined;
     if (!acc) return fail("Sua sessão expirou. Entre novamente.");
+    acc.data = normalize(acc.data);
     const res = fn(acc);
     if (!res.ok) return res;
     const saved = this.write(store);
@@ -86,7 +109,8 @@ export class DemoBackend implements Backend {
     return store.sessionUserId && store.accounts[store.sessionUserId] ? store.sessionUserId : null;
   }
 
-  async signUp(input: { displayName: string; email: string; password: string }) {
+  async signUp(input: { displayName: string; email: string; password: string; acceptTerms: true; marketingOptIn: boolean }) {
+    if (input.acceptTerms !== true) return fail("É preciso aceitar o aviso de privacidade para participar.");
     const store = this.read();
     if (this.findByEmail(store, input.email)) return fail("Já existe uma conta com este e-mail neste navegador. Tente entrar.");
     const id = uid();
@@ -97,10 +121,13 @@ export class DemoBackend implements Backend {
       challengeStartedOn: null,
       onboardingCompletedAt: null,
       createdAt: new Date().toISOString(),
+      termsVersion: TERMS_VERSION,
+      termsAcceptedAt: new Date().toISOString(),
+      marketingOptIn: input.marketingOptIn,
     };
     store.accounts[id] = {
       passwordHash: await sha256(input.password),
-      data: { profile, quiz: null, completions: [], strategies: [] },
+      data: { profile, quiz: null, completions: [], strategies: [], access: { ...BETA_ACCESS }, feedback: [] },
     };
     store.sessionUserId = id;
     const saved = this.write(store);
@@ -124,7 +151,7 @@ export class DemoBackend implements Backend {
   async loadUserData() {
     const store = this.read();
     const acc = store.sessionUserId ? store.accounts[store.sessionUserId] : undefined;
-    return acc ? ok(structuredClone(acc.data)) : fail("Sua sessão expirou. Entre novamente.");
+    return acc ? ok(normalize(structuredClone(acc.data))) : fail("Sua sessão expirou. Entre novamente.");
   }
 
   async saveQuiz(answers: QuizAnswers, todayKey: string) {
@@ -192,6 +219,45 @@ export class DemoBackend implements Backend {
     });
   }
 
+  async acceptTerms(marketingOptIn: boolean) {
+    return this.mutate((acc) => {
+      acc.data.profile.termsVersion = TERMS_VERSION;
+      acc.data.profile.termsAcceptedAt = new Date().toISOString();
+      acc.data.profile.marketingOptIn = marketingOptIn;
+      return ok(undefined);
+    });
+  }
+
+  async setMarketingConsent(optIn: boolean) {
+    return this.mutate((acc) => {
+      acc.data.profile.marketingOptIn = optIn;
+      return ok(undefined);
+    });
+  }
+
+  async submitFeedback(stage: FeedbackStage, answers: Record<string, string>, todayKey = new Date().toISOString().slice(0, 10)) {
+    return this.mutate((acc) => {
+      if (!acc.data.access.active) return fail("Sua conta não tem acesso ativo ao desafio.");
+      if (stage !== "geral") {
+        const unlocked = unlockedDay(acc.data.profile.challengeStartedOn, todayKey);
+        if (!isStageOpen(stage, unlocked, acc.data.completions.length)) return fail("Esta pesquisa ainda não foi liberada.");
+        if (acc.data.feedback.some((f) => f.stage === stage)) return fail("Você já respondeu esta etapa.");
+      }
+      const createdAt = new Date().toISOString();
+      acc.data.feedback.push({ stage, createdAt });
+      (acc.feedbackAnswers ??= []).push({ stage, answers, createdAt });
+      return ok(undefined);
+    });
+  }
+
+  async adminMetrics(): Promise<Result<AdminMetrics>> {
+    return fail(DEMO_ADMIN_MESSAGE);
+  }
+
+  async adminFeedback(): Promise<Result<AdminFeedbackRow[]>> {
+    return fail(DEMO_ADMIN_MESSAGE);
+  }
+
   private async enterSampleAccount(todayKey: string): Promise<Result> {
     const store = this.read();
     const existing = this.findByEmail(store, SAMPLE_EMAIL);
@@ -236,7 +302,12 @@ export function buildSampleData(id: string, todayKey: string): UserData {
       onboardingCompletedAt: at(0, 8),
       createdAt: at(0, 8),
       isSample: true,
+      termsVersion: TERMS_VERSION,
+      termsAcceptedAt: at(0, 8),
+      marketingOptIn: false,
     },
+    access: { ...BETA_ACCESS },
+    feedback: [{ stage: "inicial", createdAt: at(0, 9) }],
     quiz: {
       goal: "doces",
       moments: ["apos_almoco", "tarde", "noite"],

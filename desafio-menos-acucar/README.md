@@ -19,13 +19,13 @@ Sem variáveis de ambiente o app roda em **modo demonstração**: a conta e o pr
 ## Ligando o Supabase (modo real)
 
 1. Crie um projeto no Supabase.
-2. Aplique `supabase/migrations/0001_init.sql` (`supabase db push`, ou cole o arquivo no SQL Editor).
+2. Aplique, em ordem, `supabase/migrations/0001_init.sql` e `0002_beta.sql` (`supabase db push`, ou cole no SQL Editor).
 3. Em *Authentication → URL Configuration*, adicione `http://localhost:3000` e a URL de produção. O link de confirmação de e-mail volta para `/auth/confirmar`.
 4. Copie `.env.example` para `.env.local` e preencha `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` e `NEXT_PUBLIC_SITE_URL`.
 
 A anon key é pública por design. Quem protege os dados é o **RLS**. Nunca coloque `service_role`, chaves de pagamento ou segredos de webhook em variáveis `NEXT_PUBLIC_*`.
 
-**O que já foi verificado e o que não foi.** A migration foi aplicada num PostgreSQL 16 local com o schema `auth` e os papéis `anon`/`authenticated` simulados, e as regras abaixo foram atacadas uma a uma com `supabase/tests/rls_manual.sql` (leitura e escrita entre usuários, dia bloqueado, data forjada, compra forjada). Todas se comportaram como esperado. **O `SupabaseBackend` (cliente JS) ainda não rodou contra um projeto Supabase real**: faça o fluxo completo (cadastro → confirmação de e-mail → quiz → missão) num projeto de teste antes de abrir para usuários.
+**O que já foi verificado.** As migrations foram aplicadas num PostgreSQL 16 local (schema `auth` simulado) e atacadas com `supabase/tests/rls_manual.sql` e `supabase/tests/beta_manual.sql`. As regras do beta também foram testadas no projeto real, simulando um participante dentro de uma transação desfeita no fim. O fluxo cadastro → confirmação → quiz → missão já rodou em produção com uma conta real.
 
 ### O que o banco garante (não a interface)
 
@@ -37,8 +37,38 @@ A anon key é pública por design. Quem protege os dados é o **RLS**. Nunca col
 | Data de conclusão vem do servidor | `completed_at` sem `grant insert` para o cliente |
 | Uma conclusão por dia | `unique (user_id, day)` |
 | Compras e acesso são só leitura | `purchases` e `access_grants` sem políticas de escrita |
+| Sem acesso ativo não há desafio | `has_active_access()` nas políticas de missões, quiz, estratégias e em `start_challenge()` / `submit_feedback()` |
+| Cadastro exige o aceite do aviso de privacidade | O gatilho `handle_new_user()` recusa contas sem `terms_version` |
+| Feedback validado no servidor | Só via `submit_feedback()`: etapa liberada, uma resposta por etapa, chaves e opções conhecidas, até 1000 caracteres |
+| Admin não depende do cliente | Tabela `admins` sem política de escrita; `admin_beta_metrics()` e `admin_feedback()` checam `is_admin()` |
 
 O "hoje" do servidor usa o fuso do perfil (`America/Sao_Paulo` por padrão). O modo demonstração usa o relógio do navegador.
+
+## Programa beta: Primeira Turma
+
+**Regra de acesso.** Enquanto `app_config.beta_signups_open` for `true`, toda conta nova recebe um `access_grants` com `source = 'beta'` e `cohort = 'primeira-turma'`. As políticas do desafio só olham `has_active_access()`. Para virar pago no futuro, a regra não muda: o que muda é **quem cria o grant** (um webhook de pagamento verificado, com `source = 'purchase'`).
+
+```sql
+-- Fechar inscrições da Primeira Turma (contas novas ficam sem acesso; as atuais continuam)
+update public.app_config set value = 'false' where key = 'beta_signups_open';
+-- Reabrir
+update public.app_config set value = 'true' where key = 'beta_signups_open';
+```
+
+**Tornar alguém administrador** (no SQL Editor do Supabase; não existe caminho pelo app):
+
+```sql
+insert into public.admins (user_id)
+select id from auth.users where email = 'SEU-EMAIL@exemplo.com';
+```
+
+Depois, entre no app com essa conta e abra `/admin`. Administradores não entram nas métricas. Para remover o acesso, apague a linha correspondente em `public.admins` pelo Table Editor.
+
+**Pesquisas.** Inicial (após o questionário), Dia 7 e Dia 21, todas opcionais, mais o "Fale com a gente" no Perfil (assunto + mensagem, inclusive pedidos sobre dados). As perguntas ficam em `src/domain/feedback.ts`, e as chaves aceitas, em `submit_feedback()` no banco: mudar uma exige mudar a outra.
+
+**Métricas** (`/admin`): cadastrados → iniciaram (fizeram o questionário) → fizeram 1+ missão → voltaram (missões em 2 ou mais dias diferentes) → chegaram ao Dia 7 (concluíram a missão 7) → concluíram (21 missões). Também mostra conclusões por missão, taxa de resposta das pesquisas sobre quem já podia responder, dificuldades e objetivos do questionário, facilidade de uso, se recomendaria e se pagaria. As respostas individuais mostram só o primeiro nome.
+
+**Consentimento.** O cadastro tem duas caixas separadas: o aceite do aviso de privacidade (com declaração de 18+), que é obrigatório, e o recebimento de novidades por e-mail, que é opcional e pode mudar a qualquer momento no Perfil. Contas criadas antes do aviso veem uma tela de aceite no próximo acesso. Mudou o texto de `/privacidade`? Suba `TERMS_VERSION` em `src/services/backend.ts`.
 
 ## Arquitetura
 
@@ -84,8 +114,9 @@ Fontes: Newsreader (títulos) e Figtree (texto) via `next/font`. Ícones: Lucide
 
 ## O que falta (próximas fases)
 
-- **Pagamento e controle de acesso.** As tabelas `purchases` e `access_grants` existem, mas nada as preenche e **o app não bloqueia ninguém hoje**: quem cria conta usa tudo. Antes de vender, é preciso escolher o provedor, criar o webhook no servidor com verificação de assinatura (usando `SUPABASE_SERVICE_ROLE_KEY`, só no servidor) e checar `access_grants` nas políticas RLS das tabelas do desafio.
+- **Pagamento.** O controle de acesso já existe (`access_grants` + `has_active_access()`). Falta escolher o provedor e criar o webhook no servidor, com verificação de assinatura e `SUPABASE_SERVICE_ROLE_KEY` só no servidor, que cria grants com `source = 'purchase'` e fechar `beta_signups_open`.
 - Recuperação de senha (não há link "esqueci minha senha" ainda, para não exibir um botão que não funciona).
-- Exclusão de conta no modo Supabase (precisa de função no servidor com `service_role`). Hoje existe "Recomeçar o desafio", que apaga o progresso.
+- Exclusão de conta pelo próprio app (precisa de função no servidor com `service_role`). Hoje o pedido chega pelo "Fale com a gente → Meus dados / privacidade" e a exclusão é feita no painel do Supabase (Authentication → Users → Delete user, que apaga em cascata). "Recomeçar o desafio" apaga o progresso, mas mantém as respostas das pesquisas.
+- E-mails de cadastro: o envio padrão do Supabase tem limite baixo por hora. Para turmas maiores, configure um SMTP próprio.
 - Lembretes/notificações diárias.
 - Testes de ponta a ponta automatizados (o fluxo foi verificado manualmente no navegador).

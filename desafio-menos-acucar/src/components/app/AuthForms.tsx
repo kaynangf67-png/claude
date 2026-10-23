@@ -1,10 +1,11 @@
 "use client";
 
 import { Eye, EyeOff, MailCheck } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
-import { TextField } from "@/components/ui/Field";
+import { Checkbox, TextField } from "@/components/ui/Field";
 import { Notice } from "@/components/ui/Notice";
 import { fieldErrors, signInSchema, signUpSchema } from "@/validation/schemas";
 import { useSession } from "./SessionProvider";
@@ -47,6 +48,8 @@ export function SignUpForm() {
   const { backend, refresh } = useSession();
   const router = useRouter();
   const [form, setForm] = useState({ displayName: "", email: "", password: "" });
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(null);
@@ -54,7 +57,7 @@ export function SignUpForm() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!backend) return;
-    const parsed = signUpSchema.safeParse(form);
+    const parsed = signUpSchema.safeParse({ ...form, acceptTerms, marketingOptIn });
     if (!parsed.success) {
       setErrors(fieldErrors(parsed.error));
       return;
@@ -115,11 +118,39 @@ export function SignUpForm() {
         placeholder="voce@email.com"
       />
       <PasswordField autoComplete="new-password" value={form.password} onChange={set("password")} error={errors.password} hint="Pelo menos 8 caracteres." />
+      <fieldset className="grid gap-3 rounded-lg border border-line bg-white p-4">
+        <legend className="sr-only">Consentimentos</legend>
+        <Checkbox
+          name="acceptTerms"
+          checked={acceptTerms}
+          onChange={setAcceptTerms}
+          error={errors.acceptTerms}
+          label={
+            <>
+              Tenho 18 anos ou mais e li o{" "}
+              <Link href="/privacidade" target="_blank" className="font-semibold text-forest underline underline-offset-2">
+                aviso de privacidade
+              </Link>
+              . Entendo que o desafio é educativo e não substitui orientação profissional. <span className="text-muted">(obrigatório)</span>
+            </>
+          }
+        />
+        <Checkbox
+          name="marketingOptIn"
+          checked={marketingOptIn}
+          onChange={setMarketingOptIn}
+          label={
+            <>
+              Quero receber por e-mail novidades sobre versões futuras do desafio. <span className="text-muted">(opcional, não muda nada na sua participação)</span>
+            </>
+          }
+        />
+      </fieldset>
       <Button type="submit" size="lg" loading={busy} disabled={!backend} className="mt-1 w-full">
-        Criar conta e continuar
+        Entrar na Primeira Turma
       </Button>
       <p className="text-center text-xs leading-relaxed text-muted">
-        Usamos seu e-mail só para acesso à conta. Não pedimos dados de saúde.
+        Pedimos só nome e e-mail. Nada de telefone, peso ou dados de saúde.
       </p>
     </form>
   );

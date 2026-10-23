@@ -33,6 +33,7 @@ export const MISSIONS: Mission[] = [
     ],
     quickVersion: "Antes de dormir, lembre e anote os momentos doces do seu dia.",
     reflectionPrompt: "Qual momento doce do seu dia aconteceu mais no automático?",
+    doneWhen: "você anotou os momentos doces do seu dia, mesmo que tenha sido só um ou nenhum.",
     minutes: 10,
   },
   {
@@ -49,6 +50,7 @@ export const MISSIONS: Mission[] = [
     ],
     quickVersion: "Na próxima vontade, anote só uma palavra: o que veio antes dela.",
     reflectionPrompt: "Qual gatilho apareceu mais vezes hoje?",
+    doneWhen: "você registrou o que veio antes de pelo menos uma vontade de doce.",
     minutes: 5,
   },
   {
@@ -65,6 +67,7 @@ export const MISSIONS: Mission[] = [
     ],
     quickVersion: "Leia o rótulo de um único produto que você consome todo dia.",
     reflectionPrompt: "Algum produto tinha açúcar onde você não esperava?",
+    doneWhen: "você leu a lista de ingredientes de pelo menos um produto.",
     minutes: 10,
     strategyId: "ler-rotulo",
   },
@@ -82,6 +85,7 @@ export const MISSIONS: Mission[] = [
     ],
     quickVersion: "Faça a pergunta “eu comeria um prato de comida agora?” uma vez hoje.",
     reflectionPrompt: "Hoje, a vontade era mais fome ou mais desejo de algo específico?",
+    doneWhen: "você fez a pergunta “eu comeria um prato de comida agora?” pelo menos uma vez.",
     minutes: 5,
   },
   {
@@ -98,6 +102,7 @@ export const MISSIONS: Mission[] = [
     ],
     quickVersion: "Coloque um pouco menos de açúcar no café ou troque uma bebida por água hoje.",
     reflectionPrompt: "Qual ajuste de bebida pareceu mais possível de repetir?",
+    doneWhen: "você escolheu uma bebida para ajustar e fez o ajuste uma vez.",
     minutes: 5,
     strategyId: "agua-saborizada",
   },
@@ -115,6 +120,7 @@ export const MISSIONS: Mission[] = [
     ],
     quickVersion: "Espere 10 minutos uma única vez hoje e observe o que acontece.",
     reflectionPrompt: "A vontade mudou depois de 10 minutos?",
+    doneWhen: "você esperou 10 minutos antes de decidir pelo menos uma vez, qualquer que tenha sido a decisão.",
     minutes: 10,
     strategyId: "regra-10-minutos",
   },
@@ -132,6 +138,7 @@ export const MISSIONS: Mission[] = [
     ],
     quickVersion: "Escreva qual foi o momento doce mais frequente da sua semana.",
     reflectionPrompt: "Qual padrão você quer cuidar na próxima semana?",
+    doneWhen: "você escreveu qual padrão quer cuidar na próxima semana.",
     minutes: 10,
   },
   {
@@ -148,6 +155,7 @@ export const MISSIONS: Mission[] = [
     ],
     quickVersion: "Tire um doce que está à vista e guarde num lugar menos acessível.",
     reflectionPrompt: "Que lugar da sua rotina mais “convida” para um doce?",
+    doneWhen: "você mudou de lugar pelo menos um doce que estava à vista.",
     minutes: 15,
     strategyId: "fora-da-vista",
   },
@@ -165,6 +173,7 @@ export const MISSIONS: Mission[] = [
     ],
     quickVersion: "Escolha uma alternativa do Guia e salve para testar amanhã.",
     reflectionPrompt: "A troca que você testou entraria na sua rotina? Por quê?",
+    doneWhen: "você testou uma alternativa do Guia ou deixou uma separada para testar.",
     minutes: 10,
   },
   {
@@ -181,6 +190,7 @@ export const MISSIONS: Mission[] = [
     ],
     quickVersion: "Separe agora um lanche para o seu horário mais difícil de amanhã.",
     reflectionPrompt: "Como foi chegar ao seu horário difícil com um lanche planejado?",
+    doneWhen: "você deixou um lanche planejado ou separado para o seu horário mais difícil.",
     minutes: 10,
   },
   {
@@ -197,6 +207,7 @@ export const MISSIONS: Mission[] = [
     ],
     quickVersion: "Faça uma refeição ou lanche hoje sem nenhuma tela.",
     reflectionPrompt: "Comer com atenção mudou a quantidade que você quis?",
+    doneWhen: "você fez pelo menos uma refeição, lanche ou doce sem tela e com atenção.",
     minutes: 10,
     strategyId: "comer-com-atencao",
   },
@@ -214,6 +225,7 @@ export const MISSIONS: Mission[] = [
     ],
     quickVersion: "Escreva uma pausa sem comida que você pode fazer em 2 minutos.",
     reflectionPrompt: "Qual pausa sem comida funcionou melhor para você?",
+    doneWhen: "você anotou pelo menos uma pausa sem comida que pode usar.",
     minutes: 10,
     strategyId: "pausa-sem-comida",
   },
@@ -231,6 +243,7 @@ export const MISSIONS: Mission[] = [
     ],
     quickVersion: "Escreva a frase que você usaria para recusar um doce com gentileza.",
     reflectionPrompt: "Como você se sentiu pensando em recusar ou aceitar com consciência?",
+    doneWhen: "você tem uma frase pronta para recusar um doce com gentileza.",
     minutes: 5,
     strategyId: "frase-pronta",
   },
@@ -248,6 +261,7 @@ export const MISSIONS: Mission[] = [
     ],
     quickVersion: "Escolha uma estratégia desta semana para continuar usando.",
     reflectionPrompt: "Qual ajuste desta semana você quer manter?",
+    doneWhen: "você escolheu pelo menos uma estratégia desta semana para manter.",
     minutes: 10,
   },
   {
@@ -264,6 +278,7 @@ export const MISSIONS: Mission[] = [
     ],
     quickVersion: "Planeje só o lanche de amanhã.",
     reflectionPrompt: "Planejar ajudou ou pareceu trabalhoso demais? O que simplificaria?",
+    doneWhen: "você planejou pelo menos o lanche de um dia.",
     minutes: 20,
   },
   {
@@ -280,6 +295,7 @@ export const MISSIONS: Mission[] = [
     ],
     quickVersion: "Salve uma receita do Guia para fazer no fim de semana.",
     reflectionPrompt: "O que você achou da sobremesa? Faria de novo?",
+    doneWhen: "você preparou uma sobremesa do Guia ou salvou uma receita para fazer.",
     minutes: 20,
   },
   {
@@ -296,6 +312,7 @@ export const MISSIONS: Mission[] = [
     ],
     quickVersion: "Escreva qual doce você escolheria aproveitar no próximo encontro.",
     reflectionPrompt: "Como você quer se sentir depois do próximo encontro social?",
+    doneWhen: "você decidiu, antes do próximo encontro, como quer aproveitá-lo.",
     minutes: 5,
   },
   {
@@ -312,6 +329,7 @@ export const MISSIONS: Mission[] = [
     ],
     quickVersion: "Escreva a frase gentil que você quer lembrar num dia difícil.",
     reflectionPrompt: "Que frase gentil você quer dizer a si mesmo(a) depois de um deslize?",
+    doneWhen: "você escreveu a frase gentil que quer lembrar depois de um deslize.",
     minutes: 10,
   },
   {
@@ -328,6 +346,7 @@ export const MISSIONS: Mission[] = [
     ],
     quickVersion: "Adicione à sua lista de compras uma alternativa que funcionou para você.",
     reflectionPrompt: "O que mudou na sua forma de fazer compras?",
+    doneWhen: "você fez uma lista de compras com pelo menos uma alternativa que funcionou para você.",
     minutes: 15,
   },
   {
@@ -344,6 +363,7 @@ export const MISSIONS: Mission[] = [
     ],
     quickVersion: "Escreva uma frase: “Quando ___, eu vou ___”.",
     reflectionPrompt: "Quais são as três estratégias que você quer levar adiante?",
+    doneWhen: "você escreveu pelo menos uma frase “Quando ___, eu vou ___”.",
     minutes: 15,
   },
   {
@@ -360,6 +380,7 @@ export const MISSIONS: Mission[] = [
     ],
     quickVersion: "Escreva uma coisa que você percebe hoje e não percebia no Dia 1.",
     reflectionPrompt: "O que mudou entre o Dia 1 e hoje?",
+    doneWhen: "você escreveu uma coisa que mudou entre o Dia 1 e hoje.",
     minutes: 15,
   },
 ];
