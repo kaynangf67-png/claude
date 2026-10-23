@@ -22,7 +22,11 @@ export default async function SignInPage({ searchParams }: { searchParams: Promi
       }
     >
       <DemoModeNotice />
-      <SignInForm initialError={erro === "confirmacao" ? "Não foi possível confirmar seu e-mail. O link pode ter expirado: tente entrar ou crie a conta novamente." : undefined} />
+      <SignInForm
+        // O Supabase confirma o e-mail antes de redirecionar. Se a troca do código falhou
+        // (link aberto em outro navegador ou já usado), a conta quase sempre já está confirmada.
+        notice={erro === "confirmacao" ? "Seu e-mail provavelmente já foi confirmado. Entre com seu e-mail e senha para continuar." : undefined}
+      />
     </AuthShell>
   );
 }

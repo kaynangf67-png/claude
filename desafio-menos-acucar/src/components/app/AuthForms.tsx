@@ -125,11 +125,11 @@ export function SignUpForm() {
   );
 }
 
-export function SignInForm({ initialError }: { initialError?: string }) {
+export function SignInForm({ notice }: { notice?: string }) {
   const { backend, refresh } = useSession();
   const router = useRouter();
   const [form, setForm] = useState({ email: "", password: "" });
-  const [errors, setErrors] = useState<Record<string, string>>(initialError ? { _form: initialError } : {});
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
 
   async function onSubmit(e: FormEvent) {
@@ -154,6 +154,7 @@ export function SignInForm({ initialError }: { initialError?: string }) {
 
   return (
     <form onSubmit={onSubmit} noValidate className="grid gap-5">
+      {notice && !errors._form && <Notice tone="info">{notice}</Notice>}
       {errors._form && <Notice tone="error">{errors._form}</Notice>}
       <TextField
         label="E-mail"
