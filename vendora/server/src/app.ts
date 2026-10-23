@@ -79,7 +79,16 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
   app.addHook('onRequest', async (request) => {
     if (['GET', 'HEAD', 'OPTIONS'].includes(request.method)) return;
     const origin = request.headers.origin;
-    if (origin && !origins.has(origin)) throw new AppError(403, 'bad_origin', 'Origem não permitida.');
+    if (!origin || origins.has(origin)) return;
+    // Mesma origem: o domínio que o navegador acessou (vale para todos os aliases da Vercel).
+    let originHost: string;
+    try {
+      originHost = new URL(origin).host;
+    } catch {
+      throw new AppError(403, 'bad_origin', 'Origem não permitida.');
+    }
+    const host = String(request.headers['x-forwarded-host'] ?? request.headers.host ?? '');
+    if (originHost !== host) throw new AppError(403, 'bad_origin', 'Origem não permitida.');
   });
 
   app.setErrorHandler((err, request, reply) => {

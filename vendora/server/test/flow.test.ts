@@ -80,6 +80,15 @@ describe('autenticação', () => {
     });
     expect(res.statusCode).toBe(403);
   });
+  it('aceita a mesma origem em qualquer domínio do app (aliases da Vercel)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      payload: { email: 'teste@vendora.test', password: 'senha-forte-123' },
+      headers: { origin: 'https://vendora-ai-kaynan3.vercel.app', host: 'vendora-ai-kaynan3.vercel.app' },
+    });
+    expect(res.statusCode).toBe(200);
+  });
 });
 
 describe('fluxo principal: colar link → analisar → imagens → gerar → editar → exportar', () => {
