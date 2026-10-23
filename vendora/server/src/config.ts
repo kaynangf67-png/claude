@@ -39,7 +39,7 @@ const EnvSchema = z.object({
     .transform((v) => v === 'true'),
 
   // Imagens / armazenamento
-  STORAGE_DRIVER: z.enum(['local', 's3']).default('local'),
+  STORAGE_DRIVER: z.enum(['local', 's3', 'vercel-blob']).default('local'),
   STORAGE_LOCAL_DIR: z.string().default('./uploads'),
   S3_BUCKET: z.string().optional(),
   S3_REGION: z.string().optional(),
@@ -59,12 +59,35 @@ const EnvSchema = z.object({
   // Limites
   RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(120),
   ANALYZE_LIMIT_PER_HOUR: z.coerce.number().int().positive().default(60),
+  /** Enviado pela Vercel Cron no cabeçalho Authorization. */
+  CRON_SECRET: z.string().optional(),
 });
 
 export type Config = z.infer<typeof EnvSchema>;
 
+/**
+ * Na Vercel, sem APP_URL explícito, usa o domínio de produção do projeto; o
+ * armazenamento vira Vercel Blob quando o store está ligado ao projeto.
+ */
+function vercelDefaults(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  if (!env.VERCEL) return env;
+  return {
+    ...env,
+    APP_URL: env.APP_URL || (env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${env.VERCEL_PROJECT_PRODUCTION_URL}` : undefined),
+    STORAGE_DRIVER: env.STORAGE_DRIVER || (env.BLOB_READ_WRITE_TOKEN || env.BLOB_STORE_ID ? 'vercel-blob' : undefined),
+    COOKIE_SECURE: env.COOKIE_SECURE || 'true',
+  };
+}
+
+/** Origens aceitas em requisições que alteram dados (inclui as URLs de preview da Vercel). */
+export function allowedOrigins(config: Config, env: NodeJS.ProcessEnv = process.env): Set<string> {
+  const out = new Set([new URL(config.APP_URL).origin]);
+  for (const host of [env.VERCEL_URL, env.VERCEL_BRANCH_URL, env.VERCEL_PROJECT_PRODUCTION_URL]) if (host) out.add(`https://${host}`);
+  return out;
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  const parsed = EnvSchema.safeParse(env);
+  const parsed = EnvSchema.safeParse(vercelDefaults(env));
   if (!parsed.success) {
     // Mostra só os nomes das variáveis com problema — nunca os valores.
     const problems = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('\n  ');

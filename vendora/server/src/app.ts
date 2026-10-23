@@ -7,7 +7,7 @@ import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { ZodError } from 'zod';
-import type { Config } from './config';
+import { allowedOrigins, type Config } from './config';
 import type { AppContext } from './context';
 import { createDb } from './db';
 import { AppError } from './lib/errors';
@@ -21,6 +21,7 @@ import { createAdapters } from './modules/marketplaces/adapters';
 import { marketplaceRoutes } from './modules/marketplaces/routes';
 import { productRoutes } from './modules/products/routes';
 import { createStorage } from './modules/storage/storage';
+import { runRetention } from './jobs/retention';
 import { safeFetch } from './security/safeFetch';
 
 export function createContext(config: Config, overrides: Partial<AppContext> = {}): AppContext {
@@ -75,11 +76,11 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
 
   // Defesa extra contra CSRF além do SameSite=Lax: requisições que alteram dados
   // precisam vir da própria origem da aplicação.
-  const allowedOrigin = new URL(ctx.config.APP_URL).origin;
+  const origins = allowedOrigins(ctx.config);
   app.addHook('onRequest', async (request) => {
     if (['GET', 'HEAD', 'OPTIONS'].includes(request.method)) return;
     const origin = request.headers.origin;
-    if (origin && origin !== allowedOrigin) throw new AppError(403, 'bad_origin', 'Origem não permitida.');
+    if (origin && !origins.has(origin)) throw new AppError(403, 'bad_origin', 'Origem não permitida.');
   });
 
   app.setErrorHandler((err, request, reply) => {
@@ -107,6 +108,14 @@ export async function buildApp(ctx: AppContext): Promise<FastifyInstance> {
   app.get('/api/health', async () => {
     await ctx.db.$queryRaw`SELECT 1`;
     return { ok: true };
+  });
+
+  // Vercel Cron: a plataforma envia "Authorization: Bearer $CRON_SECRET".
+  app.get('/api/cron/retention', async (request) => {
+    const secret = ctx.config.CRON_SECRET;
+    if (!secret || request.headers.authorization !== `Bearer ${secret}`)
+      throw new AppError(401, 'unauthorized', 'Não autorizado.');
+    return runRetention(ctx);
   });
 
   authRoutes(app, ctx);

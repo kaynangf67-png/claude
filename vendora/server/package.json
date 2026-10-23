@@ -12,7 +12,7 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
-    "retention": "tsx --env-file-if-exists=../.env src/jobs/retention.ts",
+    "retention": "tsx --env-file-if-exists=../.env src/jobs/retention-cli.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -27,6 +27,7 @@
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
     "@vendora/shared": "*",
+    "@vercel/blob": "^2.8.2",
     "archiver": "^8.0.0",
     "cheerio": "^1.2.0",
     "dotenv": "^17.4.2",

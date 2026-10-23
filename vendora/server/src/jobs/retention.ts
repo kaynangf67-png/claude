@@ -1,4 +1,3 @@
-import { fileURLToPath } from 'node:url';
 import type { AppContext } from '../context';
 
 /**
@@ -27,13 +26,4 @@ export async function runRetention(ctx: AppContext, now = new Date()) {
     where: { createdAt: { lt: new Date(now.getTime() - 395 * 24 * 3600_000) } },
   });
   return { sessions: sessions.count, oauthStates: states.count, assets: stale.length, usageEvents: usage.count };
-}
-
-// Execução avulsa: npm run retention
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  const { loadConfig } = await import('../config');
-  const { createContext } = await import('../app');
-  const ctx = createContext(loadConfig());
-  console.log(await runRetention(ctx));
-  await ctx.db.$disconnect();
 }

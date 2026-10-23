@@ -2,10 +2,11 @@ import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypt
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { del as blobDel, get as blobGet, put as blobPut } from '@vercel/blob';
 import type { Config } from '../../config';
 
 export interface ObjectStorage {
-  readonly driver: 'local' | 's3';
+  readonly driver: 'local' | 's3' | 'vercel-blob';
   put(key: string, body: Buffer, contentType: string): Promise<void>;
   get(key: string): Promise<Buffer>;
   delete(key: string): Promise<void>;
@@ -70,7 +71,24 @@ class S3Storage implements ObjectStorage {
   }
 }
 
+/** Vercel Blob em modo privado: nada fica acessível sem passar pela API (URL assinada). */
+class VercelBlobStorage implements ObjectStorage {
+  readonly driver = 'vercel-blob' as const;
+  async put(key: string, body: Buffer, contentType: string) {
+    await blobPut(key, body, { access: 'private', contentType, addRandomSuffix: false });
+  }
+  async get(key: string) {
+    const res = await blobGet(key, { access: 'private' });
+    if (!res || res.statusCode !== 200) throw new Error('Arquivo não encontrado no armazenamento');
+    return Buffer.from(await new Response(res.stream).arrayBuffer());
+  }
+  async delete(key: string) {
+    await blobDel(key);
+  }
+}
+
 export function createStorage(config: Config): ObjectStorage {
+  if (config.STORAGE_DRIVER === 'vercel-blob') return new VercelBlobStorage();
   if (config.STORAGE_DRIVER === 's3') {
     if (!config.S3_BUCKET) throw new Error('STORAGE_DRIVER=s3 exige S3_BUCKET');
     return new S3Storage(config.S3_BUCKET, config);
