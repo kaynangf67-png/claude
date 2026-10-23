@@ -66,9 +66,9 @@ def quando(ref):
 
 DESTAQUE = {d.lower() for d in CFG.get("destaque", [])}
 DINHEIRO = re.compile(r"^R\$\d+")
-MAX_CHARS = CFG.get("legenda_max_letras", 26)
+MAX_CHARS = CFG.get("legenda_max_letras", 22)
 
-# ---------------- legendas: uma linha, até 5 palavras / 26 letras ----------------
+# ---------------- legendas: uma linha, até 5 palavras / 22 letras ----------------
 groups, cur = [], []
 for k, w in enumerate(words):
     cur.append(w)
@@ -104,7 +104,7 @@ LEGENDAS = f"""<template>
     #root .band {{ position: absolute; left: 0; right: 0; top: {LEG_TOP}px; height: 100px; }}
     #root .grp {{ position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
       opacity: 0; overflow: visible; }}
-    #root .line {{ display: flex; gap: 0 22px; justify-content: center; align-items: center; width: 100%;
+    #root .line {{ display: flex; gap: 0 30px; justify-content: center; align-items: center; width: 100%;
       flex-wrap: nowrap; white-space: nowrap; padding: 0 60px; }}
     #root .w {{ display: inline-block; font-family: Montserrat; font-weight: 900; font-size: 62px;
       line-height: 1.05; letter-spacing: -0.01em; color: #fff; -webkit-text-stroke: 7px #000;
