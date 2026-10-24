@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, Camera, Download, PenLine, Plus, Sparkles, Trash2, Upload, Wand2, X } from 'lucide-react';
+import { ArrowRight, Camera, Download, Plus, Sparkles, Trash2, Upload, Wand2, X } from 'lucide-react';
 import { MARKETPLACE_IDS, MARKETPLACE_PROFILES, type MarketplaceId } from '@vendora/shared/marketplaces';
 import type { ProductData, Spec } from '@vendora/shared';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
@@ -285,16 +285,6 @@ export function NewListingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function startManual() {
-    setError(null);
-    const empty: Draft = { title: '', brand: '', model: '', gtin: '', description: '', price: '', features: [], specifications: [] };
-    setProduct(null);
-    setExtraction({ ok: false });
-    setDraft(empty);
-    setAssets([]);
-    setPhase('review');
-  }
-
   async function generate() {
     if (!draft) return;
     if (!draft.title.trim()) {
@@ -516,10 +506,7 @@ export function NewListingPage() {
           )}
           {error && <Notice tone="error">{error}</Notice>}
 
-          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <button type="button" className="inline-flex items-center gap-1 text-sm font-semibold text-accent hover:underline" onClick={startManual} disabled={busy}>
-              <PenLine className="size-4" /> Prefiro digitar os dados
-            </button>
+          <div className="flex justify-end">
             <button className="btn-primary px-6 py-3" disabled={busy || photos.length === 0}>
               {busy ? <Spinner /> : <Sparkles className="size-4" />}
               {busy ? step : 'Gerar meu anúncio'}
