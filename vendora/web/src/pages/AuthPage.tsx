@@ -39,7 +39,6 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
   const other = mode === 'login' ? '/cadastro' : '/entrar';
   return (
     <div className="relative grid min-h-screen place-items-center overflow-hidden px-4 py-12">
-      <div className="pointer-events-none absolute -top-40 left-1/2 h-[480px] w-[780px] -translate-x-1/2 rounded-full bg-gradient-to-r from-violet-brand/15 to-blue-brand/15 blur-3xl" />
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="relative w-full max-w-sm">
         <div className="mb-8 flex justify-center">
           <Logo />
@@ -82,7 +81,7 @@ export function AuthPage({ mode }: { mode: 'login' | 'register' }) {
           </button>
           <p className="text-center text-sm text-ink-500">
             {mode === 'login' ? 'Ainda não tem conta? ' : 'Já tem conta? '}
-            <Link to={`${other}?next=${encodeURIComponent(next)}`} className="font-semibold text-violet-brand hover:underline">
+            <Link to={`${other}?next=${encodeURIComponent(next)}`} className="font-semibold text-accent hover:underline">
               {mode === 'login' ? 'Criar conta' : 'Entrar'}
             </Link>
           </p>

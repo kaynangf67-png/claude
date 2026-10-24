@@ -76,7 +76,7 @@ function MarketplacePicker({ value, onChange }: { value: MarketplaceId; onChange
           onClick={() => onChange(id)}
           aria-pressed={value === id}
           className={`rounded-2xl border p-4 text-left transition ${
-            value === id ? 'border-violet-brand bg-violet-brand/5 ring-4 ring-violet-brand/10' : 'border-ink-200 bg-white hover:border-ink-300'
+            value === id ? 'border-accent bg-accent/5 ring-4 ring-accent/10' : 'border-ink-200 bg-surface hover:border-ink-300'
           }`}
         >
           <MarketplaceChip id={id} />
@@ -374,7 +374,7 @@ export function NewListingPage() {
               className="grid grid-cols-3 gap-3 sm:grid-cols-6"
             >
               {photos.map((p, i) => (
-                <div key={p.id} className="group relative aspect-square overflow-hidden rounded-2xl border border-ink-200 bg-white">
+                <div key={p.id} className="group relative aspect-square overflow-hidden rounded-2xl border border-ink-200 bg-surface">
                   <img src={p.preview} alt={`Foto ${i + 1}`} className={`h-full w-full object-cover ${p.asset ? '' : 'opacity-60'}`} />
                   {!p.asset && !p.failed && (
                     <span className="absolute inset-0 grid place-items-center">
@@ -382,13 +382,13 @@ export function NewListingPage() {
                     </span>
                   )}
                   {p.failed && <span className="absolute inset-x-0 top-1/2 -translate-y-1/2 bg-red-600/90 py-1 text-center text-[10px] font-semibold text-white">Falhou</span>}
-                  {i === 0 && <span className="absolute bottom-1.5 left-1.5 rounded-full bg-violet-brand px-2 py-0.5 text-[10px] font-semibold text-white">Principal</span>}
+                  {i === 0 && <span className="absolute bottom-1.5 left-1.5 rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold text-accent-ink">Principal</span>}
                   {!busy && (
                     <button
                       type="button"
                       aria-label="Remover foto"
                       onClick={() => removePhoto(p)}
-                      className="absolute top-1.5 right-1.5 grid size-7 place-items-center rounded-full bg-white/90 text-ink-700 shadow"
+                      className="absolute top-1.5 right-1.5 grid size-7 place-items-center rounded-full bg-surface/90 text-ink-700 shadow"
                     >
                       <X className="size-4" />
                     </button>
@@ -400,7 +400,7 @@ export function NewListingPage() {
                   type="button"
                   disabled={busy}
                   onClick={() => fileInput.current?.click()}
-                  className={`flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-ink-300 bg-white text-ink-500 transition hover:border-violet-brand hover:text-violet-brand ${
+                  className={`flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-ink-300 bg-surface text-ink-500 transition hover:border-accent hover:text-accent ${
                     photos.length === 0 ? 'col-span-3 h-40 sm:col-span-6' : 'aspect-square'
                   }`}
                 >
@@ -443,13 +443,13 @@ export function NewListingPage() {
                         <img
                           src={v.url}
                           alt={String(v.edits?.label ?? 'Foto do anúncio')}
-                          className="aspect-square w-full rounded-xl border border-ink-200 bg-white object-contain"
+                          className="aspect-square w-full rounded-xl border border-ink-200 bg-surface object-contain"
                         />
                         <a
                           href={v.url}
                           download={`${String(v.edits?.variant ?? 'foto')}.jpg`}
                           aria-label={`Baixar ${String(v.edits?.label ?? 'foto')}`}
-                          className="absolute top-1.5 right-1.5 grid size-7 place-items-center rounded-full bg-white/90 text-ink-700 shadow"
+                          className="absolute top-1.5 right-1.5 grid size-7 place-items-center rounded-full bg-surface/90 text-ink-700 shadow"
                         >
                           <Download className="size-3.5" />
                         </a>
@@ -460,7 +460,7 @@ export function NewListingPage() {
                 ) : (
                   !variantsBusy && !variantsNote && <p className="text-xs text-ink-500">As fotos aparecem aqui assim que a foto principal terminar de subir.</p>
                 )}
-                {variantsNote && <p className="mt-2 text-xs text-amber-700">{variantsNote}</p>}
+                {variantsNote && <p className="mt-2 text-xs text-amber-300">{variantsNote}</p>}
                 <p className="mt-2 text-[11px] text-ink-500">
                   Feitas da sua foto principal: muda fundo, enquadramento e sombra. O produto é o da foto, sem retoque nem ampliação.
                 </p>
@@ -476,7 +476,7 @@ export function NewListingPage() {
                   type="button"
                   onClick={suggestTitle}
                   disabled={busy || titleBusy || !photos.some((p) => p.asset || !p.failed)}
-                  className="inline-flex shrink-0 items-center gap-1 rounded-full border border-violet-brand/30 px-3 py-1 text-xs whitespace-nowrap font-semibold text-violet-brand transition hover:bg-violet-brand/5 disabled:opacity-50"
+                  className="inline-flex shrink-0 items-center gap-1 rounded-full border border-accent/30 px-3 py-1 text-xs whitespace-nowrap font-semibold text-accent transition hover:bg-accent/5 disabled:opacity-50"
                 >
                   {titleBusy ? <Spinner /> : <Wand2 className="size-3.5" />}
                   {titleBusy ? 'Olhando a foto…' : 'Gerar título com IA'}
@@ -512,7 +512,7 @@ export function NewListingPage() {
           {error && <Notice tone="error">{error}</Notice>}
 
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <button type="button" className="inline-flex items-center gap-1 text-sm font-semibold text-violet-brand hover:underline" onClick={startManual} disabled={busy}>
+            <button type="button" className="inline-flex items-center gap-1 text-sm font-semibold text-accent hover:underline" onClick={startManual} disabled={busy}>
               <PenLine className="size-4" /> Prefiro digitar os dados
             </button>
             <button className="btn-primary px-6 py-3" disabled={busy || photos.length === 0}>
@@ -656,7 +656,7 @@ export function NewListingPage() {
                   ))}
                   <button
                     type="button"
-                    className="btn-ghost text-violet-brand"
+                    className="btn-ghost text-accent"
                     onClick={() => setDraft({ ...draft, specifications: [...draft.specifications, { name: '', value: '' }] })}
                   >
                     <Plus className="size-4" /> Adicionar especificação
@@ -673,10 +673,10 @@ export function NewListingPage() {
                   {assets
                     .filter((a) => a.kind === 'original')
                     .map((a) => (
-                      <img key={a.id} src={a.url} alt="Foto original do produto" className="size-24 rounded-xl border border-ink-200 bg-white object-contain" />
+                      <img key={a.id} src={a.url} alt="Foto original do produto" className="size-24 rounded-xl border border-ink-200 bg-surface object-contain" />
                     ))}
                   {product && (
-                    <label className="grid size-24 cursor-pointer place-items-center rounded-xl border border-dashed border-ink-300 text-ink-500 transition hover:border-violet-brand hover:text-violet-brand">
+                    <label className="grid size-24 cursor-pointer place-items-center rounded-xl border border-dashed border-ink-300 text-ink-500 transition hover:border-accent hover:text-accent">
                       <span className="flex flex-col items-center gap-1 text-[11px]">
                         <Upload className="size-4" /> Enviar foto
                       </span>

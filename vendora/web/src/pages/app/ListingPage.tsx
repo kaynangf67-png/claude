@@ -37,7 +37,7 @@ type Tab = (typeof TABS)[number]['id'];
 const SOURCE_LABEL = { ai: 'Gerado por IA', basic: 'Gerador básico (sem IA)', user: 'Editado por você' } as const;
 
 function Counter({ value, max }: { value: number; max: number }) {
-  return <span className={`text-xs tabular-nums ${value > max ? 'font-semibold text-red-600' : 'text-ink-500'}`}>{value}/{max}</span>;
+  return <span className={`text-xs tabular-nums ${value > max ? 'font-semibold text-red-400' : 'text-ink-500'}`}>{value}/{max}</span>;
 }
 
 export function ListingPage() {
@@ -132,7 +132,7 @@ export function ListingPage() {
         <div className="min-w-0 flex-1">
           <div className="mb-2 flex flex-wrap items-center gap-2">
             <MarketplaceChip id={listing.marketplace} />
-            <span className="rounded-full border border-ink-200 bg-white px-2.5 py-0.5 text-xs text-ink-700">
+            <span className="rounded-full border border-ink-200 bg-surface px-2.5 py-0.5 text-xs text-ink-700">
               {SOURCE_LABEL[listing.source]}
               {listing.source === 'ai' && listing.model ? ` · ${listing.model}` : ''}
             </span>
@@ -158,8 +158,8 @@ export function ListingPage() {
             <summary className="btn-primary cursor-pointer list-none">
               <Download className="size-4" /> Exportar
             </summary>
-            <div className="absolute right-0 z-20 mt-2 w-56 rounded-2xl border border-ink-200 bg-white p-1.5 shadow-[var(--shadow-lift)]">
-              {dirty && <p className="px-3 py-2 text-[11px] text-amber-700">Salve as edições antes de exportar.</p>}
+            <div className="absolute right-0 z-20 mt-2 w-56 rounded-2xl border border-ink-200 bg-surface p-1.5 shadow-[var(--shadow-lift)]">
+              {dirty && <p className="px-3 py-2 text-[11px] text-amber-300">Salve as edições antes de exportar.</p>}
               <a className="flex items-center gap-2 rounded-xl px-3 py-2 text-sm hover:bg-ink-50" href={exportUrl('zip')} download>
                 <FolderArchive className="size-4" /> Pacote ZIP (texto + imagens)
               </a>
@@ -178,7 +178,7 @@ export function ListingPage() {
       </div>
 
       {dirty && (
-        <div className="sticky top-16 z-20 mb-4 flex items-center justify-between gap-3 rounded-2xl border border-violet-brand/20 bg-white/95 px-4 py-3 shadow-[var(--shadow-soft)] backdrop-blur lg:top-4">
+        <div className="sticky top-16 z-20 mb-4 flex items-center justify-between gap-3 rounded-2xl border border-accent/20 bg-surface/95 px-4 py-3 shadow-[var(--shadow-soft)] backdrop-blur lg:top-4">
           <span className="text-sm">Você tem edições não salvas.</span>
           <div className="flex gap-2">
             <button className="btn-ghost" onClick={() => setContent(listing.content)}>
@@ -193,7 +193,7 @@ export function ListingPage() {
 
       <div className="grid gap-6 xl:grid-cols-[1fr_320px]">
         <div className="min-w-0">
-          <div className="mb-4 flex gap-1 overflow-x-auto rounded-2xl border border-ink-200/70 bg-white p-1" role="tablist">
+          <div className="mb-4 flex gap-1 overflow-x-auto rounded-2xl border border-ink-200/70 bg-surface p-1" role="tablist">
             {TABS.map((t) => (
               <button
                 key={t.id}
@@ -215,7 +215,7 @@ export function ListingPage() {
                   {product.sourceUrl && (
                     <p className="text-sm">
                       <span className="text-ink-500">Origem: </span>
-                      <a href={product.sourceUrl} target="_blank" rel="noreferrer noopener" className="break-all text-violet-brand hover:underline">
+                      <a href={product.sourceUrl} target="_blank" rel="noreferrer noopener" className="break-all text-accent hover:underline">
                         {product.sourceUrl}
                       </a>
                       <span className="text-ink-500"> · método: {product.method}</span>
@@ -302,7 +302,7 @@ export function ListingPage() {
                           <li key={i} className="flex items-start gap-2 text-sm">
                             <span
                               className={`mt-0.5 shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
-                                h.kind === 'fact' ? 'border-emerald-200 bg-emerald-50 text-emerald-800' : 'border-violet-200 bg-violet-50 text-violet-800'
+                                h.kind === 'fact' ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200' : 'border-violet-400/30 bg-violet-400/10 text-violet-200'
                               }`}
                               title={h.basis}
                             >
@@ -339,7 +339,7 @@ export function ListingPage() {
                       </button>
                     </div>
                   ))}
-                  <button className="btn-ghost text-violet-brand" onClick={() => set({ specifications: [...content.specifications, { name: '', value: '' }] })}>
+                  <button className="btn-ghost text-accent" onClick={() => set({ specifications: [...content.specifications, { name: '', value: '' }] })}>
                     <Plus className="size-4" /> Adicionar linha
                   </button>
                   <CopyButton text={content.specifications.map((s) => `${s.name}: ${s.value}`).join('\n')} label="Copiar ficha técnica" />
@@ -358,13 +358,13 @@ export function ListingPage() {
                       const issues = imageIssues[a.id];
                       const hasError = issues?.some((i) => i.level === 'error');
                       return (
-                        <div key={a.id} className={`overflow-hidden rounded-2xl border ${a.isMain ? 'border-violet-brand ring-4 ring-violet-brand/10' : 'border-ink-200'}`}>
-                          <div className="relative aspect-square bg-[repeating-conic-gradient(#f3f4f7_0_25%,#fff_0_50%)] bg-[length:16px_16px]">
+                        <div key={a.id} className={`overflow-hidden rounded-2xl border ${a.isMain ? 'border-accent ring-4 ring-accent/10' : 'border-ink-200'}`}>
+                          <div className="relative aspect-square bg-[repeating-conic-gradient(#232220_0_25%,#2c2b29_0_50%)] bg-[length:16px_16px]">
                             <img src={a.url} alt={a.kind === 'original' ? 'Foto original' : 'Cópia editada'} className="h-full w-full object-contain" loading="lazy" />
                             <div className="absolute top-2 left-2 flex flex-wrap gap-1">
-                              <span className="rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold">{a.kind === 'original' ? 'Original' : 'Editada'}</span>
-                              {a.promotional && <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-900">Promocional</span>}
-                              {a.isMain && <span className="rounded-full bg-violet-brand px-2 py-0.5 text-[10px] font-semibold text-white">Principal</span>}
+                              <span className="rounded-full bg-surface/90 px-2 py-0.5 text-[10px] font-semibold">{a.kind === 'original' ? 'Original' : 'Editada'}</span>
+                              {a.promotional && <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-semibold text-amber-200">Promocional</span>}
+                              {a.isMain && <span className="rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold text-accent-ink">Principal</span>}
                             </div>
                           </div>
                           <div className="space-y-2 p-3">
@@ -372,7 +372,7 @@ export function ListingPage() {
                               {a.width}×{a.height}px · {a.mimeType.split('/')[1]?.toUpperCase()} · {formatBytes(a.sizeBytes)}
                             </p>
                             {issues && (
-                              <p className={`text-[11px] ${hasError ? 'text-red-700' : issues.length ? 'text-amber-700' : 'text-emerald-700'}`}>
+                              <p className={`text-[11px] ${hasError ? 'text-red-300' : issues.length ? 'text-amber-300' : 'text-emerald-300'}`}>
                                 {issues.length === 0 ? 'Atende às regras do canal.' : issues.map((i) => i.message).join(' ')}
                               </p>
                             )}
@@ -396,7 +396,7 @@ export function ListingPage() {
                               )}
                               {a.kind === 'edited' && (
                                 <button
-                                  className="btn-ghost px-2 py-1.5 text-xs text-red-700"
+                                  className="btn-ghost px-2 py-1.5 text-xs text-red-300"
                                   onClick={() => run('del', async () => {
                                     await api.del(`/api/assets/${a.id}`);
                                     await refreshAssets();
@@ -410,7 +410,7 @@ export function ListingPage() {
                         </div>
                       );
                     })}
-                    <label className="grid aspect-square cursor-pointer place-items-center rounded-2xl border border-dashed border-ink-300 text-ink-500 transition hover:border-violet-brand hover:text-violet-brand">
+                    <label className="grid aspect-square cursor-pointer place-items-center rounded-2xl border border-dashed border-ink-300 text-ink-500 transition hover:border-accent hover:text-accent">
                       <span className="flex flex-col items-center gap-2 text-sm">
                         <Upload className="size-5" /> Enviar foto do produto
                         <span className="text-[11px]">JPG, PNG ou WEBP</span>
@@ -440,7 +440,7 @@ export function ListingPage() {
                 <div>
                   <p className="mb-4 text-xs text-ink-500">Prévia ilustrativa para revisão — não reproduz a página real do marketplace.</p>
                   <div className="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-                    <div className="grid aspect-square place-items-center overflow-hidden rounded-2xl border border-ink-200 bg-white">
+                    <div className="grid aspect-square place-items-center overflow-hidden rounded-2xl border border-ink-200 bg-surface">
                       {main ? <img src={main.url} alt="Imagem principal" className="h-full w-full object-contain" /> : <ImageIcon className="size-10 text-ink-300" />}
                     </div>
                     <div>
@@ -460,7 +460,7 @@ export function ListingPage() {
                     <table className="mt-8 w-full overflow-hidden rounded-xl text-sm">
                       <tbody>
                         {content.specifications.map((s, i) => (
-                          <tr key={i} className={i % 2 ? 'bg-white' : 'bg-ink-50'}>
+                          <tr key={i} className={i % 2 ? 'bg-surface' : 'bg-ink-50'}>
                             <th className="w-1/3 px-4 py-2 text-left font-medium text-ink-500">{s.name}</th>
                             <td className="px-4 py-2">{s.value}</td>
                           </tr>
@@ -482,11 +482,11 @@ export function ListingPage() {
           {(liveIssues.length > 0 || listing.warnings.length > 0) && (
             <div className="card p-5">
               <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-                <AlertTriangle className="size-4 text-amber-600" /> Revise antes de publicar
+                <AlertTriangle className="size-4 text-amber-400" /> Revise antes de publicar
               </h3>
               <ul className="space-y-2 text-xs text-ink-700">
                 {liveIssues.map((i, k) => (
-                  <li key={`l${k}`} className={i.level === 'error' ? 'text-red-700' : ''}>
+                  <li key={`l${k}`} className={i.level === 'error' ? 'text-red-300' : ''}>
                     • {i.message}
                   </li>
                 ))}
@@ -522,7 +522,7 @@ export function ListingPage() {
                   </span>
                   {v.version !== listing.currentVersion && (
                     <button
-                      className="font-semibold text-violet-brand hover:underline"
+                      className="font-semibold text-accent hover:underline"
                       onClick={() => run('restore', () => api.post<ListingDetail>(`/api/listings/${id}/versions/${v.version}/restore`), `Versão ${v.version} restaurada.`)}
                     >
                       Restaurar

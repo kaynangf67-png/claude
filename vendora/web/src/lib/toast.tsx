@@ -23,13 +23,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               initial={{ opacity: 0, y: 12, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 8 }}
-              className="pointer-events-auto flex max-w-md items-start gap-2 rounded-xl border border-ink-200 bg-white px-4 py-3 text-sm shadow-[var(--shadow-lift)]"
+              className="pointer-events-auto flex max-w-md items-start gap-2 rounded-xl border border-ink-200 bg-surface px-4 py-3 text-sm shadow-[var(--shadow-lift)]"
               role={t.kind === 'error' ? 'alert' : 'status'}
             >
               {t.kind === 'success' ? (
-                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+                <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-400" />
               ) : (
-                <AlertCircle className="mt-0.5 size-4 shrink-0 text-red-600" />
+                <AlertCircle className="mt-0.5 size-4 shrink-0 text-red-400" />
               )}
               <span>{t.text}</span>
             </motion.div>

@@ -53,7 +53,7 @@ export function HistoryPage() {
             key={id || 'all'}
             onClick={() => setFilter(id)}
             className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
-              filter === id ? 'border-ink-900 bg-ink-900 text-white' : 'border-ink-200 bg-white text-ink-700 hover:border-ink-300'
+              filter === id ? 'border-ink-950 bg-ink-950 text-ink-50' : 'border-ink-200 bg-surface text-ink-700 hover:border-ink-300'
             }`}
           >
             {id ? MARKETPLACE_STYLE[id].label : 'Todos'}
@@ -85,7 +85,7 @@ export function HistoryPage() {
             {items.map((l) => (
               <li key={l.id} className="flex items-center gap-3 px-5 py-4">
                 <Link to={`/app/anuncios/${l.id}`} className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium hover:text-violet-brand">{l.title}</p>
+                  <p className="truncate text-sm font-medium hover:text-accent">{l.title}</p>
                   <p className="mt-0.5 text-xs text-ink-500">
                     {l.sourceDomain ?? 'Cadastro manual'} · {STATUS[l.status]} · v{l.currentVersion} · {formatDate(l.updatedAt)}
                   </p>

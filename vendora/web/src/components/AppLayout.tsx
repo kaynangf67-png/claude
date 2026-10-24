@@ -35,7 +35,7 @@ export function AppLayout() {
           onClick={() => setOpen(false)}
           className={({ isActive }) =>
             `flex items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium transition ${
-              isActive ? 'bg-white text-ink-950 shadow-[var(--shadow-soft)]' : 'text-ink-500 hover:bg-white/60 hover:text-ink-900'
+              isActive ? 'bg-surface text-ink-950 shadow-[var(--shadow-soft)]' : 'text-ink-500 hover:bg-surface/60 hover:text-ink-900'
             }`
           }
         >
@@ -54,7 +54,7 @@ export function AppLayout() {
         </div>
         <div className="mt-8 flex-1">{nav}</div>
         {meta?.ai.provider === 'basic' && (
-          <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+          <p className="mb-4 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-xs text-amber-200">
             IA não configurada neste servidor. Os textos usam o gerador básico, que só reorganiza os dados.
           </p>
         )}

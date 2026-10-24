@@ -47,7 +47,7 @@ export function Dashboard() {
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {stats.map(({ label, value, icon: Icon }) => (
           <div key={label} className="card p-5">
-            <Icon className="size-4 text-violet-brand" />
+            <Icon className="size-4 text-accent" />
             {usage ? <p className="mt-3 font-display text-3xl font-bold">{value}</p> : <Skeleton className="mt-3 h-9 w-12" />}
             <p className="mt-1 text-xs text-ink-500">{label}</p>
           </div>
@@ -58,7 +58,7 @@ export function Dashboard() {
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Anúncios recentes</h2>
           {recent && recent.length > 0 && (
-            <Link to="/app/historico" className="text-sm font-medium text-violet-brand hover:underline">
+            <Link to="/app/historico" className="text-sm font-medium text-accent hover:underline">
               Ver histórico
             </Link>
           )}

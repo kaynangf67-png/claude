@@ -75,7 +75,7 @@ function Slider({ label, value, onChange, onDone }: { label: string; value: numb
         onChange={(e) => onChange(Number(e.target.value))}
         onPointerUp={onDone}
         onKeyUp={onDone}
-        className="mt-1.5 w-full accent-violet-600"
+        className="mt-1.5 w-full accent-accent"
       />
     </label>
   );
@@ -167,11 +167,11 @@ export function ImageEditor({
   const shownCrop = draftCrop ?? e.crop;
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-ink-950/40 p-0 backdrop-blur-sm sm:p-6" role="dialog" aria-modal aria-label="Editor de imagem">
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/70 p-0 backdrop-blur-sm sm:p-6" role="dialog" aria-modal aria-label="Editor de imagem">
       <motion.div
         initial={{ opacity: 0, scale: 0.98, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="flex h-full w-full max-w-6xl flex-col overflow-hidden bg-white sm:h-auto sm:max-h-[92vh] sm:rounded-3xl sm:shadow-[var(--shadow-lift)]"
+        className="flex h-full w-full max-w-6xl flex-col overflow-hidden bg-surface sm:h-auto sm:max-h-[92vh] sm:rounded-3xl sm:shadow-[var(--shadow-lift)]"
       >
         <header className="flex items-center justify-between border-b border-ink-100 px-5 py-3">
           <div className="flex items-center gap-1">
@@ -192,7 +192,7 @@ export function ImageEditor({
         </header>
 
         <div className="grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[1fr_300px]">
-          <div className="flex min-h-[320px] flex-col items-center justify-center gap-3 bg-[repeating-conic-gradient(#f3f4f7_0_25%,#fff_0_50%)] bg-[length:20px_20px] p-4 sm:p-6">
+          <div className="flex min-h-[320px] flex-col items-center justify-center gap-3 bg-[repeating-conic-gradient(#232220_0_25%,#2c2b29_0_50%)] bg-[length:20px_20px] p-4 sm:p-6">
             {!img && <Spinner className="size-6 text-ink-400" />}
             {img && mode === 'crop' && (
               <div
@@ -235,9 +235,9 @@ export function ImageEditor({
                   style={{ clipPath: `inset(0 ${100 - split}% 0 0)` }}
                   aria-label="Antes"
                 />
-                <div className="pointer-events-none absolute inset-y-0 w-0.5 bg-white shadow" style={{ left: `${split}%` }} />
-                <span className="absolute top-2 left-2 rounded-full bg-ink-950/70 px-2 py-0.5 text-[10px] font-semibold text-white">Antes</span>
-                <span className="absolute top-2 right-2 rounded-full bg-violet-brand px-2 py-0.5 text-[10px] font-semibold text-white">Depois</span>
+                <div className="pointer-events-none absolute inset-y-0 w-0.5 bg-surface shadow" style={{ left: `${split}%` }} />
+                <span className="absolute top-2 left-2 rounded-full bg-black/70 px-2 py-0.5 text-[10px] font-semibold text-white">Antes</span>
+                <span className="absolute top-2 right-2 rounded-full bg-accent px-2 py-0.5 text-[10px] font-semibold text-accent-ink">Depois</span>
               </div>
             )}
             {img && mode === 'adjust' && (
@@ -247,7 +247,7 @@ export function ImageEditor({
                 max={100}
                 value={split}
                 onChange={(ev) => setSplit(Number(ev.target.value))}
-                className="w-64 accent-violet-600"
+                className="w-64 accent-accent"
                 aria-label="Comparar antes e depois"
               />
             )}
@@ -289,7 +289,7 @@ export function ImageEditor({
                   <Slider label="Contraste" value={e.contrast} onChange={(v) => dispatch({ type: 'set', patch: { contrast: v }, key: 'contrast' })} onDone={() => dispatch({ type: 'commit' })} />
                   <Slider label="Saturação" value={e.saturation} onChange={(v) => dispatch({ type: 'set', patch: { saturation: v }, key: 'saturation' })} onDone={() => dispatch({ type: 'commit' })} />
                   {Math.abs(e.saturation) > 40 && (
-                    <p className="text-[11px] text-amber-700">Cuidado: saturação alta pode alterar a cor real do produto.</p>
+                    <p className="text-[11px] text-amber-300">Cuidado: saturação alta pode alterar a cor real do produto.</p>
                   )}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -300,13 +300,13 @@ export function ImageEditor({
                     <FlipHorizontal2 className="size-4" /> Espelhar
                   </button>
                 </div>
-                {e.flip && <p className="text-[11px] text-amber-700">Espelhar inverte textos e logotipos do produto. Use só se a foto original estiver invertida.</p>}
+                {e.flip && <p className="text-[11px] text-amber-300">Espelhar inverte textos e logotipos do produto. Use só se a foto original estiver invertida.</p>}
               </>
             )}
 
             <div className="space-y-3 border-t border-ink-100 pt-5">
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" className="accent-violet-600" checked={e.whiteBackground} onChange={(ev) => dispatch({ type: 'set', patch: { whiteBackground: ev.target.checked } })} />
+                <input type="checkbox" className="accent-accent" checked={e.whiteBackground} onChange={(ev) => dispatch({ type: 'set', patch: { whiteBackground: ev.target.checked } })} />
                 <SquareDashed className="size-4 text-ink-500" /> Quadrado com fundo branco
               </label>
               <p className="-mt-1 text-[11px] text-ink-500">Centraliza a foto numa tela branca, sem cortar nem distorcer o produto.</p>
@@ -332,7 +332,7 @@ export function ImageEditor({
                 </label>
               </div>
               <label className="flex items-start gap-2 text-xs text-ink-700">
-                <input type="checkbox" className="mt-0.5 accent-violet-600" checked={promotional} onChange={(ev) => setPromotional(ev.target.checked)} />
+                <input type="checkbox" className="mt-0.5 accent-accent" checked={promotional} onChange={(ev) => setPromotional(ev.target.checked)} />
                 Marcar como imagem promocional (não pode ser a foto principal)
               </label>
             </div>

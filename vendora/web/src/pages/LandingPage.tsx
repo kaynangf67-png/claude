@@ -1,4 +1,4 @@
-import { motion, useReducedMotion, useScroll, useSpring, useTransform } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
   ArrowRight,
   BadgeCheck,
@@ -15,7 +15,7 @@ import {
   Wand2,
 } from 'lucide-react';
 import { MARKETPLACE_IDS } from '@vendora/shared/marketplaces';
-import { useRef, useState, type FormEvent, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Logo, MarketplaceChip } from '../components/ui';
 import { ProcessStage, ProductGlyph } from '../features/landing/ProcessStage';
@@ -44,10 +44,10 @@ function HeroInput() {
     <div className="mx-auto mt-10 w-full max-w-2xl">
       <Link
         to={href}
-        className="group flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-violet-brand/30 bg-white px-6 py-8 shadow-[var(--shadow-lift)] transition hover:border-violet-brand sm:flex-row sm:justify-between sm:py-5"
+        className="group flex flex-col items-center gap-3 rounded-2xl border border-dashed border-ink-300 bg-surface px-6 py-8 transition hover:border-accent sm:flex-row sm:justify-between sm:py-5"
       >
         <span className="flex items-center gap-3 text-left">
-          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-violet-brand/10 to-blue-brand/10 text-violet-brand">
+          <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-ink-100 text-accent">
             <Camera className="size-5" />
           </span>
           <span>
@@ -69,55 +69,44 @@ function HeroInput() {
   );
 }
 
+/** Ilustração fixa do resultado: não reage à rolagem. */
 function HeroVisual() {
-  const reduce = useReducedMotion();
-  const ref = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: ref, offset: ['start end', 'end start'] });
-  const p = useSpring(scrollYProgress, { stiffness: 90, damping: 22 });
-  const rotateX = useTransform(p, [0, 0.5, 1], [22, 8, -6]);
-  const leftX = useTransform(p, [0.2, 0.7], [-40, -170]);
-  const rightX = useTransform(p, [0.2, 0.7], [40, 170]);
-  const leftZ = useTransform(p, [0.2, 0.7], [-60, -140]);
-  const lift = useTransform(p, [0.2, 0.8], [0, -40]);
-
-  const panel = 'rounded-2xl border border-ink-200/80 bg-white p-4 shadow-[var(--shadow-lift)]';
+  const panel = 'rounded-xl border border-ink-200 bg-surface p-4 shadow-[var(--shadow-lift)]';
   const bar = (w: string, c = 'bg-ink-200') => <div className={`h-2 rounded-full ${c}`} style={{ width: w }} />;
 
   return (
-    <div ref={ref} className="relative mx-auto mt-16 h-[360px] max-w-4xl sm:h-[420px]" style={{ perspective: 1200 }} aria-hidden>
-      <motion.div className="absolute inset-0 grid place-items-center" style={reduce ? {} : { rotateX, transformStyle: 'preserve-3d' }}>
-        <motion.div className={`${panel} absolute hidden w-56 sm:block`} style={reduce ? { x: -190 } : { x: leftX, z: leftZ, rotateY: 18 }}>
-          <p className="mb-2 text-[10px] font-semibold text-ink-500 uppercase">Ficha técnica</p>
-          {['70%', '55%', '80%', '45%'].map((w, i) => (
-            <div key={i} className="flex items-center justify-between py-1.5">
-              {bar('35%')}
-              {bar(w === '45%' ? '25%' : '30%', 'bg-ink-300')}
-            </div>
-          ))}
-        </motion.div>
-        <motion.div className={`${panel} absolute hidden w-56 sm:block`} style={reduce ? { x: 190 } : { x: rightX, z: leftZ, rotateY: -18 }}>
-          <p className="mb-2 text-[10px] font-semibold text-ink-500 uppercase">Confirme antes de publicar</p>
-          {['Peso', 'Dimensões', 'Garantia'].map((k) => (
-            <div key={k} className="flex items-center gap-2 py-1.5 text-xs text-ink-700">
-              <span className="size-1.5 rounded-full bg-amber-500" /> {k}
-            </div>
-          ))}
-        </motion.div>
-        <motion.div className={`${panel} relative w-[300px] sm:w-[340px]`} style={reduce ? {} : { y: lift, z: 40 }}>
-          <div className="mb-3 flex items-center justify-between">
-            <span className="rounded-full bg-violet-brand/10 px-2 py-0.5 text-[10px] font-semibold text-violet-brand">Prévia</span>
-            <span className="text-[10px] text-ink-400">Demonstração ilustrativa</span>
+    <div className="mx-auto mt-16 grid max-w-4xl items-center gap-4 sm:grid-cols-[1fr_1.3fr_1fr]" aria-hidden>
+      <div className={`${panel} hidden sm:block`}>
+        <p className="mb-2 text-[10px] font-semibold text-ink-500 uppercase">Ficha técnica</p>
+        {['70%', '55%', '80%', '45%'].map((w, i) => (
+          <div key={i} className="flex items-center justify-between py-1.5">
+            {bar('35%')}
+            {bar(w === '45%' ? '25%' : '30%', 'bg-ink-300')}
           </div>
-          <div className="grid aspect-[4/3] place-items-center rounded-xl bg-gradient-to-b from-white to-ink-50 ring-1 ring-ink-100">
-            <ProductGlyph className="h-36" />
+        ))}
+      </div>
+      <div className={panel}>
+        <div className="mb-3 flex items-center justify-between">
+          <span className="rounded-md bg-accent/15 px-2 py-0.5 text-[10px] font-semibold text-accent">Prévia</span>
+          <span className="text-[10px] text-ink-400">Demonstração ilustrativa</span>
+        </div>
+        <div className="grid aspect-[4/3] place-items-center rounded-lg bg-[#f4f3f1]">
+          <ProductGlyph className="h-36" />
+        </div>
+        <div className="mt-4 space-y-2">
+          {bar('92%', 'bg-ink-700')}
+          {bar('64%', 'bg-ink-700')}
+          <div className="pt-1">{bar('30%', 'bg-accent')}</div>
+        </div>
+      </div>
+      <div className={`${panel} hidden sm:block`}>
+        <p className="mb-2 text-[10px] font-semibold text-ink-500 uppercase">Confirme antes de publicar</p>
+        {['Peso', 'Dimensões', 'Garantia'].map((k) => (
+          <div key={k} className="flex items-center gap-2 py-1.5 text-xs text-ink-700">
+            <span className="size-1.5 rounded-full bg-amber-400" /> {k}
           </div>
-          <div className="mt-4 space-y-2">
-            {bar('92%', 'bg-ink-900/80')}
-            {bar('64%', 'bg-ink-900/80')}
-            <div className="pt-1">{bar('30%', 'bg-gradient-to-r from-violet-brand to-blue-brand')}</div>
-          </div>
-        </motion.div>
-      </motion.div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -182,14 +171,13 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 export function LandingPage() {
   const { user } = useAuth();
   return (
-    <div className="overflow-x-clip bg-[#fbfbfd]">
-      <header className="sticky top-0 z-30 border-b border-transparent bg-[#fbfbfd]/80 backdrop-blur-md">
+    <div className="overflow-x-clip bg-ink-50">
+      <header className="sticky top-0 z-30 border-b border-ink-200 bg-ink-50/85 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
           <Logo />
           <nav className="hidden items-center gap-7 text-sm text-ink-700 md:flex">
             <a href="#como-funciona" className="hover:text-ink-950">Como funciona</a>
             <a href="#recursos" className="hover:text-ink-950">Recursos</a>
-            <a href="#planos" className="hover:text-ink-950">Planos</a>
             <a href="#faq" className="hover:text-ink-950">Dúvidas</a>
           </nav>
           <div className="flex items-center gap-2">
@@ -206,11 +194,10 @@ export function LandingPage() {
       </header>
 
       <section className="relative px-4 pt-16 pb-10 sm:pt-24">
-        <div className="pointer-events-none absolute -top-24 left-1/2 h-[520px] w-[900px] -translate-x-1/2 rounded-full bg-gradient-to-r from-violet-brand/15 via-blue-brand/10 to-violet-brand/10 blur-3xl" />
         <div className="relative mx-auto max-w-4xl text-center">
           <Reveal>
-            <span className="inline-flex items-center gap-2 rounded-full border border-ink-200 bg-white px-3 py-1 text-xs font-medium text-ink-700 shadow-[var(--shadow-soft)]">
-              <Sparkles className="size-3.5 text-violet-brand" /> Da foto ao anúncio, com inteligência artificial.
+            <span className="inline-flex items-center gap-2 rounded-md border border-ink-200 bg-surface px-3 py-1 text-xs font-medium text-ink-700">
+              <Camera className="size-3.5 text-accent" /> Da foto ao anúncio
             </span>
           </Reveal>
           <Reveal delay={0.05}>
@@ -240,8 +227,8 @@ export function LandingPage() {
           <div className="mt-12 grid gap-4 md:grid-cols-3">
             {BENEFITS.map((b, i) => (
               <Reveal key={b.title} delay={i * 0.08}>
-                <div className="card h-full p-6 transition hover:-translate-y-1 hover:shadow-[var(--shadow-lift)]">
-                  <b.icon className="size-5 text-violet-brand" />
+                <div className="card h-full p-6 transition hover:border-ink-300">
+                  <b.icon className="size-5 text-accent" />
                   <h3 className="mt-4 text-lg font-semibold">{b.title}</h3>
                   <p className="mt-2 text-sm text-ink-500">{b.text}</p>
                 </div>
@@ -254,7 +241,7 @@ export function LandingPage() {
       <section id="como-funciona" className="pt-10">
         <Reveal className="mx-auto max-w-2xl px-4 text-center">
           <h2 className="text-3xl font-bold sm:text-4xl">Como funciona</h2>
-          <p className="mt-3 text-ink-500">Role para acompanhar o caminho da foto até o anúncio.</p>
+          <p className="mt-3 text-ink-500">O caminho da foto até o anúncio, em quatro etapas.</p>
         </Reveal>
         <ProcessStage />
       </section>
@@ -268,9 +255,9 @@ export function LandingPage() {
           <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map((f, i) => (
               <Reveal key={f.title} delay={(i % 3) * 0.06}>
-                <div className="group card h-full p-6 transition hover:-translate-y-1 hover:shadow-[var(--shadow-lift)]">
-                  <div className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-violet-brand/10 to-blue-brand/10 transition group-hover:scale-105">
-                    <f.icon className="size-5 text-violet-brand" />
+                <div className="group card h-full p-6 transition hover:border-ink-300">
+                  <div className="grid size-10 place-items-center rounded-xl bg-ink-100">
+                    <f.icon className="size-5 text-accent" />
                   </div>
                   <h3 className="mt-4 font-semibold">{f.title}</h3>
                   <p className="mt-1.5 text-sm text-ink-500">{f.text}</p>
@@ -279,45 +266,14 @@ export function LandingPage() {
             ))}
           </div>
           <Reveal className="mt-6">
-            <div className="flex items-start gap-3 rounded-2xl border border-ink-200 bg-white p-5 text-sm text-ink-700">
-              <ShieldCheck className="mt-0.5 size-5 shrink-0 text-emerald-600" />
+            <div className="flex items-start gap-3 rounded-2xl border border-ink-200 bg-surface p-5 text-sm text-ink-700">
+              <ShieldCheck className="mt-0.5 size-5 shrink-0 text-emerald-400" />
               <p>
                 Segurança por padrão: links para endereços internos são bloqueados, chaves de API ficam só no servidor, imagens são validadas
                 pelo conteúdo e cada conta só acessa os próprios dados.
               </p>
             </div>
           </Reveal>
-        </div>
-      </section>
-
-      <section id="planos" className="px-4 py-20">
-        <div className="mx-auto max-w-5xl">
-          <Reveal className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold sm:text-4xl">Planos</h2>
-            <p className="mt-3 text-ink-500">Estamos em acesso antecipado. Os planos pagos ainda não têm preço definido.</p>
-          </Reveal>
-          <div className="mt-12 grid gap-4 md:grid-cols-3">
-            {[
-              { name: 'Acesso antecipado', tag: 'Disponível', text: 'Todos os recursos atuais, com limites de uso por hora.', cta: true },
-              { name: 'Profissional', tag: 'Em planejamento', text: 'Mais volume de anúncios e fotos por mês.' },
-              { name: 'Agências', tag: 'Em planejamento', text: 'Várias lojas, equipe e marcas em uma conta só.' },
-            ].map((p, i) => (
-              <Reveal key={p.name} delay={i * 0.08}>
-                <div className={`card flex h-full flex-col p-6 ${p.cta ? 'ring-2 ring-violet-brand/30' : ''}`}>
-                  <span className={`self-start rounded-full px-2.5 py-0.5 text-xs font-semibold ${p.cta ? 'bg-violet-brand/10 text-violet-brand' : 'bg-ink-100 text-ink-500'}`}>
-                    {p.tag}
-                  </span>
-                  <h3 className="mt-4 text-xl font-bold">{p.name}</h3>
-                  <p className="mt-2 flex-1 text-sm text-ink-500">{p.text}</p>
-                  {p.cta && (
-                    <Link to={user ? '/app/novo' : '/cadastro'} className="btn-primary mt-6">
-                      Começar agora
-                    </Link>
-                  )}
-                </div>
-              </Reveal>
-            ))}
-          </div>
         </div>
       </section>
 
@@ -338,11 +294,10 @@ export function LandingPage() {
 
       <section className="px-4 pb-24">
         <Reveal>
-          <div className="relative mx-auto max-w-5xl overflow-hidden rounded-[2rem] bg-gradient-to-br from-violet-brand to-blue-brand px-6 py-14 text-center text-white sm:px-12">
-            <div className="pointer-events-none absolute -top-20 -right-20 size-72 rounded-full bg-white/10 blur-2xl" />
-            <h2 className="text-3xl font-bold text-white sm:text-4xl">Seu próximo anúncio começa com uma foto.</h2>
-            <p className="mx-auto mt-3 max-w-xl text-white/80">Envie a foto, revise o que a IA escreveu e exporte para o seu marketplace.</p>
-            <Link to={user ? '/app/novo' : '/cadastro'} className="btn mt-8 bg-white px-6 py-3 text-ink-950 hover:bg-white/90">
+          <div className="relative mx-auto max-w-5xl overflow-hidden rounded-2xl border border-ink-200 bg-surface px-6 py-14 text-center sm:px-12">
+            <h2 className="text-3xl font-bold sm:text-4xl">Seu próximo anúncio começa com uma foto.</h2>
+            <p className="mx-auto mt-3 max-w-xl text-ink-500">Envie a foto, revise o que a IA escreveu e exporte para o seu marketplace.</p>
+            <Link to={user ? '/app/novo' : '/cadastro'} className="btn-primary mt-8 px-6 py-3">
               Criar meu primeiro anúncio <ArrowRight className="size-4" />
             </Link>
           </div>
@@ -352,7 +307,7 @@ export function LandingPage() {
       <footer className="border-t border-ink-200 px-4 py-10">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 text-sm text-ink-500 sm:flex-row">
           <Logo />
-          <p>Vendora AI · Da foto ao anúncio, com inteligência artificial.</p>
+          <p>Vendora AI · Da foto ao anúncio.</p>
         </div>
       </footer>
     </div>

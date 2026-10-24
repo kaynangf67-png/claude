@@ -82,7 +82,7 @@ function MarketplaceRules({ info, onSaved }: { info: MarketplaceInfo; onSaved: (
         <ul className="space-y-1 text-xs">
           {p.sources.map((s) => (
             <li key={s.url}>
-              <a href={s.url} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 text-ink-500 hover:text-violet-brand">
+              <a href={s.url} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1 text-ink-500 hover:text-accent">
                 <ExternalLink className="size-3" /> {s.label} {s.official ? '(oficial)' : ''}
               </a>
             </li>
