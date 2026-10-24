@@ -1,6 +1,42 @@
 {
-  "correcoes": {"segue": "seque", "reais": ""},
-  "pares": {"20, 20": "R$20", "na primeiro": "no primeiro", "na primeira": "no primeiro"},
-  "destaque": ["dinheiro", "mesa", "semana", "jogar", "fora", "duas", "semanas", "maquininha", "vida", "toda", "carregador", "recarregável", "óleo", "limpeza", "garante"],
-  "selos": [], "cta": null
+ "correcoes": {
+  "segue": "seque",
+  "reais": ""
+ },
+ "pares": {
+  "QMAI três": "Kemei 3",
+  "game, leite": "em 1",
+  "e corte": "anticorte",
+  "a prova": "à prova",
+  "mercado dele.": "Mercado Livre.",
+  "20 e": "R$20",
+  "na primeira": "no primeiro",
+  "na primeiro": "no primeiro",
+  "2 reais": ""
+ },
+ "destaque": [
+  "dinheiro",
+  "mesa",
+  "semana",
+  "jogar",
+  "fora",
+  "duas",
+  "semanas",
+  "maquininha",
+  "vida",
+  "toda",
+  "carregador",
+  "recarregável",
+  "óleo",
+  "limpeza",
+  "garante",
+  "kemei",
+  "anticorte",
+  "prova",
+  "água",
+  "mercado",
+  "livre"
+ ],
+ "selos": [],
+ "cta": null
 }

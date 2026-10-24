@@ -43,7 +43,7 @@ Ele corta pausas > 0,3 s, acelera a fala 1,15x (tom mantido), alterna zoom a cad
 
 **Vários vídeos numa edição** (ex.: "recrie formatos diferentes"): junte as fontes com ffmpeg `concat` (normalize fps/escala/áudio antes), crie `in.mp4` apontando para o resultado e some a duração dos vídeos anteriores aos tempos das tomadas. Formatos diferentes = **ângulos de venda diferentes** (problema → solução, economia, kit completo, prova de uso), não só outra edição da mesma fala.
 
-**Mercado Livre Clips**: vertical, até ~60 s, precisa mostrar o produto em uso, um vídeo diferente por anúncio, sem contato do vendedor. Não mostre preço de concorrente (outro marketplace) na tela.
+**Mercado Livre Clips**: vertical, até ~60 s, precisa mostrar o produto em uso, um vídeo diferente por anúncio, sem contato do vendedor. Não mostre preço de concorrente (outro marketplace) na tela. **A fala precisa citar "Mercado Livre" nos primeiros segundos** (pedido do usuário): abra com a frase dele que menciona a plataforma, mesmo que o gancho de problema venha logo depois.
 
 ## 3. Projeto visual
 

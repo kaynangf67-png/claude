@@ -1,577 +1,697 @@
 [
 {
-"text": "Se",
+"text": "Eu",
 "start": 0.0,
-"end": 0.14
+"end": 0.06
 },
 {
-"text": "você",
-"start": 0.14,
+"text": "acabei",
+"start": 0.06,
 "end": 0.3
 },
 {
-"text": "tem",
+"text": "de",
 "start": 0.3,
 "end": 0.46
 },
 {
-"text": "cabelo",
+"text": "encontrar",
 "start": 0.46,
-"end": 0.78
+"end": 0.7
 },
 {
-"text": "no",
-"start": 0.78,
-"end": 0.94
+"text": "esse",
+"start": 0.7,
+"end": 0.86
 },
 {
-"text": "nariz,",
-"start": 0.94,
-"end": 1.26
-},
-{
-"text": "na",
-"start": 1.26,
+"text": "barbeador",
+"start": 0.86,
 "end": 1.42
 },
 {
-"text": "orelha,",
+"text": "3",
 "start": 1.42,
-"end": 1.82
+"end": 1.58
 },
 {
 "text": "em",
+"start": 1.58,
+"end": 1.66
+},
+{
+"text": "1",
+"start": 1.66,
+"end": 1.82
+},
+{
+"text": "lá",
 "start": 1.82,
 "end": 1.9
 },
 {
-"text": "qualquer",
+"text": "no",
 "start": 1.9,
-"end": 2.14
+"end": 1.98
 },
 {
-"text": "parte",
-"start": 2.14,
-"end": 2.3
+"text": "Mercado",
+"start": 1.98,
+"end": 2.22
 },
 {
-"text": "do",
-"start": 2.3,
-"end": 2.38
-},
-{
-"text": "corpo,",
-"start": 2.38,
-"end": 2.62
-},
-{
-"text": "presta",
-"start": 2.62,
-"end": 2.86
-},
-{
-"text": "atenção",
-"start": 2.86,
-"end": 3.1
-},
-{
-"text": "aqui.",
-"start": 3.1,
-"end": 3.42
-},
-{
-"text": "Ele",
-"start": 3.42,
-"end": 3.58
-},
-{
-"text": "vem",
-"start": 3.58,
-"end": 3.82
+"text": "Livre",
+"start": 2.22,
+"end": 2.54
 },
 {
 "text": "com",
-"start": 3.82,
+"start": 2.54,
+"end": 2.7
+},
+{
+"text": "oferta",
+"start": 2.7,
+"end": 3.1
+},
+{
+"text": "super",
+"start": 3.1,
+"end": 3.34
+},
+{
+"text": "incrível.",
+"start": 3.34,
+"end": 3.9
+},
+{
+"text": "Se",
+"start": 3.9,
 "end": 3.98
 },
 {
-"text": "uma",
+"text": "você",
 "start": 3.98,
-"end": 4.22
+"end": 4.14
 },
 {
-"text": "cabeça",
-"start": 4.22,
+"text": "tem",
+"start": 4.14,
+"end": 4.3
+},
+{
+"text": "cabelo",
+"start": 4.3,
 "end": 4.54
 },
 {
-"text": "para",
+"text": "no",
 "start": 4.54,
 "end": 4.7
 },
 {
-"text": "você",
+"text": "nariz,",
 "start": 4.7,
-"end": 4.86
+"end": 5.02
 },
 {
-"text": "poder",
-"start": 4.86,
+"text": "na",
+"start": 5.02,
 "end": 5.1
 },
 {
-"text": "tirar",
+"text": "orelha,",
 "start": 5.1,
-"end": 5.34
-},
-{
-"text": "o",
-"start": 5.34,
 "end": 5.5
 },
 {
-"text": "cabelo",
+"text": "em",
 "start": 5.5,
+"end": 5.58
+},
+{
+"text": "qualquer",
+"start": 5.58,
 "end": 5.82
 },
 {
-"text": "da",
+"text": "parte",
 "start": 5.82,
 "end": 5.98
 },
 {
-"text": "cabeça.",
-"start": 5.98,
-"end": 6.423
-},
-{
-"text": "Mais",
-"start": 6.483,
-"end": 6.803
-},
-{
-"text": "esse",
-"start": 6.803,
-"end": 7.043
-},
-{
-"text": "pente",
-"start": 7.043,
-"end": 7.443
-},
-{
-"text": "para",
-"start": 7.443,
-"end": 7.603
-},
-{
-"text": "você",
-"start": 7.603,
-"end": 7.763
-},
-{
-"text": "deixar",
-"start": 7.763,
-"end": 8.003
-},
-{
-"text": "os",
-"start": 8.003,
-"end": 8.083
-},
-{
-"text": "cabelos",
-"start": 8.083,
-"end": 8.563
-},
-{
-"text": "bem",
-"start": 8.563,
-"end": 8.723
-},
-{
-"text": "lisinhos",
-"start": 8.723,
-"end": 9.363
-},
-{
-"text": "e",
-"start": 9.363,
-"end": 9.603
-},
-{
-"text": "ainda",
-"start": 9.603,
-"end": 9.843
-},
-{
-"text": "mais",
-"start": 9.843,
-"end": 10.083
-},
-{
-"text": "esse",
-"start": 10.083,
-"end": 10.323
-},
-{
-"text": "pent",
-"start": 10.323,
-"end": 10.643
-},
-{
-"text": "aqui",
-"start": 10.643,
-"end": 10.803
-},
-{
-"text": "para",
-"start": 10.803,
-"end": 10.963
-},
-{
-"text": "poder",
-"start": 10.963,
-"end": 11.043
-},
-{
-"text": "arrancar",
-"start": 11.043,
-"end": 11.443
-},
-{
-"text": "o",
-"start": 11.443,
-"end": 11.523
-},
-{
-"text": "cabelo",
-"start": 11.523,
-"end": 11.763
-},
-{
 "text": "do",
-"start": 11.763,
-"end": 11.923
+"start": 5.98,
+"end": 6.06
 },
 {
-"text": "nariz",
-"start": 11.923,
-"end": 12.163
+"text": "corpo,",
+"start": 6.06,
+"end": 6.38
 },
 {
-"text": "e",
-"start": 12.163,
-"end": 12.243
+"text": "presta",
+"start": 6.38,
+"end": 6.62
 },
 {
-"text": "da",
-"start": 12.243,
-"end": 12.403
+"text": "atenção",
+"start": 6.62,
+"end": 6.86
 },
 {
-"text": "orelha.",
-"start": 12.403,
-"end": 12.74
+"text": "aqui.",
+"start": 6.86,
+"end": 7.021
 },
 {
-"text": "E",
-"start": 12.8,
-"end": 12.96
-},
-{
-"text": "ela",
-"start": 12.96,
-"end": 13.12
-},
-{
-"text": "ainda",
-"start": 13.12,
-"end": 13.28
-},
-{
-"text": "é",
-"start": 13.28,
-"end": 13.36
-},
-{
-"text": "prova",
-"start": 13.36,
-"end": 13.6
-},
-{
-"text": "d'água,",
-"start": 13.6,
-"end": 14.0
-},
-{
-"text": "então",
-"start": 14.0,
-"end": 14.16
-},
-{
-"text": "você",
-"start": 14.16,
-"end": 14.32
-},
-{
-"text": "pode",
-"start": 14.32,
-"end": 14.48
-},
-{
-"text": "usar",
-"start": 14.48,
-"end": 14.64
-},
-{
-"text": "no",
-"start": 14.64,
-"end": 14.72
-},
-{
-"text": "banheiro",
-"start": 14.72,
-"end": 15.12
-},
-{
-"text": "que",
-"start": 15.12,
-"end": 15.36
-},
-{
-"text": "ela",
-"start": 15.36,
-"end": 15.52
-},
-{
-"text": "não",
-"start": 15.52,
-"end": 15.68
-},
-{
-"text": "vai",
-"start": 15.68,
-"end": 15.92
-},
-{
-"text": "estragar.",
-"start": 15.92,
-"end": 16.4
-},
-{
-"text": "E",
-"start": 16.4,
-"end": 16.56
-},
-{
-"text": "não",
-"start": 16.56,
-"end": 16.8
-},
-{
-"text": "você",
-"start": 16.8,
-"end": 16.96
-},
-{
-"text": "não",
-"start": 16.96,
-"end": 17.04
-},
-{
-"text": "vai",
-"start": 17.04,
-"end": 17.12
-},
-{
-"text": "precisar",
-"start": 17.12,
-"end": 17.36
-},
-{
-"text": "gastar",
-"start": 17.36,
-"end": 17.68
-},
-{
-"text": "com",
-"start": 17.68,
-"end": 17.84
-},
-{
-"text": "pilha",
-"start": 17.84,
-"end": 18.16
-},
-{
-"text": "porque",
-"start": 18.16,
-"end": 18.32
-},
-{
-"text": "ela",
-"start": 18.32,
-"end": 18.4
-},
-{
-"text": "é",
-"start": 18.4,
-"end": 18.48
-},
-{
-"text": "recarregável",
-"start": 18.48,
-"end": 18.96
-},
-{
-"text": "e",
-"start": 18.96,
-"end": 19.04
-},
-{
-"text": "já",
-"start": 19.04,
-"end": 19.12
+"text": "Ele",
+"start": 7.081,
+"end": 7.241
 },
 {
 "text": "vem",
-"start": 19.12,
-"end": 19.36
+"start": 7.241,
+"end": 7.481
+},
+{
+"text": "com",
+"start": 7.481,
+"end": 7.641
+},
+{
+"text": "uma",
+"start": 7.641,
+"end": 7.961
+},
+{
+"text": "cabeça",
+"start": 7.961,
+"end": 8.281
+},
+{
+"text": "para",
+"start": 8.281,
+"end": 8.441
+},
+{
+"text": "você",
+"start": 8.441,
+"end": 8.601
+},
+{
+"text": "poder",
+"start": 8.601,
+"end": 8.841
+},
+{
+"text": "tirar",
+"start": 8.841,
+"end": 9.081
 },
 {
 "text": "o",
-"start": 19.36,
-"end": 19.44
+"start": 9.081,
+"end": 9.161
 },
 {
-"text": "carregador",
-"start": 19.44,
-"end": 19.84
+"text": "cabelo",
+"start": 9.161,
+"end": 9.561
 },
 {
-"text": "embutido",
-"start": 19.84,
-"end": 20.32
+"text": "da",
+"start": 9.561,
+"end": 9.721
 },
 {
-"text": "nela.",
-"start": 20.32,
-"end": 20.47
+"text": "cabeça,",
+"start": 9.721,
+"end": 10.201
 },
 {
-"text": "Eu",
-"start": 20.47,
-"end": 20.53
+"text": "mas",
+"start": 10.201,
+"end": 10.441
 },
 {
-"text": "vou",
-"start": 20.53,
-"end": 20.61
+"text": "esse",
+"start": 10.441,
+"end": 10.681
+},
+{
+"text": "pend",
+"start": 10.681,
+"end": 11.161
+},
+{
+"text": "para",
+"start": 11.161,
+"end": 11.321
+},
+{
+"text": "você",
+"start": 11.321,
+"end": 11.481
 },
 {
 "text": "deixar",
-"start": 20.61,
-"end": 20.85
+"start": 11.481,
+"end": 11.801
 },
 {
-"text": "o",
-"start": 20.85,
-"end": 20.93
+"text": "os",
+"start": 11.801,
+"end": 11.881
 },
 {
-"text": "link",
-"start": 20.93,
-"end": 21.09
+"text": "cabelos",
+"start": 11.881,
+"end": 12.281
+},
+{
+"text": "bem",
+"start": 12.281,
+"end": 12.441
+},
+{
+"text": "lisinhos.",
+"start": 12.441,
+"end": 13.092
+},
+{
+"text": "E",
+"start": 13.092,
+"end": 13.232
+},
+{
+"text": "ainda",
+"start": 13.232,
+"end": 13.552
+},
+{
+"text": "mais",
+"start": 13.552,
+"end": 13.792
+},
+{
+"text": "esse",
+"start": 13.792,
+"end": 14.032
+},
+{
+"text": "pente",
+"start": 14.032,
+"end": 14.432
 },
 {
 "text": "aqui",
-"start": 21.09,
-"end": 21.17
+"start": 14.432,
+"end": 14.592
 },
 {
-"text": "embaixo,",
-"start": 21.17,
-"end": 21.41
+"text": "para",
+"start": 14.592,
+"end": 14.752
 },
 {
-"text": "se",
-"start": 21.41,
-"end": 21.49
+"text": "poder",
+"start": 14.752,
+"end": 14.832
 },
 {
-"text": "eu",
-"start": 21.49,
-"end": 21.57
-},
-{
-"text": "fosse",
-"start": 21.57,
-"end": 21.81
-},
-{
-"text": "você,",
-"start": 21.81,
-"end": 21.97
-},
-{
-"text": "eu",
-"start": 21.97,
-"end": 22.05
-},
-{
-"text": "já",
-"start": 22.05,
-"end": 22.13
-},
-{
-"text": "clicava",
-"start": 22.13,
-"end": 22.53
-},
-{
-"text": "lá",
-"start": 22.53,
-"end": 22.61
-},
-{
-"text": "e",
-"start": 22.61,
-"end": 22.69
-},
-{
-"text": "garantia",
-"start": 22.69,
-"end": 23.17
-},
-{
-"text": "antes",
-"start": 23.17,
-"end": 23.33
-},
-{
-"text": "que",
-"start": 23.33,
-"end": 23.49
+"text": "arrancar",
+"start": 14.832,
+"end": 15.152
 },
 {
 "text": "o",
-"start": 23.49,
-"end": 23.57
+"start": 15.152,
+"end": 15.232
+},
+{
+"text": "cabelo",
+"start": 15.232,
+"end": 15.472
+},
+{
+"text": "do",
+"start": 15.472,
+"end": 15.632
+},
+{
+"text": "nariz",
+"start": 15.632,
+"end": 15.872
+},
+{
+"text": "e",
+"start": 15.872,
+"end": 15.952
+},
+{
+"text": "da",
+"start": 15.952,
+"end": 16.112
+},
+{
+"text": "orilha.",
+"start": 16.112,
+"end": 16.752
+},
+{
+"text": "Com",
+"start": 16.752,
+"end": 16.912
+},
+{
+"text": "essa",
+"start": 16.912,
+"end": 17.152
+},
+{
+"text": "daqui,",
+"start": 17.152,
+"end": 17.472
+},
+{
+"text": "nem",
+"start": 17.472,
+"end": 17.712
+},
+{
+"text": "se",
+"start": 17.712,
+"end": 17.872
+},
+{
+"text": "você",
+"start": 17.872,
+"end": 18.032
+},
+{
+"text": "quiser",
+"start": 18.032,
+"end": 18.432
+},
+{
+"text": "se",
+"start": 18.432,
+"end": 18.592
+},
+{
+"text": "cortar,",
+"start": 18.592,
+"end": 18.912
+},
+{
+"text": "ela",
+"start": 18.912,
+"end": 19.072
+},
+{
+"text": "vai",
+"start": 19.072,
+"end": 19.232
+},
+{
+"text": "te",
+"start": 19.232,
+"end": 19.392
+},
+{
+"text": "cortar,",
+"start": 19.392,
+"end": 19.712
+},
+{
+"text": "porque",
+"start": 19.712,
+"end": 19.872
+},
+{
+"text": "ela",
+"start": 19.872,
+"end": 20.032
+},
+{
+"text": "tem",
+"start": 20.032,
+"end": 20.192
+},
+{
+"text": "uma",
+"start": 20.192,
+"end": 20.352
+},
+{
+"text": "proteção",
+"start": 20.352,
+"end": 20.752
+},
+{
+"text": "aqui",
+"start": 20.752,
+"end": 20.912
+},
+{
+"text": "na",
+"start": 20.912,
+"end": 21.072
+},
+{
+"text": "lâmina",
+"start": 21.072,
+"end": 21.552
+},
+{
+"text": "dela",
+"start": 21.552,
+"end": 21.792
+},
+{
+"text": "que",
+"start": 21.792,
+"end": 21.952
+},
+{
+"text": "não",
+"start": 21.952,
+"end": 22.112
+},
+{
+"text": "corta",
+"start": 22.112,
+"end": 22.592
+},
+{
+"text": "de",
+"start": 22.592,
+"end": 22.672
+},
+{
+"text": "jeito",
+"start": 22.672,
+"end": 22.992
+},
+{
+"text": "nenhum.",
+"start": 22.992,
+"end": 23.535
+},
+{
+"text": "E",
+"start": 23.535,
+"end": 23.675
+},
+{
+"text": "ela",
+"start": 23.675,
+"end": 23.835
+},
+{
+"text": "ainda",
+"start": 23.835,
+"end": 23.995
+},
+{
+"text": "é",
+"start": 23.995,
+"end": 24.075
+},
+{
+"text": "prova",
+"start": 24.075,
+"end": 24.315
+},
+{
+"text": "d'água,",
+"start": 24.315,
+"end": 24.795
+},
+{
+"text": "então",
+"start": 24.795,
+"end": 24.955
+},
+{
+"text": "você",
+"start": 24.955,
+"end": 25.115
+},
+{
+"text": "pode",
+"start": 25.115,
+"end": 25.275
+},
+{
+"text": "usar",
+"start": 25.275,
+"end": 25.435
+},
+{
+"text": "no",
+"start": 25.435,
+"end": 25.515
+},
+{
+"text": "banheiro",
+"start": 25.515,
+"end": 25.915
+},
+{
+"text": "que",
+"start": 25.915,
+"end": 26.155
+},
+{
+"text": "ela",
+"start": 26.155,
+"end": 26.315
+},
+{
+"text": "não",
+"start": 26.315,
+"end": 26.475
+},
+{
+"text": "vai",
+"start": 26.475,
+"end": 26.635
+},
+{
+"text": "estragar.",
+"start": 26.635,
+"end": 27.275
+},
+{
+"text": "Eu",
+"start": 27.275,
+"end": 27.355
+},
+{
+"text": "vou",
+"start": 27.355,
+"end": 27.435
+},
+{
+"text": "deixar",
+"start": 27.435,
+"end": 27.595
+},
+{
+"text": "o",
+"start": 27.595,
+"end": 27.675
+},
+{
+"text": "link",
+"start": 27.675,
+"end": 27.835
+},
+{
+"text": "aqui",
+"start": 27.835,
+"end": 27.915
+},
+{
+"text": "embaixo,",
+"start": 27.915,
+"end": 28.235
+},
+{
+"text": "se",
+"start": 28.235,
+"end": 28.395
+},
+{
+"text": "fosse",
+"start": 28.395,
+"end": 28.555
+},
+{
+"text": "você,",
+"start": 28.555,
+"end": 28.715
+},
+{
+"text": "eu",
+"start": 28.715,
+"end": 28.795
+},
+{
+"text": "já",
+"start": 28.795,
+"end": 28.875
+},
+{
+"text": "clicava",
+"start": 28.875,
+"end": 29.275
+},
+{
+"text": "lá",
+"start": 29.275,
+"end": 29.435
+},
+{
+"text": "e",
+"start": 29.435,
+"end": 29.515
+},
+{
+"text": "garantia",
+"start": 29.515,
+"end": 29.915
+},
+{
+"text": "antes",
+"start": 29.915,
+"end": 30.155
+},
+{
+"text": "que",
+"start": 30.155,
+"end": 30.235
+},
+{
+"text": "o",
+"start": 30.235,
+"end": 30.315
 },
 {
 "text": "preço",
-"start": 23.57,
-"end": 23.89
+"start": 30.315,
+"end": 30.635
 },
 {
 "text": "aumente,",
-"start": 23.89,
-"end": 24.29
+"start": 30.635,
+"end": 31.035
 },
 {
 "text": "hein?",
-"start": 24.29,
-"end": 24.379
+"start": 31.035,
+"end": 31.15
 }
 ]
