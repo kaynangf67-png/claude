@@ -200,6 +200,8 @@ const VARIANT_LABELS: Record<PhotoVariant['key'], string> = {
   ambiente: 'Fundo neutro quente',
 };
 
+const MAX_UPSCALE = 2.5;
+
 async function placeOn(
   product: Buffer,
   canvasW: number,
@@ -208,8 +210,12 @@ async function placeOn(
   opts: { fill?: number; shadow?: boolean } = {},
 ) {
   const fill = opts.fill ?? 0.84;
+  // Produto pequeno na foto ficava minúsculo no quadro. Ampliamos até 2,5x:
+  // mais que isso a imagem borra a ponto de enganar sobre a qualidade.
+  const m = await sharp(product).metadata();
+  const scale = Math.min((canvasW * fill) / m.width!, (canvasH * fill) / m.height!, MAX_UPSCALE);
   const p = await sharp(product)
-    .resize({ width: Math.round(canvasW * fill), height: Math.round(canvasH * fill), fit: 'inside', withoutEnlargement: true })
+    .resize({ width: Math.max(1, Math.round(m.width! * scale)), height: Math.max(1, Math.round(m.height! * scale)), kernel: 'lanczos3' })
     .toBuffer({ resolveWithObject: true });
   const left = Math.round((canvasW - p.info.width) / 2);
   // Com sombra, o produto sobe um pouco para "apoiar" nela.

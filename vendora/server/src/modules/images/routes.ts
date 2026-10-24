@@ -6,7 +6,9 @@ import type { Asset } from '../../generated/prisma/client';
 import { requireAuth, uid } from '../../lib/auth';
 import { AppError, notFound } from '../../lib/errors';
 import { newStorageKey, signAssetUrl, verifyAssetSignature } from '../storage/storage';
-import { recordUsage } from '../usage/usage';
+import { enforceHourlyLimit, recordUsage } from '../usage/usage';
+import { SCENES } from './scenes';
+import sharp from 'sharp';
 import { applyEdits, EditOperations, EXT, makeListingVariants, MIME, normalizeOriginal, probeImage, type ImageFormat } from './processing';
 
 const EditBody = z.object({ operations: EditOperations, promotional: z.boolean().default(false) });
@@ -196,13 +198,41 @@ export function imageRoutes(app: FastifyInstance, ctx: AppContext) {
     const rules = effectiveRules(marketplace, ((user.settings as Record<string, ProfileOverrides>) ?? {})[marketplace] ?? {});
 
     const old = await ctx.db.asset.findMany({ where: { userId, parentId: id, edits: { path: ['variant'], not: 'null' } } });
-    const { variants, cutout } = await makeListingVariants(await ctx.storage.get(source.storageKey), rules.imageRecommendedSize);
+    const original = await ctx.storage.get(source.storageKey);
+    const size = rules.imageRecommendedSize;
+    const { variants, cutout } = await makeListingVariants(original, size);
+
+    type Out = { buffer: Buffer; format: ImageFormat; width: number; height: number; key: string; label: string; ai: boolean };
+    // A principal é sempre a foto real em fundo branco (é o que os marketplaces pedem).
+    const out: Out[] = [{ ...variants[0]!, ai: false }];
+    const failures: string[] = [];
+    if (ctx.sceneGenerator) {
+      await enforceHourlyLimit(ctx, userId, 'image_ai', ctx.config.IMAGE_AI_LIMIT_PER_HOUR);
+      const gen = ctx.sceneGenerator;
+      const results = await Promise.allSettled(
+        SCENES.map(async (sc) => {
+          const raw = await gen.generate({ data: original, mimeType: source.mimeType }, sc.prompt, sc.aspect);
+          const w = size;
+          const h = sc.aspect === '3:4' ? Math.round((size * 4) / 3) : size;
+          const buffer = await sharp(raw).resize({ width: w, height: h, fit: 'cover' }).flatten({ background: '#ffffff' }).jpeg({ quality: 90 }).toBuffer();
+          return { buffer, format: 'jpeg' as ImageFormat, width: w, height: h, key: sc.key, label: sc.label, ai: true };
+        }),
+      );
+      for (const r of results) {
+        if (r.status === 'fulfilled') out.push(r.value);
+        else failures.push(r.reason instanceof AppError ? r.reason.message : 'falha na IA de imagens');
+      }
+      await recordUsage(ctx, userId, 'image_ai');
+    }
+    // Sem IA (ou se alguma cena falhar), completa com as versões feitas da própria foto.
+    for (const v of variants.slice(1)) if (out.length < 5) out.push({ ...v, ai: false });
+
     for (const a of old) {
       await ctx.storage.delete(a.storageKey).catch(() => {});
       await ctx.db.asset.delete({ where: { id: a.id } });
     }
     const created = [];
-    for (const v of variants)
+    for (const v of out)
       created.push(
         await storeAsset(ctx, {
           userId,
@@ -213,7 +243,9 @@ export function imageRoutes(app: FastifyInstance, ctx: AppContext) {
           height: v.height,
           kind: 'edited',
           parentId: id,
-          edits: { variant: v.key, label: v.label, marketplace },
+          // Imagem gerada por IA não pode ser a foto principal.
+          promotional: v.ai,
+          edits: { variant: v.key, label: v.label, marketplace, ai: v.ai, ...(v.ai ? { model: ctx.sceneGenerator!.model } : {}) },
         }),
       );
     await recordUsage(ctx, userId, 'image_process');
@@ -223,14 +255,13 @@ export function imageRoutes(app: FastifyInstance, ctx: AppContext) {
       ctx.db.asset.update({ where: { id: main.id }, data: { isMain: true } }),
     ]);
     const fresh = await ctx.db.asset.findMany({ where: { id: { in: created.map((c) => c.id) } }, orderBy: { createdAt: 'asc' } });
-    return reply.code(201).send({
-      assets: fresh.map((a) => serializeAsset(ctx, a)),
-      note: !cutout
-        ? 'O fundo da foto não é liso, então não geramos as versões de estúdio. Para as 5 versões, fotografe o produto num fundo de cor única.'
-        : variants.length < 5
-          ? 'O produto aparece pequeno na foto, então não geramos o close (ficaria borrado). Fotografe mais de perto para ter as 5 versões.'
-          : null,
-    });
+    const notes: string[] = [];
+    if (ctx.sceneGenerator) {
+      notes.push('As imagens marcadas com IA foram criadas por inteligência artificial a partir da sua foto. Confira se o produto ficou idêntico antes de usar.');
+      if (failures.length) notes.push(`${failures.length} cena(s) não saíram (${[...new Set(failures)].join('; ')}). Completamos com versões da sua foto.`);
+    } else if (!cutout) notes.push('O fundo da foto não é liso, então não geramos as versões de estúdio. Para as 5 versões, fotografe o produto num fundo de cor única.');
+    else if (out.length < 5) notes.push('O produto aparece pequeno na foto, então não geramos o close (ficaria borrado). Fotografe mais de perto para ter as 5 versões.');
+    return reply.code(201).send({ assets: fresh.map((a) => serializeAsset(ctx, a)), note: notes.join(' ') || null });
   });
 
   app.post('/api/assets/:id/remove-background', { ...auth, config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {

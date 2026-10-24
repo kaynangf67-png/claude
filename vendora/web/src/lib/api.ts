@@ -115,6 +115,8 @@ export interface Meta {
   ai: { provider: 'anthropic' | 'basic'; model: string | null };
   /** Leitura de fotos por IA disponível. */
   vision: boolean;
+  /** Cenas geradas por IA com o produto da foto. */
+  imageAi: boolean;
   backgroundRemoval: { provider: string } | null;
   storage: 'local' | 's3';
   respectRobotsTxt: boolean;

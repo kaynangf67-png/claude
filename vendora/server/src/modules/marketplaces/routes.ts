@@ -63,6 +63,7 @@ export function marketplaceRoutes(app: FastifyInstance, ctx: AppContext) {
   app.get('/api/meta', async () => ({
     ai: { provider: ctx.generator.id, model: ctx.generator.model },
     vision: Boolean(ctx.photoReader),
+    imageAi: Boolean(ctx.sceneGenerator),
     backgroundRemoval: ctx.bgRemover ? { provider: ctx.bgRemover.id } : null,
     storage: ctx.storage.driver,
     respectRobotsTxt: ctx.config.RESPECT_ROBOTS_TXT,

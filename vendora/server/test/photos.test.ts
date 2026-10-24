@@ -3,7 +3,9 @@ import sharp from 'sharp';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { AppContext } from '../src/context';
 import { AnthropicPhotoReader, photoToProduct, type PhotoAnalysis, type PhotoReader } from '../src/modules/ai/vision';
+import { AppError } from '../src/lib/errors';
 import { cutoutPlainBackground } from '../src/modules/images/background';
+import { GeminiSceneGenerator, type SceneGenerator } from '../src/modules/images/scenes';
 import { makeListingVariants, makeSalePhoto } from '../src/modules/images/processing';
 import { makeApp, resetDb, sessionCookie } from './helpers';
 
@@ -280,5 +282,67 @@ describe('recorte de fundo sem IA', () => {
     const { variants, cutout } = await makeListingVariants(noisy, 1200);
     expect(cutout).toBe(false);
     expect(variants.map((v) => v.key)).not.toContain('estudio');
+  });
+});
+
+describe('cenas geradas por IA', () => {
+  const big = () =>
+    sharp({ create: { width: 2000, height: 1600, channels: 3, background: '#d9d9d9' } })
+      .composite([{ input: Buffer.from('<svg width="2000" height="1600"><rect x="600" y="200" width="800" height="1200" rx="60" fill="#2f4fd8"/></svg>') }])
+      .jpeg()
+      .toBuffer();
+
+  it('principal é a foto real; as outras 4 são cenas da IA, marcadas e sem virar principal', async () => {
+    let calls = 0;
+    const fake: SceneGenerator = {
+      id: 'fake',
+      model: 'fake-image',
+      async generate(_p, scene) {
+        calls++;
+        if (scene.includes('dramática')) throw new AppError(502, 'image_ai_error', 'falhou de propósito');
+        return sharp({ create: { width: 800, height: 800, channels: 3, background: '#335533' } }).png().toBuffer();
+      },
+    };
+    const { app, ctx } = await makeApp({ sceneGenerator: fake });
+    const reg = await app.inject({ method: 'POST', url: '/api/auth/register', payload: { name: 'Cena', email: 'cena@vendora.test', password: 'senha-forte-123' } });
+    const c = sessionCookie(reg);
+    const pid = (await app.inject({ method: 'POST', url: '/api/products/photo-draft', payload: {}, headers: { cookie: c } })).json().product.id;
+    const boundary = '----v';
+    const payload = Buffer.concat([
+      Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="f.jpg"\r\nContent-Type: image/jpeg\r\n\r\n`),
+      await big(),
+      Buffer.from(`\r\n--${boundary}--\r\n`),
+    ]);
+    const up = await app.inject({ method: 'POST', url: `/api/products/${pid}/images/upload`, payload, headers: { cookie: c, 'content-type': `multipart/form-data; boundary=${boundary}` } });
+    const r = await app.inject({ method: 'POST', url: `/api/assets/${up.json().asset.id}/variants`, payload: { marketplace: 'shopee' }, headers: { cookie: c } });
+    expect(r.statusCode).toBe(201);
+    const assets = r.json().assets as Array<{ isMain: boolean; promotional: boolean; edits: { variant: string; ai: boolean } }>;
+    expect(calls).toBe(4);
+    expect(assets).toHaveLength(5);
+    expect(assets[0]).toMatchObject({ isMain: true, promotional: false, edits: { variant: 'principal', ai: false } });
+    expect(assets.filter((a) => a.edits.ai)).toHaveLength(3);
+    expect(assets.filter((a) => a.edits.ai).every((a) => a.promotional && !a.isMain)).toBe(true);
+    expect(r.json().note).toContain('1 cena(s) não saíram');
+    await app.close();
+    await ctx.db.$disconnect();
+  });
+
+  it('Gemini: envia a foto e o pedido de imagem, e lê a imagem da resposta', async () => {
+    const png = await sharp({ create: { width: 4, height: 4, channels: 3, background: '#fff' } }).png().toBuffer();
+    let req: { url: string; headers: Record<string, string>; body: { contents: Array<{ parts: Array<Record<string, unknown>> }>; generationConfig: unknown } } | null = null;
+    const fetchImpl = (async (url: string, init?: RequestInit) => {
+      req = { url, headers: init!.headers as Record<string, string>, body: JSON.parse(String(init!.body)) };
+      return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ inlineData: { mimeType: 'image/png', data: png.toString('base64') } }] } }] }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    }) as typeof fetch;
+    const g = new GeminiSceneGenerator('k-test', 'gemini-2.5-flash-image', fetchImpl);
+    const out = await g.generate({ data: await big(), mimeType: 'image/jpeg' }, 'cena', '3:4');
+    expect(out.equals(png)).toBe(true);
+    expect(req!.url).toContain('/models/gemini-2.5-flash-image:generateContent');
+    expect(req!.headers['x-goog-api-key']).toBe('k-test');
+    expect(req!.body.generationConfig).toEqual({ responseModalities: ['IMAGE'], imageConfig: { aspectRatio: '3:4' } });
+    expect(Object.keys(req!.body.contents[0]!.parts[0]!)).toEqual(['inlineData']);
   });
 });

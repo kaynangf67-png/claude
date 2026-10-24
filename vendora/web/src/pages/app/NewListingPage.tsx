@@ -432,7 +432,7 @@ export function NewListingPage() {
                   <span className="label mb-0">Fotos para o anúncio</span>
                   {variantsBusy && (
                     <span className="flex items-center gap-1.5 text-xs text-ink-500">
-                      <Spinner /> Preparando as fotos…
+                      <Spinner /> {meta?.imageAi ? 'A IA está criando as cenas (até 1 min)…' : 'Preparando as fotos…'}
                     </span>
                   )}
                 </div>
@@ -453,7 +453,10 @@ export function NewListingPage() {
                         >
                           <Download className="size-3.5" />
                         </a>
-                        <figcaption className="mt-1 text-center text-[11px] text-ink-600">{String(v.edits?.label ?? '')}</figcaption>
+                        {v.edits?.ai === true && (
+                          <span className="absolute top-1.5 left-1.5 rounded-md bg-black/75 px-1.5 py-0.5 text-[10px] font-semibold text-white">IA</span>
+                        )}
+                        <figcaption className="mt-1 text-center text-[11px] text-ink-600">{String(v.edits?.label ?? '').replace(' (IA)', '')}</figcaption>
                       </figure>
                     ))}
                   </div>
@@ -462,7 +465,9 @@ export function NewListingPage() {
                 )}
                 {variantsNote && <p className="mt-2 text-xs text-amber-300">{variantsNote}</p>}
                 <p className="mt-2 text-[11px] text-ink-500">
-                  Feitas da sua foto principal: muda fundo, enquadramento e sombra. O produto é o da foto, sem retoque nem ampliação.
+                  {meta?.imageAi
+                    ? 'A primeira é a sua foto real em fundo branco. As marcadas com IA são cenas criadas a partir dela: confira se o produto saiu idêntico.'
+                    : 'Feitas da sua foto principal: muda fundo, enquadramento e sombra. O produto é o da foto, sem retoque.'}
                 </p>
               </div>
             )}

@@ -27,6 +27,9 @@ const EnvSchema = z.object({
   ANTHROPIC_API_KEY: z.string().optional(),
   AI_MODEL: z.string().default('claude-opus-5-5'),
   AI_EFFORT: z.enum(['low', 'medium', 'high']).default('medium'),
+  /** IA de imagens (Google Gemini): gera cenas novas com o produto da foto. */
+  GEMINI_API_KEY: z.string().optional(),
+  GEMINI_IMAGE_MODEL: z.string().default('gemini-2.5-flash-image'),
 
   // Extração
   FETCH_TIMEOUT_MS: z.coerce.number().int().positive().default(10000),
@@ -54,6 +57,8 @@ const EnvSchema = z.object({
   // Limites
   RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(120),
   ANALYZE_LIMIT_PER_HOUR: z.coerce.number().int().positive().default(60),
+  /** Gerações de cenas por IA (cada uma = 4 imagens) por usuário por hora. */
+  IMAGE_AI_LIMIT_PER_HOUR: z.coerce.number().int().positive().default(10),
   /** Enviado pela Vercel Cron no cabeçalho Authorization. */
   CRON_SECRET: z.string().optional(),
 });

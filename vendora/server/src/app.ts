@@ -13,6 +13,7 @@ import { AppError } from './lib/errors';
 import { AnthropicGenerator } from './modules/ai/anthropic';
 import { BasicGenerator } from './modules/ai/basic';
 import { AnthropicPhotoReader } from './modules/ai/vision';
+import { GeminiSceneGenerator } from './modules/images/scenes';
 import { authRoutes } from './modules/auth/routes';
 import { RemoveBgRemover } from './modules/images/backgroundRemoval';
 import { imageRoutes } from './modules/images/routes';
@@ -41,6 +42,12 @@ export function createContext(config: Config, overrides: Partial<AppContext> = {
           ? new AnthropicPhotoReader(config.ANTHROPIC_API_KEY, config.AI_MODEL)
           : null,
     bgRemover: overrides.bgRemover !== undefined ? overrides.bgRemover : config.REMOVE_BG_API_KEY ? new RemoveBgRemover(config.REMOVE_BG_API_KEY) : null,
+    sceneGenerator:
+      overrides.sceneGenerator !== undefined
+        ? overrides.sceneGenerator
+        : config.GEMINI_API_KEY
+          ? new GeminiSceneGenerator(config.GEMINI_API_KEY, config.GEMINI_IMAGE_MODEL)
+          : null,
   };
 }
 

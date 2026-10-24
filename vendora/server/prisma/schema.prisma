@@ -156,6 +156,7 @@ enum UsageType {
   analysis
   generation
   image_process
+  image_ai
   export
 }
 
