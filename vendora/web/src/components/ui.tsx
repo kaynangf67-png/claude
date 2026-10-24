@@ -10,7 +10,7 @@ export function Logo({ to = '/' }: { to?: string }) {
     <Link to={to} className="flex items-center gap-2 font-display text-[17px] font-bold tracking-tight text-ink-950">
       <span className="grid size-8 place-items-center rounded-lg bg-accent">
         <svg viewBox="0 0 32 32" className="size-5" aria-hidden>
-          <path d="M9 10l7 13 7-13" fill="none" stroke="#0f1402" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M9 10l7 13 7-13" fill="none" stroke="#0a0a0a" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </span>
       Vendora <span className="font-medium text-ink-500">AI</span>

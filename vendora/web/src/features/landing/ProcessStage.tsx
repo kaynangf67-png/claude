@@ -24,8 +24,8 @@ export function ProductGlyph({ className = '' }: { className?: string }) {
     <svg viewBox="0 0 120 160" className={className} aria-hidden>
       <defs>
         <linearGradient id="pg" x1="0" x2="1">
-          <stop offset="0" stopColor="#c6f432" />
-          <stop offset="1" stopColor="#93c21b" />
+          <stop offset="0" stopColor="#e5e5e5" />
+          <stop offset="1" stopColor="#8f8f8f" />
         </linearGradient>
       </defs>
       <rect x="46" y="8" width="28" height="18" rx="5" fill="#1c1e27" />
