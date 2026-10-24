@@ -136,3 +136,21 @@ export function photoToProduct(a: PhotoAnalysis, hint?: string): { data: Product
   }
   return { data, fieldStatus };
 }
+
+/**
+ * Descrição de venda montada só com o que a IA viu na foto (e o que o vendedor
+ * escreveu). Nada de medidas, garantia ou benefícios que a foto não mostra:
+ * o que falta vai numa lista para o vendedor completar.
+ */
+export function describeFromPhoto(a: PhotoAnalysis, hint?: string): string {
+  const name = a.productName.trim();
+  const ident = [name, a.brand && !name.toLowerCase().includes(a.brand.toLowerCase()) ? a.brand.trim() : null, a.model?.trim()].filter(Boolean).join(' ');
+  const qual = [a.color && `na cor ${a.color.trim().toLowerCase()}`, a.material && `em ${a.material.trim().toLowerCase()}`].filter(Boolean).join(', ');
+  const out: string[] = [`${ident}${qual ? `, ${qual}` : ''}.`];
+  if (hint?.trim()) out.push(hint.trim().replace(/\.?$/, '.'));
+  if (a.visibleFeatures.length) out.push('', 'Destaques:', ...a.visibleFeatures.map((f) => `• ${f.trim()}`));
+  const specs = [...a.specifications];
+  if (specs.length) out.push('', 'Especificações:', ...specs.map((s) => `• ${s.name.trim()}: ${s.value.trim()}`));
+  if (a.uncertain.length) out.push('', `Complete antes de publicar: ${a.uncertain.join(', ')}.`);
+  return out.join('\n').slice(0, 5000);
+}

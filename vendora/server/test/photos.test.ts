@@ -183,6 +183,12 @@ describe('fluxo por foto', () => {
     expect(t.statusCode).toBe(200);
     expect(t.json().title).toBe('Garrafa térmica de inox Termix preta');
 
+    const d = await app.inject({ method: 'POST', url: `/api/products/${pid}/suggest-description`, payload: { hint: 'nova, na caixa' }, headers: { cookie } });
+    expect(d.statusCode).toBe(200);
+    expect(d.json().description).toContain('Garrafa térmica de inox Termix, na cor preta.');
+    expect(d.json().description).toContain('• Capacidade: 500 ml');
+    expect(d.json().description).toContain('Complete antes de publicar: Peso, Dimensões.');
+
     const gen = () =>
       app.inject({ method: 'POST', url: `/api/assets/${assetId}/variants`, payload: { marketplace: 'mercado_livre' }, headers: { cookie } });
     const v = await gen();

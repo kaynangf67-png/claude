@@ -12,7 +12,7 @@ import { requireAuth, uid } from '../../lib/auth';
 import { AppError, notFound } from '../../lib/errors';
 import { extractProduct } from '../extraction/service';
 import { enforceHourlyLimit, recordUsage } from '../usage/usage';
-import { photoToProduct } from '../ai/vision';
+import { describeFromPhoto, photoToProduct } from '../ai/vision';
 import { serializeAsset, storeAsset } from '../images/routes';
 import { makeSalePhoto } from '../images/processing';
 import { effectiveRules, MarketplaceIdSchema, type ProfileOverrides } from '@vendora/shared';
@@ -212,6 +212,25 @@ export function productRoutes(app: FastifyInstance, ctx: AppContext) {
     if (a.model && !a.productName.toLowerCase().includes(a.model.toLowerCase())) parts.push(a.model.trim());
     if (a.color && !a.productName.toLowerCase().includes(a.color.toLowerCase())) parts.push(a.color.trim().toLowerCase());
     return { title: parts.filter(Boolean).join(' ').replace(/\s+/g, ' ').slice(0, 300) };
+  });
+
+  /** A IA olha as fotos e escreve uma descrição só com o que dá para ver nelas (não salva nada). */
+  app.post('/api/products/:id/suggest-description', { ...auth, config: { rateLimit: { max: 15, timeWindow: '1 minute' } } }, async (request) => {
+    const userId = uid(request);
+    const { id } = request.params as { id: string };
+    const { hint } = z.object({ hint: z.string().max(300).optional() }).parse(request.body ?? {});
+    const product = await ctx.db.product.findFirst({ where: { id, userId } });
+    if (!product) throw notFound('Produto');
+    const originals = await ctx.db.asset.findMany({ where: { productId: id, userId, kind: 'original' }, orderBy: { createdAt: 'asc' }, take: 3 });
+    if (originals.length === 0) throw new AppError(400, 'no_photos', 'Envie pelo menos uma foto do produto.');
+    if (!ctx.photoReader)
+      throw new AppError(503, 'vision_not_configured', 'A descrição por IA ainda não está configurada no servidor (ANTHROPIC_API_KEY).');
+    await enforceHourlyLimit(ctx, userId, 'analysis', ctx.config.ANALYZE_LIMIT_PER_HOUR);
+    const buffers = await Promise.all(originals.map((a) => ctx.storage.get(a.storageKey)));
+    const a = await ctx.photoReader.read(buffers.map((data, i) => ({ data, mimeType: originals[i]!.mimeType })), hint);
+    await recordUsage(ctx, userId, 'analysis');
+    if (!a.isProduct) throw new AppError(422, 'not_a_product', 'Não identificamos um produto nessa foto.');
+    return { description: describeFromPhoto(a, hint) };
   });
 
   app.post('/api/products/manual', auth, async (request, reply) => {

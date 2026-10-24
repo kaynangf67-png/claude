@@ -110,6 +110,8 @@ export function NewListingPage() {
   const [variantsBusy, setVariantsBusy] = useState(false);
   const [variantsNote, setVariantsNote] = useState<string | null>(null);
   const [titleBusy, setTitleBusy] = useState(false);
+  const [description, setDescription] = useState('');
+  const [descBusy, setDescBusy] = useState(false);
   const draftPromise = useRef<Promise<Product> | null>(null);
   const uploads = useRef<Promise<unknown>>(Promise.resolve());
   const variantsKey = useRef<string | null>(null);
@@ -209,6 +211,21 @@ export function NewListingPage() {
     return () => clearTimeout(timer);
   }, [firstAsset, marketplace]);
 
+  /** A IA olha as fotos e escreve a descrição só com o que dá para ver nelas. */
+  async function suggestDescription() {
+    setDescBusy(true);
+    try {
+      await uploads.current;
+      const prod = await ensureDraft();
+      const r = await api.post<{ description: string }>(`/api/products/${prod.id}/suggest-description`, { hint: hint.trim() || undefined });
+      setDescription(r.description);
+    } catch (e) {
+      toast('error', e instanceof ApiError ? e.message : 'Não foi possível gerar a descrição agora.');
+    } finally {
+      setDescBusy(false);
+    }
+  }
+
   /** A IA olha as fotos enviadas e sugere o nome do produto. */
   async function suggestTitle() {
     setTitleBusy(true);
@@ -244,6 +261,9 @@ export function NewListingPage() {
         // As 5 versões já são as fotos do anúncio; sem elas, o servidor prepara as fotos de venda.
         salePhotos: variants.length === 0,
       });
+      // Descrição revisada pelo vendedor entra como informação dele.
+      if (description.trim())
+        await api.patch(`/api/products/${read.product.id}`, { data: { description: description.trim() } });
       setStep('Escrevendo título e descrição…');
       setPhase('generating');
       const r = await api.post<ListingDetail>('/api/listings', { productId: read.product.id, marketplace, audience: audience || undefined });
@@ -490,6 +510,36 @@ export function NewListingPage() {
                 Ajuda a IA. O título sugerido vem do que aparece na foto: confira antes de usar.
               </p>
             </div>
+
+            <div className="mt-6">
+              <div className="mb-1.5 flex items-center justify-between gap-2">
+                <label className="label mb-0" htmlFor="description">
+                  Descrição (opcional)
+                </label>
+                <button
+                  type="button"
+                  onClick={suggestDescription}
+                  disabled={busy || descBusy || !photos.some((p) => p.asset || !p.failed)}
+                  className="inline-flex shrink-0 items-center gap-1 rounded-full border border-accent/30 px-3 py-1 text-xs font-semibold whitespace-nowrap text-accent transition hover:bg-accent/5 disabled:opacity-50"
+                >
+                  {descBusy ? <Spinner /> : <Wand2 className="size-3.5" />}
+                  {descBusy ? 'Escrevendo…' : 'Gerar descrição com IA'}
+                </button>
+              </div>
+              <textarea
+                id="description"
+                rows={6}
+                className="input"
+                value={description}
+                maxLength={5000}
+                disabled={busy}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Descreva o produto ou deixe a IA escrever a partir da foto."
+              />
+              <p className="mt-1 text-[11px] text-ink-500">
+                A IA só escreve o que dá para ver na foto. Medidas, peso e garantia ficam numa lista para você completar.
+              </p>
+            </div>
           </section>
 
           <section className="card p-6">
@@ -498,12 +548,6 @@ export function NewListingPage() {
             <MarketplacePicker value={marketplace} onChange={setMarketplace} />
           </section>
 
-          {meta && !meta.vision && (
-            <Notice tone="warning">
-              A leitura de fotos por IA ainda não está ativada neste servidor. Você pode enviar as fotos mesmo assim: elas são guardadas e
-              você preenche nome e detalhes na próxima tela.
-            </Notice>
-          )}
           {error && <Notice tone="error">{error}</Notice>}
 
           <div className="flex justify-end">
