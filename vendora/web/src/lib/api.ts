@@ -118,14 +118,6 @@ export interface Meta {
   backgroundRemoval: { provider: string } | null;
   storage: 'local' | 's3';
   respectRobotsTxt: boolean;
-  integrations: Record<MarketplaceId, Capabilities>;
-}
-
-export type CapabilityState = 'implemented_untested' | 'needs_credentials' | 'not_implemented';
-export interface Capabilities {
-  authorization: CapabilityState;
-  publish: CapabilityState;
-  status: CapabilityState;
 }
 
 export interface MarketplaceInfo {

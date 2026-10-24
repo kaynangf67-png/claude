@@ -49,7 +49,7 @@ export function fakeFetcher(routes: Record<string, Route>): Fetcher & { calls: s
 
 export async function resetDb(ctx: AppContext) {
   await ctx.db.$executeRawUnsafe(
-    'TRUNCATE "UsageEvent","OAuthState","MarketplaceConnection","Asset","ListingVersion","Listing","Product","Session","User" CASCADE',
+    'TRUNCATE "UsageEvent","Asset","ListingVersion","Listing","Product","Session","User" CASCADE',
   );
 }
 

@@ -2,7 +2,6 @@ import type { ExtractionMethod, FieldStatusMap, ProductData } from '@vendora/sha
 import { AppError } from '../../lib/errors';
 import type { Fetcher } from '../../security/safeFetch';
 import { validatePublicUrl } from '../../security/url';
-import { fetchMercadoLivreItem, mercadoLivreItemId } from './mercadolivre';
 import { looksBlocked, parseProductPage } from './parse';
 import { robotsAllows } from './robots';
 
@@ -12,9 +11,6 @@ export interface ExtractionDeps {
   timeoutMs: number;
   maxBytes: number;
   respectRobots: boolean;
-  mlApiUrl: string;
-  /** Token do Mercado Livre do usuário, se a conta estiver conectada. */
-  getMercadoLivreToken?: () => Promise<string | null>;
 }
 
 export type ExtractionOutcome =
@@ -47,34 +43,11 @@ export async function extractProduct(input: string, deps: ExtractionDeps): Promi
   const url = validatePublicUrl(input); // lança AppError 400 para URLs inválidas/bloqueadas
   const common = { userAgent: deps.userAgent, timeoutMs: deps.timeoutMs };
 
-  const mlId = mercadoLivreItemId(url);
-  if (mlId && deps.getMercadoLivreToken) {
-    const token = await deps.getMercadoLivreToken();
-    if (token) {
-      try {
-        const viaApi = await fetchMercadoLivreItem(mlId, token, deps.mlApiUrl, deps.fetcher, common);
-        if (viaApi?.data.title)
-          return {
-            ok: true,
-            url: url.toString(),
-            domain: url.hostname,
-            method: 'mercadolivre-api',
-            data: viaApi.data,
-            fieldStatus: viaApi.fieldStatus,
-            quality: 'extracted',
-            notes: ['Dados lidos pela API oficial do Mercado Livre com a sua conta conectada.'],
-          };
-      } catch {
-        // Se a API falhar, tenta a página pública abaixo.
-      }
-    }
-  }
-
   if (deps.respectRobots && !(await robotsAllows(url, deps.userAgent, deps.fetcher, deps.timeoutMs)))
     return fail(
       url,
       'robots_disallowed',
-      'O site informa (robots.txt) que não permite leitura automatizada desta página. Importe os dados manualmente ou use uma integração autorizada.',
+      'O site informa (robots.txt) que não permite leitura automatizada desta página. Importe os dados manualmente.',
     );
 
   let res;

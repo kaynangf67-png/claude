@@ -3,7 +3,8 @@ import sharp from 'sharp';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { AppContext } from '../src/context';
 import { AnthropicPhotoReader, photoToProduct, type PhotoAnalysis, type PhotoReader } from '../src/modules/ai/vision';
-import { makeSalePhoto } from '../src/modules/images/processing';
+import { cutoutPlainBackground } from '../src/modules/images/background';
+import { makeListingVariants, makeSalePhoto } from '../src/modules/images/processing';
 import { makeApp, resetDb, sessionCookie } from './helpers';
 
 // Leitura simulada: o que uma IA devolveria para uma garrafa fictícia de teste.
@@ -165,6 +166,48 @@ describe('fluxo por foto', () => {
     expect(listing.json().listing.content.title).toContain('Termix');
   });
 
+  it('sugere um título a partir da foto e gera 5 imagens para o anúncio', async () => {
+    const pid = (await app.inject({ method: 'POST', url: '/api/products/photo-draft', payload: {}, headers: { cookie } })).json().product.id;
+    const noPhoto = await app.inject({ method: 'POST', url: `/api/products/${pid}/suggest-title`, payload: {}, headers: { cookie } });
+    expect(noPhoto.json().error.code).toBe('no_photos');
+
+    const big = await sharp({ create: { width: 2000, height: 1600, channels: 3, background: '#d9d9d9' } })
+      .composite([{ input: Buffer.from('<svg width="2000" height="1600"><rect x="600" y="200" width="800" height="1200" rx="60" fill="#2f4fd8"/></svg>') }])
+      .jpeg()
+      .toBuffer();
+    const up = await upload(pid, big);
+    const assetId = up.json().asset.id;
+    const t = await app.inject({ method: 'POST', url: `/api/products/${pid}/suggest-title`, payload: {}, headers: { cookie } });
+    expect(t.statusCode).toBe(200);
+    expect(t.json().title).toBe('Garrafa térmica de inox Termix preta');
+
+    const gen = () =>
+      app.inject({ method: 'POST', url: `/api/assets/${assetId}/variants`, payload: { marketplace: 'mercado_livre' }, headers: { cookie } });
+    const v = await gen();
+    expect(v.statusCode).toBe(201);
+    const { assets, note } = v.json();
+    expect(note).toBeNull();
+    expect(assets).toHaveLength(5);
+    expect(assets.map((a: { edits: { variant: string } }) => a.edits.variant)).toEqual(['principal', 'estudio', 'detalhe', 'vertical', 'ambiente']);
+    expect(assets[0].isMain).toBe(true);
+
+    // Gerar de novo substitui, não acumula.
+    expect((await gen()).statusCode).toBe(201);
+    expect(await ctx.db.asset.count({ where: { productId: pid, kind: 'edited' } })).toBe(5);
+
+    // Com as versões prontas, a leitura não cria outra foto de venda.
+    await app.inject({ method: 'POST', url: `/api/products/${pid}/read-photos`, payload: { salePhotos: false }, headers: { cookie } });
+    expect(await ctx.db.asset.count({ where: { productId: pid, kind: 'edited' } })).toBe(5);
+
+    const edited = (await ctx.db.asset.findFirstOrThrow({ where: { productId: pid, kind: 'edited' } })).id;
+    const bad = await app.inject({ method: 'POST', url: `/api/assets/${edited}/variants`, payload: { marketplace: 'shopee' }, headers: { cookie } });
+    expect(bad.json().error.code).toBe('not_original');
+
+    // Remover a foto original leva junto as versões feitas dela.
+    expect((await app.inject({ method: 'DELETE', url: `/api/assets/${assetId}`, headers: { cookie } })).statusCode).toBe(200);
+    expect(await ctx.db.asset.count({ where: { productId: pid } })).toBe(0);
+  });
+
   it('recusa fotos que não mostram um produto', async () => {
     const other = await makeApp({ photoReader: new FakeReader({ ...analysis, isProduct: false }) });
     const reg = await other.app.inject({
@@ -195,6 +238,9 @@ describe('fluxo por foto', () => {
     const read = await noAi.app.inject({ method: 'POST', url: `/api/products/${pid}/read-photos`, payload: {}, headers: { cookie: c } });
     expect(read.statusCode).toBe(503);
     expect(read.json().error.code).toBe('vision_not_configured');
+    const title = await noAi.app.inject({ method: 'POST', url: `/api/products/${pid}/suggest-title`, payload: {}, headers: { cookie: c } });
+    expect(title.statusCode).toBe(503);
+    expect(title.json().error.code).toBe('vision_not_configured');
     await noAi.app.close();
     await noAi.ctx.db.$disconnect();
   });
@@ -212,5 +258,27 @@ describe('foto de venda com produto pequeno no quadro', () => {
     const y = Math.floor(info.height / 2);
     const left = [...data.subarray((y * info.width + 5) * 3, (y * info.width + 5) * 3 + 3)];
     expect(left.every((v) => v > 240)).toBe(true);
+  });
+});
+
+describe('recorte de fundo sem IA', () => {
+  it('fundo liso: o produto fica opaco e o fundo transparente', async () => {
+    const out = (await cutoutPlainBackground(await photo()))!;
+    expect(out).not.toBeNull();
+    const { data, info } = await sharp(out.png).raw().toBuffer({ resolveWithObject: true });
+    expect(info.channels).toBe(4);
+    const alpha = (x: number, y: number) => data[(y * info.width + x) * 4 + 3]!;
+    expect(alpha(10, 10)).toBe(0);
+    expect(alpha(450, 350)).toBe(255);
+  });
+
+  it('fundo com textura: desiste em vez de recortar errado', async () => {
+    const noisy = await sharp({ create: { width: 400, height: 300, channels: 3, background: '#808080', noise: { type: 'gaussian', mean: 128, sigma: 60 } } })
+      .jpeg()
+      .toBuffer();
+    expect(await cutoutPlainBackground(noisy)).toBeNull();
+    const { variants, cutout } = await makeListingVariants(noisy, 1200);
+    expect(cutout).toBe(false);
+    expect(variants.map((v) => v.key)).not.toContain('estudio');
   });
 });

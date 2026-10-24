@@ -214,11 +214,6 @@ describe('fluxo principal: colar link → analisar → imagens → gerar → edi
     expect(zip.rawPayload.subarray(0, 2).toString()).toBe('PK');
   });
 
-  it('publicação automática responde que não está implementada', async () => {
-    const res = await api('POST', `/api/listings/${listingId}/publish`);
-    expect(res.statusCode).toBe(501);
-  });
-
   it('histórico e indicadores', async () => {
     const list = (await api('GET', '/api/listings')).json();
     expect(list.listings).toHaveLength(2);
@@ -273,29 +268,12 @@ describe('falha de extração → importação manual', () => {
   });
 });
 
-describe('configurações e integrações', () => {
+describe('configurações', () => {
   it('ajusta o limite de título do canal', async () => {
     const res = await api('PUT', '/api/settings/marketplaces/mercado_livre', { titleMaxLength: 80 });
     expect(res.json().rules.titleMax).toBe(80);
     const bad = await api('PUT', '/api/settings/marketplaces/mercado_livre', { titleMaxLength: 2 });
     expect(bad.statusCode).toBe(400);
-  });
-
-  it('mostra o estado real das integrações', async () => {
-    const { integrations } = (await api('GET', '/api/integrations')).json();
-    expect(integrations.find((i: { id: string }) => i.id === 'mercado_livre').capabilities).toEqual({
-      authorization: 'needs_credentials',
-      publish: 'not_implemented',
-      status: 'not_implemented',
-    });
-    expect((await api('POST', '/api/integrations/shopee/connect')).statusCode).toBe(501);
-    expect((await api('POST', '/api/integrations/mercado_livre/connect')).statusCode).toBe(503);
-  });
-
-  it('callback do OAuth recusa state inválido', async () => {
-    const res = await api('GET', '/api/integrations/mercado_livre/callback?code=x&state=forjado');
-    expect(res.statusCode).toBe(302);
-    expect(res.headers.location).toContain('status=invalid_state');
   });
 
   it('excluir a conta apaga tudo', async () => {

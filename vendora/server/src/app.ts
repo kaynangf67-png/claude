@@ -17,7 +17,6 @@ import { authRoutes } from './modules/auth/routes';
 import { RemoveBgRemover } from './modules/images/backgroundRemoval';
 import { imageRoutes } from './modules/images/routes';
 import { listingRoutes } from './modules/listings/routes';
-import { createAdapters } from './modules/marketplaces/adapters';
 import { marketplaceRoutes } from './modules/marketplaces/routes';
 import { productRoutes } from './modules/products/routes';
 import { createStorage } from './modules/storage/storage';
@@ -42,7 +41,6 @@ export function createContext(config: Config, overrides: Partial<AppContext> = {
           ? new AnthropicPhotoReader(config.ANTHROPIC_API_KEY, config.AI_MODEL)
           : null,
     bgRemover: overrides.bgRemover !== undefined ? overrides.bgRemover : config.REMOVE_BG_API_KEY ? new RemoveBgRemover(config.REMOVE_BG_API_KEY) : null,
-    adapters: overrides.adapters ?? createAdapters(config),
   };
 }
 

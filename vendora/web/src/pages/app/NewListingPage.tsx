@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, Camera, PenLine, Plus, Sparkles, Trash2, Upload, X } from 'lucide-react';
+import { ArrowRight, Camera, Download, PenLine, Plus, Sparkles, Trash2, Upload, Wand2, X } from 'lucide-react';
 import { MARKETPLACE_IDS, MARKETPLACE_PROFILES, type MarketplaceId } from '@vendora/shared/marketplaces';
 import type { ProductData, Spec } from '@vendora/shared';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
@@ -59,6 +59,9 @@ interface PickedPhoto {
   id: string;
   file: File;
   preview: string;
+  /** Preenchido quando o envio termina. */
+  asset?: Asset;
+  failed?: boolean;
 }
 
 const MAX_PHOTOS = 6;
@@ -102,24 +105,123 @@ export function NewListingPage() {
   const [audience, setAudience] = useState('');
   const autoRan = useRef(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  // Versões para o anúncio geradas a partir da primeira foto.
+  const [variants, setVariants] = useState<Asset[]>([]);
+  const [variantsBusy, setVariantsBusy] = useState(false);
+  const [variantsNote, setVariantsNote] = useState<string | null>(null);
+  const [titleBusy, setTitleBusy] = useState(false);
+  const draftPromise = useRef<Promise<Product> | null>(null);
+  const uploads = useRef<Promise<unknown>>(Promise.resolve());
+  const variantsKey = useRef<string | null>(null);
 
   // Libera as prévias da memória só ao sair da página (cada remoção libera a sua).
   const photosRef = useRef(photos);
   photosRef.current = photos;
   useEffect(() => () => photosRef.current.forEach((p) => URL.revokeObjectURL(p.preview)), []);
 
+  /** O rascunho do produto é criado na primeira foto, para as fotos já irem sendo enviadas. */
+  function ensureDraft(): Promise<Product> {
+    draftPromise.current ??= api.post<{ product: Product }>('/api/products/photo-draft', {}).then((r) => {
+      setParams({ product: r.product.id }, { replace: true });
+      return r.product;
+    });
+    draftPromise.current.catch(() => (draftPromise.current = null));
+    return draftPromise.current;
+  }
+
+  async function uploadPicked(p: PickedPhoto) {
+    try {
+      const prod = await ensureDraft();
+      const form = new FormData();
+      let blob: Blob = p.file;
+      try {
+        blob = await compressPhoto(p.file);
+      } catch {
+        // formato que o navegador não decodifica (ex.: HEIC em alguns aparelhos): envia o original
+      }
+      form.append('file', blob, 'foto.jpg');
+      const { asset } = await api.post<{ asset: Asset }>(`/api/products/${prod.id}/images/upload`, form);
+      if (!photosRef.current.some((x) => x.id === p.id)) {
+        // Removida enquanto subia.
+        void api.del(`/api/assets/${asset.id}`).catch(() => {});
+        return;
+      }
+      setPhotos((cur) => cur.map((x) => (x.id === p.id ? { ...x, asset } : x)));
+    } catch (e) {
+      setPhotos((cur) => cur.map((x) => (x.id === p.id ? { ...x, failed: true } : x)));
+      toast('error', e instanceof ApiError ? e.message : 'Falha ao enviar uma das fotos.');
+    }
+  }
+
   function addFiles(list: FileList | null) {
     if (!list) return;
     const accepted = [...list].filter((f) => /^image\/(jpeg|png|webp|heic|heif)$/i.test(f.type) || /\.(jpe?g|png|webp|heic)$/i.test(f.name));
     if (accepted.length < list.length) toast('error', 'Alguns arquivos não são fotos e foram ignorados.');
-    setPhotos((cur) => {
-      const room = MAX_PHOTOS - cur.length;
-      if (accepted.length > room) toast('error', `Use até ${MAX_PHOTOS} fotos por produto.`);
-      return [
-        ...cur,
-        ...accepted.slice(0, Math.max(0, room)).map((file) => ({ id: crypto.randomUUID(), file, preview: URL.createObjectURL(file) })),
-      ];
-    });
+    const room = MAX_PHOTOS - photosRef.current.length;
+    if (accepted.length > room) toast('error', `Use até ${MAX_PHOTOS} fotos por produto.`);
+    const added = accepted.slice(0, Math.max(0, room)).map((file) => ({ id: crypto.randomUUID(), file, preview: URL.createObjectURL(file) }));
+    if (added.length === 0) return;
+    photosRef.current = [...photosRef.current, ...added];
+    setPhotos(photosRef.current);
+    // Um envio por vez, na ordem escolhida: a primeira foto é a principal.
+    for (const p of added) uploads.current = uploads.current.then(() => uploadPicked(p));
+  }
+
+  function removePhoto(p: PickedPhoto) {
+    URL.revokeObjectURL(p.preview);
+    photosRef.current = photosRef.current.filter((x) => x.id !== p.id);
+    setPhotos(photosRef.current);
+    // Apaga no servidor junto com as versões feitas dela.
+    if (p.asset) void api.del(`/api/assets/${p.asset.id}`).catch(() => {});
+  }
+
+  // Ao escolher a foto principal (ou trocar de canal), gera as 5 versões para o anúncio.
+  const firstAsset = photos[0]?.asset;
+  useEffect(() => {
+    if (!firstAsset) {
+      variantsKey.current = null;
+      setVariants([]);
+      setVariantsNote(null);
+      return;
+    }
+    const key = `${firstAsset.id}:${marketplace}`;
+    if (variantsKey.current === key) return;
+    const timer = setTimeout(() => {
+      variantsKey.current = key;
+      setVariantsBusy(true);
+      api
+        .post<{ assets: Asset[]; note: string | null }>(`/api/assets/${firstAsset.id}/variants`, { marketplace })
+        .then((r) => {
+          if (variantsKey.current !== key) return;
+          setVariants(r.assets);
+          setVariantsNote(r.note);
+        })
+        .catch((e) => {
+          if (variantsKey.current !== key) return;
+          variantsKey.current = null;
+          setVariants([]);
+          setVariantsNote(e instanceof ApiError ? e.message : 'Não foi possível gerar as fotos do anúncio.');
+        })
+        .finally(() => {
+          if (variantsKey.current === key || variantsKey.current === null) setVariantsBusy(false);
+        });
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [firstAsset, marketplace]);
+
+  /** A IA olha as fotos enviadas e sugere o nome do produto. */
+  async function suggestTitle() {
+    setTitleBusy(true);
+    try {
+      await uploads.current;
+      const prod = await ensureDraft();
+      const r = await api.post<{ title: string }>(`/api/products/${prod.id}/suggest-title`, {});
+      setHint(r.title);
+    } catch (e) {
+      toast('error', e instanceof ApiError ? e.message : 'Não foi possível sugerir um título agora.');
+    } finally {
+      setTitleBusy(false);
+    }
   }
 
   /** fotos → rascunho → envio → leitura pela IA → anúncio. Sem IA, cai na revisão manual com as fotos já salvas. */
@@ -128,27 +230,19 @@ export function NewListingPage() {
     setError(null);
     setPhase('analyzing');
     let created: Product | null = null;
-    const uploaded: Asset[] = [];
+    let uploaded: Asset[] = [];
     try {
-      setStep('Preparando…');
-      created = (await api.post<{ product: Product }>('/api/products/photo-draft', {})).product;
-      setParams({ product: created.id }, { replace: true });
-      for (const [i, p] of photos.entries()) {
-        setStep(`Enviando foto ${i + 1} de ${photos.length}…`);
-        const form = new FormData();
-        let blob: Blob = p.file;
-        try {
-          blob = await compressPhoto(p.file);
-        } catch {
-          // formato que o navegador não decodifica (ex.: HEIC em alguns aparelhos): envia o original
-        }
-        form.append('file', blob, `foto-${i + 1}.jpg`);
-        uploaded.push((await api.post<{ asset: Asset }>(`/api/products/${created.id}/images/upload`, form)).asset);
-      }
+      setStep('Enviando as fotos…');
+      await uploads.current;
+      created = await ensureDraft();
+      uploaded = photosRef.current.flatMap((p) => (p.asset ? [p.asset] : []));
+      if (uploaded.length === 0) throw new Error('Nenhuma foto foi enviada. Remova as que falharam e tente de novo.');
       setStep('A IA está olhando as fotos…');
       const read = await api.post<{ product: Product; assets: Asset[] }>(`/api/products/${created.id}/read-photos`, {
         hint: hint.trim() || undefined,
         marketplace,
+        // As 5 versões já são as fotos do anúncio; sem elas, o servidor prepara as fotos de venda.
+        salePhotos: variants.length === 0,
       });
       setStep('Escrevendo título e descrição…');
       setPhase('generating');
@@ -159,14 +253,14 @@ export function NewListingPage() {
       if (created && uploaded.length > 0 && err && ['vision_not_configured', 'not_a_product', 'ai_refused', 'ai_error', 'ai_auth'].includes(err.code)) {
         // Fotos já estão salvas: o vendedor completa os dados e gera do mesmo jeito.
         setProduct(created);
-        setAssets(uploaded);
+        setAssets([...uploaded, ...variants]);
         setDraft({ ...toDraft(created.data), title: hint.trim() });
         setExtraction({ ok: false, reason: err.message });
         setPhase('review');
         window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
       }
-      setError(err?.message ?? 'Não foi possível processar as fotos. Tente de novo.');
+      setError(err?.message ?? (e instanceof Error ? e.message : 'Não foi possível processar as fotos. Tente de novo.'));
       setPhase('input');
     }
   }
@@ -281,16 +375,19 @@ export function NewListingPage() {
             >
               {photos.map((p, i) => (
                 <div key={p.id} className="group relative aspect-square overflow-hidden rounded-2xl border border-ink-200 bg-white">
-                  <img src={p.preview} alt={`Foto ${i + 1}`} className="h-full w-full object-cover" />
+                  <img src={p.preview} alt={`Foto ${i + 1}`} className={`h-full w-full object-cover ${p.asset ? '' : 'opacity-60'}`} />
+                  {!p.asset && !p.failed && (
+                    <span className="absolute inset-0 grid place-items-center">
+                      <Spinner />
+                    </span>
+                  )}
+                  {p.failed && <span className="absolute inset-x-0 top-1/2 -translate-y-1/2 bg-red-600/90 py-1 text-center text-[10px] font-semibold text-white">Falhou</span>}
                   {i === 0 && <span className="absolute bottom-1.5 left-1.5 rounded-full bg-violet-brand px-2 py-0.5 text-[10px] font-semibold text-white">Principal</span>}
                   {!busy && (
                     <button
                       type="button"
                       aria-label="Remover foto"
-                      onClick={() => {
-                        URL.revokeObjectURL(p.preview);
-                        setPhotos((cur) => cur.filter((x) => x.id !== p.id));
-                      }}
+                      onClick={() => removePhoto(p)}
                       className="absolute top-1.5 right-1.5 grid size-7 place-items-center rounded-full bg-white/90 text-ink-700 shadow"
                     >
                       <X className="size-4" />
@@ -329,10 +426,62 @@ export function NewListingPage() {
               especificações.
             </p>
 
+            {photos.length > 0 && (
+              <div className="mt-6">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="label mb-0">Fotos para o anúncio</span>
+                  {variantsBusy && (
+                    <span className="flex items-center gap-1.5 text-xs text-ink-500">
+                      <Spinner /> Preparando as fotos…
+                    </span>
+                  )}
+                </div>
+                {variants.length > 0 ? (
+                  <div className="grid grid-cols-3 gap-3 sm:grid-cols-5">
+                    {variants.map((v) => (
+                      <figure key={v.id} className="group relative">
+                        <img
+                          src={v.url}
+                          alt={String(v.edits?.label ?? 'Foto do anúncio')}
+                          className="aspect-square w-full rounded-xl border border-ink-200 bg-white object-contain"
+                        />
+                        <a
+                          href={v.url}
+                          download={`${String(v.edits?.variant ?? 'foto')}.jpg`}
+                          aria-label={`Baixar ${String(v.edits?.label ?? 'foto')}`}
+                          className="absolute top-1.5 right-1.5 grid size-7 place-items-center rounded-full bg-white/90 text-ink-700 shadow"
+                        >
+                          <Download className="size-3.5" />
+                        </a>
+                        <figcaption className="mt-1 text-center text-[11px] text-ink-600">{String(v.edits?.label ?? '')}</figcaption>
+                      </figure>
+                    ))}
+                  </div>
+                ) : (
+                  !variantsBusy && !variantsNote && <p className="text-xs text-ink-500">As fotos aparecem aqui assim que a foto principal terminar de subir.</p>
+                )}
+                {variantsNote && <p className="mt-2 text-xs text-amber-700">{variantsNote}</p>}
+                <p className="mt-2 text-[11px] text-ink-500">
+                  Feitas da sua foto principal: muda fundo, enquadramento e sombra. O produto é o da foto, sem retoque nem ampliação.
+                </p>
+              </div>
+            )}
+
             <div className="mt-6">
-              <label className="label" htmlFor="hint">
-                O que é o produto? (opcional)
-              </label>
+              <div className="mb-1.5 flex items-center justify-between gap-2">
+                <label className="label mb-0" htmlFor="hint">
+                  O que é o produto? (opcional)
+                </label>
+                <button
+                  type="button"
+                  onClick={suggestTitle}
+                  disabled={busy || titleBusy || !photos.some((p) => p.asset || !p.failed)}
+                  className="inline-flex shrink-0 items-center gap-1 rounded-full border border-violet-brand/30 px-3 py-1 text-xs whitespace-nowrap font-semibold text-violet-brand transition hover:bg-violet-brand/5 disabled:opacity-50"
+                >
+                  {titleBusy ? <Spinner /> : <Wand2 className="size-3.5" />}
+                  {titleBusy ? 'Olhando a foto…' : 'Gerar título com IA'}
+                </button>
+              </div>
               <input
                 id="hint"
                 className="input"
@@ -342,7 +491,9 @@ export function NewListingPage() {
                 onChange={(e) => setHint(e.target.value)}
                 placeholder="Ex.: garrafa térmica 500 ml, nova, cor preta"
               />
-              <p className="mt-1 text-[11px] text-ink-500">Ajuda a IA. O que você escrever aqui entra como informação sua, não como algo visto na foto.</p>
+              <p className="mt-1 text-[11px] text-ink-500">
+                Ajuda a IA. O título sugerido vem do que aparece na foto: confira antes de usar.
+              </p>
             </div>
           </section>
 
@@ -587,6 +738,8 @@ export function NewListingPage() {
                   setProduct(null);
                   setDraft(null);
                   setPhotos([]);
+                  photosRef.current = [];
+                  draftPromise.current = null;
                   setParams({}, { replace: true });
                 }}
               >

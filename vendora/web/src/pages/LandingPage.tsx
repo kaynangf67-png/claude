@@ -134,13 +134,13 @@ const FEATURES = [
   { icon: Wand2, title: 'Editor de imagens', text: 'Recorte, luz, contraste, saturação, fundo branco e tamanho do canal, com desfazer e refazer.' },
   { icon: ImageIcon, title: 'Fotos prontas para venda', text: 'Fundo branco, produto centralizado e tamanho do canal, geradas automaticamente. A original fica guardada.' },
   { icon: History, title: 'Histórico e versões', text: 'Cada edição vira uma versão. Restaure qualquer uma quando quiser.' },
-  { icon: FileDown, title: 'Exportação pronta', text: 'ZIP com texto e imagens, TXT para colar ou JSON para integrações.' },
+  { icon: FileDown, title: 'Exportação pronta', text: 'ZIP com texto e imagens, TXT para colar ou JSON.' },
 ];
 
 const FAQ = [
   {
     q: 'A Vendora publica o anúncio direto no marketplace?',
-    a: 'Ainda não. Hoje você exporta o anúncio e publica pelo painel do vendedor. A integração com o Mercado Livre já faz a autorização da conta; o envio automático só será anunciado depois de testado com contas reais.',
+    a: 'Não. Você exporta o anúncio (texto e fotos) e publica pelo painel do vendedor do canal.',
   },
   {
     q: 'A IA adivinha marca, medidas e peso pela foto?',
@@ -148,7 +148,7 @@ const FAQ = [
   },
   {
     q: 'As fotos de venda são geradas por IA?',
-    a: 'Não inventamos imagens. As fotos de venda são a sua foto tratada: fundo branco, produto centralizado e tamanho certo para o canal. Assim o comprador vê o produto real.',
+    a: 'Não inventamos imagens. As 5 fotos do anúncio são a sua foto em versões diferentes: fundo branco, estúdio, close, vertical e ambiente, no tamanho certo para o canal. Assim o comprador vê o produto real.',
   },
   {
     q: 'A IA pode inventar características do produto?',
@@ -263,7 +263,7 @@ export function LandingPage() {
         <div className="mx-auto max-w-6xl">
           <Reveal className="max-w-2xl">
             <h2 className="text-3xl font-bold sm:text-4xl">Recursos</h2>
-            <p className="mt-3 text-ink-500">Tudo o que já funciona hoje. O que depende de integrações externas está indicado no próprio app.</p>
+            <p className="mt-3 text-ink-500">Tudo o que já funciona hoje.</p>
           </Reveal>
           <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {FEATURES.map((f, i) => (
@@ -299,7 +299,7 @@ export function LandingPage() {
           <div className="mt-12 grid gap-4 md:grid-cols-3">
             {[
               { name: 'Acesso antecipado', tag: 'Disponível', text: 'Todos os recursos atuais, com limites de uso por hora.', cta: true },
-              { name: 'Profissional', tag: 'Em planejamento', text: 'Mais volume, publicação automática quando as integrações estiverem prontas.' },
+              { name: 'Profissional', tag: 'Em planejamento', text: 'Mais volume de anúncios e fotos por mês.' },
               { name: 'Agências', tag: 'Em planejamento', text: 'Várias lojas, equipe e marcas em uma conta só.' },
             ].map((p, i) => (
               <Reveal key={p.name} delay={i * 0.08}>

@@ -11,7 +11,7 @@ const EnvSchema = z.object({
   HOST: z.string().default('0.0.0.0'),
   /**
    * URL pública da aplicação. Front-end e API ficam na mesma origem
-   * (em dev o Vite faz proxy de /api), então o callback do OAuth é APP_URL/api/...
+   * (em dev o Vite faz proxy de /api).
    */
   APP_URL: z.string().url().default('http://localhost:5173'),
   /** Pasta com o build do front-end para servir em produção (vazio = não servir). */
@@ -50,11 +50,6 @@ const EnvSchema = z.object({
   ASSET_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
   REMOVE_BG_API_KEY: z.string().optional(),
 
-  // Marketplaces
-  ML_CLIENT_ID: z.string().optional(),
-  ML_CLIENT_SECRET: z.string().optional(),
-  ML_AUTH_URL: z.string().url().default('https://auth.mercadolivre.com.br/authorization'),
-  ML_API_URL: z.string().url().default('https://api.mercadolibre.com'),
 
   // Limites
   RATE_LIMIT_PER_MINUTE: z.coerce.number().int().positive().default(120),

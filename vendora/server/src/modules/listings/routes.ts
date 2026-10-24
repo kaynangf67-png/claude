@@ -315,12 +315,4 @@ export function listingRoutes(app: FastifyInstance, ctx: AppContext) {
       .header('content-disposition', `attachment; filename="${base}.zip"`)
       .send(stream);
   });
-
-  /** Publicação automática: honestamente indisponível até o adaptador ser implementado e testado. */
-  app.post('/api/listings/:id/publish', auth, async (request) => {
-    const userId = uid(request);
-    const { id } = request.params as { id: string };
-    const listing = await loadListing(userId, id);
-    return ctx.adapters[listing.marketplace].publish();
-  });
 }

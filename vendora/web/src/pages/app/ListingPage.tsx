@@ -21,7 +21,6 @@ import { Link, useParams } from 'react-router-dom';
 import { CopyButton, FieldStatusBadge, MarketplaceChip, Notice, Skeleton, Spinner } from '../../components/ui';
 import { ImageEditor } from '../../features/editor/ImageEditor';
 import { api, ApiError, type Asset, type ListingDetail } from '../../lib/api';
-import { useAuth } from '../../lib/auth';
 import { FIELD_LABELS, formatBytes, formatDate, formatPrice } from '../../lib/format';
 import { useToast } from '../../lib/toast';
 
@@ -44,7 +43,6 @@ function Counter({ value, max }: { value: number; max: number }) {
 export function ListingPage() {
   const { id } = useParams<{ id: string }>();
   const toast = useToast();
-  const { meta } = useAuth();
   const [data, setData] = useState<ListingDetail | null>(null);
   const [content, setContent] = useState<ListingContent | null>(null);
   const [tab, setTab] = useState<Tab>('title');
@@ -537,9 +535,7 @@ export function ListingPage() {
           <div className="card p-5 text-xs text-ink-500">
             <p className="font-semibold text-ink-900">Publicação</p>
             <p className="mt-1">
-              A publicação automática ainda não está ativa
-              {meta?.integrations[listing.marketplace]?.authorization === 'implemented_untested' ? ' (a conexão de conta já existe, o envio não).' : '.'} Exporte e publique
-              pelo painel do vendedor.
+              Exporte o anúncio (texto e fotos) e publique pelo painel do vendedor do canal.
             </p>
           </div>
         </aside>

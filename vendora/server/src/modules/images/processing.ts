@@ -1,6 +1,7 @@
-import sharp from 'sharp';
+import sharp, { type OverlayOptions } from 'sharp';
 import { z } from 'zod';
 import { AppError } from '../../lib/errors';
+import { cutoutPlainBackground } from './background';
 
 sharp.cache(false);
 // Limita a "bomba de descompressão": imagens com dimensões absurdas são recusadas.
@@ -180,4 +181,120 @@ export async function makeSalePhoto(
     .jpeg({ quality: 90, mozjpeg: true })
     .toBuffer({ resolveWithObject: true });
   return { buffer: out.data, width: out.info.width, height: out.info.height, format: 'jpeg' };
+}
+
+export interface PhotoVariant {
+  key: 'principal' | 'estudio' | 'detalhe' | 'vertical' | 'ambiente';
+  label: string;
+  buffer: Buffer;
+  width: number;
+  height: number;
+  format: ImageFormat;
+}
+
+const VARIANT_LABELS: Record<PhotoVariant['key'], string> = {
+  principal: 'Fundo branco (foto principal)',
+  estudio: 'Estúdio com sombra',
+  detalhe: 'Detalhe ampliado',
+  vertical: 'Vertical 3:4',
+  ambiente: 'Fundo neutro quente',
+};
+
+async function placeOn(
+  product: Buffer,
+  canvasW: number,
+  canvasH: number,
+  background: { color: string } | { svg: string },
+  opts: { fill?: number; shadow?: boolean } = {},
+) {
+  const fill = opts.fill ?? 0.84;
+  const p = await sharp(product)
+    .resize({ width: Math.round(canvasW * fill), height: Math.round(canvasH * fill), fit: 'inside', withoutEnlargement: true })
+    .toBuffer({ resolveWithObject: true });
+  const left = Math.round((canvasW - p.info.width) / 2);
+  // Com sombra, o produto sobe um pouco para "apoiar" nela.
+  const top = Math.round((canvasH - p.info.height) / 2 - (opts.shadow ? canvasH * 0.02 : 0));
+  const layers: OverlayOptions[] = [];
+  if (opts.shadow) {
+    const sw = Math.round(p.info.width * 0.9);
+    const sh = Math.max(12, Math.round(p.info.width * 0.12));
+    const cy = Math.min(canvasH - sh, top + p.info.height - Math.round(sh * 0.35));
+    layers.push({
+      input: Buffer.from(
+        `<svg width="${canvasW}" height="${canvasH}"><defs><filter id="b"><feGaussianBlur stdDeviation="${Math.round(sh / 2.5)}"/></filter></defs><ellipse cx="${canvasW / 2}" cy="${cy}" rx="${sw / 2}" ry="${sh / 2}" fill="rgba(20,20,30,0.3)" filter="url(#b)"/></svg>`,
+      ),
+      top: 0,
+      left: 0,
+    });
+  }
+  layers.push({ input: p.data, top: Math.max(0, top), left: Math.max(0, left) });
+  const bg =
+    'color' in background
+      ? sharp({ create: { width: canvasW, height: canvasH, channels: 3, background: background.color } })
+      : sharp(Buffer.from(background.svg));
+  const out = await bg.composite(layers).flatten({ background: '#ffffff' }).jpeg({ quality: 90, mozjpeg: true }).toBuffer({ resolveWithObject: true });
+  return { buffer: out.data, width: out.info.width, height: out.info.height, format: 'jpeg' as const };
+}
+
+/**
+ * Cinco imagens para o anúncio a partir de UMA foto real do produto.
+ * Nada é gerado por IA: o produto é sempre o da foto (sem redesenhar, sem
+ * ampliar). Só o fundo, o enquadramento e a sombra mudam. As versões de
+ * estúdio dependem de separar o produto do fundo, o que só é feito com
+ * segurança em fundo liso; em fundo complexo elas não são geradas.
+ */
+export async function makeListingVariants(
+  buffer: Buffer,
+  size: number,
+): Promise<{ variants: PhotoVariant[]; cutout: boolean }> {
+  const cut = await cutoutPlainBackground(buffer);
+  let product: Buffer;
+  if (cut) {
+    product = await sharp(cut.png).trim().png().toBuffer();
+  } else {
+    let base = await sharp(buffer, { limitInputPixels: LIMIT_INPUT_PIXELS }).rotate().flatten({ background: '#ffffff' }).toBuffer();
+    try {
+      const t = await sharp(base).trim({ threshold: 18 }).toBuffer({ resolveWithObject: true });
+      if (t.info.width >= 32 && t.info.height >= 32) base = t.data;
+    } catch {
+      // mantém a foto inteira
+    }
+    product = base;
+  }
+  const meta = await sharp(product).metadata();
+  const pw = meta.width!;
+  const ph = meta.height!;
+
+  const variants: PhotoVariant[] = [];
+  const push = (key: PhotoVariant['key'], v: { buffer: Buffer; width: number; height: number; format: ImageFormat }) =>
+    variants.push({ key, label: VARIANT_LABELS[key], ...v });
+
+  push('principal', await placeOn(product, size, size, { color: '#ffffff' }, { fill: 0.86 }));
+  if (cut)
+    push(
+      'estudio',
+      await placeOn(
+        product,
+        size,
+        size,
+        {
+          svg: `<svg width="${size}" height="${size}"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e6e8ee"/></linearGradient></defs><rect width="100%" height="100%" fill="url(#g)"/></svg>`,
+        },
+        { fill: 0.78, shadow: true },
+      ),
+    );
+  // Detalhe: recorte quadrado no centro do próprio produto. Ampliação limitada a 1,5x
+  // (mais que isso borra e passa a enganar sobre a qualidade real).
+  const side = Math.max(16, Math.round(Math.min(pw, ph) * 0.75));
+  const detailSize = Math.min(size, Math.round(side * 1.5));
+  const detail = await sharp(product)
+    .extract({ left: Math.round((pw - side) / 2), top: Math.round((ph - side) / 2), width: side, height: side })
+    .flatten({ background: '#ffffff' })
+    .resize({ width: detailSize, height: detailSize })
+    .toBuffer();
+  // Abaixo de 500 px nenhum marketplace aceita: melhor não gerar do que entregar uma imagem ruim.
+  if (detailSize >= 500) push('detalhe', await placeOn(detail, detailSize, detailSize, { color: '#ffffff' }, { fill: 1 }));
+  push('vertical', await placeOn(product, Math.round(size * 0.75), size, { color: '#ffffff' }, { fill: 0.86 }));
+  if (cut) push('ambiente', await placeOn(product, size, size, { color: '#f3eee7' }, { fill: 0.78, shadow: true }));
+  return { variants, cutout: Boolean(cut) };
 }

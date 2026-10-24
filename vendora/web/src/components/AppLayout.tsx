@@ -1,4 +1,4 @@
-import { History, LayoutDashboard, LogOut, Menu, Plug, Plus, Settings, X } from 'lucide-react';
+import { History, LayoutDashboard, LogOut, Menu, Plus, Settings, X } from 'lucide-react';
 import { useState } from 'react';
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
@@ -8,7 +8,6 @@ const NAV = [
   { to: '/app', label: 'Painel', icon: LayoutDashboard, end: true },
   { to: '/app/novo', label: 'Novo anúncio', icon: Plus },
   { to: '/app/historico', label: 'Histórico', icon: History },
-  { to: '/app/integracoes', label: 'Integrações', icon: Plug },
   { to: '/app/configuracoes', label: 'Configurações', icon: Settings },
 ];
 

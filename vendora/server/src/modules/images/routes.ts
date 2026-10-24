@@ -7,10 +7,11 @@ import { requireAuth, uid } from '../../lib/auth';
 import { AppError, notFound } from '../../lib/errors';
 import { newStorageKey, signAssetUrl, verifyAssetSignature } from '../storage/storage';
 import { recordUsage } from '../usage/usage';
-import { applyEdits, EditOperations, EXT, MIME, normalizeOriginal, probeImage, type ImageFormat } from './processing';
+import { applyEdits, EditOperations, EXT, makeListingVariants, MIME, normalizeOriginal, probeImage, type ImageFormat } from './processing';
 
 const EditBody = z.object({ operations: EditOperations, promotional: z.boolean().default(false) });
 const ValidateQuery = z.object({ marketplace: z.enum(MARKETPLACE_IDS) });
+const VariantsBody = z.object({ marketplace: z.enum(MARKETPLACE_IDS).default('mercado_livre') });
 
 export function serializeAsset(ctx: AppContext, a: Asset) {
   return {
@@ -180,6 +181,58 @@ export function imageRoutes(app: FastifyInstance, ctx: AppContext) {
     return reply.code(201).send({ asset: serializeAsset(ctx, asset) });
   });
 
+  /**
+   * Cinco imagens para o anúncio a partir de uma foto ORIGINAL do vendedor.
+   * Gerar de novo substitui as anteriores dessa mesma foto. A "principal"
+   * (fundo branco) vira a foto principal do produto.
+   */
+  app.post('/api/assets/:id/variants', { ...auth, config: { rateLimit: imageLimit } }, async (request, reply) => {
+    const userId = uid(request);
+    const { id } = request.params as { id: string };
+    const { marketplace } = VariantsBody.parse(request.body ?? {});
+    const source = await ownedAsset(ctx, userId, id);
+    if (source.kind !== 'original') throw new AppError(400, 'not_original', 'Gere as versões a partir de uma foto original.');
+    const user = await ctx.db.user.findUniqueOrThrow({ where: { id: userId }, select: { settings: true } });
+    const rules = effectiveRules(marketplace, ((user.settings as Record<string, ProfileOverrides>) ?? {})[marketplace] ?? {});
+
+    const old = await ctx.db.asset.findMany({ where: { userId, parentId: id, edits: { path: ['variant'], not: 'null' } } });
+    const { variants, cutout } = await makeListingVariants(await ctx.storage.get(source.storageKey), rules.imageRecommendedSize);
+    for (const a of old) {
+      await ctx.storage.delete(a.storageKey).catch(() => {});
+      await ctx.db.asset.delete({ where: { id: a.id } });
+    }
+    const created = [];
+    for (const v of variants)
+      created.push(
+        await storeAsset(ctx, {
+          userId,
+          productId: source.productId,
+          buffer: v.buffer,
+          format: v.format,
+          width: v.width,
+          height: v.height,
+          kind: 'edited',
+          parentId: id,
+          edits: { variant: v.key, label: v.label, marketplace },
+        }),
+      );
+    await recordUsage(ctx, userId, 'image_process');
+    const main = created[0]!;
+    await ctx.db.$transaction([
+      ctx.db.asset.updateMany({ where: { userId, productId: source.productId }, data: { isMain: false } }),
+      ctx.db.asset.update({ where: { id: main.id }, data: { isMain: true } }),
+    ]);
+    const fresh = await ctx.db.asset.findMany({ where: { id: { in: created.map((c) => c.id) } }, orderBy: { createdAt: 'asc' } });
+    return reply.code(201).send({
+      assets: fresh.map((a) => serializeAsset(ctx, a)),
+      note: !cutout
+        ? 'O fundo da foto não é liso, então não geramos as versões de estúdio. Para as 5 versões, fotografe o produto num fundo de cor única.'
+        : variants.length < 5
+          ? 'O produto aparece pequeno na foto, então não geramos o close (ficaria borrado). Fotografe mais de perto para ter as 5 versões.'
+          : null,
+    });
+  });
+
   app.post('/api/assets/:id/remove-background', { ...auth, config: { rateLimit: { max: 10, timeWindow: '1 minute' } } }, async (request, reply) => {
     const userId = uid(request);
     if (!ctx.bgRemover)
@@ -222,8 +275,12 @@ export function imageRoutes(app: FastifyInstance, ctx: AppContext) {
     const userId = uid(request);
     const { id } = request.params as { id: string };
     const asset = await ownedAsset(ctx, userId, id);
-    await ctx.storage.delete(asset.storageKey);
-    await ctx.db.asset.delete({ where: { id } });
+    // Versões feitas a partir desta foto saem junto: não faz sentido anunciar a foto que o vendedor removeu.
+    const derived = await ctx.db.asset.findMany({ where: { userId, parentId: id } });
+    for (const a of [...derived, asset]) {
+      await ctx.storage.delete(a.storageKey).catch(() => {});
+      await ctx.db.asset.delete({ where: { id: a.id } });
+    }
     return { ok: true };
   });
 

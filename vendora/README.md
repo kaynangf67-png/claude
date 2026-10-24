@@ -22,6 +22,8 @@ Legenda: **1** implementado e testado · **2** implementado, não testado em amb
 | Envio de fotos (até 6, reduzidas no aparelho antes do envio) | 1 | E2E no navegador, desktop e celular |
 | Leitura das fotos pela IA (Claude com visão, saída estruturada) | 2 · 3 | Testado com resposta simulada da API. **Exige `ANTHROPIC_API_KEY`**; sem ela, as fotos ficam salvas e o vendedor preenche os dados |
 | Fotos de venda automáticas (remove fundo liso das bordas, quadrado branco, tamanho do canal, sem ampliar o produto) | 1 | Fundos com textura não são removidos: use o editor ou a remoção de fundo |
+| 5 fotos para o anúncio a partir da foto principal (branco, estúdio, close, vertical, ambiente), geradas ao escolher a foto | 1 | É a foto real reenquadrada, não imagem gerada por IA. Estúdio e ambiente exigem fundo liso; o close exige produto grande o bastante na foto |
+| Botão "Gerar título com IA" (nome do produto a partir das fotos) | 2 · 3 | Testado com leitura simulada. **Exige `ANTHROPIC_API_KEY`**; sem ela, o botão explica que não está ativo |
 | Extração por link (JSON-LD, microdados, Open Graph, meta) — só API, fora da interface | 1 | Testada com páginas de teste fictícias |
 | Extração em **lojas reais** | 2 | A rede deste ambiente bloqueia sites externos; o código nunca foi exercitado contra uma loja real. Grandes marketplaces costumam bloquear robôs — a importação manual cobre esse caso |
 | Falha de extração registrada com motivo, sem dados inventados; importação manual | 1 | Testes + E2E |
@@ -36,10 +38,9 @@ Legenda: **1** implementado e testado · **2** implementado, não testado em amb
 | Histórico, painel com indicadores de uso, configurações, exclusão de conta | 1 | |
 | Controle de acesso por usuário, verificação de origem (CSRF), limite de login | 1 | |
 | Limites de uso por hora (análises) e por IP nas demais rotas | 2 | Configurados; só o limite de login tem teste |
-| Retenção: imagens órfãs, sessões e estados OAuth expirados | 1 | Roda na subida e a cada 6 h; `npm run retention -w server` para execução avulsa |
+| Retenção: imagens órfãs e sessões expiradas | 1 | Roda na subida e a cada 6 h; `npm run retention -w server` para execução avulsa |
 | Armazenamento local | 1 | |
 | Armazenamento S3/R2/MinIO | 2 · 3 | Exige bucket e credenciais |
-| Mercado Livre: conexão OAuth (PKCE), renovação de token, leitura de anúncio pela API | 2 · 3 | Exige app no DevCenter (`ML_CLIENT_ID`/`ML_CLIENT_SECRET`); mapeamento da resposta testado com dados simulados |
 | Shopee e TikTok Shop: autorização de conta | 4 | Exigem aprovação como parceiro antes de liberar credenciais |
 | **Publicação automática e consulta de status** (todos os canais) | 4 | A rota responde 501 e a interface diz isso. Use a exportação |
 | Sugestão de categoria via API do marketplace | 4 | Hoje só a IA sugere, com nível de confiança e a base usada |
@@ -67,7 +68,7 @@ vendora/
 │       ├── products/      análise, cadastro manual, correção de campos
 │       ├── images/        processamento (sharp), remoção de fundo, rotas
 │       ├── listings/      geração, versões, regeneração, exportação
-│       ├── marketplaces/  adaptadores (autorização, envio, status), configurações, integrações, uso
+│       ├── marketplaces/  regras dos canais, configurações, uso
 │       └── storage/       local ou S3, URLs assinadas
 │   └── src/security/      validação de URL e fetch protegido contra SSRF
 └── web/      React + TypeScript + Vite + Tailwind CSS 4 + Framer Motion
@@ -87,7 +88,7 @@ Provedores são injetados em `AppContext` (`server/src/context.ts`): trocar a IA
 
 ### Banco de dados
 
-`server/prisma/schema.prisma`: `User`, `Session`, `Product` (dados + status de cada campo + motivo da falha), `Listing` e `ListingVersion` (cada edição/regeneração é uma versão), `Asset` (original × editada, com `parentId` apontando para a original), `MarketplaceConnection` (tokens cifrados), `OAuthState`, `UsageEvent`. Migrações em `server/prisma/migrations`.
+`server/prisma/schema.prisma`: `User`, `Session`, `Product` (dados + status de cada campo + motivo da falha), `Listing` e `ListingVersion` (cada edição/regeneração é uma versão), `Asset` (original × editada, com `parentId` apontando para a original), `UsageEvent`. Migrações em `server/prisma/migrations`.
 
 ---
 
@@ -118,7 +119,7 @@ npm run typecheck
 
 A suíte do servidor aplica as migrações em `TEST_DATABASE_URL` e **apaga os dados desse banco** — nunca aponte para produção. Os testes não acessam a internet: páginas de lojas e respostas de APIs são simuladas e identificadas como fictícias.
 
-Cobertura principal: validação de URLs/SSRF, extração e falhas de extração, fluxo completo (cadastro → análise → imagens → edição → anúncio → versões → exportação), isolamento entre usuários, OAuth com `state` inválido, retenção, limite de login, editor (histórico, recorte, ajustes).
+Cobertura principal: validação de URLs/SSRF, extração e falhas de extração, fluxo completo (cadastro → análise → imagens → edição → anúncio → versões → exportação), isolamento entre usuários, retenção, limite de login, editor (histórico, recorte, ajustes).
 
 ---
 
@@ -157,19 +158,9 @@ Checklist de produção:
 - Depois da IA, `postProcess` aplica os limites do canal, remove especificações sem fonte, rebaixa "fatos" sem fonte para "sugestão de marketing" e lista alertas.
 - Trocar de provedor: implemente `ListingGenerator` (`server/src/modules/ai/types.ts`) e registre em `createContext`.
 
-### Mercado Livre
+### Marketplaces
 
-1. Crie um app em <https://developers.mercadolivre.com.br/devcenter>.
-2. Redirect URI: `APP_URL/api/integrations/mercado_livre/callback`.
-3. Defina `ML_CLIENT_ID` e `ML_CLIENT_SECRET`.
-4. Em **Integrações**, clique em "Conectar conta". O `state` é de uso único, expira em 10 min e é vinculado ao usuário logado; o PKCE (S256) protege a troca do código.
-5. Com a conta conectada, links de anúncios (`MLB-...`) são lidos por `GET /items/{id}` e `/items/{id}/description` em vez da página pública.
-
-Não implementado: publicação (`POST /items`), atributos obrigatórios por categoria, consulta de status, preditor de categoria.
-
-### Shopee e TikTok Shop
-
-Ambas exigem cadastro e aprovação como parceiro (Shopee Open Platform, TikTok Shop Partner Center) antes de liberar credenciais. Os adaptadores existem para manter a arquitetura; até a aprovação, só exportação manual.
+Não há integração com as contas do Mercado Livre, da Shopee ou do TikTok Shop: o anúncio é exportado (ZIP, TXT ou JSON) e publicado pelo painel do vendedor. Foi removida de propósito para manter o produto simples.
 
 ### Remoção de fundo — remove.bg
 
@@ -193,6 +184,6 @@ Revisadas em **23/10/2026** (`shared/src/marketplaces.ts`). Só são oficiais as
 - **Uploads**: tipo detectado pelo conteúdo (JPG/PNG/WEBP), limite de pixels contra "bombas de descompressão", metadados EXIF/GPS removidos, nomes de arquivo gerados pelo servidor.
 - **Sessão**: token aleatório no cookie httpOnly; no banco só o SHA-256. Senhas com scrypt. Login com tempo constante para e-mail inexistente.
 - **CSRF**: `SameSite=Lax` + recusa de requisições que alteram dados vindas de outra origem.
-- **Segredos**: chaves só no servidor; tokens OAuth cifrados com AES-256-GCM; logs sem cookies, cabeçalhos de autenticação e senhas; erros internos não chegam ao usuário.
+- **Segredos**: chaves só no servidor; URLs de imagem assinadas; logs sem cookies, cabeçalhos de autenticação e senhas; erros internos não chegam ao usuário.
 - **Acesso**: toda consulta filtra por `userId`; imagens servidas por URL assinada com validade.
 - **Cabeçalhos**: Helmet com CSP restrita (`script-src 'self'`).

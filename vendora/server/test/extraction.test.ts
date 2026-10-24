@@ -1,6 +1,5 @@
 import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { fetchMercadoLivreItem, mercadoLivreItemId } from '../src/modules/extraction/mercadolivre';
 import { looksBlocked, parseProductPage } from '../src/modules/extraction/parse';
 import { clearRobotsCache } from '../src/modules/extraction/robots';
 import { extractProduct, type ExtractionDeps } from '../src/modules/extraction/service';
@@ -15,7 +14,6 @@ const deps = (routes: Parameters<typeof fakeFetcher>[0], extra: Partial<Extracti
   timeoutMs: 1000,
   maxBytes: 1024 * 1024,
   respectRobots: true,
-  mlApiUrl: 'https://api.mercadolibre.com',
   ...extra,
 });
 
@@ -106,40 +104,5 @@ describe('extractProduct', () => {
 
   it('URL interna é recusada antes de qualquer acesso', async () => {
     await expect(extractProduct('http://169.254.169.254/latest', deps({}))).rejects.toMatchObject({ code: 'blocked_url' });
-  });
-});
-
-describe('Mercado Livre', () => {
-  it('reconhece IDs de anúncio', () => {
-    expect(mercadoLivreItemId(new URL('https://produto.mercadolivre.com.br/MLB-1234567890-garrafa-_JM'))).toBe('MLB1234567890');
-    expect(mercadoLivreItemId(new URL('https://www.mercadolivre.com.br/garrafa/p/MLB123456'))).toBeNull();
-    expect(mercadoLivreItemId(new URL('https://www.outraloja.com/MLB-1234567890'))).toBeNull();
-  });
-
-  it('mapeia a resposta da API de itens', async () => {
-    const api = 'https://api.mercadolibre.com';
-    const fetcher = fakeFetcher({
-      [`${api}/items/MLB1`]: {
-        contentType: 'application/json',
-        body: JSON.stringify({
-          id: 'MLB1',
-          title: 'Garrafa Termix TX-500',
-          price: 89.9,
-          currency_id: 'BRL',
-          category_id: 'MLB1234',
-          attributes: [
-            { id: 'BRAND', name: 'Marca', value_name: 'Termix' },
-            { id: 'MODEL', name: 'Modelo', value_name: 'TX-500' },
-            { id: 'CAPACITY', name: 'Capacidade', value_name: '500 mL' },
-          ],
-          pictures: [{ secure_url: 'https://http2.mlstatic.com/D_1.jpg' }],
-        }),
-      },
-      [`${api}/items/MLB1/description`]: { contentType: 'application/json', body: '{"plain_text":"Garrafa de inox."}' },
-    });
-    const r = (await fetchMercadoLivreItem('MLB1', 'tok', api, fetcher, { timeoutMs: 1000, userAgent: 'x' }))!;
-    expect(r.data).toMatchObject({ brand: 'Termix', model: 'TX-500', description: 'Garrafa de inox.' });
-    expect(r.data.specifications).toEqual([{ name: 'Capacidade', value: '500 mL' }]);
-    expect(r.fieldStatus.gtin).toBe('missing');
   });
 });

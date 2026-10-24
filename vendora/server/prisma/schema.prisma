@@ -21,8 +21,6 @@ model User {
   products     Product[]
   listings     Listing[]
   assets       Asset[]
-  connections  MarketplaceConnection[]
-  oauthStates  OAuthState[]
   usageEvents  UsageEvent[]
 }
 
@@ -152,40 +150,6 @@ model Asset {
 
   @@index([userId, productId])
   @@index([createdAt])
-}
-
-enum ConnectionStatus {
-  connected
-  expired
-  revoked
-}
-
-model MarketplaceConnection {
-  id              String           @id @default(cuid())
-  userId          String
-  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  marketplace     Marketplace
-  externalUserId  String
-  /// Tokens cifrados com AES-256-GCM (TOKEN_ENCRYPTION_KEY).
-  accessTokenEnc  String
-  refreshTokenEnc String?
-  expiresAt       DateTime
-  scopes          String?
-  status          ConnectionStatus @default(connected)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-
-  @@unique([userId, marketplace])
-}
-
-model OAuthState {
-  state        String      @id
-  userId       String
-  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  marketplace  Marketplace
-  codeVerifier String
-  expiresAt    DateTime
-  createdAt    DateTime    @default(now())
 }
 
 enum UsageType {
