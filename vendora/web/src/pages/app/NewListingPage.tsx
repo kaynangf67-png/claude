@@ -303,8 +303,8 @@ export function NewListingPage() {
                   type="button"
                   disabled={busy}
                   onClick={() => fileInput.current?.click()}
-                  className={`flex aspect-square flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-ink-300 bg-white text-ink-500 transition hover:border-violet-brand hover:text-violet-brand ${
-                    photos.length === 0 ? 'col-span-3 aspect-auto py-12 sm:col-span-6' : ''
+                  className={`flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-ink-300 bg-white text-ink-500 transition hover:border-violet-brand hover:text-violet-brand ${
+                    photos.length === 0 ? 'col-span-3 h-40 sm:col-span-6' : 'aspect-square'
                   }`}
                 >
                   <Camera className="size-6" />
