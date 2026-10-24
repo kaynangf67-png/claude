@@ -443,7 +443,7 @@ export function NewListingPage() {
                         <img
                           src={v.url}
                           alt={String(v.edits?.label ?? 'Foto do anúncio')}
-                          className="aspect-square w-full rounded-xl border border-ink-200 bg-surface object-contain"
+                          className="aspect-square w-full rounded-xl border border-ink-200 bg-white object-contain"
                         />
                         <a
                           href={v.url}
