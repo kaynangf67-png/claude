@@ -2,7 +2,8 @@
 """Passo 2: monta o vídeo-base a partir das tomadas escolhidas.
 
 Lê DIR/in.mp4 e DIR/tomadas.json ([[início, fim, "comentário"], ...] em segundos da fonte, na
-ordem de montagem). Remove pausas > 0,3 s dentro de cada tomada, acelera a fala (tom mantido),
+ordem de montagem; um 4º campo true mantém a tomada inteira, sem cortar pausas — use quando
+uma palavra falada baixo some, ex. "antes que acabe a sua"). Remove pausas > 0,3 s dentro de cada tomada, acelera a fala (tom mantido),
 alterna zoom a cada corte e grava:
   DIR/base.mp4  1080x1920, 30 fps, sem áudio (keyframe a cada 1 s, exigido pelo HyperFrames)
   DIR/voz.wav   voz tratada, -14 LUFS
@@ -36,7 +37,10 @@ def silencios(src):
 def trechos(src, tomadas):
     sil = silencios(src)
     out = []
-    for a, b in tomadas:
+    for a, b, inteira in tomadas:
+        if inteira:
+            out.append((round(a, 3), round(b, 3)))
+            continue
         t = a
         for s, e in sil:
             if e <= a or s >= b:
@@ -76,7 +80,7 @@ def main():
     a = ap.parse_args()
     D, VEL = a.dir, a.vel
     src = os.path.join(D, "in.mp4")
-    tomadas = [(t[0], t[1]) for t in json.load(open(os.path.join(D, "tomadas.json")))]
+    tomadas = [(t[0], t[1], len(t) > 3 and t[3] is True) for t in json.load(open(os.path.join(D, "tomadas.json")))]
     keep = trechos(src, tomadas)
     json.dump(keep, open(os.path.join(D, "keep.json"), "w"))
     total = sum(b - a for a, b in keep) / VEL

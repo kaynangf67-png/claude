@@ -1,0 +1,502 @@
+[
+{
+"text": "Se",
+"start": 0.06,
+"end": 0.14
+},
+{
+"text": "você",
+"start": 0.14,
+"end": 0.38
+},
+{
+"text": "ainda",
+"start": 0.38,
+"end": 0.54
+},
+{
+"text": "gasta",
+"start": 0.54,
+"end": 0.86
+},
+{
+"text": "com",
+"start": 0.86,
+"end": 1.02
+},
+{
+"text": "isso",
+"start": 1.02,
+"end": 1.18
+},
+{
+"text": "daqui,",
+"start": 1.18,
+"end": 1.5
+},
+{
+"text": "você",
+"start": 1.5,
+"end": 1.66
+},
+{
+"text": "tá",
+"start": 1.66,
+"end": 1.82
+},
+{
+"text": "deixando",
+"start": 1.82,
+"end": 2.14
+},
+{
+"text": "dinheiro",
+"start": 2.14,
+"end": 2.46
+},
+{
+"text": "na",
+"start": 2.46,
+"end": 2.62
+},
+{
+"text": "mesa.",
+"start": 2.62,
+"end": 2.94
+},
+{
+"text": "Porque",
+"start": 2.94,
+"end": 3.26
+},
+{
+"text": "toda",
+"start": 3.26,
+"end": 3.42
+},
+{
+"text": "semana,",
+"start": 3.42,
+"end": 3.74
+},
+{
+"text": "se",
+"start": 3.74,
+"end": 3.82
+},
+{
+"text": "você",
+"start": 3.82,
+"end": 3.98
+},
+{
+"text": "gasta",
+"start": 3.98,
+"end": 4.3
+},
+{
+"text": "20,",
+"start": 4.3,
+"end": 4.7
+},
+{
+"text": "20",
+"start": 4.7,
+"end": 5.02
+},
+{
+"text": "reais",
+"start": 5.02,
+"end": 5.26
+},
+{
+"text": "comprando",
+"start": 5.26,
+"end": 5.66
+},
+{
+"text": "isso",
+"start": 5.66,
+"end": 5.9
+},
+{
+"text": "daqui,",
+"start": 5.9,
+"end": 6.22
+},
+{
+"text": "isso",
+"start": 6.22,
+"end": 6.38
+},
+{
+"text": "daqui",
+"start": 6.38,
+"end": 6.62
+},
+{
+"text": "na",
+"start": 6.62,
+"end": 6.7
+},
+{
+"text": "primeiro",
+"start": 6.7,
+"end": 7.02
+},
+{
+"text": "uso",
+"start": 7.02,
+"end": 7.34
+},
+{
+"text": "já",
+"start": 7.34,
+"end": 7.5
+},
+{
+"text": "é",
+"start": 7.5,
+"end": 7.58
+},
+{
+"text": "pra",
+"start": 7.58,
+"end": 7.74
+},
+{
+"text": "jogar",
+"start": 7.74,
+"end": 7.98
+},
+{
+"text": "fora.",
+"start": 7.98,
+"end": 8.223
+},
+{
+"text": "Com",
+"start": 8.283,
+"end": 8.523
+},
+{
+"text": "isso,",
+"start": 8.523,
+"end": 8.763
+},
+{
+"text": "em",
+"start": 8.763,
+"end": 8.923
+},
+{
+"text": "duas",
+"start": 8.923,
+"end": 9.163
+},
+{
+"text": "semanas",
+"start": 9.163,
+"end": 9.483
+},
+{
+"text": "você",
+"start": 9.483,
+"end": 9.643
+},
+{
+"text": "já",
+"start": 9.643,
+"end": 9.803
+},
+{
+"text": "compra",
+"start": 9.803,
+"end": 10.123
+},
+{
+"text": "uma",
+"start": 10.123,
+"end": 10.283
+},
+{
+"text": "maquininha",
+"start": 10.283,
+"end": 10.683
+},
+{
+"text": "que",
+"start": 10.683,
+"end": 10.763
+},
+{
+"text": "dura",
+"start": 10.763,
+"end": 11.083
+},
+{
+"text": "para",
+"start": 11.083,
+"end": 11.163
+},
+{
+"text": "a",
+"start": 11.163,
+"end": 11.243
+},
+{
+"text": "vida",
+"start": 11.243,
+"end": 11.483
+},
+{
+"text": "toda.",
+"start": 11.483,
+"end": 11.723
+},
+{
+"text": "E",
+"start": 11.723,
+"end": 11.883
+},
+{
+"text": "além",
+"start": 11.883,
+"end": 12.043
+},
+{
+"text": "do",
+"start": 12.043,
+"end": 12.123
+},
+{
+"text": "mais,",
+"start": 12.123,
+"end": 12.363
+},
+{
+"text": "ela",
+"start": 12.363,
+"end": 12.523
+},
+{
+"text": "ainda",
+"start": 12.523,
+"end": 12.683
+},
+{
+"text": "vem",
+"start": 12.683,
+"end": 12.843
+},
+{
+"text": "com",
+"start": 12.843,
+"end": 12.923
+},
+{
+"text": "esse",
+"start": 12.923,
+"end": 13.083
+},
+{
+"text": "carregador",
+"start": 13.083,
+"end": 13.563
+},
+{
+"text": "aqui,",
+"start": 13.563,
+"end": 13.803
+},
+{
+"text": "então",
+"start": 13.803,
+"end": 14.043
+},
+{
+"text": "você",
+"start": 14.043,
+"end": 14.203
+},
+{
+"text": "não",
+"start": 14.203,
+"end": 14.283
+},
+{
+"text": "vai",
+"start": 14.283,
+"end": 14.443
+},
+{
+"text": "precisar",
+"start": 14.443,
+"end": 14.763
+},
+{
+"text": "se",
+"start": 14.763,
+"end": 14.923
+},
+{
+"text": "preocupar",
+"start": 14.923,
+"end": 15.243
+},
+{
+"text": "com",
+"start": 15.243,
+"end": 15.403
+},
+{
+"text": "pilha",
+"start": 15.403,
+"end": 15.723
+},
+{
+"text": "porque",
+"start": 15.723,
+"end": 15.883
+},
+{
+"text": "ela",
+"start": 15.883,
+"end": 15.963
+},
+{
+"text": "é",
+"start": 15.963,
+"end": 16.043
+},
+{
+"text": "recarregável.",
+"start": 16.043,
+"end": 16.635
+},
+{
+"text": "Ainda",
+"start": 16.635,
+"end": 16.855
+},
+{
+"text": "acompanha",
+"start": 16.855,
+"end": 17.335
+},
+{
+"text": "um",
+"start": 17.335,
+"end": 17.495
+},
+{
+"text": "óleo,",
+"start": 17.495,
+"end": 17.815
+},
+{
+"text": "caso",
+"start": 17.815,
+"end": 18.055
+},
+{
+"text": "a",
+"start": 18.055,
+"end": 18.135
+},
+{
+"text": "sua",
+"start": 18.135,
+"end": 18.375
+},
+{
+"text": "segue",
+"start": 18.375,
+"end": 18.695
+},
+{
+"text": "e",
+"start": 18.695,
+"end": 18.775
+},
+{
+"text": "tem",
+"start": 18.775,
+"end": 18.935
+},
+{
+"text": "um",
+"start": 18.935,
+"end": 19.095
+},
+{
+"text": "pentinho",
+"start": 19.095,
+"end": 19.495
+},
+{
+"text": "de",
+"start": 19.495,
+"end": 19.655
+},
+{
+"text": "limpeza",
+"start": 19.655,
+"end": 20.055
+},
+{
+"text": "também.",
+"start": 20.055,
+"end": 20.375
+},
+{
+"text": "Então",
+"start": 20.375,
+"end": 20.615
+},
+{
+"text": "clica",
+"start": 20.615,
+"end": 20.935
+},
+{
+"text": "aí",
+"start": 20.935,
+"end": 21.095
+},
+{
+"text": "e",
+"start": 21.095,
+"end": 21.175
+},
+{
+"text": "garante",
+"start": 21.175,
+"end": 21.575
+},
+{
+"text": "antes",
+"start": 21.575,
+"end": 21.735
+},
+{
+"text": "que",
+"start": 21.735,
+"end": 21.815
+},
+{
+"text": "acabe",
+"start": 21.815,
+"end": 22.215
+},
+{
+"text": "a",
+"start": 22.215,
+"end": 22.375
+},
+{
+"text": "sua.",
+"start": 22.375,
+"end": 22.794
+}
+]

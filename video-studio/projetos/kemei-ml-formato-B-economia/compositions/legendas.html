@@ -1,0 +1,67 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; pointer-events: none; }
+    #root .band { position: absolute; left: 0; right: 0; top: 1225px; height: 100px; }
+    #root .grp { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      opacity: 0; overflow: visible; }
+    #root .line { display: flex; gap: 0 30px; justify-content: center; align-items: center; width: 100%;
+      flex-wrap: nowrap; white-space: nowrap; padding: 0 60px; }
+    #root .w { display: inline-block; font-family: Montserrat; font-weight: 900; font-size: 62px;
+      line-height: 1.05; letter-spacing: -0.01em; color: #fff; -webkit-text-stroke: 7px #000;
+      paint-order: stroke fill; text-shadow: 0 8px 18px rgba(0,0,0,.45); transform-origin: 50% 60%; }
+  </style>
+  <div id="root" data-composition-id="legendas">
+    <div class="band" data-layout-allow-overflow>
+      <div id="lg-g0" class="grp" data-a="0.100" data-b="0.810"><div class="line"><span id="lg-w0-0" class="w" data-t="0.060">SE</span><span id="lg-w0-1" class="w" data-t="0.140">VOCÊ</span><span id="lg-w0-2" class="w" data-t="0.380">AINDA</span><span id="lg-w0-3" class="w" data-t="0.540">GASTA</span></div></div>
+      <div id="lg-g1" class="grp" data-a="0.810" data-b="1.450"><div class="line"><span id="lg-w1-0" class="w" data-t="0.860">COM</span><span id="lg-w1-1" class="w" data-t="1.020">ISSO</span><span id="lg-w1-2" class="w" data-t="1.180">DAQUI,</span></div></div>
+      <div id="lg-g2" class="grp" data-a="1.450" data-b="2.090"><div class="line"><span id="lg-w2-0" class="w" data-t="1.500">VOCÊ</span><span id="lg-w2-1" class="w" data-t="1.660">TÁ</span><span id="lg-w2-2" class="w" data-t="1.820">DEIXANDO</span></div></div>
+      <div id="lg-g3" class="grp" data-a="2.090" data-b="2.890"><div class="line"><span id="lg-w3-0" class="w key" data-t="2.140">DINHEIRO</span><span id="lg-w3-1" class="w" data-t="2.460">NA</span><span id="lg-w3-2" class="w key" data-t="2.620">MESA.</span></div></div>
+      <div id="lg-g4" class="grp" data-a="2.890" data-b="3.690"><div class="line"><span id="lg-w4-0" class="w" data-t="2.940">PORQUE</span><span id="lg-w4-1" class="w key" data-t="3.260">TODA</span><span id="lg-w4-2" class="w key" data-t="3.420">SEMANA,</span></div></div>
+      <div id="lg-g5" class="grp" data-a="3.690" data-b="5.210"><div class="line"><span id="lg-w5-0" class="w" data-t="3.740">SE</span><span id="lg-w5-1" class="w" data-t="3.820">VOCÊ</span><span id="lg-w5-2" class="w" data-t="3.980">GASTA</span><span id="lg-w5-3" class="w money" data-t="4.300">R$20</span></div></div>
+      <div id="lg-g6" class="grp" data-a="5.210" data-b="6.170"><div class="line"><span id="lg-w6-0" class="w" data-t="5.260">COMPRANDO</span><span id="lg-w6-1" class="w" data-t="5.660">ISSO</span><span id="lg-w6-2" class="w" data-t="5.900">DAQUI,</span></div></div>
+      <div id="lg-g7" class="grp" data-a="6.170" data-b="6.970"><div class="line"><span id="lg-w7-0" class="w" data-t="6.220">ISSO</span><span id="lg-w7-1" class="w" data-t="6.380">DAQUI</span><span id="lg-w7-2" class="w" data-t="6.620">NO</span><span id="lg-w7-3" class="w" data-t="6.700">PRIMEIRO</span></div></div>
+      <div id="lg-g8" class="grp" data-a="6.970" data-b="7.930"><div class="line"><span id="lg-w8-0" class="w" data-t="7.020">USO</span><span id="lg-w8-1" class="w" data-t="7.340">JÁ</span><span id="lg-w8-2" class="w" data-t="7.500">É</span><span id="lg-w8-3" class="w" data-t="7.580">PRA</span><span id="lg-w8-4" class="w key" data-t="7.740">JOGAR</span></div></div>
+      <div id="lg-g9" class="grp" data-a="7.930" data-b="8.233"><div class="line"><span id="lg-w9-0" class="w key" data-t="7.980">FORA.</span></div></div>
+      <div id="lg-g10" class="grp" data-a="8.233" data-b="8.713"><div class="line"><span id="lg-w10-0" class="w" data-t="8.283">COM</span><span id="lg-w10-1" class="w" data-t="8.523">ISSO,</span></div></div>
+      <div id="lg-g11" class="grp" data-a="8.713" data-b="9.593"><div class="line"><span id="lg-w11-0" class="w" data-t="8.763">EM</span><span id="lg-w11-1" class="w key" data-t="8.923">DUAS</span><span id="lg-w11-2" class="w key" data-t="9.163">SEMANAS</span><span id="lg-w11-3" class="w" data-t="9.483">VOCÊ</span></div></div>
+      <div id="lg-g12" class="grp" data-a="9.593" data-b="10.233"><div class="line"><span id="lg-w12-0" class="w" data-t="9.643">JÁ</span><span id="lg-w12-1" class="w" data-t="9.803">COMPRA</span><span id="lg-w12-2" class="w" data-t="10.123">UMA</span></div></div>
+      <div id="lg-g13" class="grp" data-a="10.233" data-b="11.033"><div class="line"><span id="lg-w13-0" class="w key" data-t="10.283">MAQUININHA</span><span id="lg-w13-1" class="w" data-t="10.683">QUE</span><span id="lg-w13-2" class="w" data-t="10.763">DURA</span></div></div>
+      <div id="lg-g14" class="grp" data-a="11.033" data-b="11.673"><div class="line"><span id="lg-w14-0" class="w" data-t="11.083">PARA</span><span id="lg-w14-1" class="w" data-t="11.163">A</span><span id="lg-w14-2" class="w key" data-t="11.243">VIDA</span><span id="lg-w14-3" class="w key" data-t="11.483">TODA.</span></div></div>
+      <div id="lg-g15" class="grp" data-a="11.673" data-b="12.313"><div class="line"><span id="lg-w15-0" class="w" data-t="11.723">E</span><span id="lg-w15-1" class="w" data-t="11.883">ALÉM</span><span id="lg-w15-2" class="w" data-t="12.043">DO</span><span id="lg-w15-3" class="w" data-t="12.123">MAIS,</span></div></div>
+      <div id="lg-g16" class="grp" data-a="12.313" data-b="13.033"><div class="line"><span id="lg-w16-0" class="w" data-t="12.363">ELA</span><span id="lg-w16-1" class="w" data-t="12.523">AINDA</span><span id="lg-w16-2" class="w" data-t="12.683">VEM</span><span id="lg-w16-3" class="w" data-t="12.843">COM</span><span id="lg-w16-4" class="w" data-t="12.923">ESSE</span></div></div>
+      <div id="lg-g17" class="grp" data-a="13.033" data-b="13.753"><div class="line"><span id="lg-w17-0" class="w key" data-t="13.083">CARREGADOR</span><span id="lg-w17-1" class="w" data-t="13.563">AQUI,</span></div></div>
+      <div id="lg-g18" class="grp" data-a="13.753" data-b="14.393"><div class="line"><span id="lg-w18-0" class="w" data-t="13.803">ENTÃO</span><span id="lg-w18-1" class="w" data-t="14.043">VOCÊ</span><span id="lg-w18-2" class="w" data-t="14.203">NÃO</span><span id="lg-w18-3" class="w" data-t="14.283">VAI</span></div></div>
+      <div id="lg-g19" class="grp" data-a="14.393" data-b="15.193"><div class="line"><span id="lg-w19-0" class="w" data-t="14.443">PRECISAR</span><span id="lg-w19-1" class="w" data-t="14.763">SE</span><span id="lg-w19-2" class="w" data-t="14.923">PREOCUPAR</span></div></div>
+      <div id="lg-g20" class="grp" data-a="15.193" data-b="15.993"><div class="line"><span id="lg-w20-0" class="w" data-t="15.243">COM</span><span id="lg-w20-1" class="w" data-t="15.403">PILHA</span><span id="lg-w20-2" class="w" data-t="15.723">PORQUE</span><span id="lg-w20-3" class="w" data-t="15.883">ELA</span><span id="lg-w20-4" class="w" data-t="15.963">É</span></div></div>
+      <div id="lg-g21" class="grp" data-a="15.993" data-b="16.585"><div class="line"><span id="lg-w21-0" class="w key" data-t="16.043">RECARREGÁVEL.</span></div></div>
+      <div id="lg-g22" class="grp" data-a="16.585" data-b="17.445"><div class="line"><span id="lg-w22-0" class="w" data-t="16.635">AINDA</span><span id="lg-w22-1" class="w" data-t="16.855">ACOMPANHA</span><span id="lg-w22-2" class="w" data-t="17.335">UM</span></div></div>
+      <div id="lg-g23" class="grp" data-a="17.445" data-b="17.765"><div class="line"><span id="lg-w23-0" class="w key" data-t="17.495">ÓLEO,</span></div></div>
+      <div id="lg-g24" class="grp" data-a="17.765" data-b="18.725"><div class="line"><span id="lg-w24-0" class="w" data-t="17.815">CASO</span><span id="lg-w24-1" class="w" data-t="18.055">A</span><span id="lg-w24-2" class="w" data-t="18.135">SUA</span><span id="lg-w24-3" class="w" data-t="18.375">SEQUE</span><span id="lg-w24-4" class="w" data-t="18.695">E</span></div></div>
+      <div id="lg-g25" class="grp" data-a="18.725" data-b="19.605"><div class="line"><span id="lg-w25-0" class="w" data-t="18.775">TEM</span><span id="lg-w25-1" class="w" data-t="18.935">UM</span><span id="lg-w25-2" class="w" data-t="19.095">PENTINHO</span><span id="lg-w25-3" class="w" data-t="19.495">DE</span></div></div>
+      <div id="lg-g26" class="grp" data-a="19.605" data-b="20.325"><div class="line"><span id="lg-w26-0" class="w key" data-t="19.655">LIMPEZA</span><span id="lg-w26-1" class="w" data-t="20.055">TAMBÉM.</span></div></div>
+      <div id="lg-g27" class="grp" data-a="20.325" data-b="21.125"><div class="line"><span id="lg-w27-0" class="w" data-t="20.375">ENTÃO</span><span id="lg-w27-1" class="w" data-t="20.615">CLICA</span><span id="lg-w27-2" class="w" data-t="20.935">AÍ</span><span id="lg-w27-3" class="w" data-t="21.095">E</span></div></div>
+      <div id="lg-g28" class="grp" data-a="21.125" data-b="21.765"><div class="line"><span id="lg-w28-0" class="w key" data-t="21.175">GARANTE</span><span id="lg-w28-1" class="w" data-t="21.575">ANTES</span><span id="lg-w28-2" class="w" data-t="21.735">QUE</span></div></div>
+      <div id="lg-g29" class="grp" data-a="21.765" data-b="22.750"><div class="line"><span id="lg-w29-0" class="w" data-t="21.815">ACABE</span><span id="lg-w29-1" class="w" data-t="22.215">A</span><span id="lg-w29-2" class="w" data-t="22.375">SUA.</span></div></div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var tl = gsap.timeline({ paused: true });
+      document.querySelectorAll("#root .grp").forEach(function (g) {
+        var a = +g.dataset.a, b = +g.dataset.b;
+        var din = Math.min(0.13, (b - a) * 0.4), dout = Math.min(0.08, (b - a) * 0.25);
+        tl.fromTo(g, { opacity: 0, scale: 0.86, y: 18 }, { opacity: 1, scale: 1, y: 0, duration: din, ease: "back.out(2.4)" }, a);
+        tl.to(g, { opacity: 0, duration: dout, ease: "power2.in" }, b - dout);
+        tl.set(g, { opacity: 0, visibility: "hidden" }, b);
+        g.querySelectorAll(".w").forEach(function (w) {
+          var t = Math.max(a, +w.dataset.t - 0.03);
+          var cor = w.classList.contains("money") ? "#2BE36B" : (w.classList.contains("key") ? "#FFE500" : "#FFFFFF");
+          var ativo = w.classList.contains("money") ? "#2BE36B" : "#FFE500";
+          tl.fromTo(w, { color: "#FFFFFF", scale: 1 }, { color: ativo, scale: 1.07, duration: 0.07, ease: "power2.out" }, t);
+          tl.to(w, { color: cor, scale: 1, duration: 0.16, ease: "power2.out" }, t + 0.16);
+        });
+      });
+      window.__timelines["legendas"] = tl;
+    })();
+  </script>
+</template>

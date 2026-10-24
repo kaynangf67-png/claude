@@ -39,7 +39,11 @@ Escreva `$SCRATCH/<nome>/tomadas.json` — `[[início, fim, "comentário"], ...]
 python3 video-studio/pipeline/montar.py "$SCRATCH/<nome>" --vel 1.15
 ```
 
-Ele corta pausas > 0,3 s, acelera a fala 1,15x (tom mantido), alterna zoom a cada corte, normaliza a voz e **re-transcreve o resultado**. Leia a FALA FINAL impressa e compare com o mapa: **nenhuma palavra pode ter sumido**. Se sumiu, alargue a tomada naquele ponto e rode de novo.
+Ele corta pausas > 0,3 s, acelera a fala 1,15x (tom mantido), alterna zoom a cada corte, normaliza a voz e **re-transcreve o resultado**. Leia a FALA FINAL impressa e compare com o mapa: **nenhuma palavra pode ter sumido**. Se sumiu, alargue a tomada naquele ponto e rode de novo. Se a palavra é falada tão baixo que o detector a trata como pausa (ex.: "antes que acabe a sua"), separe esse pedaço numa tomada com 4º campo `true` (`[66.36, 67.05, "a sua", true]`) — ela entra inteira, sem corte de pausa.
+
+**Vários vídeos numa edição** (ex.: "recrie formatos diferentes"): junte as fontes com ffmpeg `concat` (normalize fps/escala/áudio antes), crie `in.mp4` apontando para o resultado e some a duração dos vídeos anteriores aos tempos das tomadas. Formatos diferentes = **ângulos de venda diferentes** (problema → solução, economia, kit completo, prova de uso), não só outra edição da mesma fala.
+
+**Mercado Livre Clips**: vertical, até ~60 s, precisa mostrar o produto em uso, um vídeo diferente por anúncio, sem contato do vendedor. Não mostre preço de concorrente (outro marketplace) na tela.
 
 ## 3. Projeto visual
 
