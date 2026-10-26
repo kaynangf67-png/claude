@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  CandlestickSeries, ColorType, CrosshairMode, LineStyle, createChart, createSeriesMarkers,
-  type IChartApi, type IPriceLine, type ISeriesApi, type ISeriesMarkersPluginApi, type Time, type UTCTimestamp,
+  CandlestickSeries, ColorType, CrosshairMode, createChart, createSeriesMarkers,
+  type IChartApi, type ISeriesApi, type ISeriesMarkersPluginApi, type Time, type UTCTimestamp,
 } from 'lightweight-charts';
 import { candleMetrics } from '../core/candle';
 import { fmtPct, fmtPrice } from '../core/format';
 import { formatDateTime, formatTime } from '../core/time';
-import { COLORS, DEFAULT_LAYERS, buildMarkers, buildZoneLines, type Layers } from './chartLayers';
+import { COLORS, DEFAULT_LAYERS, buildMarkers, buildZoneRects, type Layers } from './chartLayers';
+import { ZonesPrimitive } from './zonesPrimitive';
 import { Btn, Chip, Panel, SCENARIO_LABEL, Status, scenarioTone } from './kit';
 import { useStore } from './store';
 
@@ -19,7 +20,7 @@ export function ChartPage() {
   const chart = useRef<IChartApi | null>(null);
   const series = useRef<ISeriesApi<'Candlestick'> | null>(null);
   const markers = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
-  const lines = useRef<IPriceLine[]>([]);
+  const zonesPrim = useRef<ZonesPrimitive | null>(null);
   const byTime = useRef(new Map<number, { v?: number }>());
   const [tip, setTip] = useState<Tip | null>(null);
   const tzRef = useRef(displayTimezone);
@@ -47,6 +48,9 @@ export function ChartPage() {
       priceFormat: { type: 'price', precision: 5, minMove: 0.00001 },
     });
     markers.current = createSeriesMarkers(s, []);
+    const zp = new ZonesPrimitive();
+    s.attachPrimitive(zp);
+    zonesPrim.current = zp;
     c.subscribeCrosshairMove((p) => {
       const d = p.seriesData.get(s);
       if (!p.point || !p.time || !d || !('open' in d)) { setTip(null); return; }
@@ -57,7 +61,7 @@ export function ChartPage() {
     series.current = s;
     return () => {
       c.remove();
-      chart.current = null; series.current = null; markers.current = null; lines.current = [];
+      chart.current = null; series.current = null; markers.current = null; zonesPrim.current = null;
     };
   }, [hasData]);
 
@@ -83,13 +87,7 @@ export function ChartPage() {
         time: m.time as UTCTimestamp, position: m.position, shape: m.shape, color: m.color, text: m.text, size: m.size,
       })),
     );
-    for (const l of lines.current) series.current.removePriceLine(l);
-    lines.current = buildZoneLines(analysis, layers).map((z) =>
-      series.current!.createPriceLine({
-        price: z.price, color: z.color, lineWidth: 1, lineStyle: LineStyle.Dashed,
-        axisLabelVisible: false, title: z.title,
-      }),
-    );
+    zonesPrim.current?.setRects(buildZoneRects(analysis, layers, data.candles));
   }, [analysis, data, layers, focus]);
 
   if (!data || !analysis) {
@@ -164,10 +162,9 @@ export function ChartPage() {
         <ul className="grid gap-x-6 gap-y-1.5 text-xs text-muted sm:grid-cols-2">
           <li><Chip>topo / fundo</Chip> pivô <strong className="text-ink">validado</strong> (afastamento mínimo atingido com candles já fechados).</li>
           <li><Chip>topo? / fundo?</Chip> apenas <strong className="text-ink">candidato geométrico</strong>; ainda não validado pela regra.</li>
-          <li><span className="text-neg">linhas tracejadas vermelhas</span> / <span className="text-pos">verdes</span>: bordas de zonas de resistência / suporte.</li>
+          <li><span className="text-neg">faixa vermelha</span> / <span className="text-pos">verde</span>: zona de resistência / suporte, do primeiro pivô até o último candle (as 6 mais recentes).</li>
           <li><Chip>zona candidata · não é gatilho</Chip> o último candle toca ou se aproxima de uma zona com o histórico mínimo. <strong className="text-ink">Não é entrada.</strong></li>
           <li>Os marcadores de topo/fundo ficam no candle do pivô, mas só foram conhecidos {data ? 'alguns candles depois' : ''} (veja o painel de filtros).</li>
-          <li>Zonas aparecem como linhas por todo o gráfico, embora só existam a partir do primeiro pivô.</li>
         </ul>
       </Panel>
     </div>

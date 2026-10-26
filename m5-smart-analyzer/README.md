@@ -12,7 +12,7 @@ Subprojeto independente dentro do repositório (não depende dos outros projetos
 cd m5-smart-analyzer
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 95 testes do núcleo e das camadas do gráfico
+npm test           # 100 testes do núcleo e das camadas do gráfico
 npm run build      # typecheck + build de produção (dist/)
 npm run preview    # serve o build
 ```
@@ -26,7 +26,8 @@ Regenerar o exemplo: `npx jiti scripts/gerar-exemplo.ts`.
 1. Importe um CSV (`timestamp,open,high,low,close[,volume]`). Se os horários não trouxerem fuso (`Z`, `-03:00`), escolha o fuso do arquivo.
 2. Em **Configurações**, defina os parâmetros que a aula não fornece (ou use os valores *exploratórios*, que **não vêm da aula**). Sem isso, os filtros ficam **pendentes**.
 3. **Dashboard**: estado (Favorável / Desfavorável / Aguardar / Não avaliável), motivos, contagens e gatilho. **Gráfico**: candles, topos/fundos, zonas, tooltip OHLC. **Filtros**: explicação, evidência, regra e detalhes técnicos de cada um.
-4. **Registrar análise** guarda o resultado, a versão das regras e uma cópia da configuração. No **Histórico**: filtros, resultado posterior manual, comparação por classificação e exportação CSV.
+4. **Histórico → Reprodução histórica** refaz a análise candle a candle sem ver o futuro e mostra a distribuição dos estados (não mede acerto).
+5. **Registrar análise** guarda o resultado, a versão das regras e uma cópia da configuração. No **Histórico**: filtros, resultado posterior manual, comparação por classificação e exportação CSV.
 
 ## Estrutura
 
@@ -40,7 +41,8 @@ src/core/            núcleo puro (sem React/DOM) — testável
   engine.ts          motor de decisão (4 estados) + gatilho
   config.ts          parâmetros com origem, hash, persistência validada
   history.ts         registros, filtros, comparação, exportação CSV segura
-  replay.ts          reprodução ponto-no-tempo (base para testes históricos)
+  replay.ts          reprodução ponto-no-tempo (usada na tela Histórico → Reprodução)
+  dataStore.ts       persistência validada dos candles carregados
   demo.ts            dados FICTÍCIOS com semente fixa
 src/ui/              React + Tailwind + lightweight-charts
 docs/                REGRAS, PENDENCIAS, NOVAS-TRANSCRICOES, FONTE-DE-DADOS
@@ -55,7 +57,7 @@ docs/                REGRAS, PENDENCIAS, NOVAS-TRANSCRICOES, FONTE-DE-DADOS
 
 ## Resultado da verificação (última execução)
 
-- `npm test`: **95 testes passando** (6 arquivos) — cálculo de corpo/pavios, direção e sequências, topos/fundos, candles inválidos, duplicatas, estados do motor, prioridade dos filtros de não entrada, ausência de confirmação de gatilho, look-ahead, importação CSV, persistência, histórico e exportação.
+- `npm test`: **100 testes passando** (7 arquivos) — cálculo de corpo/pavios, direção e sequências, topos/fundos, candles inválidos, duplicatas, estados do motor, prioridade dos filtros de não entrada, ausência de confirmação de gatilho, look-ahead, importação CSV, persistência (configurações, histórico e candles), histórico e exportação.
 - `npm run build`: typecheck estrito + build OK.
 - Verificação ponta a ponta em Chromium (29 checagens): estado vazio, demonstração e selo de dados fictícios, parâmetros e validação, gráfico/tooltip, filtros, registro, histórico, resultado manual, exportação CSV, persistência após recarregar, importação inválida, fuso obrigatório, CSV de exemplo, ausência de rolagem horizontal em 390 px, sem erros de console.
 
@@ -64,4 +66,4 @@ docs/                REGRAS, PENDENCIAS, NOVAS-TRANSCRICOES, FONTE-DE-DADOS
 - Os dados importados **não são comprovadamente iguais** aos da Quotex (principalmente em OTC).
 - Com candles fechados, o **gatilho nunca é confirmado** (cronômetro e "pico de vela" exigem o candle em formação) e os filtros F2/F4 não são avaliáveis.
 - A maior parte dos limites numéricos **não existe nas aulas**; os valores exploratórios são só para teste. Nada foi otimizado nem validado estatisticamente; **não há taxa de acerto**.
-- Dados carregados não persistem entre recargas (configurações, preferências e histórico, sim — no `localStorage` do navegador).
+- Tudo é guardado no `localStorage` do navegador. Os candles carregados persistem só até 5000 candles (acima disso é preciso reimportar), e os avisos/lacunas da importação não são guardados.

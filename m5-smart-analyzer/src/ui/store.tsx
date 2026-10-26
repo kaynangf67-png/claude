@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { defaultConfig, loadConfig, saveConfig, type KeyValueStore } from '../core/config';
 import { generateDemoCandles, demoSource, sourceFor, type DemoScenario } from '../core/demo';
 import { analyze } from '../core/engine';
+import { loadData, saveData, MAX_PERSISTED_CANDLES } from '../core/dataStore';
 import { createRecord, loadHistory, saveHistory, setOutcome, type AnalysisRecord, type RecordedOutcome } from '../core/history';
 import { importCandlesCsv, type ImportResult } from '../core/csv';
 import { TIMEFRAME_SECONDS } from '../core/engine';
@@ -99,7 +100,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [config, setConfigState] = useState<AnalysisConfig>(() => loadConfig(store));
   const [history, setHistory] = useState<AnalysisRecord[]>(() => loadHistory(store));
   const [prefs, setPrefs] = useState<Prefs>(() => loadPrefs(store));
-  const [data, setData] = useState<LoadedData | null>(null);
+  const [data, setData] = useState<LoadedData | null>(() => {
+    const saved = loadData(store);
+    return saved ? { candles: saved.candles, source: { ...saved.source, displayTimezone: prefs.displayTimezone }, importInfo: null } : null;
+  });
   const [intrabarSeconds, setIntrabarSeconds] = useState<number | null>(null);
   const [storageWarning, setStorageWarning] = useState<string | null>(null);
   const [focus, setFocus] = useState<{ label: string; indexes: number[] } | null>(null);
@@ -110,6 +114,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!saveHistory(store, history)) setStorageWarning('Não foi possível salvar o histórico neste navegador. Exporte o CSV para não perder registros.');
   }, [history, store]);
+  useEffect(() => {
+    const r = saveData(store, data ? { source: data.source, candles: data.candles } : null);
+    if (r === 'grande_demais') setStorageWarning(`Estes dados têm mais de ${MAX_PERSISTED_CANDLES} candles e não serão guardados no navegador: ao recarregar, importe o CSV de novo.`);
+    else if (r === 'falhou') setStorageWarning('Não foi possível guardar os candles neste navegador; ao recarregar será preciso importar de novo.');
+    else setStorageWarning((w) => (w && w.includes('candles') ? null : w));
+  }, [data, store]);
   useEffect(() => {
     try { store.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch { /* preferência não essencial */ }
   }, [prefs, store]);

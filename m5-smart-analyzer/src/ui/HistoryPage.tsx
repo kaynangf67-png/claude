@@ -6,6 +6,7 @@ import { formatDateTime } from '../core/time';
 import type { ScenarioState } from '../core/types';
 import { downloadText } from './download';
 import { Btn, Chip, Field, Panel, SCENARIO_LABEL, Status, scenarioTone } from './kit';
+import { ReplayPanel } from './ReplayPanel';
 import { useStore } from './store';
 
 const OUTCOME_LABEL: Record<OutcomeValue | '', string> = {
@@ -136,6 +137,8 @@ export function HistoryPage() {
           Registros fictícios nunca entram aqui.
         </p>
       </Panel>
+
+      <ReplayPanel />
     </div>
   );
 }

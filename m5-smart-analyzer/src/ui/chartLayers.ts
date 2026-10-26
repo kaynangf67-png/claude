@@ -1,5 +1,4 @@
 import type { AnalysisResult, Candle, Zone } from '../core/types';
-import { describeZone } from '../core/rules/aula01';
 
 /**
  * Camadas do gráfico calculadas a partir da análise, sem depender do DOM.
@@ -80,24 +79,36 @@ export function buildMarkers(
   return out;
 }
 
-export interface ZoneLine {
-  price: number;
-  color: string;
-  title: string;
+export interface ZoneRect {
   zoneId: string;
+  /** Início = primeiro pivô; fim = último candle. */
+  t0: number;
+  t1: number;
+  lower: number;
+  upper: number;
+  color: string;
+  label: string;
 }
 
-/** Linhas de preço (borda superior e inferior) das zonas mais recentes. */
-export function buildZoneLines(analysis: AnalysisResult | null, layers: Layers, limit = 6): ZoneLine[] {
+/** Retângulos das zonas mais recentes, do primeiro pivô até o último candle. */
+export function buildZoneRects(analysis: AnalysisResult | null, layers: Layers, candles: Candle[], limit = 6): ZoneRect[] {
   if (!analysis || !layers.zones) return [];
-  const lastTouch = (z: Zone) => z.events.length ? z.events[z.events.length - 1]!.endIndex : z.firstIndex;
-  const zones = [...analysis.zones].sort((a, b) => lastTouch(b) - lastTouch(a)).slice(0, limit);
-  const lines: ZoneLine[] = [];
-  for (const z of zones) {
-    const color = z.side === 'resistencia' ? COLORS.resistance : COLORS.support;
-    const touches = z.events.filter((e) => e.kind === 'toque').length;
-    lines.push({ price: z.upper, color, title: `${describeZone(z).split(' ')[0]} · ${touches} toque(s)`, zoneId: z.id });
-    lines.push({ price: z.lower, color, title: '', zoneId: z.id });
-  }
-  return lines;
+  const lastTouch = (z: Zone) => (z.events.length ? z.events[z.events.length - 1]!.endIndex : z.firstIndex);
+  const lastT = candles[candles.length - 1]?.t;
+  if (lastT === undefined) return [];
+  return [...analysis.zones]
+    .sort((a, b) => lastTouch(b) - lastTouch(a))
+    .slice(0, limit)
+    .map((z) => {
+      const touches = z.events.filter((e) => e.kind === 'toque').length;
+      return {
+        zoneId: z.id,
+        t0: candles[z.firstIndex]!.t,
+        t1: lastT,
+        lower: z.lower,
+        upper: z.upper,
+        color: z.side === 'resistencia' ? COLORS.resistance : COLORS.support,
+        label: `${z.side === 'resistencia' ? 'Resistência' : 'Suporte'} · ${touches} toque(s)`,
+      };
+    });
 }

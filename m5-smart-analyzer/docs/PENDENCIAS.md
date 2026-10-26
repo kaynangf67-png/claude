@@ -17,7 +17,7 @@ F2 e F4 (candle em formação / ritmo do preço), G1 (relógio) e G3 (pico). Exi
 
 ## Outras pendências técnicas
 - "Corpo grande" considera só corpo/amplitude; a amplitude absoluta do candle não entra.
-- Zonas são desenhadas como linhas por todo o gráfico (existem a partir do primeiro pivô).
-- Reprodução histórica (`replay`) existe no núcleo e tem testes, mas não tem tela; também não mede acerto (sem gatilho/expiração definidos).
-- Os dados carregados não são persistidos (só configurações, preferências e histórico).
+- O gráfico mostra só as 6 zonas mais recentes (para não poluir); as demais estão no painel de filtros.
+- A reprodução histórica (Histórico → Reprodução) só mostra a distribuição dos estados; não mede acerto (sem gatilho/expiração definidos).
+- Candles carregados persistem até 5000 candles; avisos e lacunas da importação não são guardados.
 - Apenas M5. Outros timeframes exigem regras próprias.

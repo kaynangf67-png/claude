@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { analyze } from '../core/engine';
 import { fullConfig, rangeBound, strongTrend, testSource } from '../core/testing/fixtures';
-import { DEFAULT_LAYERS, buildMarkers, buildZoneLines } from './chartLayers';
+import { DEFAULT_LAYERS, buildMarkers, buildZoneRects } from './chartLayers';
 
 const run = (cs: ReturnType<typeof rangeBound>) => analyze({ candles: cs, source: testSource(cs), config: fullConfig() });
 
@@ -25,13 +25,19 @@ describe('camadas do gráfico', () => {
   it('respeita as camadas desligadas', () => {
     const m = buildMarkers(a, cs, { swings: false, zones: false, opportunities: false, flow: false }, null);
     expect(m).toHaveLength(0);
-    expect(buildZoneLines(a, { ...DEFAULT_LAYERS, zones: false })).toHaveLength(0);
+    expect(buildZoneRects(a, { ...DEFAULT_LAYERS, zones: false }, cs)).toHaveLength(0);
   });
 
-  it('gera bordas superior e inferior para cada zona e limita a quantidade', () => {
-    const lines = buildZoneLines(a, DEFAULT_LAYERS);
-    expect(lines.length).toBe(a.zones.length * 2);
-    expect(buildZoneLines(a, DEFAULT_LAYERS, 1)).toHaveLength(2);
+  it('gera um retângulo por zona, do primeiro pivô ao último candle, e limita a quantidade', () => {
+    const rects = buildZoneRects(a, DEFAULT_LAYERS, cs);
+    expect(rects.length).toBe(a.zones.length);
+    for (const r of rects) {
+      expect(r.lower).toBeLessThan(r.upper);
+      expect(r.t1).toBe(cs[cs.length - 1]!.t);
+      expect(r.t0).toBeLessThan(r.t1);
+    }
+    expect(rects.some((r) => r.label.startsWith('Resistência'))).toBe(true);
+    expect(buildZoneRects(a, DEFAULT_LAYERS, cs, 1)).toHaveLength(1);
   });
 
   it('destaca os candles de um filtro e mantém a ordem cronológica', () => {
@@ -45,6 +51,6 @@ describe('camadas do gráfico', () => {
 
   it('sem análise não há marcadores nem linhas', () => {
     expect(buildMarkers(null, cs, DEFAULT_LAYERS, null)).toEqual([]);
-    expect(buildZoneLines(null, DEFAULT_LAYERS)).toEqual([]);
+    expect(buildZoneRects(null, DEFAULT_LAYERS, cs)).toEqual([]);
   });
 });
