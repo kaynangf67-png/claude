@@ -1,0 +1,135 @@
+{
+ "fonte": "/tmp/claude-0/-home-user-claude/055c61e1-07f8-51c4-be32-d290dafc9e81/scratchpad/lousa-cenas/in.mp4",
+ "mascaras": [
+  [
+   100,
+   138,
+   625,
+   270
+  ],
+  [
+   75,
+   895,
+   680,
+   1000
+  ]
+ ],
+ "clip_max": 1.8,
+ "partes": [
+  {
+   "audio": "/tmp/claude-0/-home-user-claude/055c61e1-07f8-51c4-be32-d290dafc9e81/scratchpad/lousa-narr/pronta/GANHO_1_MERCADO_LIVRE.wav",
+   "cenas": [
+    [
+     null,
+     [
+      [
+       8.0,
+       11.9
+      ],
+      [
+       43.3,
+       45.6
+      ],
+      [
+       29.0,
+       31.9
+      ]
+     ]
+    ]
+   ]
+  },
+  {
+   "audio": "/tmp/claude-0/-home-user-claude/055c61e1-07f8-51c4-be32-d290dafc9e81/scratchpad/lousa-narr/pronta/CORPO_1.wav",
+   "cenas": [
+    [
+     null,
+     [
+      [
+       1.05,
+       1.95
+      ],
+      [
+       4.0,
+       7.9
+      ]
+     ]
+    ],
+    [
+     "cada",
+     [
+      [
+       8.6,
+       11.9
+      ],
+      [
+       12.0,
+       16.9
+      ]
+     ]
+    ],
+    [
+     "noite",
+     [
+      [
+       43.3,
+       47.0
+      ]
+     ]
+    ],
+    [
+     "acabou",
+     [
+      [
+       34.4,
+       37.9
+      ]
+     ]
+    ],
+    [
+     "desenha",
+     [
+      [
+       23.0,
+       28.9
+      ]
+     ]
+    ],
+    [
+     "luzinha",
+     [
+      [
+       38.0,
+       39.9
+      ],
+      [
+       32.0,
+       33.8
+      ]
+     ]
+    ]
+   ]
+  },
+  {
+   "audio": "/tmp/claude-0/-home-user-claude/055c61e1-07f8-51c4-be32-d290dafc9e81/scratchpad/lousa-narr/pronta/cta_1.wav",
+   "cenas": [
+    [
+     null,
+     [
+      [
+       32.0,
+       33.8
+      ],
+      [
+       41.0,
+       41.9
+      ],
+      [
+       45.0,
+       47.0
+      ]
+     ]
+    ]
+   ]
+  }
+ ]
+}

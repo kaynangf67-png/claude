@@ -1,0 +1,54 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; pointer-events: none; }
+    #root .band { position: absolute; left: 0; right: 0; top: 1225px; height: 100px; }
+    #root .grp { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      opacity: 0; overflow: visible; }
+    #root .line { display: flex; gap: 0 30px; justify-content: center; align-items: center; width: 100%;
+      flex-wrap: nowrap; white-space: nowrap; padding: 0 60px; }
+    #root .w { display: inline-block; font-family: Montserrat; font-weight: 900; font-size: 62px;
+      line-height: 1.05; letter-spacing: -0.01em; color: #fff; -webkit-text-stroke: 7px #000;
+      paint-order: stroke fill; text-shadow: 0 8px 18px rgba(0,0,0,.45); transform-origin: 50% 60%; }
+  </style>
+  <div id="root" data-composition-id="legendas">
+    <div class="band" data-layout-allow-overflow>
+      <div id="lg-g0" class="grp" data-a="0.100" data-b="0.890"><div class="line"><span id="lg-w0-0" class="w" data-t="0.000">SE</span><span id="lg-w0-1" class="w" data-t="0.140">O</span><span id="lg-w0-2" class="w" data-t="0.220">SEU</span><span id="lg-w0-3" class="w" data-t="0.380">FILHO</span><span id="lg-w0-4" class="w" data-t="0.620">VIVE</span></div></div>
+      <div id="lg-g1" class="grp" data-a="0.890" data-b="1.850"><div class="line"><span id="lg-w1-0" class="w" data-t="0.940">GRUDADO</span><span id="lg-w1-1" class="w" data-t="1.340">NO</span><span id="lg-w1-2" class="w" data-t="1.500">CELULAR,</span></div></div>
+      <div id="lg-g2" class="grp" data-a="1.850" data-b="3.055"><div class="line"><span id="lg-w2-0" class="w" data-t="1.900">OLHA</span><span id="lg-w2-1" class="w" data-t="2.220">SÓ</span><span id="lg-w2-2" class="w" data-t="2.460">ISSO</span><span id="lg-w2-3" class="w" data-t="2.700">DAQUI.</span></div></div>
+      <div id="lg-g3" class="grp" data-a="3.055" data-b="4.175"><div class="line"><span id="lg-w3-0" class="w" data-t="3.105">É</span><span id="lg-w3-1" class="w" data-t="3.265">UMA</span><span id="lg-w3-2" class="w" data-t="3.505">LOUSA</span><span id="lg-w3-3" class="w" data-t="3.745">DE</span><span id="lg-w3-4" class="w key" data-t="3.825">LED,</span></div></div>
+      <div id="lg-g4" class="grp" data-a="4.175" data-b="4.575"><div class="line"><span id="lg-w4-0" class="w" data-t="4.225">OLHA</span><span id="lg-w4-1" class="w" data-t="4.465">SÓ,</span></div></div>
+      <div id="lg-g5" class="grp" data-a="4.575" data-b="5.615"><div class="line"><span id="lg-w5-0" class="w" data-t="4.625">CADA</span><span id="lg-w5-1" class="w" data-t="4.865">TRAÇO</span><span id="lg-w5-2" class="w" data-t="5.185">ACENDE</span><span id="lg-w5-3" class="w" data-t="5.585">NO</span></div></div>
+      <div id="lg-g6" class="grp" data-a="5.615" data-b="6.495"><div class="line"><span id="lg-w6-0" class="w" data-t="5.665">ESCURO</span><span id="lg-w6-1" class="w" data-t="5.985">À</span><span id="lg-w6-2" class="w" data-t="6.065">NOITE</span><span id="lg-w6-3" class="w" data-t="6.305">DE</span><span id="lg-w6-4" class="w" data-t="6.385">UMA</span></div></div>
+      <div id="lg-g7" class="grp" data-a="6.495" data-b="7.615"><div class="line"><span id="lg-w7-0" class="w" data-t="6.545">COR</span><span id="lg-w7-1" class="w" data-t="6.785">DIFERENTE</span><span id="lg-w7-2" class="w" data-t="7.105">E</span><span id="lg-w7-3" class="w" data-t="7.345">PARECE</span></div></div>
+      <div id="lg-g8" class="grp" data-a="7.615" data-b="8.095"><div class="line"><span id="lg-w8-0" class="w" data-t="7.665">MÁGICA.</span></div></div>
+      <div id="lg-g9" class="grp" data-a="8.095" data-b="8.655"><div class="line"><span id="lg-w9-0" class="w" data-t="8.145">ACABOU,</span></div></div>
+      <div id="lg-g10" class="grp" data-a="8.655" data-b="9.855"><div class="line"><span id="lg-w10-0" class="w" data-t="8.705">É</span><span id="lg-w10-1" class="w" data-t="8.865">SÓ</span><span id="lg-w10-2" class="w" data-t="9.025">PASSAR</span><span id="lg-w10-3" class="w" data-t="9.345">UM</span><span id="lg-w10-4" class="w" data-t="9.425">PANINHO</span></div></div>
+      <div id="lg-g11" class="grp" data-a="9.855" data-b="10.735"><div class="line"><span id="lg-w11-0" class="w" data-t="9.905">E</span><span id="lg-w11-1" class="w" data-t="9.985">DESENHA</span><span id="lg-w11-2" class="w" data-t="10.465">DE</span><span id="lg-w11-3" class="w" data-t="10.545">NOVO,</span></div></div>
+      <div id="lg-g12" class="grp" data-a="10.735" data-b="11.695"><div class="line"><span id="lg-w12-0" class="w" data-t="10.785">E</span><span id="lg-w12-1" class="w" data-t="10.945">DEPOIS</span><span id="lg-w12-2" class="w" data-t="11.185">AINDA</span><span id="lg-w12-3" class="w" data-t="11.425">VIRA</span></div></div>
+      <div id="lg-g13" class="grp" data-a="11.695" data-b="13.060"><div class="line"><span id="lg-w13-0" class="w" data-t="11.745">UMA</span><span id="lg-w13-1" class="w" data-t="11.825">LUZINHA</span><span id="lg-w13-2" class="w" data-t="12.305">DE</span><span id="lg-w13-3" class="w" data-t="12.385">ABAJUR.</span></div></div>
+      <div id="lg-g14" class="grp" data-a="13.060" data-b="13.840"><div class="line"><span id="lg-w14-0" class="w" data-t="13.110">CLICA</span><span id="lg-w14-1" class="w" data-t="13.330">NO</span><span id="lg-w14-2" class="w" data-t="13.490">CARRINHO</span><span id="lg-w14-3" class="w" data-t="13.810">AQUI</span></div></div>
+      <div id="lg-g15" class="grp" data-a="13.840" data-b="14.640"><div class="line"><span id="lg-w15-0" class="w" data-t="13.890">EMBAIXO</span><span id="lg-w15-1" class="w" data-t="14.130">E</span><span id="lg-w15-2" class="w" data-t="14.210">GARANTE</span></div></div>
+      <div id="lg-g16" class="grp" data-a="14.640" data-b="15.180"><div class="line"><span id="lg-w16-0" class="w" data-t="14.690">ANTES</span><span id="lg-w16-1" class="w" data-t="14.850">DO</span><span id="lg-w16-2" class="w" data-t="14.930">NATAL.</span></div></div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var tl = gsap.timeline({ paused: true });
+      document.querySelectorAll("#root .grp").forEach(function (g) {
+        var a = +g.dataset.a, b = +g.dataset.b;
+        var din = Math.min(0.13, (b - a) * 0.4), dout = Math.min(0.08, (b - a) * 0.25);
+        tl.fromTo(g, { opacity: 0, scale: 0.86, y: 18 }, { opacity: 1, scale: 1, y: 0, duration: din, ease: "back.out(2.4)" }, a);
+        tl.to(g, { opacity: 0, duration: dout, ease: "power2.in" }, b - dout);
+        tl.set(g, { opacity: 0, visibility: "hidden" }, b);
+        g.querySelectorAll(".w").forEach(function (w) {
+          var t = Math.max(a, +w.dataset.t - 0.03);
+          var cor = w.classList.contains("money") ? "#2BE36B" : (w.classList.contains("key") ? "#FFE500" : "#FFFFFF");
+          var ativo = w.classList.contains("money") ? "#2BE36B" : "#FFE500";
+          tl.fromTo(w, { color: "#FFFFFF", scale: 1 }, { color: ativo, scale: 1.07, duration: 0.07, ease: "power2.out" }, t);
+          tl.to(w, { color: cor, scale: 1, duration: 0.16, ease: "power2.out" }, t + 0.16);
+        });
+      });
+      window.__timelines["legendas"] = tl;
+    })();
+  </script>
+</template>

@@ -1,0 +1,28 @@
+{
+ "correcoes": {
+  "abaju.": "abajur.",
+  "abajú.": "abajur.",
+  "olhe": "olha"
+ },
+ "pares": {},
+ "destaque": [
+  "LED"
+ ],
+ "selos": [
+  {
+   "tipo": "canto",
+   "icone": "check",
+   "linhas": [
+    "APAGA E",
+    "USA DE NOVO"
+   ],
+   "de": "paninho",
+   "ate": "luzinha",
+   "depois": 0
+  }
+ ],
+ "cta": {
+  "texto": "TOQUE NO CARRINHO",
+  "de": "carrinho"
+ }
+}
