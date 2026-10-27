@@ -62,3 +62,20 @@ Mesmas 16 frases do viral gringo, na mesma ordem. Áudio: "VERSÃO MERCADO" + ro
 "VERSÃO TIKTOK" + só as frases 1, 14 e 16. "DE NOVO" = repete só aquela frase (usar a última).
 Montagem: 2 vídeos (ML e TT); no TT trocar as frases 1, 14 e 16 pelas da versão TikTok e não usar a
 tela do anúncio. Cortes no ritmo do original (uma cena por frase), sem respiros, legenda pequena.
+
+## Narrações recebidas (27/10) — áudios .m4a separados, um por take, sem rótulo falado
+
+Arquivos chegam como `GANHO_1_MERCADO_LIVRE.m4a`, `gancho_2_tiktokshop.m4a`, `CORPO_1.m4a`, `cta_1.m4a`
+(cta sem plataforma no nome = Mercado Livre). Limpos (supressão de ruído do app), -17 a -24 LUFS: tratar
+cada um com o corte de pausas + 1,15x + -14 LUFS do `montar.py` antes de montar.
+
+Fala real ≠ roteiro em vários takes (legenda segue o que foi dito):
+- G TT1: "Esse daqui, sem dúvida, é o melhor presente de Natal que o seu filho pode ganhar." G TT4 (improvisado)
+  é quase igual: "…foi o melhor presente que meu filho poderia ganhar no Natal."
+- Arquivo `gancho_3_Tiktok_shop` tem o texto do G TT4 do roteiro ("Meu filho largou o celular por causa desse quadro aqui").
+- CTA ML2 "preço muito bom… frete grátis… antes que acabe o estoque"; ML3 "Chegou em menos de uma semana e eu já vou
+  pedir mais dois"; ML4 "tão barato que dá até pra revender".
+- CTA TT2 "Acabou de entrar em oferta aqui no TikTok Shop…"; CTA TT3 fala "link aqui embaixo" e "promoção" (inadequado
+  para TikTok Shop: pedir regravação).
+- Faltam: G ML3, G TT3 do roteiro ("cada traço acende no escuro"), CTA TT4 e as 8 cenas em vídeo.
+- Correção de legenda: "abaju" → "abajur"; "acaba o estoque" → "acabe o estoque".
