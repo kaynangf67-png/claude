@@ -5,15 +5,18 @@ import { ChartPage } from './ChartPage';
 import { FiltersPage } from './FiltersPage';
 import { HistoryPage } from './HistoryPage';
 import { SettingsPage } from './SettingsPage';
+import { LivePage } from './LivePage';
+import { LiveProvider } from './live';
 import { RISK_NOTICE, Status } from './kit';
 import { formatDateTime } from '../core/time';
 
-const TABS: Array<{ id: Tab; label: string; icon: ReactNode }> = [
-  { id: 'dashboard', label: 'Dashboard', icon: <path d="M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6V11h-6v9Zm0-16v5h6V4h-6Z" /> },
-  { id: 'grafico', label: 'Gráfico', icon: <path d="M5 19V9m4 10V5m4 14v-7m4 7V8M3 21h18" /> },
-  { id: 'filtros', label: 'Filtros', icon: <path d="M4 5h16l-6 8v6l-4-2v-4L4 5Z" /> },
-  { id: 'historico', label: 'Histórico', icon: <path d="M12 7v5l3 2M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4" /> },
-  { id: 'configuracoes', label: 'Configurações', icon: <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm7-3 2-1.5-2-3.5-2.3.8a7 7 0 0 0-1.7-1L14.5 4h-4l-.5 2.8a7 7 0 0 0-1.7 1L6 7 4 10.5 6 12l-2 1.5L6 17l2.3-.8a7 7 0 0 0 1.7 1L10.5 20h4l.5-2.8a7 7 0 0 0 1.7-1L19 17l2-3.5L19 12Z" /> },
+const TABS: Array<{ id: Tab; label: string; short: string; icon: ReactNode }> = [
+  { id: 'dashboard', label: 'Dashboard', short: 'Painel', icon: <path d="M4 13h6V4H4v9Zm0 7h6v-5H4v5Zm10 0h6V11h-6v9Zm0-16v5h6V4h-6Z" /> },
+  { id: 'grafico', label: 'Gráfico', short: 'Gráfico', icon: <path d="M5 19V9m4 10V5m4 14v-7m4 7V8M3 21h18" /> },
+  { id: 'filtros', label: 'Filtros', short: 'Filtros', icon: <path d="M4 5h16l-6 8v6l-4-2v-4L4 5Z" /> },
+  { id: 'aovivo', label: 'Ao vivo', short: 'Ao vivo', icon: <path d="M3 12h4l3-8 4 16 3-8h4" /> },
+  { id: 'historico', label: 'Histórico', short: 'Histórico', icon: <path d="M12 7v5l3 2M4 12a8 8 0 1 0 2.3-5.6M4 4v4h4" /> },
+  { id: 'configuracoes', label: 'Configurações', short: 'Config.', icon: <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm7-3 2-1.5-2-3.5-2.3.8a7 7 0 0 0-1.7-1L14.5 4h-4l-.5 2.8a7 7 0 0 0-1.7 1L6 7 4 10.5 6 12l-2 1.5L6 17l2.3-.8a7 7 0 0 0 1.7 1L10.5 20h4l.5-2.8a7 7 0 0 0 1.7-1L19 17l2-3.5L19 12Z" /> },
 ];
 
 function Icon({ children }: { children: ReactNode }) {
@@ -30,7 +33,7 @@ function SourceBadge() {
   const s = data.source;
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-      {s.synthetic ? <Status tone="warn">DADOS FICTÍCIOS</Status> : <Status tone="info">CSV importado</Status>}
+      {s.synthetic ? <Status tone="warn">DADOS FICTÍCIOS</Status> : s.kind === 'binance_live' ? <Status tone="pos">AO VIVO · Binance (cripto)</Status> : <Status tone="info">CSV importado</Status>}
       <span className="max-w-[28ch] truncate text-xs text-muted" title={s.name}>{s.name}</span>
       <span className="num text-xs text-faint">até {formatDateTime(s.lastT, displayTimezone)}</span>
     </div>
@@ -72,18 +75,20 @@ function Shell() {
           {tab === 'dashboard' && <Dashboard />}
           {tab === 'grafico' && <ChartPage />}
           {tab === 'filtros' && <FiltersPage />}
+          {tab === 'aovivo' && <LivePage />}
           {tab === 'historico' && <HistoryPage />}
           {tab === 'configuracoes' && <SettingsPage />}
           <p className="mt-6 text-[11px] leading-snug text-faint md:hidden">{RISK_NOTICE}</p>
         </main>
-        <nav aria-label="Navegação principal (celular)" className="grid grid-cols-5 border-t border-line bg-surface md:hidden">
+        <nav aria-label="Navegação principal (celular)" className="grid grid-cols-6 border-t border-line bg-surface md:hidden">
           {TABS.map((t) => (
             <button
               key={t.id} onClick={() => setTab(t.id)} aria-current={tab === t.id ? 'page' : undefined}
-              className={`flex flex-col items-center gap-0.5 py-2 text-[10px] ${tab === t.id ? 'text-ink' : 'text-faint'}`}
+              aria-label={t.label}
+              className={`flex min-w-0 flex-col items-center gap-0.5 py-2 text-[10px] ${tab === t.id ? 'text-ink' : 'text-faint'}`}
             >
               <Icon>{t.icon}</Icon>
-              {t.label}
+              {t.short}
             </button>
           ))}
         </nav>
@@ -95,7 +100,9 @@ function Shell() {
 export function App() {
   return (
     <StoreProvider>
-      <Shell />
+      <LiveProvider>
+        <Shell />
+      </LiveProvider>
     </StoreProvider>
   );
 }

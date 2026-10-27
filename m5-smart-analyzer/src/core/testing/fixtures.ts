@@ -1,6 +1,6 @@
 import { defaultConfig } from '../config';
 import { sourceFor } from '../demo';
-import type { AnalysisConfig, Candle, DataSourceInfo, ParamKey } from '../types';
+import type { AnalysisConfig, Candle, DataSourceInfo, IntrabarInfo, ParamKey } from '../types';
 
 /** Apoio aos testes: constrói candles e configurações determinísticas. */
 
@@ -95,6 +95,11 @@ export const FULL: Partial<Record<ParamKey, number>> = {
   bigBodyRatio: 0.95,
   bigBodyMinCount: 6,
   continuousMoveEfficiency: 0.85,
+  approachATR: 0.3,
+  reversalATR: 0.15,
+  slowEfficiencyMax: 0.85,
+  stoppedRangeATR: 0.2,
+  prevCandlesRequired: 1,
 };
 
 export const fullConfig = (extra: Partial<Record<ParamKey, number | null>> = {}) => cfg({ ...FULL, ...extra });
@@ -106,3 +111,44 @@ export const testSource = (cs: Candle[], over: Partial<DataSourceInfo> = {}): Da
   }, 0),
   ...over,
 });
+
+/** Candle em formação que toca a borda da primeira resistência (ou suporte) da análise. */
+export function touchingIntrabar(
+  _cs: Candle[], zone: { side: 'resistencia' | 'suporte'; lower: number; upper: number }, atrValue: number,
+  opts: { remaining?: number; openOffsetATR?: number; counterATR?: number; m1?: Candle[] } = {},
+): IntrabarInfo {
+  const res = zone.side === 'resistencia';
+  const edge = res ? zone.lower : zone.upper;
+  const open = res ? edge - (opts.openOffsetATR ?? 0.8) * atrValue : edge + (opts.openOffsetATR ?? 0.8) * atrValue;
+  const counter = (opts.counterATR ?? 0) * atrValue;
+  const price = res ? edge + 0.00002 : edge - 0.00002;
+  return {
+    remainingSeconds: opts.remaining ?? 200,
+    forming: res
+      ? { o: open, h: price + 0.00003, l: open - counter, c: price }
+      : { o: open, h: open + counter, l: price - 0.00003, c: price },
+    m1: opts.m1 ?? [],
+  };
+}
+
+/** M1 sintético (semente fixa): onda lenta + ruído, que forma zonas de suporte/resistência. */
+export function syntheticM1(minutes: number, seed = 11): Candle[] {
+  let s = seed >>> 0;
+  const rnd = () => {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+  const out: Candle[] = [];
+  let prev = 100;
+  const t0 = Math.floor(T0 / 300) * 300;
+  for (let i = 0; i < minutes; i++) {
+    const target = 100 + 8 * Math.sin((2 * Math.PI * i) / 150) + 2 * Math.sin((2 * Math.PI * i) / 37);
+    const o = prev;
+    const c = o + (target - o) * 0.5 + (rnd() - 0.5) * 1.6;
+    const h = Math.max(o, c) + rnd() * 0.5;
+    const l = Math.min(o, c) - rnd() * 0.5;
+    out.push({ t: t0 + i * 60, o, h, l, c });
+    prev = c;
+  }
+  return out;
+}

@@ -118,15 +118,19 @@ export function Dashboard() {
               ))}
             </ul>
           )}
-          <div className="mt-3 max-w-xs">
-            <Field label="Segundos decorridos no candle atual (entrada manual)" hint="O CSV só traz candles fechados. Opcional; alimenta apenas o critério do cronômetro.">
-              <input
-                type="number" min={0} max={299} inputMode="numeric" className="num"
-                value={intrabarSeconds ?? ''} placeholder="ex.: 160"
-                onChange={(e) => setIntrabarSeconds(e.target.value === '' ? null : Math.max(0, Math.min(299, Number(e.target.value))))}
-              />
-            </Field>
-          </div>
+          {data.live ? (
+            <p className="mt-3 text-xs text-muted">Tempo restante e candle em formação vêm do feed ao vivo (aba "Ao vivo"): {Math.floor(data.live.intrabar.remainingSeconds / 60)}:{String(Math.floor(data.live.intrabar.remainingSeconds % 60)).padStart(2, '0')} restantes.</p>
+          ) : (
+            <div className="mt-3 max-w-xs">
+              <Field label="Tempo restante no candle atual, em segundos (entrada manual)" hint="Como o cronômetro da corretora mostra (150 = 2:30). O CSV só traz candles fechados; opcional, alimenta só o critério do tempo. Para o gatilho completo, conecte o feed na aba Ao vivo.">
+                <input
+                  type="number" min={0} max={300} inputMode="numeric" className="num"
+                  value={intrabarSeconds ?? ''} placeholder="ex.: 170"
+                  onChange={(e) => setIntrabarSeconds(e.target.value === '' ? null : Math.max(0, Math.min(300, Number(e.target.value))))}
+                />
+              </Field>
+            </div>
+          )}
         </div>
 
         <form
@@ -149,7 +153,7 @@ export function Dashboard() {
       <div className="flex flex-col gap-4">
         <Panel title="Fonte de dados">
           <dl className="space-y-1.5 text-[13px]">
-            <Row k="Tipo" v={s.synthetic ? 'Dados FICTÍCIOS' : 'CSV importado'} warn={s.synthetic} />
+            <Row k="Tipo" v={s.synthetic ? 'Dados FICTÍCIOS' : s.kind === 'binance_live' ? 'Ao vivo — Binance (cripto)' : 'CSV importado'} warn={s.synthetic} />
             <Row k="Nome" v={s.name} />
             <Row k="Origem informada" v={s.origin} />
             <Row k="Ativo" v={s.asset || 'não informado'} />
@@ -166,7 +170,7 @@ export function Dashboard() {
             </ul>
           )}
           <p className="mt-3 text-[11px] leading-snug text-faint">
-            Sem conexão com a Quotex. Não há garantia de que estes preços coincidam com os da corretora.
+            {s.kind === 'binance_live' ? 'Preços da Binance (cripto), não da Quotex. Não há garantia de que coincidam com os da sua corretora.' : 'Sem conexão com a Quotex. Não há garantia de que estes preços coincidam com os da corretora.'}
           </p>
         </Panel>
 

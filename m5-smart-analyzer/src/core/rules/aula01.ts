@@ -210,7 +210,9 @@ export const zonesRule: RuleDefinition = {
       const cur = currentContact(z, ctx.lastIndex);
       return { zone: z, touches: touches.length, confirmed, breakouts, current: cur?.kind ?? null };
     });
-    const inContact = zoneRows.filter((r) => r.current === 'toque' || r.current === 'aproximacao');
+    let inContact = zoneRows.filter((r) => r.current === 'toque' || r.current === 'aproximacao');
+    // com candle em formação, o contato é medido pelo preço de agora
+    if (ctx.entry) inContact = zoneRows.filter((r) => r.zone.id === ctx.entry!.zoneId).map((r) => ({ ...r, current: 'toque' as const }));
     const retractionDefined = p(ctx, 'retractionMinMult') !== null && p(ctx, 'retractionWindow') !== null;
     const evidence: Evidence[] = [
       { label: 'Zonas identificadas', value: String(ctx.zones.length) },
@@ -263,10 +265,14 @@ export const minHistoryRule: RuleDefinition = {
     if (missing.length) {
       return pendingConfig(minHistoryRule, missing, ruleText, [{ label: 'Toques anteriores exigidos', value: String(minPrior) }]);
     }
-    const rows = ctx.zones
-      .map((z) => ({ zone: z, cur: currentContact(z, ctx.lastIndex) }))
-      .filter((r) => r.cur && (r.cur.kind === 'toque' || r.cur.kind === 'aproximacao'))
-      .map((r) => ({ ...r, priors: priorValidTouches(r.zone, r.cur!.startIndex) }));
+    const rows = ctx.entry
+      ? ctx.zones.filter((z) => z.id === ctx.entry!.zoneId).map((z) => ({
+        zone: z, cur: { kind: 'toque' as const, startIndex: ctx.lastIndex + 1 }, priors: priorValidTouches(z, ctx.lastIndex + 1),
+      }))
+      : ctx.zones
+        .map((z) => ({ zone: z, cur: currentContact(z, ctx.lastIndex) }))
+        .filter((r) => r.cur && (r.cur.kind === 'toque' || r.cur.kind === 'aproximacao'))
+        .map((r) => ({ ...r, priors: priorValidTouches(r.zone, r.cur!.startIndex) }));
     const evidence: Evidence[] = [{ label: 'Toques anteriores exigidos', value: String(minPrior) }];
     for (const r of rows) {
       evidence.push({

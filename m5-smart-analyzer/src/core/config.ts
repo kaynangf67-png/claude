@@ -4,7 +4,7 @@ import {
 } from './types';
 
 /** Versão do conjunto de regras. Incrementar ao incorporar novas aulas. */
-export const RULES_VERSION = 'aula-02@0.1.0';
+export const RULES_VERSION = 'aula-03@0.1.0';
 export const CONFIG_STORAGE_KEY = 'm5sa.config.v1';
 
 export interface ParamSpec {
@@ -46,7 +46,13 @@ export const PARAM_SPECS: Record<ParamKey, ParamSpec> = {
   bigBodyRatio: { key: 'bigBodyRatio', group: 'Regra 6 · Não entrada', label: 'Corpo grande (corpo ≥ % da amplitude)', description: 'Candle de corpo grande e pavios pequenos: corpo ocupa ao menos esta fração da amplitude.', min: 0.5, max: 1, step: 0.05, integer: false, percent: true },
   bigBodyMinCount: { key: 'bigBodyMinCount', group: 'Regra 6 · Não entrada', label: 'Candles de corpo grande para evitar', description: 'Quantidade mínima de candles de corpo grande na janela de observação.', min: 1, max: 200, step: 1, integer: true, unit: 'candles' },
   maxSameDirectionRun: { key: 'maxSameDirectionRun', group: 'Regra 6 · Não entrada', label: 'Fluxo da mesma cor que deve ser evitado (≥)', description: 'Sequência de candles da mesma direção, terminando no último candle, que caracteriza fluxo a evitar. A aula 2 cita "três ou mais velas".', min: 2, max: 100, step: 1, integer: true, unit: 'candles' },
-  triggerMinElapsedSeconds: { key: 'triggerMinElapsedSeconds', group: 'Gatilho', label: 'Cronômetro mínimo no candle', description: 'Segundos decorridos no candle em formação a partir dos quais o critério de tempo do gatilho é atendido. Aula 2: 2 min 30 s.', min: 1, max: 299, step: 1, integer: true, unit: 's' },
+  triggerMinRemainingSeconds: { key: 'triggerMinRemainingSeconds', group: 'Gatilho (aulas 2 e 3)', label: 'Tempo restante mínimo no candle', description: 'Não entrar com menos que isso no cronômetro do candle M5. Aula 3: 2 min 30 s (150 s); você confirmou: até 2:30, nunca com menos.', min: 5, max: 299, step: 5, integer: true, unit: 's' },
+  approachATR: { key: 'approachATR', group: 'Gatilho (aulas 2 e 3)', label: 'Distância mínima da abertura à zona (× ATR)', description: 'F2: vela que nasce perto da região é sinal de rompimento. Distância mínima entre a abertura do candle e a borda da zona. A aula não dá número.', min: 0.05, max: 5, step: 0.05, integer: false, unit: '× ATR' },
+  reversalATR: { key: 'reversalATR', group: 'Gatilho (aulas 2 e 3)', label: 'Reversão máxima no candle (× ATR)', description: 'F1: quanto o preço pode ter andado contra a operação desde a abertura do candle. A aula não dá número.', min: 0.05, max: 5, step: 0.05, integer: false, unit: '× ATR' },
+  slowEfficiencyMax: { key: 'slowEfficiencyMax', group: 'Gatilho (aulas 2 e 3)', label: 'Vela lenta: eficiência acima de', description: 'F4 (vela lenta): razão deslocamento ÷ caminho percorrido, com fechamentos de 1 minuto. Perto de 1 = só avança. Aproximação provisória.', min: 0.1, max: 1, step: 0.05, integer: false, percent: true },
+  stoppedRangeATR: { key: 'stoppedRangeATR', group: 'Gatilho (aulas 2 e 3)', label: 'Vela parada: amplitude abaixo de (× ATR)', description: 'F4 (vela parada): depois de 1 minuto, amplitude do candle menor que isso. Aproximação provisória.', min: 0.05, max: 5, step: 0.05, integer: false, unit: '× ATR' },
+  prevCandlesRequired: { key: 'prevCandlesRequired', group: 'Gatilho (aulas 2 e 3)', label: 'Velas anteriores com força a favor (1 ou 2)', description: 'Quantas das 2 velas anteriores precisam ter pavio relevante ou cor a favor. A professora fala em "as duas" num trecho e "uma" em outro.', min: 1, max: 2, step: 1, integer: true, unit: 'velas' },
+  payoutPercent: { key: 'payoutPercent', group: 'Teste e diário', label: 'Payout da corretora (%)', description: 'Define o ponto de equilíbrio da taxa de acerto: 1 ÷ (1 + payout). Confirme o payout real do ativo na sua corretora.', min: 50, max: 100, step: 1, integer: true, unit: '%' },
   continuousMoveEfficiency: { key: 'continuousMoveEfficiency', group: 'Regra 6 · Não entrada', label: 'Movimento contínuo (eficiência direcional ≥)', description: 'Razão entre o deslocamento líquido e o caminho percorrido pelos fechamentos. Perto de 1 = movimento sem retrações.', min: 0.1, max: 1, step: 0.05, integer: false, percent: true },
 };
 
@@ -64,8 +70,10 @@ export function defaultConfig(): AnalysisConfig {
   params.minPriorValidTouches = { value: 2, origin: 'aula' };
   // Aula 2 (anotações): "fluxo de velas da mesma cor, três ou mais velas".
   params.maxSameDirectionRun = { value: 3, origin: 'aula' };
-  // Aula 2 (anotações): cronômetro acima de 2 min 30 s no candle.
-  params.triggerMinElapsedSeconds = { value: 150, origin: 'aula' };
+  // Aula 3: tempo restante mínimo de 2 min 30 s no candle (confirmado pelo usuário).
+  params.triggerMinRemainingSeconds = { value: 150, origin: 'aula' };
+  // Payout varia por ativo e horário: valor de partida, a confirmar pelo usuário.
+  params.payoutPercent = technical(80);
   const enabled = Object.fromEntries(RULE_IDS.map((id) => [id, true])) as Record<RuleId, boolean>;
   return { rulesVersion: RULES_VERSION, timeframe: 'M5', enabled, params };
 }
@@ -87,6 +95,12 @@ export const EXPLORATORY_PRESET: Partial<Record<ParamKey, number>> = {
   bigBodyRatio: 0.8,
   bigBodyMinCount: 4,
   continuousMoveEfficiency: 0.6,
+  // Do arquivo analisador-m5.html (valores "meus" de quem o escreveu; não vêm da aula)
+  approachATR: 0.3,
+  reversalATR: 0.15,
+  slowEfficiencyMax: 0.85,
+  stoppedRangeATR: 0.2,
+  prevCandlesRequired: 2,
 };
 
 export function applyExploratoryPreset(config: AnalysisConfig): AnalysisConfig {
@@ -182,7 +196,7 @@ export function sanitizeConfig(raw: unknown): AnalysisConfig {
     }
   }
   // Os parâmetros essenciais de janela nunca podem ficar indefinidos.
-  for (const k of ['minCandles', 'contextWindow', 'observationWindow', 'alternationWindow', 'swingLookback', 'minPriorValidTouches', 'maxSameDirectionRun', 'triggerMinElapsedSeconds'] as const) {
+  for (const k of ['minCandles', 'contextWindow', 'observationWindow', 'alternationWindow', 'swingLookback', 'minPriorValidTouches', 'maxSameDirectionRun', 'triggerMinRemainingSeconds', 'payoutPercent'] as const) {
     if (base.params[k].value === null) base.params[k] = defaultConfig().params[k];
   }
   return base;

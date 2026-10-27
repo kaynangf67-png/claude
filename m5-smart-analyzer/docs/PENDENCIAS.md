@@ -1,23 +1,24 @@
 # Regras e definições ainda pendentes
 
-## Dúvidas sobre as anotações da aula 2 (precisam de confirmação)
-1. **F1** — a primeira palavra de "…ão em M5 ou timeframes maiores" está ilegível (parece "Reversão" ou "Rejeição"). Qual é o filtro? É não entrada? Como se detecta?
-2. **F2** — a última linha ("velas de cores?") está ilegível. Qual é a condição exata e o que é "próximo" da região (distância)?
-3. **G3 "Pico de vela"** — é o preço do candle em formação atingindo o extremo (pavio) da região? Ou o pico de candles anteriores?
-4. **G2** — "velas anteriores deixando pavio": quantas velas, e o pavio precisa estar do lado da região?
-5. **G1** — o cronômetro conta a partir da abertura do candle M5 (corrida de 5:00)? Entra a favor ou contra? Existe limite máximo (ex.: não entrar após 4:30)?
-6. **Direção/expiração** — as anotações não dizem se a entrada é compra ou venda a partir da zona, nem o tempo de expiração. O app não define isso.
+## Dúvidas abertas (precisam de confirmação sua)
+1. **F1** — a anotação "…ão em M5 ou timeframes maiores" parece ser **"Reversão"**, e o arquivo `analisador-m5.html` tem um filtro de reversão. Implementei assim, só no M5 atual. É isso? E "timeframes maiores" significa olhar também o candle M15/M1?
+2. **"Pico de vela"** — implementei como "preço na borda da zona". É isso, ou é algo sobre o pavio/extremo do candle anterior?
+3. **Velas anteriores**: as duas precisam ter força a favor, ou basta uma? (`prevCandlesRequired`)
+4. **F3** — vale qualquer sequência de 3 da mesma cor, ou só rumo à zona (como no arquivo)? Hoje bloqueia qualquer direção.
+5. **Direção e expiração** — compra no suporte e venda na resistência, com expiração no fechamento do M5, é o que o teste assume (do arquivo). Confirmar.
+6. Onde estão as transcrições da aula 3 (e seguintes)? Só vi o arquivo; quero conferir os números dele contra a fonte.
 
 ## Parâmetros numéricos que a aula não fornece
 `wickRelevantRatio`, `minRelevantWickCandles`, `alternationFavorableMin`, `directionalDominanceMin`, `swingMinDisplacementMult`, `minValidatedSwings`,
-`zoneToleranceMult`, `retractionMinMult`, `retractionWindow`, `bigBodyRatio`, `bigBodyMinCount`, `continuousMoveEfficiency`.
+`zoneToleranceMult`, `retractionMinMult`, `retractionWindow`, `bigBodyRatio`, `bigBodyMinCount`, `continuousMoveEfficiency`, `reversalATR`, `approachATR`, `slowEfficiencyMax`, `stoppedRangeATR`, `prevCandlesRequired`.
 
-## Regras não verificáveis com candles fechados
-F2 e F4 (candle em formação / ritmo do preço), G1 (relógio) e G3 (pico). Exigem dados intra-candle (ticks ou o candle em formação em tempo real).
+## Regras que dependem do candle em formação
+F1, F2, F4, o "pico de vela" e o cronômetro só são avaliados com o feed ao vivo (Binance, **cripto**) ou, no cronômetro, com o tempo restante digitado. Para forex não há feed ao vivo; só teste histórico com CSV de 1 minuto do MT5.
 
 ## Outras pendências técnicas
 - "Corpo grande" considera só corpo/amplitude; a amplitude absoluta do candle não entra.
 - O gráfico mostra só as 6 zonas mais recentes (para não poluir); as demais estão no painel de filtros.
-- A reprodução histórica (Histórico → Reprodução) só mostra a distribuição dos estados; não mede acerto (sem gatilho/expiração definidos).
+- A "Reprodução histórica" só mostra a distribuição dos estados; quem mede resultado é o "Teste histórico".
+- O feed ao vivo consulta a API pública a cada 5 s (sem WebSocket); o diário só registra com a aba visível.
 - Candles carregados persistem até 5000 candles; avisos e lacunas da importação não são guardados.
 - Apenas M5. Outros timeframes exigem regras próprias.

@@ -95,3 +95,20 @@ export function meanRange(candles: Candle[], from: number, to: number): number |
   const m = sum / n;
   return m > 0 ? m : null;
 }
+
+/**
+ * ATR simples (média do true range) dos últimos `n` candles até `last`.
+ * Escala de referência para distâncias do gatilho (aproximação, reversão...).
+ */
+export function atr(candles: Candle[], last: number, n = 14): number | null {
+  const from = Math.max(1, last - n + 1);
+  let sum = 0;
+  let k = 0;
+  for (let i = from; i <= last; i++) {
+    const c = candles[i]!;
+    const pc = candles[i - 1]!.c;
+    sum += Math.max(c.h - c.l, Math.abs(c.h - pc), Math.abs(c.l - pc));
+    k++;
+  }
+  return k > 0 && sum > 0 ? sum / k : null;
+}

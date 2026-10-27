@@ -1,6 +1,6 @@
 import { PARAM_SPECS, paramValue } from '../config';
 import type {
-  AnalysisConfig, Candle, CandleMetrics, DataSourceInfo, Evidence, FilterReason, FilterResult,
+  AnalysisConfig, Candle, CandleMetrics, DataSourceInfo, EntryCandidate, Evidence, FilterReason, FilterResult,
   FilterRole, FilterStatus, IntrabarInfo, Opportunity, ParamKey, RuleId, Swing, TriggerCriterion, Zone,
 } from '../types';
 
@@ -24,6 +24,10 @@ export interface AnalysisContext {
   tolerance: number | null;
   source: DataSourceInfo | null;
   intrabar: IntrabarInfo | null;
+  /** ATR (14) dos candles fechados; escala das distâncias do gatilho. */
+  atr: number | null;
+  /** Zona em contato com o candle em formação (null se não há candle em formação ou contato). */
+  entry: EntryCandidate | null;
   /** Oportunidades produzidas pelas regras (zona candidata; nunca gatilho). */
   opportunities: Opportunity[];
 }

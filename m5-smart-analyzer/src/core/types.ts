@@ -72,7 +72,13 @@ export const PARAM_KEYS = [
   'bigBodyRatio',
   'bigBodyMinCount',
   'maxSameDirectionRun',
-  'triggerMinElapsedSeconds',
+  'triggerMinRemainingSeconds',
+  'approachATR',
+  'reversalATR',
+  'slowEfficiencyMax',
+  'stoppedRangeATR',
+  'prevCandlesRequired',
+  'payoutPercent',
   'continuousMoveEfficiency',
 ] as const;
 export type ParamKey = (typeof PARAM_KEYS)[number];
@@ -85,6 +91,7 @@ export const RULE_IDS = [
   'historico_minimo',
   'corpo_grande',
   'sequencia_direcional',
+  'reversao',
   'vela_proxima_regiao',
   'vela_lenta_parada',
   'estrutura_indefinida',
@@ -106,7 +113,7 @@ export interface AnalysisConfig {
 
 // -------------------------------------------------------------------- fonte
 
-export type SourceKind = 'demo_sintetico' | 'csv';
+export type SourceKind = 'demo_sintetico' | 'csv' | 'binance_live';
 
 export interface DataSourceInfo {
   kind: SourceKind;
@@ -274,10 +281,33 @@ export interface TriggerEvaluation {
   criteria: TriggerCriterion[];
 }
 
-/** Informação intra-candle informada manualmente (não vem do CSV). */
+/**
+ * Informação do candle em formação (intra-candle). Vem do feed ao vivo ou,
+ * parcialmente, de entrada manual (só `remainingSeconds`).
+ */
 export interface IntrabarInfo {
-  /** Segundos decorridos desde a abertura do candle em formação. */
-  elapsedSeconds: number;
+  /** Segundos que faltam para o candle M5 fechar (como o cronômetro da corretora). */
+  remainingSeconds: number;
+  /** OHLC do candle em formação até agora. Ausente na entrada manual. */
+  forming?: { o: number; h: number; l: number; c: number };
+  /** Candles de 1 minuto já fechados dentro do candle em formação. */
+  m1?: Candle[];
+  /** Dica para análises históricas: avaliar contato apenas com esta zona. */
+  focusZoneId?: string;
+}
+
+/** Zona em contato com o candle em formação: onde uma entrada seria avaliada. */
+export interface EntryCandidate {
+  zoneId: string;
+  side: 'resistencia' | 'suporte';
+  /** Borda de entrada da zona (limite inferior da resistência / superior do suporte). */
+  edge: number;
+  /** Preço de entrada presumido: o preço atual limitado à borda. */
+  entry: number;
+  /** Toques anteriores válidos (com retração observável). */
+  priorValidTouches: number;
+  /** Atende ao histórico mínimo de toques válidos (critério provisório da aula 1). */
+  armed: boolean;
 }
 
 // ------------------------------------------------------------------- análise
@@ -298,6 +328,8 @@ export interface AnalysisResult {
   filters: FilterResult[];
   counts: Record<FilterStatus, number>;
   trigger: TriggerEvaluation;
+  /** Zona em contato com o candle em formação (null sem candle em formação ou sem contato). */
+  entry: EntryCandidate | null;
   swings: Swing[];
   zones: Zone[];
   opportunities: Opportunity[];

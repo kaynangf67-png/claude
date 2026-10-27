@@ -74,6 +74,14 @@ export function ChartPage() {
     chart.current.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 90), to: n + 3 });
   }, [data?.candles]);
 
+  // candle em formação (feed ao vivo): atualiza só a última barra
+  useEffect(() => {
+    const live = data?.live;
+    if (!live || !series.current || !live.intrabar.forming) return;
+    const f = live.intrabar.forming;
+    series.current.update({ time: live.formingOpenT as UTCTimestamp, open: f.o, high: f.h, low: f.l, close: f.c });
+  }, [data?.live, data?.candles]);
+
   // fuso de exibição: força o redesenho dos rótulos
   useEffect(() => {
     chart.current?.applyOptions({ localization: { timeFormatter: (t: number) => formatDateTime(t, displayTimezone) } });

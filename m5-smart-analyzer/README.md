@@ -12,7 +12,7 @@ Subprojeto independente dentro do repositório (não depende dos outros projetos
 cd m5-smart-analyzer
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 100 testes do núcleo e das camadas do gráfico
+npm test           # 140 testes do núcleo e das camadas do gráfico
 npm run build      # typecheck + build de produção (dist/)
 npm run preview    # serve o build
 ```
@@ -25,9 +25,10 @@ Regenerar o exemplo: `npx jiti scripts/gerar-exemplo.ts`.
 
 1. Importe um CSV (`timestamp,open,high,low,close[,volume]`). Se os horários não trouxerem fuso (`Z`, `-03:00`), escolha o fuso do arquivo.
 2. Em **Configurações**, defina os parâmetros que a aula não fornece (ou use os valores *exploratórios*, que **não vêm da aula**). Sem isso, os filtros ficam **pendentes**.
-3. **Dashboard**: estado (Favorável / Desfavorável / Aguardar / Não avaliável), motivos, contagens e gatilho. **Gráfico**: candles, topos/fundos, zonas, tooltip OHLC. **Filtros**: explicação, evidência, regra e detalhes técnicos de cada um.
-4. **Histórico → Reprodução histórica** refaz a análise candle a candle sem ver o futuro e mostra a distribuição dos estados (não mede acerto).
-5. **Registrar análise** guarda o resultado, a versão das regras e uma cópia da configuração. No **Histórico**: filtros, resultado posterior manual, comparação por classificação e exportação CSV.
+3. **Ao vivo** (opcional): conecta à API pública da Binance (**cripto**, não é a Quotex) e mostra, por par, o cenário, o cronômetro do candle M5 e os critérios do gatilho, com diário automático de resultados.
+4. **Dashboard**: estado (Favorável / Desfavorável / Aguardar / Não avaliável), motivos, contagens e gatilho. **Gráfico**: candles, topos/fundos, zonas, tooltip OHLC. **Filtros**: explicação, evidência, regra e detalhes técnicos de cada um.
+5. **Histórico → Teste histórico** mede o resultado das regras em velas passadas (Binance ou CSV de 1 minuto do MT5) contra o ponto de equilíbrio do seu payout, e **Reprodução histórica** refaz a análise candle a candle sem ver o futuro e mostra a distribuição dos estados (não mede acerto).
+6. **Registrar análise** guarda o resultado, a versão das regras e uma cópia da configuração. No **Histórico**: filtros, resultado posterior manual, comparação por classificação e exportação CSV.
 
 ## Estrutura
 
@@ -41,7 +42,10 @@ src/core/            núcleo puro (sem React/DOM) — testável
   engine.ts          motor de decisão (4 estados) + gatilho
   config.ts          parâmetros com origem, hash, persistência validada
   history.ts         registros, filtros, comparação, exportação CSV segura
-  replay.ts          reprodução ponto-no-tempo (usada na tela Histórico → Reprodução)
+  replay.ts          reprodução ponto-no-tempo (distribuição de estados)
+  backtest.ts, stats.ts   teste histórico com resultado, Wilson e equilíbrio
+  journal.ts         diário ao vivo (detecção de toque e resolução)
+  binance.ts, mt5.ts adaptadores puros (klines da Binance; CSV M1 do MT5)
   dataStore.ts       persistência validada dos candles carregados
   demo.ts            dados FICTÍCIOS com semente fixa
 src/ui/              React + Tailwind + lightweight-charts
@@ -57,13 +61,13 @@ docs/                REGRAS, PENDENCIAS, NOVAS-TRANSCRICOES, FONTE-DE-DADOS
 
 ## Resultado da verificação (última execução)
 
-- `npm test`: **100 testes passando** (7 arquivos) — cálculo de corpo/pavios, direção e sequências, topos/fundos, candles inválidos, duplicatas, estados do motor, prioridade dos filtros de não entrada, ausência de confirmação de gatilho, look-ahead, importação CSV, persistência (configurações, histórico e candles), histórico e exportação.
+- `npm test`: **140 testes passando** (10 arquivos) — cálculo de corpo/pavios, direção e sequências, topos/fundos, candles inválidos, duplicatas, estados do motor, prioridade dos filtros de não entrada, ausência de confirmação de gatilho, look-ahead, importação CSV, persistência (configurações, histórico e candles), histórico e exportação.
 - `npm run build`: typecheck estrito + build OK.
-- Verificação ponta a ponta em Chromium (29 checagens): estado vazio, demonstração e selo de dados fictícios, parâmetros e validação, gráfico/tooltip, filtros, registro, histórico, resultado manual, exportação CSV, persistência após recarregar, importação inválida, fuso obrigatório, CSV de exemplo, ausência de rolagem horizontal em 390 px, sem erros de console.
+- Verificação ponta a ponta em Chromium: 29 checagens do fluxo principal, 19 do ao vivo com a Binance **simulada** (a rede deste ambiente não alcança a Binance) e as de zonas/persistência/reprodução. Não testei o feed contra a Binance de verdade: estado vazio, demonstração e selo de dados fictícios, parâmetros e validação, gráfico/tooltip, filtros, registro, histórico, resultado manual, exportação CSV, persistência após recarregar, importação inválida, fuso obrigatório, CSV de exemplo, ausência de rolagem horizontal em 390 px, sem erros de console.
 
 ## Limitações importantes
 
 - Os dados importados **não são comprovadamente iguais** aos da Quotex (principalmente em OTC).
-- Com candles fechados, o **gatilho nunca é confirmado** (cronômetro e "pico de vela" exigem o candle em formação) e os filtros F2/F4 não são avaliáveis.
+- Com candles fechados (CSV), o **gatilho nunca é confirmado** (o "pico de vela" e F1/F2/F4 exigem o candle em formação); só o feed ao vivo (cripto) o avalia por completo.
 - A maior parte dos limites numéricos **não existe nas aulas**; os valores exploratórios são só para teste. Nada foi otimizado nem validado estatisticamente; **não há taxa de acerto**.
 - Tudo é guardado no `localStorage` do navegador. Os candles carregados persistem só até 5000 candles (acima disso é preciso reimportar), e os avisos/lacunas da importação não são guardados.

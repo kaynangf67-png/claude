@@ -1,8 +1,10 @@
 import { directionRuns } from '../candle';
 import { fmtNum, fmtPct, fmtPrice, plural } from '../format';
-import type { Evidence } from '../types';
+import type { Evidence, FilterResult } from '../types';
 import { describeZone } from './aula01';
-import { insufficientData, makeResult, missingOf, p, pendingConfig, type RuleDefinition } from './context';
+import {
+  insufficientData, makeResult, missingOf, p, pendingConfig, type AnalysisContext, type RuleDefinition,
+} from './context';
 
 /**
  * Filtros de NÃO entrada. Quando detectados, o cenário é "desfavorável".
@@ -92,37 +94,124 @@ export const sameColorFlowRule: RuleDefinition = {
   },
 };
 
-// ---------------------------- filtros que exigem o candle em formação (aula 2)
+// ---------------------- filtros que usam o candle em formação (aulas 2 e 3)
 
-function intrabarOnly(
-  id: 'vela_proxima_regiao' | 'vela_lenta_parada', name: string, tag: string, sentence: string, ruleText: string,
-): RuleDefinition {
-  const def: RuleDefinition = {
-    id, name, role: 'nao_entrada', lesson: `${L2} · ${tag}`,
-    evaluate: () =>
-      makeResult(def, {
-        status: 'nao_avaliavel',
-        reason: 'requer_candle_em_formacao',
-        explanation:
-          `Anotação da aula 2: ${sentence} Este filtro depende do candle em formação (preço e ritmo em tempo real); ` +
-          'a fonte atual só traz candles fechados. Confira manualmente no gráfico antes de qualquer decisão.',
-        rule: ruleText,
-      }),
-  };
-  return def;
+/**
+ * Resultado comum quando o filtro não pode ser avaliado: sem candle em
+ * formação (fonte só com candles fechados) ou sem zona em contato.
+ */
+function intrabarGate(def: RuleDefinition, ctx: AnalysisContext, ruleText: string, sentence: string): FilterResult | null {
+  if (!ctx.intrabar?.forming) {
+    return makeResult(def, {
+      status: 'nao_avaliavel', reason: 'requer_candle_em_formacao',
+      explanation:
+        `Anotação da aula 2: ${sentence} Depende do candle em formação (preço e ritmo em tempo real); a fonte atual só traz candles fechados. ` +
+        'Conecte o feed ao vivo (aba "Ao vivo") ou confira manualmente no gráfico.',
+      rule: ruleText,
+    });
+  }
+  if (!ctx.entry || ctx.atr === null) {
+    return makeResult(def, {
+      status: 'nao_avaliavel', reason: 'aguardando_confirmacao',
+      explanation: 'O candle em formação ainda não está em contato com nenhuma zona; o filtro é avaliado quando o preço tocar uma zona.',
+      rule: ruleText,
+    });
+  }
+  return null;
 }
 
-export const nascendoProximoRule = intrabarOnly(
-  'vela_proxima_regiao', 'Vela nascendo próxima da região', 'F2',
-  '"vela nascendo próximo da região" é um sinal de rompimento.',
-  'Não implementado com dados fechados: não há definição numérica de "próximo" nem leitura do candle em formação.',
-);
+const evid = (label: string, value: string): Evidence => ({ label, value });
 
-export const velaLentaRule = intrabarOnly(
-  'vela_lenta_parada', 'Vela lenta ou parada', 'F4',
-  '"vela lenta ou parada" na região indica chance de rompimento.',
-  'Não implementado com dados fechados: "lenta/parada" depende da velocidade do preço dentro do candle.',
-);
+export const reversalRule: RuleDefinition = {
+  id: 'reversao',
+  name: 'Reversão contra a operação no candle',
+  role: 'nao_entrada',
+  lesson: `${L2} · F1 (leitura "Reversão", inferida do arquivo analisador-m5.html)`,
+  evaluate(ctx) {
+    const ruleText =
+      'Aula 2, F1 (leitura a confirmar). Detectado quando, no candle em formação, o preço já andou contra a operação desde a abertura mais que o limite (× ATR): ' +
+      'para venda na resistência, queda abaixo da abertura; para compra no suporte, alta acima da abertura. Só o M5 atual é verificado (não "timeframes maiores").';
+    const gate = intrabarGate(reversalRule, ctx, ruleText, '"Reversão em M5 ou timeframes maiores" é filtro de não entrada.');
+    if (gate) return gate;
+    const limit = p(ctx, 'reversalATR');
+    if (limit === null) return pendingConfig(reversalRule, ['reversalATR'], ruleText);
+    const f = ctx.intrabar!.forming!;
+    const res = ctx.entry!.side === 'resistencia';
+    const counter = res ? Math.max(0, f.o - f.l) : Math.max(0, f.h - f.o);
+    const inAtr = counter / ctx.atr!;
+    const hit = inAtr > limit;
+    return makeResult(reversalRule, {
+      status: hit ? 'desfavoravel' : 'favoravel', reason: hit ? 'condicao_detectada' : 'condicao_ausente',
+      explanation: hit
+        ? `Reversão: o preço já andou ${fmtNum(inAtr, 2)} ATR contra a operação neste candle (máximo ${limit}).`
+        : `Movimento contra de ${fmtNum(inAtr, 2)} ATR neste candle, dentro do máximo de ${limit}.`,
+      evidence: [evid('Movimento contra', `${fmtNum(inAtr, 2)} ATR`), evid('ATR', fmtPrice(ctx.atr!))],
+      rule: ruleText, technical: { counter, atr: ctx.atr, side: ctx.entry!.side },
+    });
+  },
+};
+
+export const nascendoProximoRule: RuleDefinition = {
+  id: 'vela_proxima_regiao',
+  name: 'Vela nascendo próxima da região',
+  role: 'nao_entrada',
+  lesson: `${L2} · F2`,
+  evaluate(ctx) {
+    const ruleText =
+      'Aula 2, F2: vela que nasce perto da região é sinal de rompimento. Detectado quando a distância entre a abertura do candle e a borda de entrada da zona ' +
+      'é menor que o mínimo (× ATR). Abertura já dentro da zona conta como detectado.';
+    const gate = intrabarGate(nascendoProximoRule, ctx, ruleText, '"vela nascendo próximo da região" é um sinal de rompimento.');
+    if (gate) return gate;
+    const limit = p(ctx, 'approachATR');
+    if (limit === null) return pendingConfig(nascendoProximoRule, ['approachATR'], ruleText);
+    const f = ctx.intrabar!.forming!;
+    const res = ctx.entry!.side === 'resistencia';
+    const dist = (res ? ctx.entry!.entry - f.o : f.o - ctx.entry!.entry) / ctx.atr!;
+    const hit = dist < limit;
+    return makeResult(nascendoProximoRule, {
+      status: hit ? 'desfavoravel' : 'favoravel', reason: hit ? 'condicao_detectada' : 'condicao_ausente',
+      explanation: hit
+        ? `A vela abriu a ${fmtNum(dist, 2)} ATR da zona (mínimo ${limit}): nasceu perto da região, sinal de rompimento.`
+        : `A vela abriu a ${fmtNum(dist, 2)} ATR da zona (mínimo ${limit}).`,
+      evidence: [evid('Distância abertura → zona', `${fmtNum(dist, 2)} ATR`)],
+      rule: ruleText, technical: { dist, atr: ctx.atr },
+    });
+  },
+};
+
+export const velaLentaRule: RuleDefinition = {
+  id: 'vela_lenta_parada',
+  name: 'Vela lenta ou parada',
+  role: 'nao_entrada',
+  lesson: `${L2} · F4`,
+  evaluate(ctx) {
+    const ruleText =
+      'Aula 2, F4: vela lenta ou parada na região indica chance de rompimento. Aproximação provisória: "lenta" = com ao menos 1 minuto fechado, ' +
+      'deslocamento ÷ caminho percorrido (fechamentos de 1 min) acima do limite; "parada" = após 1 minuto, amplitude do candle abaixo do mínimo (× ATR).';
+    const gate = intrabarGate(velaLentaRule, ctx, ruleText, '"vela lenta ou parada" na região indica chance de rompimento.');
+    if (gate) return gate;
+    const missing = missingOf(ctx, ['slowEfficiencyMax', 'stoppedRangeATR']);
+    if (missing.length) return pendingConfig(velaLentaRule, missing, ruleText);
+    const f = ctx.intrabar!.forming!;
+    const m1 = ctx.intrabar!.m1 ?? [];
+    const pts = [f.o, ...m1.map((c) => c.c), ctx.entry!.entry];
+    let steps = 0;
+    for (let i = 1; i < pts.length; i++) steps += Math.abs(pts[i]! - pts[i - 1]!);
+    const eff = steps > 0 ? Math.abs(ctx.entry!.entry - f.o) / steps : 0;
+    const elapsed = 300 - ctx.intrabar!.remainingSeconds;
+    const slow = m1.length >= 1 && eff > p(ctx, 'slowEfficiencyMax')!;
+    const stopped = elapsed >= 60 && f.h - f.l < p(ctx, 'stoppedRangeATR')! * ctx.atr!;
+    const hit = slow || stopped;
+    return makeResult(velaLentaRule, {
+      status: hit ? 'desfavoravel' : 'favoravel', reason: hit ? 'condicao_detectada' : 'condicao_ausente',
+      explanation: hit
+        ? stopped ? 'Vela parada: amplitude pequena após 1 minuto.' : `Vela lenta: só avança (eficiência ${fmtPct(eff)}).`
+        : m1.length === 0 ? 'Ainda sem minuto fechado neste candle.' : `A vela oscila (eficiência ${fmtPct(eff)}).`,
+      evidence: [evid('Eficiência', fmtPct(eff)), evid('Minutos fechados', String(m1.length)), evid('Amplitude do candle', `${fmtNum((f.h - f.l) / ctx.atr!, 2)} ATR`)],
+      rule: ruleText, technical: { eff, elapsed, slow, stopped },
+    });
+  },
+};
 
 // ---------------------------------------------------- movimento contínuo (6d)
 

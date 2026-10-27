@@ -6,7 +6,7 @@ import { loadData, saveData, MAX_PERSISTED_CANDLES } from '../core/dataStore';
 import { createRecord, loadHistory, saveHistory, setOutcome, type AnalysisRecord, type RecordedOutcome } from '../core/history';
 import { importCandlesCsv, type ImportResult } from '../core/csv';
 import { TIMEFRAME_SECONDS } from '../core/engine';
-import type { AnalysisConfig, AnalysisResult, Candle, DataSourceInfo } from '../core/types';
+import type { AnalysisConfig, AnalysisResult, Candle, DataSourceInfo, IntrabarInfo } from '../core/types';
 
 /** localStorage com proteção: modo privado, cota cheia ou bloqueio nunca derrubam o app. */
 export function browserStore(): KeyValueStore {
@@ -21,12 +21,14 @@ export function browserStore(): KeyValueStore {
   };
 }
 
-export type Tab = 'dashboard' | 'grafico' | 'filtros' | 'historico' | 'configuracoes';
+export type Tab = 'dashboard' | 'grafico' | 'filtros' | 'aovivo' | 'historico' | 'configuracoes';
 
 export interface LoadedData {
   candles: Candle[];
   source: DataSourceInfo;
   importInfo: Pick<ImportResult, 'warnings' | 'gaps' | 'stats'> | null;
+  /** Presente só com o feed ao vivo: candle em formação e cronômetro. */
+  live?: { symbol: string; formingOpenT: number; intrabar: IntrabarInfo };
 }
 
 export interface ImportRequest {
@@ -68,6 +70,8 @@ interface Store {
   setConfig: (c: AnalysisConfig) => void;
   resetConfig: () => void;
   data: LoadedData | null;
+  /** Substitui os dados carregados (usado pelo feed ao vivo). */
+  setLoaded: (d: LoadedData | null) => void;
   analysis: AnalysisResult | null;
   loadDemo: (s: DemoScenario) => void;
   importCsv: (req: ImportRequest) => ImportResult;
@@ -115,6 +119,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (!saveHistory(store, history)) setStorageWarning('Não foi possível salvar o histórico neste navegador. Exporte o CSV para não perder registros.');
   }, [history, store]);
   useEffect(() => {
+    // o feed ao vivo não é persistido (e não apaga o CSV guardado)
+    if (data?.live) return;
     const r = saveData(store, data ? { source: data.source, candles: data.candles } : null);
     if (r === 'grande_demais') setStorageWarning(`Estes dados têm mais de ${MAX_PERSISTED_CANDLES} candles e não serão guardados no navegador: ao recarregar, importe o CSV de novo.`);
     else if (r === 'falhou') setStorageWarning('Não foi possível guardar os candles neste navegador; ao recarregar será preciso importar de novo.');
@@ -125,7 +131,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [prefs, store]);
 
   const analysis = useMemo(
-    () => (data ? analyze({ candles: data.candles, source: data.source, config, intrabar: intrabarSeconds === null ? null : { elapsedSeconds: intrabarSeconds } }) : null),
+    () => {
+      if (!data) return null;
+      const intrabar = data.live?.intrabar ?? (intrabarSeconds === null ? null : { remainingSeconds: intrabarSeconds });
+      return analyze({ candles: data.candles, source: data.source, config, intrabar });
+    },
     [data, config, intrabarSeconds],
   );
 
@@ -167,7 +177,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     tab, setTab, config,
     setConfig: setConfigState,
     resetConfig: () => setConfigState(defaultConfig()),
-    data, analysis, loadDemo, importCsv,
+    data, setLoaded: setData, analysis, loadDemo, importCsv,
     clearData: () => { setData(null); setIntrabarSeconds(null); setFocus(null); },
     displayTimezone: prefs.displayTimezone, setDisplayTimezone,
     intrabarSeconds, setIntrabarSeconds,

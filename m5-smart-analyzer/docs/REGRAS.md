@@ -1,6 +1,6 @@
 # Regras implementadas
 
-Versão das regras: `aula-02@0.1.0` (campo `rulesVersion`, gravado em todo registro do histórico).
+Versão das regras: `aula-03@0.1.0` (campo `rulesVersion`, gravado em todo registro do histórico).
 
 **Princípio:** o aplicativo só afirma o que as aulas afirmam. Onde a aula é qualitativa, o parâmetro numérico começa como
 **"não definido"** e o filtro fica **pendente de configuração** (nunca satisfeito). Cada parâmetro registra a origem:
@@ -14,7 +14,7 @@ Versão das regras: `aula-02@0.1.0` (campo `rulesVersion`, gravado em todo regis
 | `nao_definido` | a aula não define |
 
 Valores que vêm da aula: toques anteriores = **2** (aula 1), fluxo da mesma cor = **3 ou mais** (aula 2),
-cronômetro = **2 min 30 s** (aula 2), "2 toques na região deixando pavio" (aula 2).
+tempo restante mínimo = **2 min 30 s** (aula 3; confirmado por você: "não pegar entrada com menos que isso"), "2 toques na região deixando pavio" (aula 2).
 
 ## Estados do motor (`src/core/engine.ts`)
 
@@ -49,23 +49,44 @@ Definições provisórias de zona (a aula não dá números):
 *rompimento* = fechamento além da borda externa; *retração observável* = afastamento ≥ mínimo a partir do extremo do toque dentro da janela, sem rompimento antes.
 Toque e aproximação consecutivos formam um único episódio de contato (evita contar o mesmo toque duas vezes).
 
-## Aula 2 — filtros de não entrada e gatilho (anotações manuscritas)
+## Aulas 2 e 3 — filtros de não entrada e gatilho
 
-Fonte: **fotografia de anotações manuscritas**, não transcrição. Algumas palavras estão ilegíveis (veja `PENDENCIAS.md`).
+Fontes: **fotografia de anotações manuscritas** (aula 2) e o arquivo `analisador-m5.html` enviado por você, que registra a aula 3.
+**Não vi a transcrição da aula 3**: o que está abaixo vem desse arquivo e da sua confirmação do cronômetro. O arquivo também ajudou a ler a anotação F1.
 
-| Item | Texto lido | Situação |
+Os filtros F1, F2 e F4 usam o **candle em formação** (preço de agora, abertura, minutos já fechados). Sem feed ao vivo (CSV) eles ficam "não avaliáveis" e entram como ressalva.
+Com o feed, são avaliados para a **zona em contato** com o candle em formação (`EntryCandidate`: borda da zona, preço de entrada = preço atual limitado à borda, toques válidos anteriores).
+
+| Item | Regra | Operacionalização | Parâmetros |
+|---|---|---|---|
+| F1 `reversao` | "Reversão em M5…" (leitura inferida do arquivo; **a confirmar**) | não entrada se, neste candle, o preço já andou contra a operação mais que o limite (× ATR). Só o M5 atual, não "timeframes maiores" | `reversalATR` |
+| F2 `vela_proxima_regiao` | vela nascendo próxima da região = sinal de rompimento | não entrada se a abertura está a menos que o mínimo (× ATR) da borda de entrada | `approachATR` |
+| F3 `sequencia_direcional` | fluxo de 3 ou mais velas da mesma cor | não entrada se a sequência que **termina no último candle** tem ≥ 3 (qualquer direção; mais conservador que "rumo à zona") | `maxSameDirectionRun` (3, **aula**) |
+| F4 `vela_lenta_parada` | vela lenta ou parada = chance de rompimento | aproximação provisória: lenta = eficiência (deslocamento ÷ caminho nos fechamentos de 1 min) acima do limite; parada = amplitude pequena após 1 min | `slowEfficiencyMax`, `stoppedRangeATR` |
+
+Critérios do gatilho (`src/core/rules/gatilho.ts`) — todos precisam ser atendidos **e** o cenário precisa estar FAVORÁVEL (sem F1–F4 detectados):
+
+| Critério | Operacionalização | Origem |
 |---|---|---|
-| F1 | "Re?ão em M5 ou timeframes maiores" (palavra ilegível) | **não implementado** — aguardando confirmação |
-| F2 | "Vela nascendo próximo da região → sinal de rompimento" (`vela_proxima_regiao`) | exige candle em formação → **não avaliável** com CSV |
-| F3 | "Fluxo de vela da mesma cor, três ou mais velas" (`sequencia_direcional`) | **implementado**: sequência de mesma cor que **termina no último candle** ≥ 3 |
-| F4 | "Vela lenta ou parada → chance de rompimento" (`vela_lenta_parada`) | exige candle em formação → **não avaliável** com CSV |
-| G1 | cronômetro acima de 2 min 30 s | implementado; precisa dos segundos decorridos (**entrada manual**) |
-| G2 | velas anteriores deixando pavio | implementado (usa a regra 1; precisa dos limites de pavio) |
-| G3 | "pico de vela" | **não implementado** — sem definição operacional |
-| G4 | 2 toques na região deixando pavio | implementado (zona em contato com 2 toques anteriores cujo candle do extremo deixou pavio relevante) |
+| Tempo restante | tempo restante do candle ≥ 150 s (exatamente 150 vale; abaixo disso não entra) | aula 3, **confirmado** |
+| Velas anteriores com força a favor | das 2 velas fechadas anteriores, quantas têm pavio relevante do lado da zona **ou** cor a favor; `prevCandlesRequired` (1 ou 2: a professora fala "as duas" e "uma" em trechos diferentes) | aula 3 (arquivo) |
+| "Pico de vela" | **interpretação provisória**: o preço do candle em formação alcançou a borda de entrada da zona (entrada no extremo) | **a confirmar** — a anotação não define o termo |
+| 2 toques anteriores com pavio | zona em contato com ≥ 2 toques anteriores cujo candle do extremo deixou pavio relevante | aula 2 |
 
-O gatilho só é **confirmado** se todos os critérios forem atendidos **e** o cenário for FAVORÁVEL. Com candles fechados (CSV) isso nunca ocorre,
-porque G1 e G3 não são verificáveis: o resultado esperado é "Gatilho não confirmado: X de 4 critérios atendidos".
+Parâmetros de F1/F2/F4 e `prevCandlesRequired` **não existem nas aulas** (no arquivo, o autor os marca como "meus"). Entram só no preset exploratório.
+
+Diferenças em relação ao arquivo `analisador-m5.html` (não adotado):
+- a **nota de 0 a 100** por par (mistura os pilares numa pontuação arbitrária; o briefing proíbe pontuação que esconda critérios). Aqui o ranking é por estado do cenário;
+- o modelo de zonas é outro (tolerância em ATR, rejeição = fechamento de volta). Mantive o meu, único para o ao vivo e o teste histórico.
+
+## Teste histórico e diário (medem resultado)
+
+- **Resultado**: o candle M5 fecha do lado certo do preço de entrada (borda da zona): venda ganha se fecha abaixo, compra se fecha acima; igual = empate (fora da taxa). Expiração = fechamento do M5. Isso **não vem da aula**.
+- **Ponto de equilíbrio** = 1 ÷ (1 + payout). Com 80%: 55,6%. O payout é um parâmetro seu (`payoutPercent`, padrão técnico 80: confirme na corretora).
+- **Veredito**: "acima" só se o intervalo de confiança (Wilson 95%) inteiro está acima do equilíbrio; "abaixo" se inteiro abaixo; senão **inconclusivo**.
+- **Teste histórico** (`src/core/backtest.ts`): para cada toque numa zona **armada** (≥ 2 toques válidos anteriores), reproduz o caminho do candle com velas de 1 minuto até o toque, avalia o gatilho com o mesmo código do ao vivo e confere o fechamento. Usa só velas anteriores. Instante do toque = meio do minuto em que a borda foi alcançada. Mostra 3 recortes (todo toque / cenário favorável / gatilho confirmado) e a contribuição de cada critério.
+- **Diário ao vivo** (`src/core/journal.ts`): registra cada toque do candle em formação em zona armada e resolve no fechamento. Só com a aba aberta e visível.
+- Limitações estatísticas: 7 critérios olhados de uma vez (alguns vão parecer bons por acaso), casos de pares de cripto correlacionados (o intervalo é otimista) e dados que não são os da Quotex.
 
 ## Sem look-ahead
 

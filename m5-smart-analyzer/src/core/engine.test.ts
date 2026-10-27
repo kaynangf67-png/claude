@@ -4,7 +4,8 @@ import { analyze } from './engine';
 import { replay } from './replay';
 import { RULES } from './rules';
 import type { TriggerRule } from './rules/context';
-import { cfg, fullConfig, fromCloses, rangeBound, strongTrend, testSource, candles } from './testing/fixtures';
+import { atr } from './candle';
+import { cfg, fullConfig, fromCloses, rangeBound, strongTrend, testSource, candles, touchingIntrabar } from './testing/fixtures';
 import type { Candle } from './types';
 
 const run = (cs: Candle[], config = fullConfig(), extra = {}) =>
@@ -29,9 +30,10 @@ describe('estados do motor', () => {
     expect(r.opportunities[0]!.note).toMatch(/não é gatilho/i);
     expect(r.trigger.confirmed).toBe(false);
     expect(r.summary).toMatch(/NÃO é uma entrada confirmada/);
-    // F2/F4 exigem o candle em formação: aparecem como ressalva, não como satisfeitos
+    // F1/F2/F4 exigem o candle em formação: aparecem como ressalva, não como satisfeitos
     expect(byId(r, 'vela_proxima_regiao').status).toBe('nao_avaliavel');
-    expect(r.caveats.length).toBe(2);
+    expect(byId(r, 'reversao').status).toBe('nao_avaliavel');
+    expect(r.caveats.length).toBe(3);
   });
 
   it('DESFAVORÁVEL em tendência contínua, com motivos específicos', () => {
@@ -171,18 +173,28 @@ describe('gatilho', () => {
     expect(r.trigger).toMatchObject({ status: 'nao_definido', confirmed: false, message: 'Gatilho não definido nas aulas analisadas.' });
   });
 
-  it('com candles fechados o gatilho da aula 2 NUNCA é confirmado (cronômetro e pico exigem o candle em formação)', () => {
-    const r = run(rangeBound(5, 5), fullConfig(), { intrabar: { elapsedSeconds: 200 } });
-    expect(r.state).toBe('FAVORAVEL');
-    const timer = r.trigger.criteria.find((c) => c.id === 'gatilho_cronometro')!;
-    expect(timer.status).toBe('atendido');
-    expect(r.trigger.criteria.find((c) => c.id === 'gatilho_pico_de_vela')!.status).toBe('nao_avaliavel');
+  it('com candles fechados o gatilho NUNCA é confirmado (pico de vela e F1/F2/F4 exigem o candle em formação)', () => {
+    const r = run(rangeBound(5, 5));
     expect(r.trigger.confirmed).toBe(false);
+    expect(r.trigger.criteria.find((c) => c.id === 'gatilho_tempo_restante')!.status).toBe('nao_avaliavel');
+    expect(r.trigger.criteria.find((c) => c.id === 'gatilho_pico_de_vela')!.status).toBe('nao_avaliavel');
   });
 
-  it('cronômetro abaixo de 2m30s não atende o critério', () => {
-    const r = run(rangeBound(5, 5), fullConfig(), { intrabar: { elapsedSeconds: 149 } });
-    expect(r.trigger.criteria.find((c) => c.id === 'gatilho_cronometro')!.status).toBe('nao_atendido');
+  it('só o tempo restante manual: avalia o tempo, mas não confirma (sem candle em formação)', () => {
+    const cs = rangeBound(5, 5);
+    const ok = run(cs, fullConfig(), { intrabar: { remainingSeconds: 200 } });
+    expect(ok.trigger.criteria.find((c) => c.id === 'gatilho_tempo_restante')!.status).toBe('atendido');
+    expect(ok.trigger.confirmed).toBe(false);
+    expect(ok.caveats.length).toBe(3);
+  });
+
+  it('o tempo restante precisa ser de pelo menos 2:30; com menos, não entra (exatamente 150 s vale)', () => {
+    const cs = rangeBound(5, 5);
+    const t = (s: number) => run(cs, fullConfig(), { intrabar: { remainingSeconds: s } }).trigger.criteria.find((c) => c.id === 'gatilho_tempo_restante')!.status;
+    expect(t(200)).toBe('atendido');
+    expect(t(150)).toBe('atendido');
+    expect(t(149)).toBe('nao_atendido');
+    expect(t(30)).toBe('nao_atendido');
   });
 
   const always: TriggerRule = { id: 't', name: 't', evaluate: () => ({ id: 't', name: 't', status: 'atendido', explanation: '' }) };
@@ -277,5 +289,102 @@ describe('versão e configuração registradas', () => {
 
   it('configuração com valores customizados via cfg()', () => {
     expect(cfg({ wickRelevantRatio: 0.4 }).params.wickRelevantRatio.value).toBe(0.4);
+  });
+});
+
+
+describe('candle em formação (feed ao vivo)', () => {
+  const cs = rangeBound(5, 5);
+  const base = analyze({ candles: cs, source: testSource(cs), config: fullConfig() });
+  const zone = (side: 'resistencia' | 'suporte') => base.zones.find((z) => z.side === side)!;
+  const atrNow = atr(cs, cs.length - 1)!;
+  const live = (ib: ReturnType<typeof touchingIntrabar>, config = fullConfig()) =>
+    analyze({ candles: cs, source: testSource(cs), config, intrabar: ib });
+  const crit = (r: ReturnType<typeof live>, id: string) => r.trigger.criteria.find((c) => c.id === id)!.status;
+
+  it('toque na resistência com todos os critérios: cenário favorável e gatilho confirmado', () => {
+    const r = live(touchingIntrabar(cs, zone('resistencia'), atrNow, { remaining: 200 }));
+    expect(r.state).toBe('FAVORAVEL');
+    expect(r.entry).toMatchObject({ side: 'resistencia', armed: true });
+    expect(r.entry!.entry).toBeGreaterThanOrEqual(r.entry!.edge);
+    expect(r.trigger).toMatchObject({ status: 'confirmado', confirmed: true });
+    expect(r.caveats).toHaveLength(0);
+  });
+
+  it('o mesmo toque no suporte compra no limite superior da zona', () => {
+    const r = live(touchingIntrabar(cs, zone('suporte'), atrNow, { remaining: 200 }));
+    expect(r.entry).toMatchObject({ side: 'suporte' });
+    expect(r.entry!.entry).toBeLessThanOrEqual(r.entry!.edge);
+    expect(r.state).toBe('FAVORAVEL');
+  });
+
+  it('com menos de 2:30 restantes o cenário segue favorável, mas o gatilho não confirma', () => {
+    const r = live(touchingIntrabar(cs, zone('resistencia'), atrNow, { remaining: 120 }));
+    expect(r.state).toBe('FAVORAVEL');
+    expect(crit(r, 'gatilho_tempo_restante')).toBe('nao_atendido');
+    expect(r.trigger.confirmed).toBe(false);
+    expect(r.trigger.message).toMatch(/3 de 4/);
+  });
+
+  it('F1 reversão: já andou contra a operação no candle → desfavorável e sem gatilho', () => {
+    const r = live(touchingIntrabar(cs, zone('resistencia'), atrNow, { counterATR: 0.5 }));
+    expect(byId(r, 'reversao').status).toBe('desfavoravel');
+    expect(r.state).toBe('DESFAVORAVEL');
+    expect(r.trigger.confirmed).toBe(false);
+  });
+
+  it('F2 vela nascendo perto da região → desfavorável', () => {
+    const r = live(touchingIntrabar(cs, zone('resistencia'), atrNow, { openOffsetATR: 0.1 }));
+    expect(byId(r, 'vela_proxima_regiao').status).toBe('desfavoravel');
+    expect(r.state).toBe('DESFAVORAVEL');
+  });
+
+  it('F4 vela parada: pouca amplitude depois de 1 minuto', () => {
+    const r = live(touchingIntrabar(cs, zone('resistencia'), atrNow, { openOffsetATR: 0.35, remaining: 200 }), fullConfig({ stoppedRangeATR: 0.5 }));
+    expect(byId(r, 'vela_lenta_parada').status).toBe('desfavoravel');
+    expect(byId(r, 'vela_lenta_parada').explanation).toMatch(/parada/);
+  });
+
+  it('F4 vela lenta: só avança, sem oscilar nos fechamentos de 1 minuto', () => {
+    const z = zone('resistencia');
+    const ib = touchingIntrabar(cs, z, atrNow, { remaining: 200 });
+    const o = ib.forming!.o;
+    const step = (z.lower - o) / 3;
+    const m1 = [1, 2].map((k) => ({ t: 0, o: o + (k - 1) * step, h: o + k * step, l: o + (k - 1) * step, c: o + k * step }));
+    const r = live({ ...ib, m1 });
+    expect(byId(r, 'vela_lenta_parada').status).toBe('desfavoravel');
+    expect(byId(r, 'vela_lenta_parada').explanation).toMatch(/lenta/);
+    // com oscilação, não
+    const wobble = [{ ...m1[0]!, c: o + step * 2 }, { ...m1[1]!, c: o + step * 0.5 }];
+    expect(byId(live({ ...ib, m1: wobble }), 'vela_lenta_parada').status).toBe('favoravel');
+  });
+
+  it('sem zona em contato os filtros do candle em formação aguardam o toque', () => {
+    const far = { remainingSeconds: 200, forming: { o: 1.1008, h: 1.1011, l: 1.1007, c: 1.101 }, m1: [] };
+    const r = live(far);
+    expect(r.entry).toBeNull();
+    expect(byId(r, 'reversao')).toMatchObject({ status: 'nao_avaliavel', reason: 'aguardando_confirmacao' });
+    expect(r.state).toBe('AGUARDAR');
+    expect(r.trigger.confirmed).toBe(false);
+  });
+
+  it('F1/F2/F4 sem parâmetros definidos ficam pendentes de configuração (nunca satisfeitos)', () => {
+    const r = live(touchingIntrabar(cs, zone('resistencia'), atrNow), fullConfig({ reversalATR: null, approachATR: null }));
+    expect(byId(r, 'reversao')).toMatchObject({ status: 'pendente', reason: 'parametro_nao_definido' });
+    expect(byId(r, 'vela_proxima_regiao').status).toBe('pendente');
+    expect(r.state).toBe('AGUARDAR');
+  });
+
+  it('velas anteriores: exigir as duas é mais restritivo que exigir uma', () => {
+    const ib = touchingIntrabar(cs, zone('resistencia'), atrNow);
+    expect(crit(live(ib, fullConfig({ prevCandlesRequired: 1 })), 'gatilho_velas_com_pavio')).toBe('atendido');
+    expect(crit(live(ib, fullConfig({ prevCandlesRequired: 2 })), 'gatilho_velas_com_pavio')).toBe('nao_atendido');
+    expect(crit(live(ib, fullConfig({ prevCandlesRequired: null })), 'gatilho_velas_com_pavio')).toBe('nao_avaliavel');
+  });
+
+  it('o ponto de equilíbrio e a zona de foco respeitam focusZoneId', () => {
+    const ib = touchingIntrabar(cs, zone('resistencia'), atrNow);
+    expect(live({ ...ib, focusZoneId: 'nao-existe' }).entry).toBeNull();
+    expect(live({ ...ib, focusZoneId: zone('resistencia').id }).entry?.zoneId).toBe(zone('resistencia').id);
   });
 });

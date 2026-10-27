@@ -71,7 +71,7 @@ export function Chip({ children, title }: { children: ReactNode; title?: string 
 
 export function Panel({ title, action, children, className = '' }: { title?: ReactNode; action?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={`rounded-lg border border-line bg-surface ${className}`}>
+    <section className={`min-w-0 rounded-lg border border-line bg-surface ${className}`}>
       {(title || action) && (
         <header className="flex items-center justify-between gap-3 border-b border-line px-4 py-2.5">
           <h2 className="text-[13px] font-semibold tracking-wide text-ink">{title}</h2>

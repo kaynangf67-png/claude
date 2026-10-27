@@ -1,8 +1,10 @@
 # Fonte de dados: limitações e plano de integração
 
 ## Estado atual
-- A única fonte real é **importação de CSV** (`timestamp, open, high, low, close[, volume]`).
-- O aplicativo **não está conectado à Quotex**. Não pede login, senha, cookies ou tokens; não automatiza cliques nem ordens; não faz scraping.
+- Fontes: **CSV** (candles M5 fechados), **feed ao vivo da Binance** (cripto, API pública, consulta a cada 5 s, sem chave) e, no teste histórico, **CSV de 1 minuto do MT5** ou a Binance.
+- O feed ao vivo dá o candle em formação e o cronômetro, mas é **cripto**: se você opera forex/ações na Quotex, ele não representa o seu ativo.
+- A importação de CSV principal (`timestamp, open, high, low, close[, volume]`).
+- O aplicativo **não está conectado à Quotex**. A Binance é só uma fonte pública de cotações de cripto, sem relação com a corretora. Não pede login, senha, cookies ou tokens; não automatiza cliques nem ordens; não faz scraping.
 - **Não há garantia de que os preços de um CSV sejam iguais aos da Quotex.** Preços de corretoras e, sobretudo, de ativos **OTC** (cotados pela própria corretora)
   podem diferir de qualquer outra fonte. O app mostra a origem informada por você e não presume equivalência.
 - Dados fictícios (demonstração e CSV marcado como sintético) são identificados em toda a interface, gravados como `synthetic` no histórico e **nunca entram** nas comparações.
@@ -22,3 +24,8 @@ Limites: 100 000 linhas / 10 MB.
 
 ## Licença do gráfico
 O gráfico usa `lightweight-charts` (TradingView, Apache-2.0). O logo de atribuição do próprio gráfico está **mantido ligado** (opção `attributionLogo`), o que a documentação indica como forma de cumprir a exigência de crédito; não o desligue sem ler a LICENSE.
+
+## Ao vivo e ativos reais da Quotex
+- Pesquisa: [Twelve Data](https://support.twelvedata.com/en/articles/5335783-trial) só tem WebSocket completo a partir do plano pago Pro (o grátis tem 8 créditos/dia); Finnhub: fontes divergentes sobre forex ao vivo no plano grátis (não confirmado). A Binance tem dados públicos de cripto sem chave ([docs](https://developers.binance.com/docs/binance-spot-api-docs/faqs/market_data_only)).
+- Antes de confiar em qualquer fonte para o seu ativo, compare o gráfico dela com o da Quotex por alguns dias (topos, fundos, pavios e horário dos candles).
+- Dado do MT5: o horário exportado é o do **servidor** da corretora do MT5, não UTC; serve para alinhar velas, não para ler a hora real.

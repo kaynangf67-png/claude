@@ -1,12 +1,12 @@
-import { candleIssue, candleMetrics, meanRange } from './candle';
+import { atr as atrOf, candleIssue, candleMetrics, meanRange } from './candle';
 import { configHash } from './config';
 import { plural } from './format';
 import { RULES, TRIGGER_RULES } from './rules';
 import type { AnalysisContext, RuleDefinition, TriggerRule } from './rules/context';
 import { detectSwings, validateSwings } from './swings';
-import { buildZones, computeZoneEvents } from './zones';
+import { buildZones, computeZoneEvents, priorValidTouches } from './zones';
 import type {
-  AnalysisConfig, AnalysisResult, Candle, DataSourceInfo, FilterResult, FilterStatus, IntrabarInfo,
+  AnalysisConfig, AnalysisResult, Candle, DataSourceInfo, EntryCandidate, FilterResult, FilterStatus, IntrabarInfo,
   ScenarioState, TriggerEvaluation,
 } from './types';
 
@@ -40,6 +40,7 @@ function notEvaluable(input: AnalyzeInput, reasons: string[], window: AnalysisRe
       status: 'nao_confirmado', confirmed: false, criteria: [],
       message: 'Gatilho não avaliado: os dados não permitem a análise.',
     },
+    entry: null,
     swings: [], zones: [], opportunities: [],
     window,
     rulesVersion: input.config.rulesVersion,
@@ -90,6 +91,33 @@ export function checkData(candles: Candle[], config: AnalysisConfig): string[] {
   return reasons;
 }
 
+/**
+ * Zona em contato com o candle em formação. Contato = o extremo alcança a
+ * borda de entrada sem que o preço atual passe da borda externa. Entre várias,
+ * prevalece a de mais toques válidos anteriores.
+ */
+export function findEntry(
+  zones: AnalysisContext['zones'], intrabar: IntrabarInfo | null, lastIndex: number, minPrior: number,
+): EntryCandidate | null {
+  const f = intrabar?.forming;
+  if (!f) return null;
+  let best: EntryCandidate | null = null;
+  for (const z of zones) {
+    if (intrabar.focusZoneId && z.id !== intrabar.focusZoneId) continue;
+    const res = z.side === 'resistencia';
+    const touching = res ? f.h >= z.lower && f.c <= z.upper : f.l <= z.upper && f.c >= z.lower;
+    if (!touching) continue;
+    const priors = priorValidTouches(z, lastIndex + 1).length;
+    if (best && priors <= best.priorValidTouches) continue;
+    const edge = res ? z.lower : z.upper;
+    best = {
+      zoneId: z.id, side: z.side, edge, entry: res ? Math.max(f.c, edge) : Math.min(f.c, edge),
+      priorValidTouches: priors, armed: priors >= minPrior,
+    };
+  }
+  return best;
+}
+
 export function buildContext(input: AnalyzeInput): AnalysisContext | string[] {
   const { candles, config } = input;
   const last = candles.length - 1;
@@ -127,12 +155,15 @@ export function buildContext(input: AnalyzeInput): AnalysisContext | string[] {
   ) - 1);
   const metrics = new Array<ReturnType<typeof candleMetrics>>(candles.length);
   for (let i = metricsFrom; i <= last; i++) metrics[i] = candleMetrics(candles[i]!);
+  const intrabar = input.intrabar ?? null;
   return {
     candles,
     metrics,
     config, lastIndex: last, contextStart, obsStart, referenceRange,
     swings, zones, tolerance,
-    source: input.source, intrabar: input.intrabar ?? null, opportunities: [],
+    source: input.source, intrabar, opportunities: [],
+    atr: atrOf(candles, last),
+    entry: findEntry(zones, intrabar, last, config.params.minPriorValidTouches.value ?? 2),
   };
 }
 
@@ -202,6 +233,7 @@ export function analyze(input: AnalyzeInput): AnalysisResult {
     filters,
     counts,
     trigger,
+    entry: ctx.entry,
     swings: ctx.swings,
     zones: ctx.zones,
     opportunities,
@@ -234,7 +266,7 @@ function evaluateTriggers(ctx: AnalysisContext, triggers: TriggerRule[], state: 
   const confirmed = all && state === 'FAVORAVEL';
   let message: string;
   if (confirmed) {
-    message = 'Todos os critérios do gatilho registrados foram atendidos. Isso não garante resultado.';
+    message = 'Gatilho confirmado pelos critérios registrados (aulas 2 e 3). Isso não garante resultado: confira o payout e o preço na corretora.';
   } else if (all) {
     message = 'Critérios do gatilho atendidos, mas o cenário não está favorável; gatilho não confirmado.';
   } else {
@@ -262,8 +294,8 @@ function buildSummary(
     }
     case 'FAVORAVEL':
       return (
-        `Cenário visualmente favorável: ${counts.favoravel} filtros favoráveis e nenhum filtro de não entrada detectado. ` +
-        `Isto NÃO é uma entrada confirmada. ${trigger.message}` +
+        `Cenário favorável: ${counts.favoravel} filtros favoráveis e nenhum filtro de não entrada detectado. ` +
+        (trigger.confirmed ? '' : 'Isto NÃO é uma entrada confirmada. ') + trigger.message +
         (caveats.length ? ` Atenção: ${caveats.length} verificação(ões) exigem o candle em formação e não foram feitas.` : '')
       );
     default:

@@ -1,9 +1,9 @@
 import type { RuleDefinition, TriggerRule } from './context';
 import { alternationRule, minHistoryRule, swingsRule, undefinedStructureRule, wicksRule, zonesRule } from './aula01';
 import {
-  bigBodyRule, breakoutRule, continuousMoveRule, nascendoProximoRule, sameColorFlowRule, velaLentaRule,
+  bigBodyRule, breakoutRule, continuousMoveRule, nascendoProximoRule, reversalRule, sameColorFlowRule, velaLentaRule,
 } from './naoEntrada';
-import { AULA02_TRIGGERS } from './gatilho';
+import { AULA03_TRIGGERS } from './gatilho';
 import { sessionRule } from './horario';
 
 /**
@@ -20,6 +20,7 @@ export const RULES: RuleDefinition[] = [
   minHistoryRule,
   bigBodyRule,
   sameColorFlowRule,
+  reversalRule,
   nascendoProximoRule,
   velaLentaRule,
   undefinedStructureRule,
@@ -28,6 +29,6 @@ export const RULES: RuleDefinition[] = [
   sessionRule,
 ];
 
-export const TRIGGER_RULES: TriggerRule[] = AULA02_TRIGGERS;
+export const TRIGGER_RULES: TriggerRule[] = AULA03_TRIGGERS;
 
 export type { RuleDefinition, TriggerRule, AnalysisContext } from './context';
