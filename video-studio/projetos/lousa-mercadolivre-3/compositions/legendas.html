@@ -1,0 +1,65 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; pointer-events: none; }
+    #root .band { position: absolute; left: 0; right: 0; top: 1225px; height: 100px; }
+    #root .grp { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      opacity: 0; overflow: visible; }
+    #root .line { display: flex; gap: 0 30px; justify-content: center; align-items: center; width: 100%;
+      flex-wrap: nowrap; white-space: nowrap; padding: 0 60px; }
+    #root .w { display: inline-block; font-family: Montserrat; font-weight: 900; font-size: 62px;
+      line-height: 1.05; letter-spacing: -0.01em; color: #fff; -webkit-text-stroke: 7px #000;
+      paint-order: stroke fill; text-shadow: 0 8px 18px rgba(0,0,0,.45); transform-origin: 50% 60%; }
+  </style>
+  <div id="root" data-composition-id="legendas">
+    <div class="band" data-layout-allow-overflow>
+      <div id="lg-g0" class="grp" data-a="0.100" data-b="0.890"><div class="line"><span id="lg-w0-0" class="w" data-t="0.000">ESSE</span><span id="lg-w0-1" class="w" data-t="0.140">BRINQUEDO</span><span id="lg-w0-2" class="w" data-t="0.700">BARATO</span></div></div>
+      <div id="lg-g1" class="grp" data-a="0.890" data-b="1.690"><div class="line"><span id="lg-w1-0" class="w" data-t="0.940">DO</span><span id="lg-w1-1" class="w" data-t="1.020">MERCADO</span><span id="lg-w1-2" class="w" data-t="1.340">LIVRE</span><span id="lg-w1-3" class="w" data-t="1.580">FEZ</span></div></div>
+      <div id="lg-g2" class="grp" data-a="1.690" data-b="2.490"><div class="line"><span id="lg-w2-0" class="w" data-t="1.740">MEU</span><span id="lg-w2-1" class="w" data-t="1.900">FILHO</span><span id="lg-w2-2" class="w" data-t="2.140">LARGAR</span><span id="lg-w2-3" class="w" data-t="2.460">O</span></div></div>
+      <div id="lg-g3" class="grp" data-a="2.490" data-b="3.425"><div class="line"><span id="lg-w3-0" class="w" data-t="2.540">CELULAR</span><span id="lg-w3-1" class="w" data-t="2.940">DE</span><span id="lg-w3-2" class="w" data-t="3.100">VEZ.</span></div></div>
+      <div id="lg-g4" class="grp" data-a="3.425" data-b="4.545"><div class="line"><span id="lg-w4-0" class="w" data-t="3.475">É</span><span id="lg-w4-1" class="w" data-t="3.635">UMA</span><span id="lg-w4-2" class="w" data-t="3.875">LOUSA</span><span id="lg-w4-3" class="w" data-t="4.115">DE</span><span id="lg-w4-4" class="w key" data-t="4.195">LED,</span></div></div>
+      <div id="lg-g5" class="grp" data-a="4.545" data-b="4.945"><div class="line"><span id="lg-w5-0" class="w" data-t="4.595">OLHA</span><span id="lg-w5-1" class="w" data-t="4.835">SÓ,</span></div></div>
+      <div id="lg-g6" class="grp" data-a="4.945" data-b="5.985"><div class="line"><span id="lg-w6-0" class="w" data-t="4.995">CADA</span><span id="lg-w6-1" class="w" data-t="5.235">TRAÇO</span><span id="lg-w6-2" class="w" data-t="5.555">ACENDE</span><span id="lg-w6-3" class="w" data-t="5.955">NO</span></div></div>
+      <div id="lg-g7" class="grp" data-a="5.985" data-b="6.865"><div class="line"><span id="lg-w7-0" class="w" data-t="6.035">ESCURO</span><span id="lg-w7-1" class="w" data-t="6.355">À</span><span id="lg-w7-2" class="w" data-t="6.435">NOITE</span><span id="lg-w7-3" class="w" data-t="6.675">DE</span><span id="lg-w7-4" class="w" data-t="6.755">UMA</span></div></div>
+      <div id="lg-g8" class="grp" data-a="6.865" data-b="7.985"><div class="line"><span id="lg-w8-0" class="w" data-t="6.915">COR</span><span id="lg-w8-1" class="w" data-t="7.155">DIFERENTE</span><span id="lg-w8-2" class="w" data-t="7.395">E</span><span id="lg-w8-3" class="w" data-t="7.715">PARECE</span></div></div>
+      <div id="lg-g9" class="grp" data-a="7.985" data-b="8.465"><div class="line"><span id="lg-w9-0" class="w" data-t="8.035">MÁGICA.</span></div></div>
+      <div id="lg-g10" class="grp" data-a="8.465" data-b="9.025"><div class="line"><span id="lg-w10-0" class="w" data-t="8.515">ACABOU,</span></div></div>
+      <div id="lg-g11" class="grp" data-a="9.025" data-b="10.225"><div class="line"><span id="lg-w11-0" class="w" data-t="9.075">É</span><span id="lg-w11-1" class="w" data-t="9.235">SÓ</span><span id="lg-w11-2" class="w" data-t="9.395">PASSAR</span><span id="lg-w11-3" class="w" data-t="9.715">UM</span><span id="lg-w11-4" class="w" data-t="9.795">PANINHO</span></div></div>
+      <div id="lg-g12" class="grp" data-a="10.225" data-b="11.105"><div class="line"><span id="lg-w12-0" class="w" data-t="10.275">E</span><span id="lg-w12-1" class="w" data-t="10.355">DESENHA</span><span id="lg-w12-2" class="w" data-t="10.835">DE</span><span id="lg-w12-3" class="w" data-t="10.915">NOVO,</span></div></div>
+      <div id="lg-g13" class="grp" data-a="11.105" data-b="12.065"><div class="line"><span id="lg-w13-0" class="w" data-t="11.155">E</span><span id="lg-w13-1" class="w" data-t="11.315">DEPOIS</span><span id="lg-w13-2" class="w" data-t="11.555">AINDA</span><span id="lg-w13-3" class="w" data-t="11.795">VIRA</span></div></div>
+      <div id="lg-g14" class="grp" data-a="12.065" data-b="13.429"><div class="line"><span id="lg-w14-0" class="w" data-t="12.115">UMA</span><span id="lg-w14-1" class="w" data-t="12.195">LUZINHA</span><span id="lg-w14-2" class="w" data-t="12.675">DE</span><span id="lg-w14-3" class="w" data-t="12.755">ABAJUR.</span></div></div>
+      <div id="lg-g15" class="grp" data-a="13.429" data-b="14.049"><div class="line"><span id="lg-w15-0" class="w" data-t="13.479">EM</span><span id="lg-w15-1" class="w" data-t="13.619">VEZ</span><span id="lg-w15-2" class="w" data-t="13.779">DE</span><span id="lg-w15-3" class="w" data-t="13.939">FICAR</span></div></div>
+      <div id="lg-g16" class="grp" data-a="14.049" data-b="14.849"><div class="line"><span id="lg-w16-0" class="w" data-t="14.099">COMPRANDO</span><span id="lg-w16-1" class="w" data-t="14.499">PAPEL</span><span id="lg-w16-2" class="w" data-t="14.819">E</span></div></div>
+      <div id="lg-g17" class="grp" data-a="14.849" data-b="16.049"><div class="line"><span id="lg-w17-0" class="w" data-t="14.899">CANETA</span><span id="lg-w17-1" class="w" data-t="15.459">TODA</span><span id="lg-w17-2" class="w" data-t="15.699">HORA,</span></div></div>
+      <div id="lg-g18" class="grp" data-a="16.049" data-b="17.249"><div class="line"><span id="lg-w18-0" class="w" data-t="16.099">ESSA</span><span id="lg-w18-1" class="w" data-t="16.339">DAQUI</span><span id="lg-w18-2" class="w" data-t="16.659">VOCÊ</span><span id="lg-w18-3" class="w" data-t="16.819">APAGA</span></div></div>
+      <div id="lg-g19" class="grp" data-a="17.249" data-b="17.969"><div class="line"><span id="lg-w19-0" class="w" data-t="17.299">E</span><span id="lg-w19-1" class="w" data-t="17.379">USA</span><span id="lg-w19-2" class="w" data-t="17.619">DE</span><span id="lg-w19-3" class="w" data-t="17.699">NOVO,</span></div></div>
+      <div id="lg-g20" class="grp" data-a="17.969" data-b="19.169"><div class="line"><span id="lg-w20-0" class="w" data-t="18.019">QUANTAS</span><span id="lg-w20-1" class="w" data-t="18.339">VEZES</span><span id="lg-w20-2" class="w" data-t="18.659">QUISER,</span></div></div>
+      <div id="lg-g21" class="grp" data-a="19.169" data-b="19.889"><div class="line"><span id="lg-w21-0" class="w" data-t="19.219">NÃO</span><span id="lg-w21-1" class="w" data-t="19.379">PRECISA</span><span id="lg-w21-2" class="w" data-t="19.699">FICAR</span></div></div>
+      <div id="lg-g22" class="grp" data-a="19.889" data-b="20.833"><div class="line"><span id="lg-w22-0" class="w" data-t="19.939">REPONDO</span><span id="lg-w22-1" class="w" data-t="20.579">NADA.</span></div></div>
+      <div id="lg-g23" class="grp" data-a="20.833" data-b="21.773"><div class="line"><span id="lg-w23-0" class="w" data-t="20.883">CHEGOU</span><span id="lg-w23-1" class="w" data-t="21.263">EM</span><span id="lg-w23-2" class="w" data-t="21.343">MENOS</span><span id="lg-w23-3" class="w" data-t="21.583">DE</span><span id="lg-w23-4" class="w" data-t="21.663">UMA</span></div></div>
+      <div id="lg-g24" class="grp" data-a="21.773" data-b="22.573"><div class="line"><span id="lg-w24-0" class="w" data-t="21.823">SEMANA</span><span id="lg-w24-1" class="w" data-t="22.063">E</span><span id="lg-w24-2" class="w" data-t="22.223">EU</span><span id="lg-w24-3" class="w" data-t="22.303">JÁ</span><span id="lg-w24-4" class="w" data-t="22.463">VOU</span></div></div>
+      <div id="lg-g25" class="grp" data-a="22.573" data-b="23.133"><div class="line"><span id="lg-w25-0" class="w" data-t="22.623">PEDIR</span><span id="lg-w25-1" class="w" data-t="22.863">MAIS</span><span id="lg-w25-2" class="w" data-t="23.023">DOIS,</span></div></div>
+      <div id="lg-g26" class="grp" data-a="23.133" data-b="23.773"><div class="line"><span id="lg-w26-0" class="w" data-t="23.183">O</span><span id="lg-w26-1" class="w" data-t="23.263">LINK</span><span id="lg-w26-2" class="w" data-t="23.503">ESTÁ</span><span id="lg-w26-3" class="w" data-t="23.663">AQUI</span></div></div>
+      <div id="lg-g27" class="grp" data-a="23.773" data-b="24.050"><div class="line"><span id="lg-w27-0" class="w" data-t="23.823">EMBAIXO.</span></div></div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      var tl = gsap.timeline({ paused: true });
+      document.querySelectorAll("#root .grp").forEach(function (g) {
+        var a = +g.dataset.a, b = +g.dataset.b;
+        var din = Math.min(0.13, (b - a) * 0.4), dout = Math.min(0.08, (b - a) * 0.25);
+        tl.fromTo(g, { opacity: 0, scale: 0.86, y: 18 }, { opacity: 1, scale: 1, y: 0, duration: din, ease: "back.out(2.4)" }, a);
+        tl.to(g, { opacity: 0, duration: dout, ease: "power2.in" }, b - dout);
+        tl.set(g, { opacity: 0, visibility: "hidden" }, b);
+        g.querySelectorAll(".w").forEach(function (w) {
+          var t = Math.max(a, +w.dataset.t - 0.03);
+          var cor = w.classList.contains("money") ? "#2BE36B" : (w.classList.contains("key") ? "#FFE500" : "#FFFFFF");
+          var ativo = w.classList.contains("money") ? "#2BE36B" : "#FFE500";
+          tl.fromTo(w, { color: "#FFFFFF", scale: 1 }, { color: ativo, scale: 1.07, duration: 0.07, ease: "power2.out" }, t);
+          tl.to(w, { color: cor, scale: 1, duration: 0.16, ease: "power2.out" }, t + 0.16);
+        });
+      });
+      window.__timelines["legendas"] = tl;
+    })();
+  </script>
+</template>

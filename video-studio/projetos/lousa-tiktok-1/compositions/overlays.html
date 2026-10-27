@@ -1,0 +1,41 @@
+<template>
+  <script src="assets/js/gsap.min.js"></script>
+  <style>
+    #root { position: absolute; inset: 0; pointer-events: none; font-family: Montserrat; }
+    #root .canto { position: absolute; right: 44px; top: 190px; }
+    #root .canto-in { display: flex; align-items: center; gap: 14px; padding: 12px 22px 12px 14px; border-radius: 22px;
+      background: rgba(255,255,255,.95); box-shadow: 0 10px 26px rgba(0,0,0,.30); }
+    #root .canto-in b { display: block; font-weight: 900; font-size: 30px; line-height: 1.02; letter-spacing: 0.02em; }
+    #root .ico { position: relative; width: 62px; height: 62px; border-radius: 50%; flex: none; }
+    #root .gota { position: absolute; left: 19px; top: 14px; width: 24px; height: 24px; background: #fff;
+      border-radius: 0 50% 50% 50%; transform: rotate(45deg); }
+    #root .check { position: absolute; left: 22px; top: 12px; width: 16px; height: 30px; border-right: 7px solid #fff;
+      border-bottom: 7px solid #fff; transform: rotate(45deg); }
+    #root .centro { position: absolute; left: 0; right: 0; top: 230px; display: flex; justify-content: center; }
+    #root .centro-in { display: inline-block; padding: 16px 38px; border-radius: 22px; font-weight: 900; font-size: 60px;
+      letter-spacing: 0.02em; box-shadow: 0 14px 30px rgba(0,0,0,.30); }
+    #root #ov-cta { position: absolute; left: 0; right: 0; top: 850px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    #root #cta-pill { display: inline-block; padding: 18px 42px; border-radius: 999px; background: #FE2C55; color: #fff;
+      font-weight: 900; font-size: 52px; letter-spacing: 0.02em; box-shadow: 0 16px 34px rgba(254,44,85,.40); }
+    #root .chev { width: 60px; height: 60px; border-right: 14px solid #FE2C55; border-bottom: 14px solid #FE2C55;
+      transform: rotate(45deg); border-radius: 6px; }
+  </style>
+  <div id="root" data-composition-id="overlays" data-layout-allow-overlap>
+    <div id="selo0" class="clip canto" data-start="9.07" data-duration="2.50"><div id="selo0-in" class="canto-in"><span class="ico" style="background:#00B84A"><i class="check"></i></span><span style="color:#0D47A1"><b>APAGA E</b><b>USA DE NOVO</b></span></div></div>
+    <div id="ov-cta" class="clip" data-start="19.18" data-duration="1.87"><div id="cta-pill">TOQUE NO CARRINHO</div><div style="display:flex;flex-direction:column;align-items:center;margin-top:10px"><div class="chev" id="ch1"></div><div class="chev" id="ch2" style="margin-top:-26px"></div></div></div>
+  </div>
+  <script>
+    (function () {
+      var tl = gsap.timeline({ paused: true });
+      function entra(sel, t, from, rot) {
+        tl.fromTo(sel, Object.assign({ opacity: 0 }, from), { opacity: 1, scale: 1, x: 0, y: 0, rotation: rot || 0, duration: 0.38, ease: "back.out(2.4)" }, t);
+      }
+      function sai(sel, t) { tl.to(sel, { opacity: 0, scale: 0.8, duration: 0.2, ease: "power2.in" }, t - 0.2); }
+      entra("#selo0-in", 9.07, { y: -20, scale: 0.6 }); sai("#selo0-in", 11.57);
+      entra("#cta-pill", 19.18, { y: 30, scale: 0.5 });
+      tl.fromTo("#cta-pill", { scale: 1 }, { scale: 1.06, duration: 0.32, ease: "sine.inOut", immediateRender: false, yoyo: true, repeat: 3 }, 19.63);
+      tl.fromTo(["#ch1", "#ch2"], { y: -10, opacity: 0.35 }, { y: 12, opacity: 1, duration: 0.4, ease: "sine.inOut", stagger: 0.12, yoyo: true, repeat: 2 }, 19.48);
+      window.__timelines["overlays"] = tl;
+    })();
+  </script>
+</template>

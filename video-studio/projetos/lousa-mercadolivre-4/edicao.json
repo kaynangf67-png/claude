@@ -1,0 +1,19 @@
+{
+ "correcoes": {
+  "abaju.": "abajur.",
+  "abajú.": "abajur.",
+  "olhe": "olha",
+  "repondo.": "repondo nada."
+ },
+ "pares": {
+  "que acaba": "que acabe"
+ },
+ "destaque": [
+  "LED"
+ ],
+ "selos": [],
+ "cta": {
+  "texto": "LINK AQUI EMBAIXO",
+  "de": "link"
+ }
+}

@@ -1,0 +1,30 @@
+{
+ "correcoes": {
+  "abaju.": "abajur.",
+  "abajú.": "abajur.",
+  "olhe": "olha",
+  "repondo.": "repondo nada."
+ },
+ "pares": {
+  "que acaba": "que acabe"
+ },
+ "destaque": [
+  "LED"
+ ],
+ "selos": [
+  {
+   "tipo": "canto",
+   "icone": "check",
+   "linhas": [
+    "APAGA E",
+    "USA DE NOVO"
+   ],
+   "de": "apaga",
+   "duracao": 2.5
+  }
+ ],
+ "cta": {
+  "texto": "TOQUE NO CARRINHO",
+  "de": "carrinho"
+ }
+}
