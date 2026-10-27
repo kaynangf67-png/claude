@@ -1,0 +1,38 @@
+{
+ "correcoes": {
+  "queimei": "Kemei",
+  "einaria,": "e nariz,",
+  "lana,": "lâmina,"
+ },
+ "pares": {
+  "compra essa": "compra essa daqui. Essa é a",
+  "a prova": "à prova",
+  "é três": "tem três"
+ },
+ "destaque": [
+  "Kemei",
+  "3",
+  "1,"
+ ],
+ "selos": [
+  {
+   "tipo": "canto",
+   "icone": "gota",
+   "linhas": [
+    "À PROVA",
+    "D'ÁGUA"
+   ],
+   "de": "prova",
+   "duracao": 2.4
+  }
+ ],
+ "cta": {
+  "texto": "LINK AQUI EMBAIXO",
+  "de": "link"
+ },
+ "rotulos": {
+  "esq": "KEMEI 3 EM 1",
+  "dir": "GILETE",
+  "ate": 39.06
+ }
+}

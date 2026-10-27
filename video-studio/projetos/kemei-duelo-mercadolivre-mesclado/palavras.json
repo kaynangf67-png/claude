@@ -1,0 +1,887 @@
+[
+{
+"text": "Qual",
+"start": 0.06,
+"end": 0.38
+},
+{
+"text": "é",
+"start": 0.38,
+"end": 0.54
+},
+{
+"text": "melhor,",
+"start": 0.54,
+"end": 1.02
+},
+{
+"text": "Gilete",
+"start": 1.02,
+"end": 1.72
+},
+{
+"text": "ou",
+"start": 1.74,
+"end": 1.9
+},
+{
+"text": "essa",
+"start": 1.9,
+"end": 2.14
+},
+{
+"text": "maquininha",
+"start": 2.14,
+"end": 2.54
+},
+{
+"text": "que",
+"start": 2.54,
+"end": 2.62
+},
+{
+"text": "eu",
+"start": 2.62,
+"end": 2.7
+},
+{
+"text": "acabei",
+"start": 2.7,
+"end": 3.02
+},
+{
+"text": "de",
+"start": 3.02,
+"end": 3.18
+},
+{
+"text": "achar",
+"start": 3.18,
+"end": 3.42
+},
+{
+"text": "no",
+"start": 3.42,
+"end": 3.5
+},
+{
+"text": "Mercado",
+"start": 3.5,
+"end": 3.82
+},
+{
+"text": "Livre?",
+"start": 3.82,
+"end": 4.38
+},
+{
+"text": "Gilete,",
+"start": 4.38,
+"end": 5.02
+},
+{
+"text": "óbvio,",
+"start": 5.02,
+"end": 5.42
+},
+{
+"text": "a",
+"start": 5.42,
+"end": 5.5
+},
+{
+"text": "minha",
+"start": 5.5,
+"end": 5.74
+},
+{
+"text": "é",
+"start": 5.74,
+"end": 5.9
+},
+{
+"text": "baratinha.",
+"start": 5.9,
+"end": 6.375
+},
+{
+"text": "Barata?",
+"start": 6.435,
+"end": 7.075
+},
+{
+"text": "Você",
+"start": 7.075,
+"end": 7.315
+},
+{
+"text": "já",
+"start": 7.315,
+"end": 7.475
+},
+{
+"text": "é",
+"start": 7.475,
+"end": 7.635
+},
+{
+"text": "jogada",
+"start": 7.635,
+"end": 8.115
+},
+{
+"text": "fora",
+"start": 8.115,
+"end": 8.435
+},
+{
+"text": "depois",
+"start": 8.435,
+"end": 8.675
+},
+{
+"text": "de",
+"start": 8.675,
+"end": 8.835
+},
+{
+"text": "duas",
+"start": 8.835,
+"end": 9.155
+},
+{
+"text": "passadas.",
+"start": 9.155,
+"end": 9.795
+},
+{
+"text": "Tá?",
+"start": 9.795,
+"end": 10.115
+},
+{
+"text": "Mas",
+"start": 10.115,
+"end": 10.275
+},
+{
+"text": "a",
+"start": 10.275,
+"end": 10.355
+},
+{
+"text": "minha",
+"start": 10.355,
+"end": 10.675
+},
+{
+"text": "ela",
+"start": 10.675,
+"end": 10.835
+},
+{
+"text": "faz",
+"start": 10.835,
+"end": 10.995
+},
+{
+"text": "a",
+"start": 10.995,
+"end": 11.075
+},
+{
+"text": "barba",
+"start": 11.075,
+"end": 11.395
+},
+{
+"text": "bem",
+"start": 11.395,
+"end": 11.555
+},
+{
+"text": "rente",
+"start": 11.555,
+"end": 11.955
+},
+{
+"text": "e",
+"start": 11.955,
+"end": 12.035
+},
+{
+"text": "ela",
+"start": 12.035,
+"end": 12.195
+},
+{
+"text": "não",
+"start": 12.195,
+"end": 12.275
+},
+{
+"text": "deixa",
+"start": 12.275,
+"end": 12.595
+},
+{
+"text": "cabelo",
+"start": 12.595,
+"end": 12.995
+},
+{
+"text": "nenhum.",
+"start": 12.995,
+"end": 13.303
+},
+{
+"text": "A",
+"start": 13.303,
+"end": 13.443
+},
+{
+"text": "minha",
+"start": 13.443,
+"end": 13.683
+},
+{
+"text": "também",
+"start": 13.683,
+"end": 14.083
+},
+{
+"text": "e",
+"start": 14.083,
+"end": 14.243
+},
+{
+"text": "a",
+"start": 14.243,
+"end": 14.323
+},
+{
+"text": "minha",
+"start": 14.323,
+"end": 14.563
+},
+{
+"text": "ainda",
+"start": 14.563,
+"end": 14.803
+},
+{
+"text": "é",
+"start": 14.803,
+"end": 14.883
+},
+{
+"text": "três",
+"start": 14.883,
+"end": 15.123
+},
+{
+"text": "pentes.",
+"start": 15.123,
+"end": 15.683
+},
+{
+"text": "Uma",
+"start": 15.683,
+"end": 16.003
+},
+{
+"text": "pra",
+"start": 16.003,
+"end": 16.163
+},
+{
+"text": "deixar",
+"start": 16.163,
+"end": 16.403
+},
+{
+"text": "o",
+"start": 16.403,
+"end": 16.483
+},
+{
+"text": "cabelo",
+"start": 16.483,
+"end": 16.803
+},
+{
+"text": "bem",
+"start": 16.803,
+"end": 16.963
+},
+{
+"text": "lisinho,",
+"start": 16.963,
+"end": 17.663
+},
+{
+"text": "outra",
+"start": 17.683,
+"end": 18.083
+},
+{
+"text": "para",
+"start": 18.083,
+"end": 18.323
+},
+{
+"text": "o",
+"start": 18.323,
+"end": 18.483
+},
+{
+"text": "nariz.",
+"start": 18.483,
+"end": 18.963
+},
+{
+"text": "A",
+"start": 18.963,
+"end": 19.123
+},
+{
+"text": "minha",
+"start": 19.123,
+"end": 19.443
+},
+{
+"text": "corta",
+"start": 19.443,
+"end": 19.763
+},
+{
+"text": "às",
+"start": 19.763,
+"end": 19.923
+},
+{
+"text": "vezes",
+"start": 19.923,
+"end": 20.243
+},
+{
+"text": "até",
+"start": 20.243,
+"end": 20.563
+},
+{
+"text": "demais.",
+"start": 20.563,
+"end": 20.933
+},
+{
+"text": "A",
+"start": 20.933,
+"end": 21.073
+},
+{
+"text": "minha",
+"start": 21.073,
+"end": 21.473
+},
+{
+"text": "ela",
+"start": 21.473,
+"end": 21.633
+},
+{
+"text": "tem",
+"start": 21.633,
+"end": 21.873
+},
+{
+"text": "proteção",
+"start": 21.873,
+"end": 22.353
+},
+{
+"text": "na",
+"start": 22.353,
+"end": 22.513
+},
+{
+"text": "lâmina,",
+"start": 22.513,
+"end": 23.073
+},
+{
+"text": "então",
+"start": 23.073,
+"end": 23.313
+},
+{
+"text": "evita",
+"start": 23.313,
+"end": 23.793
+},
+{
+"text": "que",
+"start": 23.793,
+"end": 23.953
+},
+{
+"text": "eu",
+"start": 23.953,
+"end": 24.033
+},
+{
+"text": "corte",
+"start": 24.033,
+"end": 24.433
+},
+{
+"text": "ou",
+"start": 24.433,
+"end": 24.673
+},
+{
+"text": "me",
+"start": 24.673,
+"end": 24.833
+},
+{
+"text": "machuque.",
+"start": 24.833,
+"end": 25.313
+},
+{
+"text": "Pelo",
+"start": 25.313,
+"end": 25.473
+},
+{
+"text": "menos",
+"start": 25.473,
+"end": 25.633
+},
+{
+"text": "eu",
+"start": 25.633,
+"end": 25.793
+},
+{
+"text": "uso",
+"start": 25.793,
+"end": 26.033
+},
+{
+"text": "a",
+"start": 26.033,
+"end": 26.113
+},
+{
+"text": "minha",
+"start": 26.113,
+"end": 26.353
+},
+{
+"text": "no",
+"start": 26.353,
+"end": 26.513
+},
+{
+"text": "banho.",
+"start": 26.513,
+"end": 26.913
+},
+{
+"text": "A",
+"start": 26.913,
+"end": 27.073
+},
+{
+"text": "minha",
+"start": 27.073,
+"end": 27.473
+},
+{
+"text": "ela",
+"start": 27.473,
+"end": 27.633
+},
+{
+"text": "é",
+"start": 27.633,
+"end": 27.793
+},
+{
+"text": "a",
+"start": 27.793,
+"end": 27.953
+},
+{
+"text": "prova",
+"start": 27.953,
+"end": 28.273
+},
+{
+"text": "d'água.",
+"start": 28.273,
+"end": 28.569
+},
+{
+"text": "Então",
+"start": 28.629,
+"end": 28.949
+},
+{
+"text": "a",
+"start": 28.949,
+"end": 29.109
+},
+{
+"text": "sua",
+"start": 29.109,
+"end": 29.429
+},
+{
+"text": "faz",
+"start": 29.429,
+"end": 29.669
+},
+{
+"text": "tudo",
+"start": 29.669,
+"end": 29.829
+},
+{
+"text": "isso,",
+"start": 29.829,
+"end": 30.149
+},
+{
+"text": "dura",
+"start": 30.149,
+"end": 30.469
+},
+{
+"text": "mais",
+"start": 30.469,
+"end": 30.709
+},
+{
+"text": "e",
+"start": 30.709,
+"end": 30.869
+},
+{
+"text": "ainda",
+"start": 30.869,
+"end": 31.109
+},
+{
+"text": "vai",
+"start": 31.109,
+"end": 31.269
+},
+{
+"text": "no",
+"start": 31.269,
+"end": 31.429
+},
+{
+"text": "banho?",
+"start": 31.429,
+"end": 31.909
+},
+{
+"text": "Pelo",
+"start": 31.909,
+"end": 32.149
+},
+{
+"text": "menos",
+"start": 32.149,
+"end": 32.389
+},
+{
+"text": "a",
+"start": 32.389,
+"end": 32.469
+},
+{
+"text": "minha",
+"start": 32.469,
+"end": 32.709
+},
+{
+"text": "é",
+"start": 32.709,
+"end": 32.789
+},
+{
+"text": "mais",
+"start": 32.789,
+"end": 32.949
+},
+{
+"text": "barata.",
+"start": 32.949,
+"end": 33.429
+},
+{
+"text": "Pra",
+"start": 33.429,
+"end": 33.589
+},
+{
+"text": "falar",
+"start": 33.589,
+"end": 33.829
+},
+{
+"text": "a",
+"start": 33.829,
+"end": 33.909
+},
+{
+"text": "verdade,",
+"start": 33.909,
+"end": 34.309
+},
+{
+"text": "com",
+"start": 34.309,
+"end": 34.469
+},
+{
+"text": "o",
+"start": 34.469,
+"end": 34.549
+},
+{
+"text": "que",
+"start": 34.549,
+"end": 34.709
+},
+{
+"text": "você",
+"start": 34.709,
+"end": 34.949
+},
+{
+"text": "gasta",
+"start": 34.949,
+"end": 35.429
+},
+{
+"text": "na",
+"start": 35.429,
+"end": 35.589
+},
+{
+"text": "semana",
+"start": 35.589,
+"end": 35.909
+},
+{
+"text": "para",
+"start": 35.909,
+"end": 36.069
+},
+{
+"text": "comprar",
+"start": 36.069,
+"end": 36.389
+},
+{
+"text": "toda",
+"start": 36.389,
+"end": 36.629
+},
+{
+"text": "vez",
+"start": 36.629,
+"end": 36.869
+},
+{
+"text": "isso",
+"start": 36.869,
+"end": 37.109
+},
+{
+"text": "daí?",
+"start": 37.109,
+"end": 37.339
+},
+{
+"text": "Em",
+"start": 37.399,
+"end": 37.559
+},
+{
+"text": "duas",
+"start": 37.559,
+"end": 37.799
+},
+{
+"text": "semanas",
+"start": 37.799,
+"end": 38.119
+},
+{
+"text": "você",
+"start": 38.119,
+"end": 38.279
+},
+{
+"text": "já",
+"start": 38.279,
+"end": 38.359
+},
+{
+"text": "compra",
+"start": 38.359,
+"end": 38.679
+},
+{
+"text": "essa",
+"start": 38.679,
+"end": 39.379
+},
+{
+"text": "maquininha",
+"start": 39.479,
+"end": 39.959
+},
+{
+"text": "queimei",
+"start": 39.959,
+"end": 40.439
+},
+{
+"text": "3",
+"start": 40.439,
+"end": 40.759
+},
+{
+"text": "em",
+"start": 40.759,
+"end": 40.919
+},
+{
+"text": "1,",
+"start": 40.919,
+"end": 41.239
+},
+{
+"text": "cabelo",
+"start": 41.239,
+"end": 41.639
+},
+{
+"text": "barba,",
+"start": 41.639,
+"end": 42.119
+},
+{
+"text": "einaria,",
+"start": 42.119,
+"end": 42.679
+},
+{
+"text": "o",
+"start": 42.679,
+"end": 42.759
+},
+{
+"text": "preço",
+"start": 42.759,
+"end": 42.999
+},
+{
+"text": "disso",
+"start": 42.999,
+"end": 43.239
+},
+{
+"text": "daqui",
+"start": 43.239,
+"end": 43.479
+},
+{
+"text": "tá",
+"start": 43.479,
+"end": 43.639
+},
+{
+"text": "tão",
+"start": 43.639,
+"end": 43.799
+},
+{
+"text": "barato.",
+"start": 43.799,
+"end": 43.996
+},
+{
+"text": "Clique",
+"start": 43.996,
+"end": 44.376
+},
+{
+"text": "agora",
+"start": 44.376,
+"end": 44.536
+},
+{
+"text": "no",
+"start": 44.536,
+"end": 44.616
+},
+{
+"text": "link",
+"start": 44.616,
+"end": 44.936
+},
+{
+"text": "aqui",
+"start": 44.936,
+"end": 45.096
+},
+{
+"text": "embaixo",
+"start": 45.096,
+"end": 45.416
+},
+{
+"text": "e",
+"start": 45.416,
+"end": 45.496
+},
+{
+"text": "aproveita",
+"start": 45.496,
+"end": 45.976
+},
+{
+"text": "antes",
+"start": 45.976,
+"end": 46.136
+},
+{
+"text": "que",
+"start": 46.136,
+"end": 46.216
+},
+{
+"text": "acabe",
+"start": 46.216,
+"end": 46.536
+},
+{
+"text": "o",
+"start": 46.536,
+"end": 46.616
+},
+{
+"text": "desconto.",
+"start": 46.616,
+"end": 46.896
+}
+]
