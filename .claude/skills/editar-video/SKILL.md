@@ -43,6 +43,8 @@ Ele corta pausas > 0,3 s, acelera a fala 1,15x (tom mantido), alterna zoom a cad
 
 **Vários vídeos numa edição** (ex.: "recrie formatos diferentes"): junte as fontes com ffmpeg `concat` (normalize fps/escala/áudio antes), crie `in.mp4` apontando para o resultado e some a duração dos vídeos anteriores aos tempos das tomadas. Formatos diferentes = **ângulos de venda diferentes** (problema → solução, economia, kit completo, prova de uso), não só outra edição da mesma fala.
 
+**Narração gravada à parte + cenas sem fala** (ex.: lousa de LED): trate cada áudio (corte de pausas + 1,15x, como no `montar.py`), escreva `DIR/plano.json` e rode `python3 video-studio/pipeline/narrado.py DIR`. Ele junta as narrações, re-transcreve, troca de cena quando uma palavra-chave é falada (corte a cada ≤1,8 s), apaga texto queimado da fonte com inpainting (`mascaras`) e grava `base.mp4`/`voz.wav`/`palavras.json`; depois siga com `projeto.sh`. Exemplo em `video-studio/projetos/lousa-ml-g1-c1-a1/plano.json`. Confira o brilho das faixas escolhidas: transição com tela preta estraga o corte.
+
 **Mercado Livre Clips**: vertical, até ~60 s, precisa mostrar o produto em uso, um vídeo diferente por anúncio, sem contato do vendedor. Não mostre preço de concorrente (outro marketplace) na tela. **A fala precisa citar "Mercado Livre" nos primeiros segundos** (pedido do usuário): abra com a frase dele que menciona a plataforma, mesmo que o gancho de problema venha logo depois.
 
 ## 3. Projeto visual

@@ -13,6 +13,7 @@ Kit para editar vídeos verticais de venda (TikTok, TikTok Shop, Mercado Livre) 
 | 0 | `bash video-studio/setup.sh` | instala tudo (o ambiente é apagado entre sessões) |
 | 1 | `pipeline/mapear.py VIDEO DIR` | frames com horário + fala com tempo de cada palavra e pausas |
 | 2 | `pipeline/montar.py DIR --vel 1.15` | corta conforme `tomadas.json`, remove pausas > 0,3 s, acelera, re-transcreve para conferir |
+| 2b | `pipeline/narrado.py DIR` | alternativa ao 2: narração gravada à parte por cima de cenas (`plano.json`) |
 | 3 | `pipeline/projeto.sh gerar DIR "t1,t2"` | projeto HyperFrames a partir de `edicao.json` + snapshots para revisão |
 | 4 | `pipeline/projeto.sh render DIR NOME` | vídeo final em `saida/NOME.mp4` (-14 LUFS) e projeto em `projetos/NOME/` |
 

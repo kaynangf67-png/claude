@@ -79,3 +79,12 @@ Fala real ≠ roteiro em vários takes (legenda segue o que foi dito):
   para TikTok Shop: pedir regravação).
 - Faltam: G ML3, G TT3 do roteiro ("cada traço acende no escuro"), CTA TT4 e as 8 cenas em vídeo.
 - Correção de legenda: "abaju" → "abajur"; "acaba o estoque" → "acabe o estoque".
+
+## Cenas usadas (27/10): vídeo do criador gringo, liberado pelo dono segundo o usuário
+
+`ssstik.io_1793052339755.mp4` (720x1280, 47,5 s, GOMYMO/Bluey, legenda em inglês e caixa "GOMYMO" queimadas →
+`mascaras` [[100,138,625,270],[75,895,680,1000]]). Mapa da fonte (s): 1,0–2,0 rabiscos coloridos acesos · 2–4 folha
+do desenho · 4–8 contorno do gorro · 8–12 rosto aceso de perto · 12–23 corpo/pernas · 23–29 árvore verde · 29–32
+balão de perto · 32–33,8 desenho pronto · 34,4–37,9 apagando com paninho · 38–40 lousa limpa acesa · 41–41,9 pronto
+de perto · 42,6–43,2 PRETO (evitar) · 43,3–47 quarto escuro trocando de cor.
+Rodada 1 renderizada: `lousa-<ml|tt>-g<n>-c1-a1` (ML g1, g2, g4; TT g1–g4).
