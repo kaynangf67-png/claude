@@ -175,6 +175,13 @@ if cta:
       tl.fromTo("#cta-pill", {{ scale: 1 }}, {{ scale: 1.06, duration: 0.32, ease: "sine.inOut", immediateRender: false, yoyo: true, repeat: {max(1, int((DUR - c0 - 0.5) / 0.32) - 1)} }}, {c0 + 0.45:.2f});
       tl.fromTo(["#ch1", "#ch2"], {{ y: -10, opacity: 0.35 }}, {{ y: 12, opacity: 1, duration: 0.4, ease: "sine.inOut", stagger: 0.12, yoyo: true, repeat: {max(1, int((DUR - c0) / 0.4) - 2)} }}, {c0 + 0.3:.2f});''')
 
+rot = CFG.get("rotulos")  # tela dividida: {"esq": "KEMEI 3 EM 1", "dir": "GILETE", "ate": s}, fixos no topo de cada metade
+if rot:
+    r_dur = min(float(rot.get("ate", DUR)), DUR)
+    for lado, x in (("esq", 0), ("dir", 540)):
+        if rot.get(lado):
+            el.append(f'    <div id="rot-{lado}" class="clip rot" data-start="0" data-duration="{r_dur:.2f}" style="left:{x}px">{html.escape(rot[lado])}</div>')
+
 OVERLAYS = f"""<template>
   <script src="assets/js/gsap.min.js"></script>
   <style>
@@ -194,6 +201,8 @@ OVERLAYS = f"""<template>
     #root #ov-cta {{ position: absolute; left: 0; right: 0; top: 850px; display: flex; flex-direction: column; align-items: center; gap: 6px; }}
     #root #cta-pill {{ display: inline-block; padding: 18px 42px; border-radius: 999px; background: #FE2C55; color: #fff;
       font-weight: 900; font-size: 52px; letter-spacing: 0.02em; box-shadow: 0 16px 34px rgba(254,44,85,.40); }}
+    #root .rot {{ position: absolute; top: 300px; width: 540px; text-align: center; color: #fff; font-weight: 800;
+      font-size: 40px; letter-spacing: 0.04em; text-shadow: 0 2px 10px rgba(0,0,0,.65), 0 0 2px rgba(0,0,0,.8); }}
     #root .chev {{ width: 60px; height: 60px; border-right: 14px solid #FE2C55; border-bottom: 14px solid #FE2C55;
       transform: rotate(45deg); border-radius: 6px; }}
   </style>

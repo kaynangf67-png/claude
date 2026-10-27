@@ -45,6 +45,8 @@ Ele corta pausas > 0,3 s, acelera a fala 1,15x (tom mantido), alterna zoom a cad
 
 **Narração gravada à parte + cenas sem fala** (ex.: lousa de LED): trate cada áudio (corte de pausas + 1,15x, como no `montar.py`), escreva `DIR/plano.json` e rode `python3 video-studio/pipeline/narrado.py DIR`. Ele junta as narrações, re-transcreve, troca de cena quando uma palavra-chave é falada (corte a cada ≤1,8 s), apaga texto queimado da fonte com inpainting (`mascaras`) e grava `base.mp4`/`voz.wav`/`palavras.json`; depois siga com `projeto.sh`. Exemplo em `video-studio/projetos/lousa-ml-g1-c1-a1/plano.json`. Confira o brilho das faixas escolhidas: transição com tela preta estraga o corte.
 
+**Duelo / tela dividida** (dois personagens, como o viral dos fones): monte a fala com `montar.py` (fontes concatenadas na ordem do roteiro), escreva `DIR/duelo.json` (falante por tomada, lado de cada um, trechos de reação com o personagem calado — sem ele pegando o celular) e rode `python3 video-studio/pipeline/duelo.py DIR` antes do `projeto.sh`. `"K!"` = tomada em tela cheia (CTA para a câmera). Nomes no topo: `"rotulos": {"esq", "dir", "ate"}` no `edicao.json`. Exemplo: `video-studio/projetos/kemei-duelo-mercadolivre-tela-dividida/`. Confira se o rosto não encosta na borda da metade.
+
 **Mercado Livre Clips**: vertical, até ~60 s, precisa mostrar o produto em uso, um vídeo diferente por anúncio, sem contato do vendedor. Não mostre preço de concorrente (outro marketplace) na tela. **A fala precisa citar "Mercado Livre" nos primeiros segundos** (pedido do usuário): abra com a frase dele que menciona a plataforma, mesmo que o gancho de problema venha logo depois.
 
 ## 3. Projeto visual
