@@ -50,3 +50,15 @@ Corpos servem às duas plataformas. Vídeos de TikTok Shop nunca usam takes/cena
 
 Edição: narração por cima das cenas (corte da cena acompanha a fala), legenda pequena, sem emojis,
 -14 LUFS. Para cada vídeo, nomear `lousa-<ml|tt>-g<n>-c<n>-a<n>.mp4`.
+
+---
+
+# Variante: roteiro gringo traduzido (vídeo único por plataforma)
+
+Google Docs: "Roteiro gringo traduzido – Lousa de LED (Mercado Livre + TikTok Shop)"
+https://docs.google.com/document/d/1HzQ4u-bfCkOZTxeWl8X6zaqBNQp5-l0idmXeDieGJAU/edit
+
+Mesmas 16 frases do viral gringo, na mesma ordem. Áudio: "VERSÃO MERCADO" + roteiro inteiro, depois
+"VERSÃO TIKTOK" + só as frases 1, 14 e 16. "DE NOVO" = repete só aquela frase (usar a última).
+Montagem: 2 vídeos (ML e TT); no TT trocar as frases 1, 14 e 16 pelas da versão TikTok e não usar a
+tela do anúncio. Cortes no ritmo do original (uma cena por frase), sem respiros, legenda pequena.
