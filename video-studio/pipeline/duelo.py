@@ -6,8 +6,10 @@ Lê DIR/duelo.json:
   {
     "falante": ["G", "G", "K", ..., "K!"],   # um por tomada de tomadas.json; "!" = tela cheia (CTA para a câmera)
     "lado": {"K": "esq", "G": "dir"},        # metade da tela de cada personagem
-    "reacao": {"G": [[a, b], ...], "K": [...]}   # trechos de in.mp4 com o personagem calado (sem pegar o celular)
+    "reacao": {"G": [[a, b], ...], "K": [...]},  # trechos de in.mp4 com o personagem calado, olhando para o outro
+    "mescla": true                            # opcional: os dois no mesmo quadro, sem linha (celular parado nas gravações)
   }
+Quem escuta toca o trecho de reação vai-e-volta (2x) antes de passar ao próximo, para não parecer congelado.
 Quem fala aparece na sua metade com o trecho da fala; o outro fica na metade dele com os trechos de reação
 em sequência. Cada metade é um recorte 360x1280 centrado na pessoa (segmentação u2net). Regrava DIR/base.mp4.
 Para os nomes no topo, ponha "rotulos": {"esq": "...", "dir": "..."} no edicao.json.
@@ -70,51 +72,101 @@ def main():
 
     starts = np.cumsum([0] + [(y - x) / VEL for x, y in keep])
     total = starts[-1]
+    mescla = cfg.get("mescla", False)
+    if mescla:
+        # alinhamento: desloca cada trecho para o fundo bater com o 1º trecho de reação do personagem da direita
+        def cinza(t):
+            cap_r.set(cv2.CAP_PROP_POS_MSEC, t * 1000)
+            return cv2.cvtColor(cap_r.read()[1], cv2.COLOR_BGR2GRAY).astype(np.float32)
+        ref = cinza(cfg["reacao"][[p for p, l in cfg["lado"].items() if l == "dir"][0]][0][0])
+        def desloc(t):
+            (dx, dy), _ = cv2.phaseCorrelate(ref[:500], cinza(t)[:500])
+            return -dx, -dy
+        tom_d = [desloc((t[0] + t[1]) / 2) for t in tomadas]
+        fal = [(q, c, tom_d[next(i for i, t in enumerate(tomadas) if t[0] - 0.01 <= x and y <= t[1] + 0.01)])
+               for (q, c), (x, y) in zip(fal, keep)]
+        reac = {p: [(r0, r1, desloc((r0 + r1) / 2)) for r0, r1, _ in rs] for p, rs in reac.items()}
+        xc = {p: np.median([c for q, c, _ in fal if q == p] or [360]) for p in cfg["lado"]}
+        esq, dir_ = [p for p, l in cfg["lado"].items() if l == "esq"][0], [p for p, l in cfg["lado"].items() if l == "dir"][0]
+        costura = (xc[esq] + xc[dir_]) / 2
+        xs = np.arange(720, dtype=np.float32)
+        a_esq = np.clip((costura + 40 - xs) / 80, 0, 1)[None, :, None]  # 1 à esquerda da costura, rampa de 80 px
+
+    def alinhar(fr, d):
+        return cv2.warpAffine(fr, np.float32([[1, 0, d[0]], [0, 1, d[1]]]), (fr.shape[1], fr.shape[0]), borderMode=cv2.BORDER_REPLICATE)
+
+    def pessoa(fr, lado):
+        x = cv2.resize(fr, (320, 320))[:, :, ::-1].astype(np.float32) / 255
+        x = (x - [0.485, 0.456, 0.406]) / [0.229, 0.224, 0.225]
+        m = _seg.run(None, {_seg.get_inputs()[0].name: x.transpose(2, 0, 1)[None].astype(np.float32)})[0][0, 0]
+        m = cv2.resize((m - m.min()) / (m.max() - m.min() + 1e-6), (fr.shape[1], fr.shape[0]))
+        m = cv2.GaussianBlur(np.clip((m - 0.3) / 0.4, 0, 1), (0, 0), 3)
+        lim = costura + 140 if lado == "esq" else costura - 140  # cada um só invade um pouco o lado do outro
+        m[:, int(lim):] = 0 if lado == "esq" else m[:, int(lim):]
+        if lado == "dir":
+            m[:, :max(int(lim), 0)] = 0
+        return m[..., None]
+
     enc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{W}x{H}",
                             "-r", str(FPS), "-i", "-", "-c:v", "libx264", "-preset", "medium", "-crf", "17",
                             "-g", "30", "-pix_fmt", "yuv420p", os.path.join(D, "base.mp4")], stdin=subprocess.PIPE)
-    pos = {p: [0, rs[0][0]] for p, rs in reac.items()}  # índice do trecho de reação e tempo atual
+    pos = {p: [0, 0] for p in reac}  # trecho de reação atual e quadro dentro dele (vai e volta)
     ultimo = {}
     seg_ant = -1
     for f in range(int(total * FPS)):
         t = f / FPS
         i = min(int(np.searchsorted(starts, t, side="right") - 1), len(keep) - 1)
-        quem, cx = fal[i]
+        quem, cx = fal[i][0], fal[i][1]
         t_src = keep[i][0] + (t - starts[i]) * VEL
         if i != seg_ant:
             cap.set(cv2.CAP_PROP_POS_MSEC, t_src * 1000)
             seg_ant = i
         ok, fr = cap.read()
-        if quem.endswith("!"):  # tela cheia (ex.: CTA sozinho para a câmera)
-            if ok:
-                ultimo[quem] = cv2.resize(fr, (W, H), interpolation=cv2.INTER_LANCZOS4)
-            enc.stdin.write(ultimo[quem].tobytes())
-            continue
         if ok:
-            ultimo[quem] = metade(fr, cx)
+            ultimo["f"] = fr
+        fr = ultimo["f"]
+        if quem.endswith("!"):  # tela cheia (ex.: CTA sozinho para a câmera)
+            enc.stdin.write(cv2.resize(fr, (W, H), interpolation=cv2.INTER_LANCZOS4).tobytes())
+            continue
+        quadros = {quem: (fr, cx, fal[i][2] if mescla else None)}
+        for p in cfg["lado"]:
+            if p == quem:
+                continue
+            k, n = pos[p]
+            r0, r1, rd = reac[p][k]
+            L = max(int((r1 - r0) * FPS), 2)
+            if n >= 2 * (L - 1) * 2:  # dois vai-e-volta e passa para o próximo trecho
+                k, n = (k + 1) % len(reac[p]), 0
+                r0, r1, rd = reac[p][k]
+                L = max(int((r1 - r0) * FPS), 2)
+            j = n % (2 * (L - 1))
+            j = j if j < L else 2 * (L - 1) - j
+            cap_r.set(cv2.CAP_PROP_POS_MSEC, (r0 + j / FPS) * 1000)
+            ok, fr2 = cap_r.read()
+            if ok:
+                ultimo["r" + p] = fr2
+            quadros[p] = (ultimo["r" + p], rd, rd)
+            pos[p] = [k, n + 1]
+        if mescla:
+            A = alinhar(quadros[esq][0], quadros[esq][2]).astype(np.float32)
+            B = alinhar(quadros[dir_][0], quadros[dir_][2]).astype(np.float32)
+            C = A * a_esq + B * (1 - a_esq)
+            mA, mB = pessoa(A.astype(np.uint8), "esq"), pessoa(B.astype(np.uint8), "dir")
+            camadas = [(A, mA), (B, mB)] if quem == dir_ else [(B, mB), (A, mA)]  # quem fala fica por cima
+            for img, m in camadas:
+                C = C * (1 - m) + img * m
+            enc.stdin.write(cv2.resize(C.astype(np.uint8), (W, H), interpolation=cv2.INTER_LANCZOS4).tobytes())
+            continue
         frame = np.zeros((H, W, 3), np.uint8)
         for p, lado in cfg["lado"].items():
             x0 = 0 if lado == "esq" else 540
-            if p == quem:
-                frame[:, x0:x0 + 540] = ultimo[quem]
-                continue
-            k, tr = pos[p]
-            r0, r1, rc = reac[p][k]
-            if tr >= r1 or tr < r0:
-                k = (k + 1) % len(reac[p]) if tr >= r1 else k
-                r0, r1, rc = reac[p][k]
-                tr = r0
-            cap_r.set(cv2.CAP_PROP_POS_MSEC, tr * 1000)  # busca exata: poucos trechos, custo aceitável
-            ok, fr2 = cap_r.read()
-            if ok:
-                ultimo["r" + p] = metade(fr2, rc)
-            frame[:, x0:x0 + 540] = ultimo.get("r" + p, 0)
-            pos[p] = [k, tr + 1 / FPS]
+            img, c = quadros[p][0], quadros[p][1]
+            frame[:, x0:x0 + 540] = metade(img, c)
         frame[:, 538:542] = 0  # linha fina entre as metades
         enc.stdin.write(frame.tobytes())
     enc.stdin.close()
     enc.wait()
-    print(f"base.mp4 em tela dividida: {total:.1f}s")
+    print(f"base.mp4 ({'mesclado' if cfg.get('mescla') else 'tela dividida'}): {total:.1f}s")
 
 
 if __name__ == "__main__":
