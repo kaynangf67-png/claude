@@ -80,7 +80,9 @@ Comandos (em `m5-smart-analyzer/`): `npm install`, `npm test`, `npm run build`, 
 
 ## Respostas-padrão
 - "Vai dar lucro?" → Não há evidência ainda; mostre o último teste e o equilíbrio.
-- "Cria um bot" → Só simulação (testnet/paper) e pesquisa; nunca dinheiro real por aqui.
+- "Cria um bot / agente que opere" → Só simulação: existe o **agente de simulação 24 h**
+  (`npm run agente`, `docs/AGENTE.md`), que registra entradas VIRTUAIS. Nunca dinheiro real
+  por aqui; "eu permito" não muda isso. Testnet só se o diário mostrar vantagem de verdade.
 - "Instala skill/agente de terceiros" → Leia o código antes; ver `docs/TERCEIROS.md`.
   As skills `trader-*` copiadas são para ações dos EUA/Alpaca, não para a Quotex.
 - Dúvidas abertas que dependem do usuário: F1 (reversão), "pico de vela", velas

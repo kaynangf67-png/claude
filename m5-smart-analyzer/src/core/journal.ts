@@ -1,5 +1,6 @@
 import type { KeyValueStore } from './config';
 import { configHash } from './config';
+import { csvCell } from './history';
 import { breakevenRate, tally, verdict, type Tally, type Verdict } from './stats';
 import type { AnalysisConfig, AnalysisResult, Candle, ScenarioState } from './types';
 
@@ -97,10 +98,19 @@ const isEntry = (x: unknown): x is JournalEntry => {
   );
 };
 
+/** Lê um diário em JSON (arquivo do agente), descartando registros malformados. */
+export function loadJournalFromJson(text: string): JournalEntry[] {
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return Array.isArray(parsed) ? parsed.filter(isEntry) : [];
+  } catch {
+    return [];
+  }
+}
+
 export function loadJournal(store: KeyValueStore): JournalEntry[] {
   try {
-    const parsed: unknown = JSON.parse(store.getItem(JOURNAL_STORAGE_KEY) ?? '[]');
-    return Array.isArray(parsed) ? parsed.filter(isEntry) : [];
+    return loadJournalFromJson(store.getItem(JOURNAL_STORAGE_KEY) ?? '[]');
   } catch {
     return [];
   }
@@ -113,4 +123,14 @@ export function saveJournal(store: KeyValueStore, entries: JournalEntry[]): bool
   } catch {
     return false;
   }
+}
+
+/** CSV do diário (separador ";", com BOM para abrir bem no Excel). Campos de texto são neutralizados contra fórmulas. */
+export function journalCsv(list: JournalEntry[]): string {
+  const head = 'candle_utc;par;lado;entrada;restante_s;cenario;gatilho_confirmado;fechamento;resultado;versao_regras;config';
+  const rows = list.map((e) => [
+    new Date(e.t5 * 1000).toISOString(), e.symbol, e.side === 'resistencia' ? 'venda' : 'compra', e.entry, Math.round(e.remainingSeconds),
+    e.state, e.triggerConfirmed ? 1 : 0, e.close ?? '', e.result ?? '', e.rulesVersion, e.configHash,
+  ].map((v) => csvCell(v).replace(/;/g, ',')).join(';'));
+  return '\uFEFF' + [head, ...rows].join('\r\n') + '\r\n';
 }

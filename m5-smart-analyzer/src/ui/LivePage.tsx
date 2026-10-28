@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { fmtNum, fmtPrice } from '../core/format';
-import { journalStats, type JournalEntry } from '../core/journal';
+import { journalCsv, journalStats } from '../core/journal';
 import type { Tally, Verdict } from '../core/stats';
 import { formatDateTime } from '../core/time';
 import { downloadText } from './download';
@@ -160,9 +160,4 @@ export function LivePage() {
       </Panel>
     </div>
   );
-}
-
-function journalCsv(list: JournalEntry[]): string {
-  const head = 'candle_utc;par;lado;entrada;restante_s;cenario;gatilho_confirmado;fechamento;resultado;versao_regras;config\n';
-  return '﻿' + head + list.map((e) => [new Date(e.t5 * 1000).toISOString(), e.symbol, e.side === 'resistencia' ? 'venda' : 'compra', e.entry, Math.round(e.remainingSeconds), e.state, e.triggerConfirmed ? 1 : 0, e.close ?? '', e.result ?? '', e.rulesVersion, e.configHash].join(';')).join('\n');
 }

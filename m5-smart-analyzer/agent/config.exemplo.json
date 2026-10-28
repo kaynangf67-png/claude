@@ -1,0 +1,27 @@
+{
+  "_aviso": "Valores EXPLORATÓRIOS de exemplo: NÃO vêm da aula e não foram validados. Fixe os seus ANTES de olhar o resultado.",
+  "payout": 80,
+  "simbolos": ["BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT", "DOGEUSDT"],
+  "params": {
+    "wickRelevantRatio": 0.35,
+    "minRelevantWickCandles": 5,
+    "alternationFavorableMin": 0.6,
+    "directionalDominanceMin": 0.75,
+    "swingMinDisplacementMult": 1.5,
+    "minValidatedSwings": 3,
+    "zoneToleranceMult": 0.75,
+    "retractionMinMult": 1.5,
+    "retractionWindow": 6,
+    "bigBodyRatio": 0.8,
+    "bigBodyMinCount": 4,
+    "continuousMoveEfficiency": 0.6,
+    "approachATR": 0.3,
+    "reversalATR": 0.15,
+    "slowEfficiencyMax": 0.85,
+    "stoppedRangeATR": 0.2,
+    "prevCandlesRequired": 2
+  },
+  "enabled": {
+    "confluencia_tf_maior": false
+  }
+}

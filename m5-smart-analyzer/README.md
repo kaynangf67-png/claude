@@ -12,7 +12,7 @@ Subprojeto independente dentro do repositório (não depende dos outros projetos
 cd m5-smart-analyzer
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 153 testes do núcleo e das camadas do gráfico
+npm test           # 165 testes do núcleo, do agente e das camadas do gráfico
 npm run build      # typecheck + build de produção (dist/)
 npm run preview    # serve o build
 ```
@@ -44,7 +44,7 @@ src/core/            núcleo puro (sem React/DOM) — testável
   history.ts         registros, filtros, comparação, exportação CSV segura
   replay.ts          reprodução ponto-no-tempo (distribuição de estados)
   backtest.ts, stats.ts   teste histórico com resultado, Wilson e equilíbrio
-  journal.ts         diário ao vivo (detecção de toque e resolução)
+  journal.ts, session.ts, relatorio.ts   diário ao vivo, sessão de simulação injetável e resumo do agente
   htf.ts             candles M15/H1 a partir de M5 fechados e confluência de zonas (hipótese)
   binance.ts, mt5.ts adaptadores puros (klines da Binance; CSV M1 do MT5)
   dataStore.ts       persistência validada dos candles carregados
@@ -53,16 +53,25 @@ src/ui/              React + Tailwind + lightweight-charts
 docs/                REGRAS, PENDENCIAS, NOVAS-TRANSCRICOES, FONTE-DE-DADOS
 ```
 
+## Agente de simulação 24 h
+
+Programa de linha de comando que fica rodando sozinho no seu computador (Windows): lê a Binance, detecta toques em zonas armadas e registra entradas **virtuais**, resolvidas no fechamento do M5, com estatística contra o ponto de equilíbrio. **Não envia ordens e não usa chaves.** Veja [`docs/AGENTE.md`](docs/AGENTE.md) e `agent/iniciar-agente.bat`.
+
+```bash
+npm run agente -- --exploratorio   # Ctrl+C encerra e salva
+```
+
 ## Documentação
 
 - [`docs/REGRAS.md`](docs/REGRAS.md) — o que está implementado, de qual aula, e o que é operacionalização provisória.
 - [`docs/PENDENCIAS.md`](docs/PENDENCIAS.md) — dúvidas sobre as anotações, parâmetros ausentes, regras não verificáveis.
 - [`docs/NOVAS-TRANSCRICOES.md`](docs/NOVAS-TRANSCRICOES.md) — como incorporar novas aulas.
+- [`docs/AGENTE.md`](docs/AGENTE.md) — agente de simulação 24 h (instalação no Windows e leitura do resultado).
 - [`docs/FONTE-DE-DADOS.md`](docs/FONTE-DE-DADOS.md) — limitações dos dados e plano de integração.
 
 ## Resultado da verificação (última execução)
 
-- `npm test`: **153 testes passando** (11 arquivos) — cálculo de corpo/pavios, direção e sequências, topos/fundos, candles inválidos, duplicatas, estados do motor, prioridade dos filtros de não entrada, ausência de confirmação de gatilho, look-ahead, importação CSV, persistência (configurações, histórico e candles), histórico e exportação.
+- `npm test`: **165 testes passando** (13 arquivos) — cálculo de corpo/pavios, direção e sequências, topos/fundos, candles inválidos, duplicatas, estados do motor, prioridade dos filtros de não entrada, ausência de confirmação de gatilho, look-ahead, importação CSV, persistência (configurações, histórico e candles), histórico e exportação.
 - `npm run build`: typecheck estrito + build OK.
 - Verificação ponta a ponta em Chromium: 29 checagens do fluxo principal, 19 do ao vivo com a Binance **simulada** (a rede deste ambiente não alcança a Binance) e as de zonas/persistência/reprodução. Não testei o feed contra a Binance de verdade: estado vazio, demonstração e selo de dados fictícios, parâmetros e validação, gráfico/tooltip, filtros, registro, histórico, resultado manual, exportação CSV, persistência após recarregar, importação inválida, fuso obrigatório, CSV de exemplo, ausência de rolagem horizontal em 390 px, sem erros de console.
 
