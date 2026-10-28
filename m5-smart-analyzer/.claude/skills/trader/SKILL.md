@@ -71,6 +71,10 @@ Comandos (em `m5-smart-analyzer/`): `npm install`, `npm test`, `npm run build`, 
    pares/períodos e, depois, diário ao vivo em conta demo.
 5. Avise: pares de cripto são correlacionados; 9 critérios juntos inflam falsos positivos.
 
+**Simular a banca** (`docs/BANCA.md`, tela Histórico): dê a taxa, a amostra e o payout e mostre os 3 cenários
+(pessimista/observado/otimista). Sempre diga: é matemática, não previsão; amostra pequena = incerteza enorme;
+taxa abaixo do equilíbrio = perda quase certa. Use para responder "vira renda?".
+
 **Incorporar nova aula/transcrição** (siga `docs/NOVAS-TRANSCRICOES.md`)
 1. Separe o que tem número, o que é qualitativo e o que não é dito. Nada de preencher lacuna.
 2. Parâmetro novo em `types.ts`/`config.ts` com origem (`aula`/`nao_definido`); regra nova

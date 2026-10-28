@@ -7,6 +7,7 @@ import type { ScenarioState } from '../core/types';
 import { downloadText } from './download';
 import { Btn, Chip, Field, Panel, SCENARIO_LABEL, Status, scenarioTone } from './kit';
 import { BacktestPanel } from './BacktestPanel';
+import { BancaPanel } from './BancaPanel';
 import { ReplayPanel } from './ReplayPanel';
 import { useStore } from './store';
 
@@ -140,6 +141,8 @@ export function HistoryPage() {
       </Panel>
 
       <BacktestPanel />
+
+      <BancaPanel />
 
       <ReplayPanel />
     </div>
