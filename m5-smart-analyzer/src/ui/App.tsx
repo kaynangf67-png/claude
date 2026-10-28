@@ -6,6 +6,7 @@ import { FiltersPage } from './FiltersPage';
 import { HistoryPage } from './HistoryPage';
 import { SettingsPage } from './SettingsPage';
 import { LivePage } from './LivePage';
+import { SimplePage } from './SimplePage';
 import { LiveProvider } from './live';
 import { RISK_NOTICE, Status } from './kit';
 import { formatDateTime } from '../core/time';
@@ -41,7 +42,14 @@ function SourceBadge() {
 }
 
 function Shell() {
-  const { tab, setTab, storageWarning } = useStore();
+  const { tab, setTab, storageWarning, modo, setModo } = useStore();
+  if (modo === 'simples') {
+    return (
+      <div className="h-full overflow-y-auto">
+        <SimplePage />
+      </div>
+    );
+  }
   return (
     <div className="flex h-full flex-col md:flex-row">
       <nav aria-label="Navegação principal" className="hidden w-52 shrink-0 flex-col border-r border-line bg-surface md:flex">
@@ -69,6 +77,7 @@ function Shell() {
         <header className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-surface px-4 py-2.5">
           <span className="text-[14px] font-semibold md:hidden">M5 Smart Analyzer</span>
           <SourceBadge />
+          <button onClick={() => setModo('simples')} className="text-xs text-info underline">Voltar ao modo simples</button>
         </header>
         {storageWarning && <div role="alert" className="border-b border-warn/40 bg-warn/10 px-4 py-2 text-xs text-warn">{storageWarning}</div>}
         <main className="min-h-0 flex-1 overflow-y-auto p-3 md:p-5">

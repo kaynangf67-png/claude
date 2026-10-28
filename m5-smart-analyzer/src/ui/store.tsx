@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { defaultConfig, loadConfig, saveConfig, type KeyValueStore } from '../core/config';
+import { applyExploratoryPreset, defaultConfig, loadConfig, saveConfig, type KeyValueStore } from '../core/config';
 import { generateDemoCandles, demoSource, sourceFor, type DemoScenario } from '../core/demo';
 import { analyze } from '../core/engine';
 import { loadData, saveData, MAX_PERSISTED_CANDLES } from '../core/dataStore';
@@ -41,7 +41,8 @@ export interface ImportRequest {
   otc: boolean;
 }
 
-interface Prefs { displayTimezone: string }
+export type Modo = 'simples' | 'avancado';
+interface Prefs { displayTimezone: string; modo: Modo }
 const PREFS_KEY = 'm5sa.prefs.v1';
 
 function defaultTimezone(): string {
@@ -57,10 +58,10 @@ function loadPrefs(store: KeyValueStore): Prefs {
     const raw = JSON.parse(store.getItem(PREFS_KEY) ?? 'null') as Partial<Prefs> | null;
     if (raw && typeof raw.displayTimezone === 'string') {
       new Intl.DateTimeFormat('en-US', { timeZone: raw.displayTimezone });
-      return { displayTimezone: raw.displayTimezone };
+      return { displayTimezone: raw.displayTimezone, modo: raw.modo === 'avancado' ? 'avancado' : 'simples' };
     }
   } catch { /* usa o padrão */ }
-  return { displayTimezone: defaultTimezone() };
+  return { displayTimezone: defaultTimezone(), modo: 'simples' };
 }
 
 interface Store {
@@ -85,6 +86,9 @@ interface Store {
   updateOutcome: (id: string, outcome: RecordedOutcome | null) => void;
   deleteRecords: (ids: string[]) => void;
   storageWarning: string | null;
+  /** Modo da interface: 'simples' (uma tela) ou 'avancado' (todas as abas). */
+  modo: Modo;
+  setModo: (m: Modo) => void;
   /** Candles que sustentam um filtro, destacados no gráfico. */
   focus: { label: string; indexes: number[] } | null;
   setFocus: (f: { label: string; indexes: number[] } | null) => void;
@@ -101,7 +105,11 @@ export function useStore(): Store {
 export function StoreProvider({ children }: { children: ReactNode }) {
   const store = useRef(browserStore()).current;
   const [tab, setTab] = useState<Tab>('dashboard');
-  const [config, setConfigState] = useState<AnalysisConfig>(() => loadConfig(store));
+  const [config, setConfigState] = useState<AnalysisConfig>(() => {
+    const c = loadConfig(store);
+    // Modo simples (padrão) não pede configuração: preenche só o que está "não definido" com os valores de teste.
+    return loadPrefs(store).modo === 'simples' ? applyExploratoryPreset(c) : c;
+  });
   const [history, setHistory] = useState<AnalysisRecord[]>(() => loadHistory(store));
   const [prefs, setPrefs] = useState<Prefs>(() => loadPrefs(store));
   const [data, setData] = useState<LoadedData | null>(() => {
@@ -162,7 +170,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [config.timeframe, prefs.displayTimezone]);
 
   const setDisplayTimezone = useCallback((displayTimezone: string) => {
-    setPrefs({ displayTimezone });
+    setPrefs((p) => ({ ...p, displayTimezone }));
     setData((d) => (d ? { ...d, source: { ...d.source, displayTimezone } } : d));
   }, []);
 
@@ -185,6 +193,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     updateOutcome: (id, outcome) => setHistory((h) => setOutcome(h, id, outcome)),
     deleteRecords: (ids) => setHistory((h) => h.filter((r) => !ids.includes(r.id))),
     storageWarning, focus, setFocus,
+    modo: prefs.modo,
+    setModo: (modo) => {
+      setPrefs((p) => ({ ...p, modo }));
+      if (modo === 'simples') setConfigState((c) => applyExploratoryPreset(c));
+    },
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

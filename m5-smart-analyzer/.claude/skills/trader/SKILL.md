@@ -53,6 +53,11 @@ Detalhe completo em `docs/REGRAS.md`; pendências em `docs/PENDENCIAS.md`.
   é entrada.** Filtro de não entrada detectado vence tudo. Gatilho só confirma com TODOS
   os critérios **e** cenário favorável, e só com candle em formação (feed ao vivo).
 
+## Interface
+A tela inicial é o **modo simples** (`src/ui/SimplePage.tsx`, `src/core/sinal.ts`): UMA estratégia, sem
+configurar nada, só o sinal + cronômetro + gráfico + 7 critérios. O usuário pediu simplicidade: **não
+adicione botões, estratégias nem parâmetros a essa tela**. O que for técnico fica no modo avançado.
+
 ## Como trabalhar
 Comandos (em `m5-smart-analyzer/`): `npm install`, `npm test`, `npm run build`, `npm run dev`.
 

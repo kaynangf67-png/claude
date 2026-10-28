@@ -13,9 +13,10 @@ import { useStore } from './store';
 
 interface Tip { x: number; y: number; t: number; o: number; h: number; l: number; c: number; v?: number }
 
-export function ChartPage() {
+export function ChartPage({ compact = false }: { compact?: boolean } = {}) {
   const { data, analysis, displayTimezone, focus, setFocus, setTab, loadDemo } = useStore();
-  const [layers, setLayers] = useState<Layers>(DEFAULT_LAYERS);
+  // versão compacta (modo simples): só zonas e o ponto da oportunidade, sem rótulos
+  const [layers, setLayers] = useState<Layers>(compact ? { swings: false, zones: true, opportunities: true, flow: false } : DEFAULT_LAYERS);
   const host = useRef<HTMLDivElement>(null);
   const chart = useRef<IChartApi | null>(null);
   const series = useRef<ISeriesApi<'Candlestick'> | null>(null);
@@ -92,12 +93,15 @@ export function ChartPage() {
     if (!series.current || !markers.current || !data) return;
     markers.current.setMarkers(
       buildMarkers(analysis, data.candles, layers, focus).map((m) => ({
-        time: m.time as UTCTimestamp, position: m.position, shape: m.shape, color: m.color, text: m.text, size: m.size,
+        time: m.time as UTCTimestamp, position: m.position, shape: m.shape, color: m.color, text: compact ? '' : m.text, size: m.size,
       })),
     );
     zonesPrim.current?.setRects(buildZoneRects(analysis, layers, data.candles));
-  }, [analysis, data, layers, focus]);
+  }, [analysis, data, layers, focus, compact]);
 
+  if (compact && (!data || !analysis)) {
+    return <div className="flex h-[300px] items-center justify-center rounded-lg border border-line text-sm text-muted sm:h-[400px]">Carregando o gráfico…</div>;
+  }
   if (!data || !analysis) {
     return (
       <Panel title="Gráfico">
@@ -114,13 +118,13 @@ export function ChartPage() {
   const m = tip ? candleMetrics({ t: tip.t, o: tip.o, h: tip.h, l: tip.l, c: tip.c }) : null;
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-3">
-      {data.source.synthetic && (
+    <div className={compact ? 'flex flex-col gap-3' : 'mx-auto flex max-w-6xl flex-col gap-3'}>
+      {!compact && data.source.synthetic && (
         <div role="note" className="rounded-md border border-warn/40 bg-warn/10 px-3 py-2 text-xs text-warn">
           DADOS FICTÍCIOS — {data.source.name}. Não representam nenhum ativo ou corretora.
         </div>
       )}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      {!compact && <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Status tone={scenarioTone(analysis.state)}>{SCENARIO_LABEL[analysis.state]}</Status>
           <span className="text-xs text-muted">{analysis.trigger.message}</span>
@@ -135,10 +139,10 @@ export function ChartPage() {
             </label>
           ))}
         </fieldset>
-      </div>
+      </div>}
 
       <div className="relative overflow-hidden rounded-lg border border-line bg-bg">
-        <div ref={host} className="h-[340px] w-full sm:h-[460px]" role="img" aria-label="Gráfico de candles M5" />
+        <div ref={host} className={compact ? 'h-[300px] w-full sm:h-[400px]' : 'h-[340px] w-full sm:h-[460px]'} role="img" aria-label="Gráfico de candles M5" />
         {tip && m && (
           <div
             className="pointer-events-none absolute z-10 w-[11.5rem] rounded-md border border-line bg-raised/95 p-2 text-[11px] shadow-lg"
@@ -159,14 +163,14 @@ export function ChartPage() {
         )}
       </div>
 
-      {focus && (
+      {!compact && focus && (
         <div className="flex items-center gap-2 text-xs text-info">
           Destacando candles de: <strong>{focus.label}</strong>
           <button className="text-muted underline" onClick={() => setFocus(null)}>limpar</button>
         </div>
       )}
 
-      <Panel title="Legenda">
+      {!compact && <Panel title="Legenda">
         <ul className="grid gap-x-6 gap-y-1.5 text-xs text-muted sm:grid-cols-2">
           <li><Chip>topo / fundo</Chip> pivô <strong className="text-ink">validado</strong> (afastamento mínimo atingido com candles já fechados).</li>
           <li><Chip>topo? / fundo?</Chip> apenas <strong className="text-ink">candidato geométrico</strong>; ainda não validado pela regra.</li>
@@ -174,7 +178,7 @@ export function ChartPage() {
           <li><Chip>zona candidata · não é gatilho</Chip> o último candle toca ou se aproxima de uma zona com o histórico mínimo. <strong className="text-ink">Não é entrada.</strong></li>
           <li>Os marcadores de topo/fundo ficam no candle do pivô, mas só foram conhecidos {data ? 'alguns candles depois' : ''} (veja o painel de filtros).</li>
         </ul>
-      </Panel>
+      </Panel>}
     </div>
   );
 }
