@@ -79,6 +79,8 @@ export const PARAM_KEYS = [
   'stoppedRangeATR',
   'prevCandlesRequired',
   'payoutPercent',
+  'htfContextWindow',
+  'htfMinTouches',
   'continuousMoveEfficiency',
 ] as const;
 export type ParamKey = (typeof PARAM_KEYS)[number];
@@ -95,6 +97,7 @@ export const RULE_IDS = [
   'vela_proxima_regiao',
   'vela_lenta_parada',
   'estrutura_indefinida',
+  'confluencia_tf_maior',
   'movimento_continuo',
   'rompimento_sem_retracao',
   'horario_otc',

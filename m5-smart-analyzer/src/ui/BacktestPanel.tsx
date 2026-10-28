@@ -52,7 +52,7 @@ export function BacktestPanel() {
         label = `${file.name} · ${parsed.candles.length} velas M1${parsed.rejected ? ` (${parsed.rejected} linhas rejeitadas)` : ''} · horário do servidor do MT5`;
       } else {
         const end = Math.floor(Date.now() / 300_000) * 300;
-        const start = end - (days * 288 + 220) * 300;
+        const start = end - (days * 288 + 820) * 300; // folga p/ montar zonas de M15/H1
         const c1 = await fetchRange(symbol, '1m', start, end, (n) => setMsg(`Baixando velas de 1 minuto: ${n}…`));
         b = bucketM1(c1);
         label = `${symbol} · ${days} dia(s) · Binance`;
@@ -126,7 +126,8 @@ export function BacktestPanel() {
           </div>
           <div className="space-y-2 text-xs leading-relaxed text-faint">
             <p>{VERDICT_NOTE}</p>
-            <p>Sete critérios olhados ao mesmo tempo: por puro acaso, um ou dois vão parecer bons. Só vale levar a sério o que se repetir em outros pares e períodos, com os números fixados antes. Pares de cripto andam juntos, então os casos não são independentes e o intervalo é otimista.</p>
+            <p>As linhas de confluência com M15/H1 (hipótese) só contam toques que têm candles suficientes do timeframe maior, então a amostra é menor. Ligue a regra só se isso melhorar o resultado com folga, em outros pares e períodos.</p>
+            <p>Nove critérios olhados ao mesmo tempo: por puro acaso, um ou dois vão parecer bons. Só vale levar a sério o que se repetir em outros pares e períodos, com os números fixados antes. Pares de cripto andam juntos, então os casos não são independentes e o intervalo é otimista.</p>
             <p>Como o teste é feito: a entrada é a borda da zona, o resultado é o fechamento do mesmo M5, e o tempo restante é estimado pelo minuto do toque. Dados de mercado real da fonte escolhida; isso não prova nada sobre o preço da Quotex (e menos ainda em OTC). Horários em {displayTimezone}; hoje é {formatDateTime(Date.now() / 1000, displayTimezone)}.</p>
           </div>
         </div>

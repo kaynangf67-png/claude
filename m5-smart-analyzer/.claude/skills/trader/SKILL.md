@@ -46,6 +46,9 @@ Detalhe completo em `docs/REGRAS.md`; pendências em `docs/PENDENCIAS.md`.
   do candle **≥ 2:30** (confirmado pelo usuário: nunca entrar com menos), velas
   anteriores com força a favor, "pico de vela" (interpretação provisória: preço na
   borda da zona), 2 toques anteriores com pavio.
+- **Hipótese (desligada por padrão)**: confluência da zona M5 com zonas de M15/H1
+  (`confluencia_tf_maior`). Só vale se o Teste histórico mostrar melhora com folga.
+  Prazos curto/médio/longo de ENTRADA não existem nas aulas (só M5): não invente regras.
 - Estados do cenário: FAVORÁVEL / DESFAVORÁVEL / AGUARDAR / NÃO AVALIÁVEL. **Favorável não
   é entrada.** Filtro de não entrada detectado vence tudo. Gatilho só confirma com TODOS
   os critérios **e** cenário favorável, e só com candle em formação (feed ao vivo).
@@ -66,7 +69,7 @@ Comandos (em `m5-smart-analyzer/`): `npm install`, `npm test`, `npm run build`, 
 4. Só diga "acima" se o intervalo de Wilson **inteiro** passa do equilíbrio. Caso
    contrário, é inconclusivo ou abaixo. Conclusões exigem amostra grande, vários
    pares/períodos e, depois, diário ao vivo em conta demo.
-5. Avise: pares de cripto são correlacionados; 7 critérios juntos inflam falsos positivos.
+5. Avise: pares de cripto são correlacionados; 9 critérios juntos inflam falsos positivos.
 
 **Incorporar nova aula/transcrição** (siga `docs/NOVAS-TRANSCRICOES.md`)
 1. Separe o que tem número, o que é qualitativo e o que não é dito. Nada de preencher lacuna.

@@ -12,7 +12,7 @@ Subprojeto independente dentro do repositório (não depende dos outros projetos
 cd m5-smart-analyzer
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 140 testes do núcleo e das camadas do gráfico
+npm test           # 153 testes do núcleo e das camadas do gráfico
 npm run build      # typecheck + build de produção (dist/)
 npm run preview    # serve o build
 ```
@@ -45,6 +45,7 @@ src/core/            núcleo puro (sem React/DOM) — testável
   replay.ts          reprodução ponto-no-tempo (distribuição de estados)
   backtest.ts, stats.ts   teste histórico com resultado, Wilson e equilíbrio
   journal.ts         diário ao vivo (detecção de toque e resolução)
+  htf.ts             candles M15/H1 a partir de M5 fechados e confluência de zonas (hipótese)
   binance.ts, mt5.ts adaptadores puros (klines da Binance; CSV M1 do MT5)
   dataStore.ts       persistência validada dos candles carregados
   demo.ts            dados FICTÍCIOS com semente fixa
@@ -61,7 +62,7 @@ docs/                REGRAS, PENDENCIAS, NOVAS-TRANSCRICOES, FONTE-DE-DADOS
 
 ## Resultado da verificação (última execução)
 
-- `npm test`: **140 testes passando** (10 arquivos) — cálculo de corpo/pavios, direção e sequências, topos/fundos, candles inválidos, duplicatas, estados do motor, prioridade dos filtros de não entrada, ausência de confirmação de gatilho, look-ahead, importação CSV, persistência (configurações, histórico e candles), histórico e exportação.
+- `npm test`: **153 testes passando** (11 arquivos) — cálculo de corpo/pavios, direção e sequências, topos/fundos, candles inválidos, duplicatas, estados do motor, prioridade dos filtros de não entrada, ausência de confirmação de gatilho, look-ahead, importação CSV, persistência (configurações, histórico e candles), histórico e exportação.
 - `npm run build`: typecheck estrito + build OK.
 - Verificação ponta a ponta em Chromium: 29 checagens do fluxo principal, 19 do ao vivo com a Binance **simulada** (a rede deste ambiente não alcança a Binance) e as de zonas/persistência/reprodução. Não testei o feed contra a Binance de verdade: estado vazio, demonstração e selo de dados fictícios, parâmetros e validação, gráfico/tooltip, filtros, registro, histórico, resultado manual, exportação CSV, persistência após recarregar, importação inválida, fuso obrigatório, CSV de exemplo, ausência de rolagem horizontal em 390 px, sem erros de console.
 

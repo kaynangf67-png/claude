@@ -5,6 +5,7 @@ import {
 } from './naoEntrada';
 import { AULA03_TRIGGERS } from './gatilho';
 import { sessionRule } from './horario';
+import { htfConfluenceRule } from './htf';
 
 /**
  * Registro de regras. Para incorporar uma nova aula:
@@ -24,6 +25,7 @@ export const RULES: RuleDefinition[] = [
   nascendoProximoRule,
   velaLentaRule,
   undefinedStructureRule,
+  htfConfluenceRule,
   continuousMoveRule,
   breakoutRule,
   sessionRule,

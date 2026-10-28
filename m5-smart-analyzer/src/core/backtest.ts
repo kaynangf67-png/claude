@@ -1,5 +1,6 @@
 import { atr as atrOf } from './candle';
 import { analyze } from './engine';
+import { confluence, type HtfId } from './htf';
 import { breakevenRate, tally, verdict, type Tally, type Verdict } from './stats';
 import { priorValidTouches } from './zones';
 import type { AnalysisConfig, Candle, DataSourceInfo, FilterStatus, ScenarioState } from './types';
@@ -32,6 +33,8 @@ export interface BacktestRow {
   criteria: Record<string, string>;
   /** status de cada filtro avaliado */
   filters: Record<string, FilterStatus>;
+  /** Confluência da zona com M15/H1 (hipótese). null = não avaliável (poucos candles ou parâmetros). */
+  htf: Record<HtfId, boolean | null>;
 }
 
 export interface BacktestResult {
@@ -42,11 +45,13 @@ export interface BacktestResult {
 
 export function runBacktest(
   c5: Candle[], m1: Map<number, Candle[]>, config: AnalysisConfig, source: DataSourceInfo | null,
-  opts: { from?: number; to?: number } = {},
+  opts: { from?: number; to?: number; htf?: boolean } = {},
 ): BacktestResult {
   const p = config.params;
   const histLen = Math.max(p.minCandles.value!, p.contextWindow.value! + p.swingLookback.value! + 30);
   const minPrior = p.minPriorValidTouches.value ?? 2;
+  // candles M5 anteriores necessários para montar a janela de H1 (12 M5 por candle)
+  const htfLen = (p.htfContextWindow.value! + p.swingLookback.value! + 8) * 12 + 36;
   const rows: BacktestRow[] = [];
   const skipped = { semAnalise: 0, m1Divergente: 0, semM1: 0 };
   let analyzed = 0;
@@ -92,10 +97,14 @@ export function runBacktest(
       for (const c of a1.trigger.criteria) criteria[c.id] = c.status;
       const filters: Record<string, FilterStatus> = {};
       for (const f of a1.filters) filters[f.id] = f.status;
+      const htf: Record<HtfId, boolean | null> = { M15: null, H1: null };
+      if (opts.htf !== false && a1.referenceRange !== null && p.zoneToleranceMult.value !== null) {
+        Object.assign(htf, confluence(c5.slice(Math.max(0, i - htfLen), i), z, p.zoneToleranceMult.value * a1.referenceRange, config).byFrame);
+      }
       rows.push({
         t: cand.t, zoneId: z.id, side: z.side, entry, close: cand.c,
         win: res ? cand.c < entry : cand.c > entry, tie: cand.c === entry,
-        remainingSeconds, state: a1.state, triggerConfirmed: a1.trigger.confirmed, criteria, filters,
+        remainingSeconds, state: a1.state, triggerConfirmed: a1.trigger.confirmed, criteria, filters, htf,
       });
     }
   }
@@ -118,7 +127,7 @@ export interface BacktestSummary {
   ablation: AblationRow[];
 }
 
-const ABLATION: Array<{ id: string; label: string; kind: 'filter' | 'criterion' }> = [
+const ABLATION: Array<{ id: string; label: string; kind: 'filter' | 'criterion' | 'htf' }> = [
   { id: 'gatilho_tempo_restante', label: 'Tempo restante ≥ 2:30', kind: 'criterion' },
   { id: 'reversao', label: 'Sem reversão contra (F1)', kind: 'filter' },
   { id: 'vela_proxima_regiao', label: 'Vela não nasceu perto da zona (F2)', kind: 'filter' },
@@ -126,6 +135,8 @@ const ABLATION: Array<{ id: string; label: string; kind: 'filter' | 'criterion' 
   { id: 'vela_lenta_parada', label: 'Vela não está lenta nem parada (F4)', kind: 'filter' },
   { id: 'gatilho_velas_com_pavio', label: 'Velas anteriores com força a favor', kind: 'criterion' },
   { id: 'gatilho_dois_toques_com_pavio', label: '2 toques anteriores com pavio', kind: 'criterion' },
+  { id: 'M15', label: 'Confluência com zona M15 (hipótese)', kind: 'htf' },
+  { id: 'H1', label: 'Confluência com zona H1 (hipótese)', kind: 'htf' },
 ];
 
 export function summarizeBacktest(rows: BacktestRow[], payoutPercent: number): BacktestSummary {
@@ -134,15 +145,17 @@ export function summarizeBacktest(rows: BacktestRow[], payoutPercent: number): B
   const favoravel = tally(rows.filter((r) => r.state === 'FAVORAVEL'));
   const gatilho = tally(rows.filter((r) => r.triggerConfirmed));
   const passes = (r: BacktestRow, a: (typeof ABLATION)[number]) =>
-    a.kind === 'filter' ? r.filters[a.id] === 'favoravel' : r.criteria[a.id] === 'atendido';
+    a.kind === 'filter' ? r.filters[a.id] === 'favoravel' : a.kind === 'htf' ? r.htf[a.id as HtfId] === true : r.criteria[a.id] === 'atendido';
+  // confluência: linhas sem dados do timeframe maior ficam fora dos dois lados
+  const usable = (r: BacktestRow, a: (typeof ABLATION)[number]) => a.kind !== 'htf' || r.htf[a.id as HtfId] !== null;
   return {
     breakeven: be,
     todos, favoravel, gatilho,
     verdicts: { todos: verdict(todos, be), favoravel: verdict(favoravel, be), gatilho: verdict(gatilho, be) },
     ablation: ABLATION.map((a) => ({
       id: a.id, label: a.label,
-      pass: tally(rows.filter((r) => passes(r, a))),
-      fail: tally(rows.filter((r) => !passes(r, a))),
+      pass: tally(rows.filter((r) => usable(r, a) && passes(r, a))),
+      fail: tally(rows.filter((r) => usable(r, a) && !passes(r, a))),
     })),
   };
 }

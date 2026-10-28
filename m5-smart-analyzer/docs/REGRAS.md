@@ -79,6 +79,15 @@ Diferenças em relação ao arquivo `analisador-m5.html` (não adotado):
 - a **nota de 0 a 100** por par (mistura os pilares numa pontuação arbitrária; o briefing proíbe pontuação que esconda critérios). Aqui o ranking é por estado do cenário;
 - o modelo de zonas é outro (tolerância em ATR, rejeição = fechamento de volta). Mantive o meu, único para o ao vivo e o teste histórico.
 
+## Contexto de timeframe maior (HIPÓTESE, não é regra da aula)
+
+A anotação F1 cita "timeframes maiores"; o app tem **uma** regra experimental, `confluencia_tf_maior`, **desligada por padrão** (Configurações → Critérios):
+- Candles **M15** (3 × M5) e **H1** (12 × M5) são montados com M5 **fechados**, só janelas completas e alinhadas. O candle maior em formação nunca é usado e lacunas quebram a série. Não há dado novo: tudo vem do M5.
+- Zonas do M15/H1 usam as mesmas definições (pivôs, tolerância, retração) com os mesmos múltiplos da análise M5, e só contam com ≥ `htfMinTouches` (1) toque válido.
+- Favorável se a zona M5 em contato coincide (mesmo lado, faixas sobrepostas) com zona sólida de M15 ou H1. Sem candles suficientes (H1 com 40 candles exige 480+ M5) fica "não avaliável".
+- **Cuidado com a tolerância**: o múltiplo de tolerância é sobre a amplitude média de cada timeframe. Com valores altos (ex.: 1×), a faixa de uma zona M15/H1 cobre quase toda a oscilação e nenhum toque se completa. Use valores menores nos testes.
+- **Teste de verdade**: o Teste histórico traz as linhas "Confluência com zona M15/H1": compara os toques com e sem confluência (só toques com dados do timeframe maior). Se não melhorar com folga, em amostra grande, **deixe desligado**. Mais um critério também aumenta o risco de achar padrão por acaso.
+
 ## Teste histórico e diário (medem resultado)
 
 - **Resultado**: o candle M5 fecha do lado certo do preço de entrada (borda da zona): venda ganha se fecha abaixo, compra se fecha acima; igual = empate (fora da taxa). Expiração = fechamento do M5. Isso **não vem da aula**.
@@ -86,7 +95,7 @@ Diferenças em relação ao arquivo `analisador-m5.html` (não adotado):
 - **Veredito**: "acima" só se o intervalo de confiança (Wilson 95%) inteiro está acima do equilíbrio; "abaixo" se inteiro abaixo; senão **inconclusivo**.
 - **Teste histórico** (`src/core/backtest.ts`): para cada toque numa zona **armada** (≥ 2 toques válidos anteriores), reproduz o caminho do candle com velas de 1 minuto até o toque, avalia o gatilho com o mesmo código do ao vivo e confere o fechamento. Usa só velas anteriores. Instante do toque = meio do minuto em que a borda foi alcançada. Mostra 3 recortes (todo toque / cenário favorável / gatilho confirmado) e a contribuição de cada critério.
 - **Diário ao vivo** (`src/core/journal.ts`): registra cada toque do candle em formação em zona armada e resolve no fechamento. Só com a aba aberta e visível.
-- Limitações estatísticas: 7 critérios olhados de uma vez (alguns vão parecer bons por acaso), casos de pares de cripto correlacionados (o intervalo é otimista) e dados que não são os da Quotex.
+- Limitações estatísticas: 9 critérios olhados de uma vez (alguns vão parecer bons por acaso), casos de pares de cripto correlacionados (o intervalo é otimista) e dados que não são os da Quotex.
 
 ## Sem look-ahead
 

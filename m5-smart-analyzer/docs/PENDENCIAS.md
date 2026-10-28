@@ -15,6 +15,9 @@
 ## Regras que dependem do candle em formação
 F1, F2, F4, o "pico de vela" e o cronômetro só são avaliados com o feed ao vivo (Binance, **cripto**) ou, no cronômetro, com o tempo restante digitado. Para forex não há feed ao vivo; só teste histórico com CSV de 1 minuto do MT5.
 
+## Prazos (curto/médio/longo)
+As aulas só dão regras para o **M5**. Outros timeframes de entrada (M1, M15, H1+) exigem regras próprias e validação própria; não foram inventados. O que existe é a **confluência com M15/H1 como contexto** (hipótese, desligada por padrão). Pergunta aberta: a professora tem aula para outros prazos?
+
 ## Outras pendências técnicas
 - "Corpo grande" considera só corpo/amplitude; a amplitude absoluta do candle não entra.
 - O gráfico mostra só as 6 zonas mais recentes (para não poluir); as demais estão no painel de filtros.

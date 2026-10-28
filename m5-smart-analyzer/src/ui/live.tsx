@@ -145,7 +145,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
       let ok = 0;
       await Promise.all(syms.current.map(async (s) => {
         try {
-          const [c5, m1] = await Promise.all([fetchKlines(s, '5m', 150), fetchKlines(s, '1m', 8)]);
+          const [c5, m1] = await Promise.all([fetchKlines(s, '5m', 700), fetchKlines(s, '1m', 8)]);
           raw.current.set(s, { c5, m1 });
           ok++;
         } catch (e) {

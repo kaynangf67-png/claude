@@ -52,6 +52,8 @@ export const PARAM_SPECS: Record<ParamKey, ParamSpec> = {
   slowEfficiencyMax: { key: 'slowEfficiencyMax', group: 'Gatilho (aulas 2 e 3)', label: 'Vela lenta: eficiência acima de', description: 'F4 (vela lenta): razão deslocamento ÷ caminho percorrido, com fechamentos de 1 minuto. Perto de 1 = só avança. Aproximação provisória.', min: 0.1, max: 1, step: 0.05, integer: false, percent: true },
   stoppedRangeATR: { key: 'stoppedRangeATR', group: 'Gatilho (aulas 2 e 3)', label: 'Vela parada: amplitude abaixo de (× ATR)', description: 'F4 (vela parada): depois de 1 minuto, amplitude do candle menor que isso. Aproximação provisória.', min: 0.05, max: 5, step: 0.05, integer: false, unit: '× ATR' },
   prevCandlesRequired: { key: 'prevCandlesRequired', group: 'Gatilho (aulas 2 e 3)', label: 'Velas anteriores com força a favor (1 ou 2)', description: 'Quantas das 2 velas anteriores precisam ter pavio relevante ou cor a favor. A professora fala em "as duas" num trecho e "uma" em outro.', min: 1, max: 2, step: 1, integer: true, unit: 'velas' },
+  htfContextWindow: { key: 'htfContextWindow', group: 'Contexto de timeframe maior (hipótese)', label: 'Janela de candles do timeframe maior', description: 'Quantos candles M15/H1 (montados com M5 fechados) entram na busca de zonas. H1 com 40 candles exige 480+ candles M5.', min: 15, max: 200, step: 1, integer: true, unit: 'candles' },
+  htfMinTouches: { key: 'htfMinTouches', group: 'Contexto de timeframe maior (hipótese)', label: 'Toques válidos mínimos da zona maior', description: 'A zona do timeframe maior só conta se teve ao menos esta quantidade de toques com retração observável.', min: 1, max: 10, step: 1, integer: true, unit: 'toques' },
   payoutPercent: { key: 'payoutPercent', group: 'Teste e diário', label: 'Payout da corretora (%)', description: 'Define o ponto de equilíbrio da taxa de acerto: 1 ÷ (1 + payout). Confirme o payout real do ativo na sua corretora.', min: 50, max: 100, step: 1, integer: true, unit: '%' },
   continuousMoveEfficiency: { key: 'continuousMoveEfficiency', group: 'Regra 6 · Não entrada', label: 'Movimento contínuo (eficiência direcional ≥)', description: 'Razão entre o deslocamento líquido e o caminho percorrido pelos fechamentos. Perto de 1 = movimento sem retrações.', min: 0.1, max: 1, step: 0.05, integer: false, percent: true },
 };
@@ -74,7 +76,10 @@ export function defaultConfig(): AnalysisConfig {
   params.triggerMinRemainingSeconds = { value: 150, origin: 'aula' };
   // Payout varia por ativo e horário: valor de partida, a confirmar pelo usuário.
   params.payoutPercent = technical(80);
-  const enabled = Object.fromEntries(RULE_IDS.map((id) => [id, true])) as Record<RuleId, boolean>;
+  params.htfContextWindow = technical(40);
+  params.htfMinTouches = technical(1);
+  // A confluência com timeframe maior é HIPÓTESE (não vem da aula): nasce desligada.
+  const enabled = Object.fromEntries(RULE_IDS.map((id) => [id, id !== 'confluencia_tf_maior'])) as Record<RuleId, boolean>;
   return { rulesVersion: RULES_VERSION, timeframe: 'M5', enabled, params };
 }
 
@@ -196,7 +201,7 @@ export function sanitizeConfig(raw: unknown): AnalysisConfig {
     }
   }
   // Os parâmetros essenciais de janela nunca podem ficar indefinidos.
-  for (const k of ['minCandles', 'contextWindow', 'observationWindow', 'alternationWindow', 'swingLookback', 'minPriorValidTouches', 'maxSameDirectionRun', 'triggerMinRemainingSeconds', 'payoutPercent'] as const) {
+  for (const k of ['minCandles', 'contextWindow', 'observationWindow', 'alternationWindow', 'swingLookback', 'minPriorValidTouches', 'maxSameDirectionRun', 'triggerMinRemainingSeconds', 'payoutPercent', 'htfContextWindow', 'htfMinTouches'] as const) {
     if (base.params[k].value === null) base.params[k] = defaultConfig().params[k];
   }
   return base;

@@ -62,8 +62,19 @@ describe('teste histórico com resultado', () => {
     expect(s.todos.n + s.todos.ties).toBe(full.rows.length);
     expect(s.favoravel.n).toBeLessThanOrEqual(s.todos.n);
     expect(s.gatilho.n).toBeLessThanOrEqual(s.favoravel.n);
-    expect(s.ablation).toHaveLength(7);
-    for (const a of s.ablation) expect(a.pass.n + a.fail.n + a.pass.ties + a.fail.ties).toBe(full.rows.length);
+    expect(s.ablation).toHaveLength(9);
+    for (const a of s.ablation.slice(0, 7)) expect(a.pass.n + a.fail.n + a.pass.ties + a.fail.ties).toBe(full.rows.length);
+    // as linhas de confluência deixam de fora os toques sem dados do timeframe maior
+    for (const a of s.ablation.slice(7)) expect(a.pass.n + a.fail.n + a.pass.ties + a.fail.ties).toBeLessThanOrEqual(full.rows.length);
+  });
+
+  it('cada linha traz a confluência M15/H1 (null até haver candles suficientes) e dá para desligá-la', () => {
+    expect(full.rows.every((r) => 'M15' in r.htf && 'H1' in r.htf)).toBe(true);
+    expect(full.rows.some((r) => r.htf.M15 !== null)).toBe(true);
+    expect(full.rows.some((r) => r.htf.H1 === null)).toBe(true); // início da série: sem 480+ candles M5
+    const off = runBacktest(b.c5, b.m1, cfg, testSource(b.c5), { htf: false });
+    expect(off.rows.length).toBe(full.rows.length);
+    expect(off.rows.every((r) => r.htf.M15 === null && r.htf.H1 === null)).toBe(true);
   });
 
   it('em dados sem vantagem, "todo toque" não aparece como acima do equilíbrio', () => {
