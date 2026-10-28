@@ -39,7 +39,7 @@ const isSource = (s: unknown): s is DataSourceInfo => {
   if (typeof s !== 'object' || s === null) return false;
   const o = s as Record<string, unknown>;
   return (
-    (o.kind === 'csv' || o.kind === 'demo_sintetico' || o.kind === 'binance_live') && typeof o.name === 'string' && typeof o.origin === 'string' &&
+    (o.kind === 'csv' || o.kind === 'demo_sintetico' || o.kind === 'binance_live' || o.kind === 'mt5_arquivo') && typeof o.name === 'string' && typeof o.origin === 'string' &&
     typeof o.synthetic === 'boolean' && typeof o.asset === 'string' && typeof o.otc === 'boolean' &&
     typeof o.timezone === 'string' && typeof o.displayTimezone === 'string' && typeof o.datasetId === 'string' &&
     ['importedAt', 'rows', 'firstT', 'lastT'].every((k) => typeof o[k] === 'number')

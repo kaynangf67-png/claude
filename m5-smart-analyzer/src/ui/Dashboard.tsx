@@ -153,7 +153,7 @@ export function Dashboard() {
       <div className="flex flex-col gap-4">
         <Panel title="Fonte de dados">
           <dl className="space-y-1.5 text-[13px]">
-            <Row k="Tipo" v={s.synthetic ? 'Dados FICTÍCIOS' : s.kind === 'binance_live' ? 'Ao vivo — Binance (cripto)' : 'CSV importado'} warn={s.synthetic} />
+            <Row k="Tipo" v={s.synthetic ? 'Dados FICTÍCIOS' : s.kind === 'binance_live' ? 'Ao vivo — Binance (cripto)' : s.kind === 'mt5_arquivo' ? 'Ao vivo — MT5 (forex)' : 'CSV importado'} warn={s.synthetic} />
             <Row k="Nome" v={s.name} />
             <Row k="Origem informada" v={s.origin} />
             <Row k="Ativo" v={s.asset || 'não informado'} />
@@ -170,7 +170,7 @@ export function Dashboard() {
             </ul>
           )}
           <p className="mt-3 text-[11px] leading-snug text-faint">
-            {s.kind === 'binance_live' ? 'Preços da Binance (cripto), não da Quotex. Não há garantia de que coincidam com os da sua corretora.' : 'Sem conexão com a Quotex. Não há garantia de que estes preços coincidam com os da corretora.'}
+            {s.kind === 'binance_live' ? 'Preços da Binance (cripto), não da Quotex. Não há garantia de que coincidam com os da sua corretora.' : s.kind === 'mt5_arquivo' ? 'Preços da corretora do seu MT5, não da Quotex. Não há garantia de que coincidam com os da Quotex.' : 'Sem conexão com a Quotex. Não há garantia de que estes preços coincidam com os da corretora.'}
           </p>
         </Panel>
 

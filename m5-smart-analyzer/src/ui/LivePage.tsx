@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { fmtNum, fmtPrice } from '../core/format';
 import { journalCsv, journalStats } from '../core/journal';
 import type { Tally, Verdict } from '../core/stats';
 import { formatDateTime } from '../core/time';
 import { downloadText } from './download';
 import { Btn, Chip, Field, Panel, SCENARIO_LABEL, STATUS_LABEL, Status, scenarioTone, statusTone } from './kit';
-import { useLive } from './live';
+import { ponteValida, useLive, type Fonte } from './live';
 import { useStore } from './store';
 
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
@@ -40,6 +40,10 @@ export function LivePage() {
   const live = useLive();
   const { config, analysis, data, displayTimezone, setTab } = useStore();
   const [text, setText] = useState(live.symbols.join(', '));
+  const [ponteText, setPonteText] = useState(live.ponte);
+  const mt5 = live.fonte === 'mt5';
+  useEffect(() => { setText(live.symbols.join(', ')); }, [live.symbols]);
+  const ponteOk = ponteValida(ponteText);
   const payout = config.params.payoutPercent.value ?? 80;
   const stats = journalStats(live.journal, payout);
   const minRem = config.params.triggerMinRemainingSeconds.value ?? 150;
@@ -51,16 +55,36 @@ export function LivePage() {
     <div className="mx-auto max-w-6xl space-y-4">
       <Panel
         title="Feed ao vivo"
-        action={<span className="flex items-center gap-2 text-xs"><Status tone={live.on ? (live.online ? 'pos' : 'warn') : 'mute'}>{live.on ? (live.online ? 'conectado à Binance' : 'conectando…') : 'desconectado'}</Status></span>}
+        action={<span className="flex items-center gap-2 text-xs"><Status tone={live.on ? (live.online ? 'pos' : 'warn') : 'mute'}>{live.on ? (live.online ? (mt5 ? 'conectado ao MT5 (ponte local)' : 'conectado à Binance') : 'conectando…') : 'desconectado'}</Status></span>}
       >
         <p className="mb-3 max-w-3xl text-[13px] leading-relaxed text-muted">
-          Consulta a API <strong className="text-ink">pública da Binance (cripto)</strong> a cada 5 segundos, sem chave nem login. Isso <strong className="text-ink">não são os preços da Quotex</strong>:
-          serve para ver o gatilho com o candle em formação. Compare com o seu gráfico antes de confiar.
+          {mt5 ? (
+            <>
+              Lê o arquivo que o script <strong className="text-ink">M5Exportador</strong> grava no seu MetaTrader 5, por uma ponte que roda só neste computador. Somente leitura.
+              {' '}É o preço da <strong className="text-ink">corretora do seu MT5</strong>, que <strong className="text-ink">não é a Quotex</strong>: compare com o seu gráfico antes de confiar. Passo a passo em docs/MT5.md.
+            </>
+          ) : (
+            <>
+              Consulta a API <strong className="text-ink">pública da Binance (cripto)</strong> a cada 5 segundos, sem chave nem login. Isso <strong className="text-ink">não são os preços da Quotex</strong>:
+              serve para ver o gatilho com o candle em formação. Compare com o seu gráfico antes de confiar.
+            </>
+          )}
         </p>
         <div className="flex flex-wrap items-end gap-3">
           {live.on ? <Btn variant="danger" onClick={live.disconnect}>Desconectar</Btn> : <Btn variant="primary" onClick={live.connect}>Conectar</Btn>}
+          <Field label="Fonte">
+            <select value={live.fonte} onChange={(e) => live.setFonte(e.target.value as Fonte)}>
+              <option value="binance">Binance (cripto)</option>
+              <option value="mt5">MetaTrader 5 (forex, via ponte local)</option>
+            </select>
+          </Field>
+          {mt5 && (
+            <Field label="Endereço da ponte" hint={ponteOk ? 'Só endereço deste computador (127.0.0.1).' : 'Use http://127.0.0.1:PORTA'}>
+              <input value={ponteText} onChange={(e) => setPonteText(e.target.value)} onBlur={() => { if (ponteOk && ponteText !== live.ponte) live.setFonte('mt5', ponteText); else if (!ponteOk) setPonteText(live.ponte); }} />
+            </Field>
+          )}
           <div className="min-w-[16rem] flex-1">
-            <Field label="Pares monitorados (máx. 12)" hint="Símbolos da Binance separados por vírgula, ex.: BTCUSDT, ETHUSDT.">
+            <Field label="Pares monitorados (máx. 12)" hint={mt5 ? 'Símbolos como aparecem no seu MT5, ex.: EURUSD, GBPUSD.' : 'Símbolos da Binance separados por vírgula, ex.: BTCUSDT, ETHUSDT.'}>
               <input value={text} onChange={(e) => setText(e.target.value)} onBlur={() => live.setSymbols(text.split(/[\s,;]+/))} />
             </Field>
           </div>

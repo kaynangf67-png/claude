@@ -1,15 +1,51 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { buildIntrabar, isValidSymbol, liveSource, splitForming } from '../core/binance';
+import { symbolMt5Valido } from '../core/arquivoM1';
+import { BINANCE_BASES, buildIntrabar, isValidSymbol, liveSource, splitForming } from '../core/binance';
 import { analyze } from '../core/engine';
 import {
   detectEntry, isResolvable, loadJournal, resolveEntry, saveJournal, type JournalEntry,
 } from '../core/journal';
 import type { AnalysisResult, Candle } from '../core/types';
-import { fetchKlines, serverOffsetMs } from './binanceApi';
+import { fetchKlines, serverOffsetMs, setBases } from './binanceApi';
 import { browserStore, useStore } from './store';
+import type { KeyValueStore } from '../core/config';
 
 export const DEFAULT_WATCH = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'DOGEUSDT'];
 const WATCH_KEY = 'm5sa.watch.v1';
+const WATCH_MT5_KEY = 'm5sa.watch.mt5.v1';
+const FONTE_KEY = 'm5sa.fonte.v1';
+
+export type Fonte = 'binance' | 'mt5';
+export const DEFAULT_WATCH_MT5 = ['EURUSD'];
+export const PONTE_PADRAO = 'http://127.0.0.1:8765';
+
+/** A ponte só pode ficar neste computador: endereço de loopback com porta. */
+export function ponteValida(u: string): boolean {
+  return /^http:\/\/(127\.0\.0\.1|localhost):\d{4,5}$/.test(u);
+}
+
+const simboloValido = (f: Fonte, s: string) => (f === 'mt5' ? symbolMt5Valido(s) : isValidSymbol(s));
+
+function loadFonte(store: KeyValueStore): { fonte: Fonte; ponte: string } {
+  try {
+    const o = JSON.parse(store.getItem(FONTE_KEY) ?? 'null') as { fonte?: unknown; ponte?: unknown } | null;
+    return {
+      fonte: o?.fonte === 'mt5' ? 'mt5' : 'binance',
+      ponte: typeof o?.ponte === 'string' && ponteValida(o.ponte) ? o.ponte : PONTE_PADRAO,
+    };
+  } catch { return { fonte: 'binance', ponte: PONTE_PADRAO }; }
+}
+
+function loadSymbols(store: KeyValueStore, f: Fonte): string[] {
+  try {
+    const raw = JSON.parse(store.getItem(f === 'mt5' ? WATCH_MT5_KEY : WATCH_KEY) ?? 'null') as unknown;
+    if (Array.isArray(raw)) {
+      const ok = raw.filter((x): x is string => typeof x === 'string' && simboloValido(f, x));
+      if (ok.length) return ok.slice(0, 12);
+    }
+  } catch { /* usa o padrão */ }
+  return f === 'mt5' ? DEFAULT_WATCH_MT5 : DEFAULT_WATCH;
+}
 
 export interface LiveRow {
   symbol: string;
@@ -20,6 +56,9 @@ export interface LiveRow {
 }
 
 interface Live {
+  fonte: Fonte;
+  ponte: string;
+  setFonte: (f: Fonte, ponte?: string) => void;
   on: boolean;
   online: boolean;
   connect: () => void;
@@ -51,16 +90,8 @@ export function LiveProvider({ children }: { children: ReactNode }) {
   const store = useRef(browserStore()).current;
   const [on, setOn] = useState(false);
   const [online, setOnline] = useState(false);
-  const [symbols, setSymbolsState] = useState<string[]>(() => {
-    try {
-      const raw = JSON.parse(store.getItem(WATCH_KEY) ?? 'null') as unknown;
-      if (Array.isArray(raw)) {
-        const ok = raw.filter((x): x is string => typeof x === 'string' && isValidSymbol(x));
-        if (ok.length) return ok.slice(0, 12);
-      }
-    } catch { /* usa o padrão */ }
-    return DEFAULT_WATCH;
-  });
+  const [{ fonte, ponte }, setFonteState] = useState(() => loadFonte(store));
+  const [symbols, setSymbolsState] = useState<string[]>(() => loadSymbols(store, fonte));
   const [selected, setSelected] = useState(symbols[0]!);
   const [rows, setRows] = useState<LiveRow[]>([]);
   const [journal, setJournal] = useState<JournalEntry[]>(() => loadJournal(store));
@@ -71,8 +102,12 @@ export function LiveProvider({ children }: { children: ReactNode }) {
   tz.current = displayTimezone;
   const sel = useRef(selected);
   sel.current = selected;
+  const dataRef = useRef(data);
+  dataRef.current = data;
   const syms = useRef(symbols);
   syms.current = symbols;
+  const fonteRef = useRef({ fonte, ponte });
+  fonteRef.current = { fonte, ponte };
   const offset = useRef(0);
   const raw = useRef(new Map<string, Raw>());
   const analyses = useRef(new Map<string, LiveRow>());
@@ -92,7 +127,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
       const split = splitForming(r.c5, now);
       if (!split) continue;
       const intrabar = buildIntrabar(split, r.m1, now);
-      const source = liveSource(s, split.closed, tz.current, Date.now());
+      const source = liveSource(s, split.closed, tz.current, Date.now(), fonteRef.current.fonte);
       const analysis = analyze({ candles: split.closed, source, config: cfg.current, intrabar });
       analyses.current.set(s, { symbol: s, price: intrabar.forming?.c ?? null, remaining: intrabar.remainingSeconds, analysis, error: null });
       if (s === sel.current) {
@@ -149,7 +184,12 @@ export function LiveProvider({ children }: { children: ReactNode }) {
           raw.current.set(s, { c5, m1 });
           ok++;
         } catch (e) {
-          analyses.current.set(s, { symbol: s, price: null, remaining: 0, analysis: null, error: e instanceof Error ? e.message : 'erro' });
+          const msg = e instanceof Error ? e.message : 'erro';
+          const semPonte = fonteRef.current.fonte === 'mt5' && e instanceof TypeError;
+          analyses.current.set(s, {
+            symbol: s, price: null, remaining: 0, analysis: null,
+            error: semPonte ? `ponte não encontrada em ${fonteRef.current.ponte} (rode "npm run ponte")` : msg,
+          });
         }
       }));
       setOnline(ok > 0);
@@ -164,6 +204,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
     if (!on) return;
     let cancelled = false;
     warm.current = true;
+    setBases(fonteRef.current.fonte === 'mt5' ? [fonteRef.current.ponte] : BINANCE_BASES);
     void (async () => {
       try { offset.current = await serverOffsetMs(); } catch { offset.current = 0; }
       if (!cancelled) void poll();
@@ -182,23 +223,37 @@ export function LiveProvider({ children }: { children: ReactNode }) {
     if (on) compute();
   }, [selected, config, on, compute]);
 
+  const trocarFonte = useCallback((f: Fonte, novaPonte?: string): void => {
+    const p = novaPonte !== undefined && ponteValida(novaPonte) ? novaPonte : fonteRef.current.ponte;
+    setOn(false); setOnline(false); setRows([]);
+    analyses.current.clear(); raw.current.clear();
+    if (dataRef.current?.live) setLoaded(null);
+    const list = loadSymbols(store, f);
+    setFonteState({ fonte: f, ponte: p });
+    setSymbolsState(list);
+    setSelected(list[0]!);
+    try { store.setItem(FONTE_KEY, JSON.stringify({ fonte: f, ponte: p })); } catch { /* preferência não essencial */ }
+  }, [store, setLoaded]);
+
   const value = useMemo<Live>(() => ({
+    fonte, ponte, setFonte: trocarFonte,
     on, online,
     connect: () => setOn(true),
     disconnect: () => { setOn(false); setOnline(false); setRows([]); analyses.current.clear(); raw.current.clear(); if (data?.live) setLoaded(null); },
     symbols,
     setSymbols: (list) => {
-      const clean = [...new Set(list.map((x) => x.trim().toUpperCase()).filter(isValidSymbol))].slice(0, 12);
+      const f = fonteRef.current.fonte;
+      const clean = [...new Set(list.map((x) => (f === 'mt5' ? x.trim() : x.trim().toUpperCase())).filter((x) => simboloValido(f, x)))].slice(0, 12);
       if (!clean.length) return;
       setSymbolsState(clean);
-      try { store.setItem(WATCH_KEY, JSON.stringify(clean)); } catch { /* preferência não essencial */ }
+      try { store.setItem(f === 'mt5' ? WATCH_MT5_KEY : WATCH_KEY, JSON.stringify(clean)); } catch { /* preferência não essencial */ }
       if (!clean.includes(sel.current)) setSelected(clean[0]!);
     },
     selected,
     select: setSelected,
     rows, journal,
     clearJournal: () => { setJournal([]); seen.current.clear(); saveJournal(store, []); },
-  }), [on, online, symbols, selected, rows, journal, data, setLoaded, store]);
+  }), [fonte, ponte, trocarFonte, on, online, symbols, selected, rows, journal, data, setLoaded, store]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

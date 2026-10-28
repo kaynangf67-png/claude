@@ -10,7 +10,8 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "gerar-exemplo": "jiti scripts/gerar-exemplo.ts",
-    "agente": "jiti agent/agente.ts"
+    "agente": "jiti agent/agente.ts",
+    "ponte": "jiti agent/ponte.ts"
   },
   "dependencies": {
     "lightweight-charts": "^5.2.1",

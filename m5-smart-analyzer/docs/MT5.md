@@ -1,0 +1,58 @@
+# Forex ao vivo pelo seu MetaTrader 5 (somente leitura)
+
+O MT5 não fala direto com o app. O caminho é este:
+
+```
+MT5  →  script M5Exportador (grava um arquivo)  →  agente ou ponte local (lê o arquivo)  →  app / agente de simulação
+```
+
+**O que isto faz:** leva os candles de 1 minuto do seu MT5 para o app, que monta os M5 e o candle em formação. Assim o modo simples e o agente de simulação enxergam forex ao vivo.
+
+**O que isto NÃO faz:** não abre, fecha nem modifica ordens; não usa senha, chave, DLL nem internet; não se conecta à Quotex. O script só lê o histórico do terminal e escreve um arquivo CSV. Existe um teste automático (`src/agent/mt5.test.ts`) que reprova se aparecer qualquer chamada de ordem, DLL ou rede no script.
+
+## Aviso importante sobre os preços
+
+O preço é o da **corretora do seu MT5**. A Quotex tem feed próprio, e o par que você opera lá (principalmente em OTC) pode diferir em centavos de pip ou mais. O app **não consegue** garantir que o candle que ele vê é o mesmo da Quotex. Antes de confiar em qualquer sinal, compare o gráfico do app com o da Quotex por alguns dias. Se divergirem nos toques de zona, o sinal não serve para a Quotex.
+
+## Passo a passo (Windows)
+
+1. **Copie o script.** Arquivo `mql5/M5Exportador.mq5` deste projeto. No MT5: *Arquivo → Abrir pasta de dados* → `MQL5` → `Scripts` e cole lá.
+2. **Compile.** No MT5 aperte **F4** (abre o MetaEditor), abra o arquivo e aperte **F7**. Deve aparecer "0 errors". **Eu não consegui compilar este script aqui** (não há MetaEditor neste ambiente): se aparecer erro, copie a mensagem e me mande.
+3. **Rode.** Abra o gráfico do par (ex.: EURUSD) no MT5. No painel *Navegador → Scripts*, arraste **M5Exportador** para o gráfico. Na janela, aba *Entradas*:
+   - `InpSymbols`: os pares como aparecem no seu MT5, separados por vírgula (ex.: `EURUSD,GBPUSD`). Corretoras às vezes usam sufixo (`EURUSD.a`, `EURUSDm`): use o nome exato.
+   - `InpBars`: deixe 720 (cerca de 12 horas de M1).
+   - Deixe o botão de **algotrading** (negociação algorítmica) do MT5 como estiver: o script não precisa dele, pois não negocia. Se pedir "Permitir trading", não é necessário marcar.
+4. **Confira o arquivo.** Em *Arquivo → Abrir pasta de dados*, suba um nível e abra `Terminal\Common\Files`. Deve existir `m5exp_EURUSD_M1.csv`, atualizado a cada segundo. O caminho costuma ser `C:\Users\SEU_USUARIO\AppData\Roaming\MetaQuotes\Terminal\Common\Files`.
+5. **Deixe o script rodando** enquanto quiser dados. Para parar, tire o script do gráfico. O MT5 precisa estar aberto e conectado à corretora.
+
+## Usar no app (modo simples)
+
+1. Na pasta do projeto, em outro terminal: `npm run ponte` (usa a pasta padrão acima; senão `npm run ponte -- --pasta "CAMINHO\Common\Files"`). Ou dê dois cliques em `agent\iniciar-ponte.bat`.
+2. Abra o app e toque em **Cripto** no topo para mudar para **Forex · MT5**. Os pares aparecem como chips; o resto da tela é igual.
+3. Se aparecer "ponte não encontrada", a ponte não está rodando. Se aparecer "dados parados", o script está parado ou o mercado está fechado (fim de semana).
+
+Detalhes técnicos que importam:
+- A ponte escuta **somente** em `127.0.0.1:8765`. Nada sai do seu computador, e ela só aceita pedidos do app publicado, de `localhost` ou do modo de desenvolvimento.
+- O app publicado na Vercel é HTTPS e a ponte é HTTP local. Chrome e Edge costumam permitir isso para o seu próprio computador e, em versões recentes, podem pedir uma permissão para acessar a rede local: aceite. **Não testei em navegador real com a ponte; testei só no Chromium automatizado. Safari e navegadores de celular podem bloquear.** Para esses casos, rode o app localmente (`npm run dev`).
+- O app aberto no **celular** não enxerga a ponte do seu PC. Para o celular, a opção é o agente de simulação no PC (abaixo), que grava o diário.
+
+## Usar no agente de simulação 24 h
+
+```
+npm run agente -- --exploratorio --fonte mt5 --simbolos EURUSD
+npm run agente -- --exploratorio --fonte mt5 --pasta "C:\...\Common\Files" --simbolos EURUSD,GBPUSD
+```
+
+O agente lê o mesmo arquivo, registra entradas **virtuais** e resolve no fechamento do M5. Se o arquivo ficar parado por mais de 3 minutos, ele **não analisa** (registra aviso) em vez de usar dado velho.
+
+## Limitações conhecidas
+
+- **Buracos no M1.** O MT5 não cria candle de 1 minuto sem negociação. Em pares menos líquidos ou fora do horário ativo, alguns minutos faltam. O leitor **descarta** o M5 incompleto em vez de inventar o minuto; isso deixa lacunas, e uma lacuna dentro da janela analisada faz o app marcar o cenário como **não avaliável** (decisão de segurança: ele não analisa sobre dado com buraco). Em pares muito parados isso pode acontecer com frequência; nesse caso o par simplesmente não serve para este método.
+- **Horário.** O script converte o horário do servidor do MT5 para UTC usando a diferença atual (`TimeTradeServer() - TimeGMT()`). Se houver mudança de horário de verão do servidor dentro das últimas 12 horas exportadas, as horas anteriores à mudança ficam deslocadas em 1 h. Não afeta o candle em formação.
+- **Volume** é volume de ticks, não volume real.
+- **Corretora x Quotex**: ver o aviso no topo. Isso é o maior risco do plano, e nenhum código resolve.
+- O script não foi compilado nem executado em um MT5 real por mim. O leitor e a ponte foram testados com arquivos no mesmo formato.
+
+## TradingView
+
+Não implementei. Para ler dados do TradingView seria preciso um indicador em Pine Script mais alertas/webhook ou exportação manual de CSV, e o que está disponível depende do seu plano; eu não consigo testar Pine aqui. Se o MT5 resolver, não há motivo para trocar.

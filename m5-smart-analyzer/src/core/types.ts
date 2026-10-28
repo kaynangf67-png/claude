@@ -116,7 +116,7 @@ export interface AnalysisConfig {
 
 // -------------------------------------------------------------------- fonte
 
-export type SourceKind = 'demo_sintetico' | 'csv' | 'binance_live';
+export type SourceKind = 'demo_sintetico' | 'csv' | 'binance_live' | 'mt5_arquivo';
 
 export interface DataSourceInfo {
   kind: SourceKind;

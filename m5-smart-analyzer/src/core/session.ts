@@ -15,6 +15,8 @@ export interface SessionDeps {
   fetchKlines(symbol: string, interval: '1m' | '5m', limit: number, extra?: string): Promise<Candle[]>;
   /** Relógio em ms, já corrigido pelo horário da corretora. */
   now(): number;
+  /** De onde vêm os candles (rótulo da fonte). Padrão: Binance. */
+  fonte?: 'binance' | 'mt5';
 }
 
 export interface TickReport {
@@ -55,7 +57,7 @@ export class SimSession {
         const split = splitForming(c5, nowSec);
         if (!split) throw new Error('candles insuficientes');
         const intrabar = buildIntrabar(split, m1, nowSec);
-        const source = liveSource(symbol, split.closed, 'UTC', this.deps.now());
+        const source = liveSource(symbol, split.closed, 'UTC', this.deps.now(), this.deps.fonte);
         const analysis = analyze({ candles: split.closed, source, config: this.config, intrabar });
         report.analyses.set(symbol, analysis);
         report.symbolsOk++;

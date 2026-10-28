@@ -11,12 +11,14 @@
  */
 import { appendFileSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { symbolMt5Valido } from '../src/core/arquivoM1';
 import { BINANCE_BASES, isValidSymbol, parseKlines } from '../src/core/binance';
 import { applyExploratoryPreset, configHash, defaultConfig, setParam, setRuleEnabled, validateParamValue } from '../src/core/config';
 import { journalCsv, journalStats, loadJournalFromJson, type JournalEntry } from '../src/core/journal';
 import { formatSummary } from '../src/core/relatorio';
 import { SimSession } from '../src/core/session';
 import { PARAM_KEYS, RULE_IDS, type AnalysisConfig, type Candle, type ParamKey, type RuleId } from '../src/core/types';
+import { criarFetchMt5, pastaPadraoWindows } from './mt5Fonte';
 
 const AJUDA = `
 Agente de simulação do M5 Smart Analyzer (dinheiro de mentira: não envia ordens).
@@ -31,6 +33,11 @@ Opções:
   --dados PASTA       onde gravar diario.json/diario.csv/agente.log (padrão agent/dados)
   --ciclos N          para depois de N consultas (testes)
   --base URL          host da API (só para testes)
+
+Forex pelo MetaTrader 5 (script mql5/M5Exportador.mq5 rodando; veja docs/MT5.md):
+  --fonte mt5         lê os arquivos do MT5 em vez da Binance
+  --pasta CAMINHO     pasta Common\\Files do MT5 (padrão: %APPDATA%\\MetaQuotes\\Terminal\\Common\\Files)
+  --simbolos EURUSD   símbolos como aparecem no seu MT5 (padrão com --fonte mt5: EURUSD)
 `;
 
 interface Args { [k: string]: string | boolean }
@@ -86,21 +93,34 @@ async function main() {
 
   let config = defaultConfig();
   let payout = 80;
+  let simbolosDoArquivo = false;
   let simbolos = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'DOGEUSDT'];
   if (typeof args.config === 'string') {
     const r = applyConfigFile(config, args.config);
     config = r.config;
     if (r.payout !== undefined) payout = r.payout;
-    if (r.simbolos?.length) simbolos = r.simbolos;
+    if (r.simbolos?.length) { simbolos = r.simbolos; simbolosDoArquivo = true; }
   } else if (args.exploratorio) {
     config = applyExploratoryPreset(config);
   } else {
     fail('escolha os parâmetros: --exploratorio (valores de teste, NÃO da aula) ou --config arquivo.json. Veja --ajuda.');
   }
+  const fonte: 'binance' | 'mt5' = args.fonte === 'mt5' ? 'mt5' : 'binance';
+  if (args.fonte !== undefined && args.fonte !== 'mt5' && args.fonte !== 'binance') fail('--fonte precisa ser binance ou mt5');
+  let pasta = '';
+  if (fonte === 'mt5') {
+    const padrao = pastaPadraoWindows();
+    const informada = typeof args.pasta === 'string' ? args.pasta : padrao;
+    if (!informada) fail('informe --pasta com o caminho da pasta Common\\Files do MT5 (veja docs/MT5.md).');
+    pasta = informada;
+    if (!existsSync(pasta)) fail(`a pasta não existe: ${pasta}`);
+    if (typeof args.simbolos !== 'string' && !simbolosDoArquivo) simbolos = ['EURUSD'];
+  }
   if (typeof args.simbolos === 'string') simbolos = args.simbolos.split(',');
-  simbolos = [...new Set(simbolos.map((s) => s.trim().toUpperCase()))];
-  const ruins = simbolos.filter((s) => !isValidSymbol(s));
-  if (ruins.length || simbolos.length === 0 || simbolos.length > 12) fail(`símbolos inválidos (use até 12, ex.: BTCUSDT): ${ruins.join(', ') || '(nenhum)'}`);
+  simbolos = [...new Set(simbolos.map((s) => (fonte === 'mt5' ? s.trim() : s.trim().toUpperCase())))];
+  const valido = fonte === 'mt5' ? symbolMt5Valido : isValidSymbol;
+  const ruins = simbolos.filter((s) => !valido(s));
+  if (ruins.length || simbolos.length === 0 || simbolos.length > 12) fail(`símbolos inválidos (use até 12, ex.: ${fonte === 'mt5' ? 'EURUSD' : 'BTCUSDT'}): ${ruins.join(', ') || '(nenhum)'}`);
   if (typeof args.payout === 'string') {
     const n = Number(args.payout);
     if (!Number.isFinite(n) || n < 50 || n > 100) fail('--payout precisa estar entre 50 e 100');
@@ -151,20 +171,25 @@ async function main() {
   const syncClock = async () => {
     try { const r = (await api('/api/v3/time')) as { serverTime?: number }; if (typeof r.serverTime === 'number') offset = r.serverTime - Date.now(); } catch { /* mantém o anterior */ }
   };
-  await syncClock();
+  if (fonte === 'binance') await syncClock();
 
   const previous: JournalEntry[] = existsSync(jsonPath) ? loadJournalFromJson(readFileSync(jsonPath, 'utf8')) : [];
-  const session = new SimSession({
-    fetchKlines: async (symbol, interval, limit, extra = ''): Promise<Candle[]> =>
-      parseKlines(await api(`/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}${extra}`)),
-    now: () => Date.now() + offset,
-  }, config, simbolos, previous);
+  const now = () => Date.now() + offset;
+  const session = new SimSession(fonte === 'mt5'
+    ? { fetchKlines: criarFetchMt5(pasta, now), now, fonte: 'mt5' }
+    : {
+      fetchKlines: async (symbol, interval, limit, extra = ''): Promise<Candle[]> =>
+        parseKlines(await api(`/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}${extra}`)),
+      now,
+    }, config, simbolos, previous);
 
   console.log('='.repeat(78));
   console.log(' AGENTE DE SIMULAÇÃO — dinheiro de mentira. Não envia ordens, não usa chaves.');
-  console.log(' Dados: API pública da Binance (cripto). NÃO são os preços da Quotex.');
+  console.log(fonte === 'mt5'
+    ? ' Dados: arquivo exportado do seu MT5 (leitura). NÃO são os preços da Quotex.'
+    : ' Dados: API pública da Binance (cripto). NÃO são os preços da Quotex.');
   console.log('='.repeat(78));
-  log(`iniciado · pares: ${simbolos.join(', ')} · intervalo ${intervalo}s · payout ${payout}% · regras ${config.rulesVersion} · config ${configHash(config)}`);
+  log(`iniciado · fonte ${fonte === 'mt5' ? `MT5 (${pasta})` : 'Binance'} · pares: ${simbolos.join(', ')} · intervalo ${intervalo}s · payout ${payout}% · regras ${config.rulesVersion} · config ${configHash(config)}`);
   log(`parâmetros exploratórios/definidos por você: ${args.exploratorio ? 'valores EXPLORATÓRIOS (não vêm da aula)' : 'do arquivo de configuração'}`);
   log(`diário em ${dir} (${previous.length} registros anteriores retomados)`);
 
@@ -200,7 +225,7 @@ async function main() {
       lastSummary = Date.now();
       for (const l of formatSummary(journalStats(session.journal, payout), payout)) log(l);
     }
-    if (Date.now() - lastSync > 600_000) { lastSync = Date.now(); await syncClock(); }
+    if (fonte === 'binance' && Date.now() - lastSync > 600_000) { lastSync = Date.now(); await syncClock(); }
     if (stop || ciclos >= maxCiclos) break;
     const espera = falhas > 0 ? Math.min(60, intervalo * 2 ** Math.min(falhas, 4)) : intervalo;
     await new Promise<void>((res) => {

@@ -57,11 +57,16 @@ export function buildIntrabar(split: LiveSplit, m1: Candle[], nowSec: number): I
   };
 }
 
-export function liveSource(symbol: string, closed: Candle[], displayTimezone: string, now: number): DataSourceInfo {
+export function liveSource(
+  symbol: string, closed: Candle[], displayTimezone: string, now: number, fonte: 'binance' | 'mt5' = 'binance',
+): DataSourceInfo {
+  const mt5 = fonte === 'mt5';
   return sourceFor(closed, {
-    kind: 'binance_live',
-    name: `Binance ${symbol} · M5 ao vivo`,
-    origin: 'API pública da Binance (cripto). Não são os preços da Quotex.',
+    kind: mt5 ? 'mt5_arquivo' : 'binance_live',
+    name: mt5 ? `MT5 ${symbol} · M5 ao vivo` : `Binance ${symbol} · M5 ao vivo`,
+    origin: mt5
+      ? 'MetaTrader 5 (arquivo exportado pelo script). Preço da corretora do MT5, não é o da Quotex.'
+      : 'API pública da Binance (cripto). Não são os preços da Quotex.',
     synthetic: false,
     asset: symbol,
     otc: false,

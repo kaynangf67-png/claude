@@ -28,6 +28,8 @@ Um programa que fica rodando no **seu computador** enquanto você está fora. El
 - **Pelo PowerShell:** `npm run agente -- --exploratorio` (Ctrl+C encerra e salva).
 - **Com os seus parâmetros:** copie `agent\config.exemplo.json`, edite e rode `npm run agente -- --config meu.json`.
 
+**Forex pelo MT5:** `npm run agente -- --exploratorio --fonte mt5 --simbolos EURUSD` (precisa do script rodando; veja [`MT5.md`](MT5.md)). Dados parados por mais de 3 min = o agente não analisa.
+
 Opções: `--simbolos BTCUSDT,ETHUSDT` · `--payout 85` · `--intervalo 5` · `--dados pasta` · `npm run agente -- --ajuda`.
 
 ## Como ler o resultado

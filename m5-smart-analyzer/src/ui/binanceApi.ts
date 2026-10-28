@@ -2,15 +2,26 @@ import { BINANCE_BASES, parseKlines } from '../core/binance';
 import type { Candle } from '../core/types';
 
 /** Rede da API pública da Binance (sem chave, sem login). Tenta o host alternativo se o primeiro falhar. */
+let bases: string[] = [...BINANCE_BASES];
 let baseIdx = 0;
+
+/** Troca os hosts consultados (ex.: a ponte local do MT5, que fala o mesmo formato). */
+export function setBases(list: readonly string[]): void {
+  bases = [...list];
+  baseIdx = 0;
+}
 
 export async function api(path: string): Promise<unknown> {
   let last: unknown = new Error('sem resposta');
-  for (let i = 0; i < BINANCE_BASES.length; i++) {
-    const idx = (baseIdx + i) % BINANCE_BASES.length;
+  for (let i = 0; i < bases.length; i++) {
+    const idx = (baseIdx + i) % bases.length;
     try {
-      const r = await fetch(BINANCE_BASES[idx] + path, { signal: AbortSignal.timeout(10_000) });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const r = await fetch(bases[idx] + path, { signal: AbortSignal.timeout(10_000) });
+      if (!r.ok) {
+        // a ponte local explica o motivo no corpo ({ erro }); a Binance não
+        const corpo = (await r.json().catch(() => null)) as { erro?: unknown } | null;
+        throw new Error(typeof corpo?.erro === 'string' ? corpo.erro : `HTTP ${r.status}`);
+      }
       const j: unknown = await r.json();
       baseIdx = idx;
       return j;

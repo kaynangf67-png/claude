@@ -34,7 +34,7 @@ function SourceBadge() {
   const s = data.source;
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-      {s.synthetic ? <Status tone="warn">DADOS FICTÍCIOS</Status> : s.kind === 'binance_live' ? <Status tone="pos">AO VIVO · Binance (cripto)</Status> : <Status tone="info">CSV importado</Status>}
+      {s.synthetic ? <Status tone="warn">DADOS FICTÍCIOS</Status> : s.kind === 'binance_live' ? <Status tone="pos">AO VIVO · Binance (cripto)</Status> : s.kind === 'mt5_arquivo' ? <Status tone="pos">AO VIVO · MT5 (forex)</Status> : <Status tone="info">CSV importado</Status>}
       <span className="max-w-[28ch] truncate text-xs text-muted" title={s.name}>{s.name}</span>
       <span className="num text-xs text-faint">até {formatDateTime(s.lastT, displayTimezone)}</span>
     </div>

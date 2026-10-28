@@ -37,12 +37,22 @@ export function SimplePage() {
   const tom = TOM[sinal.tipo];
   const rem = data?.live?.intrabar.remainingSeconds ?? null;
   const minRem = config.params.triggerMinRemainingSeconds.value ?? 150;
+  const semDados = live.on && !data?.live ? (live.rows.find((r) => r.symbol === live.selected)?.error ?? null) : null;
 
   return (
     <div className="mx-auto flex min-h-full max-w-3xl flex-col gap-3 px-3 py-3 sm:px-4">
       <header className="flex items-center justify-between gap-3">
         <h1 className="text-[15px] font-semibold tracking-tight">M5 · Retração</h1>
-        <button onClick={() => setModo('avancado')} className="text-xs text-muted underline hover:text-ink">Modo avançado</button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => live.setFonte(live.fonte === 'mt5' ? 'binance' : 'mt5')}
+            className="rounded-full border border-line px-2.5 py-1 text-xs text-muted hover:text-ink"
+            aria-label={`Fonte dos preços: ${live.fonte === 'mt5' ? 'forex pelo MT5' : 'cripto pela Binance'}. Tocar para trocar.`}
+          >
+            {live.fonte === 'mt5' ? 'Forex · MT5' : 'Cripto'}
+          </button>
+          <button onClick={() => setModo('avancado')} className="text-xs text-muted underline hover:text-ink">Modo avançado</button>
+        </div>
       </header>
 
       {/* pares: a cor mostra onde olhar */}
@@ -63,6 +73,13 @@ export function SimplePage() {
           );
         })}
       </nav>
+
+      {semDados && (
+        <p role="status" className="rounded-lg border border-warn/40 bg-warn/10 p-3 text-[13px] leading-snug text-ink">
+          {live.fonte === 'mt5' ? 'Sem dados do MT5: ' : 'Sem dados: '}{semDados}
+          {live.fonte === 'mt5' && ' Passo a passo em docs/MT5.md.'}
+        </p>
+      )}
 
       {/* o sinal */}
       <section aria-live="polite" className={`rounded-xl border-2 p-4 ${tom.borda} ${tom.fundo}`}>
@@ -98,7 +115,7 @@ export function SimplePage() {
       </ul>
 
       <footer className="mt-auto space-y-1 pt-2 text-[11px] leading-snug text-faint">
-        <p>Você entra na corretora: este app não opera. Dados da Binance (cripto), não da Quotex. Valores de teste que não vêm da aula; sem prova de resultado. Análise técnica não garante lucro, e operações curtas podem causar perdas.</p>
+        <p>Você entra na corretora: este app não opera. {live.fonte === 'mt5' ? 'Dados da corretora do seu MT5 (forex), não da Quotex.' : 'Dados da Binance (cripto), não da Quotex.'} Valores de teste que não vêm da aula; sem prova de resultado. Análise técnica não garante lucro, e operações curtas podem causar perdas.</p>
       </footer>
     </div>
   );

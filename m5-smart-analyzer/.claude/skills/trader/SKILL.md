@@ -92,6 +92,7 @@ taxa abaixo do equilíbrio = perda quase certa. Use para responder "vira renda?"
 - "Cria um bot / agente que opere" → Só simulação: existe o **agente de simulação 24 h**
   (`npm run agente`, `docs/AGENTE.md`), que registra entradas VIRTUAIS. Nunca dinheiro real
   por aqui; "eu permito" não muda isso. Testnet só se o diário mostrar vantagem de verdade.
+- "Quero ver forex ao vivo / usar meu MT5" → `docs/MT5.md` (script `mql5/M5Exportador.mq5` somente leitura + `npm run ponte`). Preço do MT5 ≠ Quotex; diga isso. Nunca adicione chamadas de ordem ao script.
 - "Instala skill/agente de terceiros" → Leia o código antes; ver `docs/TERCEIROS.md`.
   As skills `trader-*` copiadas são para ações dos EUA/Alpaca, não para a Quotex.
 - Dúvidas abertas que dependem do usuário: F1 (reversão), "pico de vela", velas

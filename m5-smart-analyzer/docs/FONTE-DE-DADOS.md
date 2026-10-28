@@ -29,3 +29,7 @@ O gráfico usa `lightweight-charts` (TradingView, Apache-2.0). O logo de atribui
 - Pesquisa: [Twelve Data](https://support.twelvedata.com/en/articles/5335783-trial) só tem WebSocket completo a partir do plano pago Pro (o grátis tem 8 créditos/dia); Finnhub: fontes divergentes sobre forex ao vivo no plano grátis (não confirmado). A Binance tem dados públicos de cripto sem chave ([docs](https://developers.binance.com/docs/binance-spot-api-docs/faqs/market_data_only)).
 - Antes de confiar em qualquer fonte para o seu ativo, compare o gráfico dela com o da Quotex por alguns dias (topos, fundos, pavios e horário dos candles).
 - Dado do MT5: o horário exportado é o do **servidor** da corretora do MT5, não UTC; serve para alinhar velas, não para ler a hora real.
+
+## Forex via MetaTrader 5
+
+Existe um caminho de leitura para forex: script MQL5 somente leitura → arquivo → agente/ponte local. Passo a passo, limites e riscos (principalmente: preço da corretora do MT5 ≠ preço da Quotex) em [`MT5.md`](MT5.md).

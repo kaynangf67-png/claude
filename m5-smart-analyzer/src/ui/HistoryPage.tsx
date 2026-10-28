@@ -166,7 +166,7 @@ function Details({ r, onOutcome, onDelete }: { r: AnalysisRecord; onOutcome: (o:
       <div className="space-y-2 text-muted">
         <div className="num">Último candle: {formatDateTime(r.cutoffT, displayTimezone)}</div>
         {r.window && <div className="num">Janela: {r.window.count} candles ({formatDateTime(r.window.fromT, displayTimezone)} → {formatDateTime(r.window.toT, displayTimezone)})</div>}
-        <div>Fonte: {r.source.kind === 'csv' ? 'CSV' : r.source.kind === 'binance_live' ? 'Binance ao vivo' : 'demonstração'} — {r.source.name} · {r.source.origin} · OTC declarado: {r.source.otc ? 'sim' : 'não'}</div>
+        <div>Fonte: {r.source.kind === 'csv' ? 'CSV' : r.source.kind === 'binance_live' ? 'Binance ao vivo' : r.source.kind === 'mt5_arquivo' ? 'MT5 ao vivo' : 'demonstração'} — {r.source.name} · {r.source.origin} · OTC declarado: {r.source.otc ? 'sim' : 'não'}</div>
         <div>Regras: <span className="num">{r.rulesVersion}</span> · Configuração: <span className="num">{r.configHash}</span> (cópia guardada no registro)</div>
         {r.note && <div>Observação: {r.note}</div>}
         <div className="grid gap-2 border-t border-line pt-3 sm:grid-cols-2">
