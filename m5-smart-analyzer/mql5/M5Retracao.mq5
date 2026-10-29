@@ -40,6 +40,7 @@ input int    InpMaSlow        = 21;    // EMA lenta
 input bool   InpAlert         = true;  // Alerta (som + janela) quando der ENTRADA
 
 #define PFX "M5R_"
+#define SPFX "M5RS_"   // sinais: ficam no grafico ao trocar de tempo grafico
 #define NBARS 300
 
 struct Zone
@@ -67,6 +68,7 @@ void OnDeinit(const int reason)
 {
    EventKillTimer();
    ObjectsDeleteAll(0, PFX);
+   if(reason == REASON_REMOVE) ObjectsDeleteAll(0, SPFX);   // tirou o indicador: limpa os sinais tambem
    Comment("");
 }
 
@@ -312,6 +314,8 @@ void Update()
          detalhe = !armed ? "Zona ainda sem 2 toques validos." : (!tempo ? "Menos de 2:30: espere o proximo candle." : "Faltam criterios.");
       }
 
+      if(entrada) MarkSignal(f.time, z.res, entry);
+
       if(entrada && InpAlert)
       {
          string key = StringFormat("%s|%d|%d", _Symbol, z.firstIdx, (int)f.time);
@@ -325,7 +329,65 @@ void Update()
    }
 
    DrawZones(last, f.time);
+   int ganhos = 0, perdas = 0, empates = 0;
+   ResolveSignals(f.time, ganhos, perdas, empates);
+   if(ganhos + perdas + empates > 0)
+      chk += StringFormat("%sSinais no grafico: %d ganharam, %d perderam%s (fechamento do M5)", chk == "" ? "" : "\n",
+                          ganhos, perdas, empates > 0 ? StringFormat(", %d empate(s)", empates) : "");
    DrawPanel(titulo, detalhe, chk, cor, remaining);
+}
+
+//+------------------------------------------------------------------+
+//| Seta no candle em que surgiu a ENTRADA (uma por candle), no preco |
+//| de entrada. Depois do fechamento, marca o resultado ao lado.      |
+//+------------------------------------------------------------------+
+string SigName(string kind, datetime t) { return(SPFX + kind + "_" + _Symbol + "_" + IntegerToString((long)t)); }
+
+void MarkSignal(datetime t, bool venda, double price)
+{
+   string nm = SigName("A", t);
+   if(ObjectFind(0, nm) >= 0) return;                 // ja marcado neste candle
+   ObjectCreate(0, nm, OBJ_ARROW, 0, t, price);
+   ObjectSetInteger(0, nm, OBJPROP_ARROWCODE, venda ? 234 : 233);
+   ObjectSetInteger(0, nm, OBJPROP_ANCHOR, venda ? ANCHOR_BOTTOM : ANCHOR_TOP);
+   ObjectSetInteger(0, nm, OBJPROP_COLOR, venda ? clrTomato : clrLimeGreen);
+   ObjectSetInteger(0, nm, OBJPROP_WIDTH, 3);
+   ObjectSetInteger(0, nm, OBJPROP_SELECTABLE, false);
+   ObjectSetString(0, nm, OBJPROP_TOOLTIP, StringFormat("%s em %s", venda ? "VENDA" : "COMPRA", DoubleToString(price, _Digits)));
+}
+
+void ResolveSignals(datetime formingT, int &ganhos, int &perdas, int &empates)
+{
+   string pre = SPFX + "A_" + _Symbol + "_";
+   int total = ObjectsTotal(0, 0, OBJ_ARROW);
+   for(int i = 0; i < total; i++)
+   {
+      string nm = ObjectName(0, i, 0, OBJ_ARROW);
+      if(StringFind(nm, pre) != 0) continue;
+      datetime t = (datetime)ObjectGetInteger(0, nm, OBJPROP_TIME);
+      string rn = SigName("R", t);
+      if(ObjectFind(0, rn) < 0)
+      {
+         if(t >= formingT) continue;                   // candle ainda aberto
+         int k = -1;
+         for(int j = ArraySize(g_r) - 1; j >= 0; j--) if(g_r[j].time == t) { k = j; break; }
+         if(k < 0) continue;
+         bool venda = (ObjectGetInteger(0, nm, OBJPROP_ARROWCODE) == 234);
+         double entry = ObjectGetDouble(0, nm, OBJPROP_PRICE);
+         double close = g_r[k].close;
+         string res = (close == entry) ? "= empate" : (((venda && close < entry) || (!venda && close > entry)) ? "ganhou" : "perdeu");
+         ObjectCreate(0, rn, OBJ_TEXT, 0, t, venda ? g_r[k].high : g_r[k].low);
+         ObjectSetString(0, rn, OBJPROP_TEXT, res);
+         ObjectSetInteger(0, rn, OBJPROP_ANCHOR, venda ? ANCHOR_LOWER : ANCHOR_UPPER);
+         ObjectSetInteger(0, rn, OBJPROP_COLOR, res == "ganhou" ? clrLimeGreen : (res == "perdeu" ? clrTomato : clrSilver));
+         ObjectSetInteger(0, rn, OBJPROP_FONTSIZE, 8);
+         ObjectSetInteger(0, rn, OBJPROP_SELECTABLE, false);
+      }
+      string txt = ObjectGetString(0, rn, OBJPROP_TEXT);
+      if(txt == "ganhou") ganhos++;
+      else if(txt == "perdeu") perdas++;
+      else if(txt != "") empates++;
+   }
 }
 
 string Mk(bool ok) { return(ok ? "[v]" : "[x]"); }
