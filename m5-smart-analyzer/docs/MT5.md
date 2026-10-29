@@ -25,6 +25,19 @@ O preço é o da **corretora do seu MT5**. A Quotex tem feed próprio, e o par q
 4. **Confira o arquivo.** Em *Arquivo → Abrir pasta de dados*, suba um nível e abra `Terminal\Common\Files`. Deve existir `m5exp_EURUSD_M1.csv`, atualizado a cada segundo. O caminho costuma ser `C:\Users\SEU_USUARIO\AppData\Roaming\MetaQuotes\Terminal\Common\Files`.
 5. **Deixe o script rodando** enquanto quiser dados. Para parar, tire o script do gráfico. O MT5 precisa estar aberto e conectado à corretora.
 
+## Indicador no gráfico do MT5 (sem app, sem ponte)
+
+`mql5/M5Retracao.mq5` desenha as zonas e mostra o sinal **direto no gráfico do MT5**: VENDA/COMPRA AGORA, ZONA TOCADA, NÃO ENTRE ou AGUARDE, o cronômetro do M5 e a lista de critérios. Também toca alerta quando dá entrada. Somente leitura: não negocia.
+
+1. MetaEditor (**F4**) → **Arquivo → Novo → Indicador personalizado → Avançar**. No nome, mantenha o começo `Indicators\` e troque o final para **`Indicators\M5Retracao`**. Avançar até **Concluir**.
+2. **Ctrl+A**, apague, cole o conteúdo de `mql5/M5Retracao.mq5`, **Ctrl+S** e **F7**. Precisa dar `0 errors`.
+3. No MT5: **Ctrl+N** → **Indicadores** → botão direito → **Atualizar** → arraste **M5Retracao** para o gráfico. Use o gráfico em **M5** para ver as zonas no lugar certo (ele sempre calcula com velas M5, mesmo em outro tempo gráfico).
+
+O que você precisa saber:
+- É uma versão **simplificada** do motor do app. Calcula: zonas, toques com retração, zona armada (2 toques), cronômetro 2:30, F1, F2, F3, velas anteriores e 2 toques com pavio. **Não** avalia a vela lenta/parada (F4) nem os filtros de contexto do app. Por isso pode mostrar ENTRADA onde o app mostraria outra coisa. Em caso de dúvida, o app é a referência.
+- Os valores de zona e retração são os **exploratórios** (não vêm da aula), os mesmos do modo simples. Dá para mudar na aba **Parâmetros de entrada**.
+- Não foi compilado aqui (não há MetaEditor neste ambiente). Se der erro no F7, mande a mensagem.
+
 ## Usar no app (modo simples)
 
 1. Na pasta do projeto, em outro terminal: `npm run ponte` (usa a pasta padrão acima; senão `npm run ponte -- --pasta "CAMINHO\Common\Files"`). Ou dê dois cliques em `agent\iniciar-ponte.bat`.

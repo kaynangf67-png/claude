@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -72,22 +72,40 @@ describe('ponte local', () => {
   });
 });
 
-describe('segurança do script MQL5', () => {
-  const codigo = readFileSync(join(__dirname, '../../mql5/M5Exportador.mq5'), 'utf8');
-  // remove comentários e strings: a checagem vale para o que o script EXECUTA
-  const executavel = codigo.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/"(?:[^"\\]|\\.)*"/g, '""');
+describe('segurança dos arquivos MQL5 (script e indicador)', () => {
+  const dir = join(__dirname, '../../mql5');
+  const arquivos = readdirSync(dir).filter((f) => f.endsWith('.mq5'));
 
-  it('não tem nenhuma chamada de negociação, DLL ou internet', () => {
-    const proibidos = [
-      'OrderSend', 'OrderSendAsync', 'OrderCheck', 'CTrade', 'PositionOpen', 'PositionClose', 'PositionModify', 'OrderModify',
-      'OrderDelete', 'Buy(', 'Sell(', 'BuyLimit', 'SellLimit', 'BuyStop', 'SellStop', 'trade/Trade.mqh',
-      '#import', 'WebRequest', 'SocketCreate', 'SocketConnect', 'DLL', 'ShellExecute', 'FileDelete',
-    ];
-    for (const p of proibidos) expect(executavel, p).not.toContain(p);
+  it('existem o exportador e o indicador', () => {
+    expect(arquivos).toEqual(expect.arrayContaining(['M5Exportador.mq5', 'M5Retracao.mq5']));
   });
 
-  it('só escreve na pasta comum e troca o arquivo de uma vez', () => {
-    expect(executavel).toContain('FILE_COMMON');
-    expect(executavel).toContain('FileMove');
+  for (const nome of arquivos) {
+    const codigo = readFileSync(join(dir, nome), 'utf8');
+    // remove comentários e strings: a checagem vale para o que o arquivo EXECUTA
+    const executavel = codigo.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/"(?:[^"\\]|\\.)*"/g, '""');
+
+    it(`${nome}: nenhuma chamada de negociação, DLL ou internet`, () => {
+      const proibidos = [
+        'OrderSend', 'OrderSendAsync', 'OrderCheck', 'CTrade', 'PositionOpen', 'PositionClose', 'PositionModify', 'OrderModify',
+        'OrderDelete', 'Buy(', 'Sell(', 'BuyLimit', 'SellLimit', 'BuyStop', 'SellStop', 'trade/Trade.mqh',
+        '#import', 'WebRequest', 'SocketCreate', 'SocketConnect', 'DLL', 'ShellExecute', 'FileDelete',
+      ];
+      for (const p of proibidos) expect(executavel, p).not.toContain(p);
+    });
+  }
+
+  it('o exportador só escreve na pasta comum e troca o arquivo de uma vez', () => {
+    const ex = readFileSync(join(dir, 'M5Exportador.mq5'), 'utf8');
+    expect(ex).toContain('FILE_COMMON');
+    expect(ex).toContain('FileMove');
+  });
+
+  it('o indicador usa os valores da aula como padrão (2 toques, 3 velas, 2:30)', () => {
+    const ind = readFileSync(join(dir, 'M5Retracao.mq5'), 'utf8');
+    expect(ind).toMatch(/InpMinPrior\s*=\s*2;/);
+    expect(ind).toMatch(/InpMaxRun\s*=\s*3;/);
+    expect(ind).toMatch(/InpMinRemaining\s*=\s*150;/);
+    expect(ind).toMatch(/InpUseMA\s*=\s*false;/);
   });
 });
