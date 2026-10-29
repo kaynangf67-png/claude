@@ -19,6 +19,8 @@ export interface SinalMt5 {
   rejeicao: number;
   engolfo: number;
   doji: number;
+  /** Entrada dentro do pavio da última vela H1 (coluna opcional; -1 em arquivos antigos). */
+  h1: number;
 }
 
 export function parseSinaisMt5(text: string): { sinais: SinalMt5[]; rejeitadas: number } {
@@ -29,7 +31,7 @@ export function parseSinaisMt5(text: string): { sinais: SinalMt5[]; rejeitadas: 
     if (!line || !/^\d/.test(line)) continue; // cabeçalho
     const p = line.split(',');
     if (p.length < 10) { rejeitadas++; continue; }
-    const [t, simbolo, lado, entrada, fechamento, resultado, ma, rej, eng, doji] = p.map((x) => x.trim());
+    const [t, simbolo, lado, entrada, fechamento, resultado, ma, rej, eng, doji, h1] = p.map((x) => x.trim());
     const n = (x: string | undefined) => Number(x);
     const flag = (x: string | undefined) => (x === '1' ? 1 : x === '0' ? 0 : -1);
     if ((lado !== 'venda' && lado !== 'compra') || !['ganho', 'perda', 'empate'].includes(resultado!)
@@ -37,7 +39,7 @@ export function parseSinaisMt5(text: string): { sinais: SinalMt5[]; rejeitadas: 
     sinais.push({
       t: n(t), simbolo: simbolo!, lado, entrada: n(entrada), fechamento: n(fechamento),
       win: resultado === 'ganho', tie: resultado === 'empate',
-      ma: flag(ma), rejeicao: flag(rej), engolfo: flag(eng), doji: flag(doji),
+      ma: flag(ma), rejeicao: flag(rej), engolfo: flag(eng), doji: flag(doji), h1: flag(h1),
     });
   }
   // o mesmo sinal pode aparecer duas vezes se o indicador foi recarregado: fica o primeiro
@@ -56,6 +58,7 @@ export const CARACTERISTICAS = [
   { id: 'rejeicao', nome: 'Rejeição (pavio do lado da zona)' },
   { id: 'engolfo', nome: 'Engolfo a favor' },
   { id: 'doji', nome: 'Doji (indecisão)' },
+  { id: 'h1', nome: 'No pavio da última vela H1' },
 ] as const;
 
 export interface LinhaCaracteristica {

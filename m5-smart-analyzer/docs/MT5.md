@@ -44,11 +44,14 @@ Em cada seta o indicador **anota** (não bloqueia) o que havia no último candle
 - **Médias 9/21 a favor** (rápida abaixo da lenta para venda, acima para compra);
 - **Rejeição**: pavio do lado da zona com pelo menos 50% da amplitude;
 - **Engolfo a favor**: o último candle tem a cor da operação e o corpo cobre o corpo do anterior, de cor oposta;
-- **Doji**: corpo com no máximo 10% da amplitude.
+- **Doji**: corpo com no máximo 10% da amplitude;
+- **No pavio da vela H1**: o preço de entrada está dentro do pavio da **última vela H1 fechada** do mesmo lado (pavio de cima para venda, de baixo para compra). Ideia sua, não da aula. Os dois pavios aparecem desenhados no gráfico com borda pontilhada.
+
+Para limpar o gráfico, o indicador desenha **só as zonas armadas** (2+ toques). Para ver todas, ponha `InpOnlyArmed = false`.
 
 O painel mostra, para cada um, *com* × *sem* (ganhou/perdeu). Cada sinal resolvido também é gravado em **`m5sinais_PAR.csv`** (pasta comum). Em **Histórico → Sinais do indicador MT5** o app abre esse arquivo e diz, com intervalo de confiança, se a diferença é real ou ruído.
 
-Só depois de umas 50 ou mais entradas, e se um filtro separar com folga, ligue-o como obrigatório nos parâmetros (`InpUseMA`, `InpReqRejection`, `InpReqEngulf`). As definições acima são fixas de propósito: mudar até "dar certo" é a forma mais comum de se enganar.
+Só depois de umas 50 ou mais entradas, e se um filtro separar com folga, ligue-o como obrigatório nos parâmetros (`InpUseMA`, `InpReqRejection`, `InpReqEngulf`, `InpReqH1`). As definições acima são fixas de propósito: mudar até "dar certo" é a forma mais comum de se enganar.
 
 ## Usar no app (modo simples)
 

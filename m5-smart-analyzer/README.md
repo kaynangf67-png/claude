@@ -12,7 +12,7 @@ Subprojeto independente dentro do repositório (não depende dos outros projetos
 cd m5-smart-analyzer
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 236 testes do núcleo, do agente, do simulador e das camadas do gráfico
+npm test           # 237 testes do núcleo, do agente, do simulador e das camadas do gráfico
 npm run build      # typecheck + build de produção (dist/)
 npm run preview    # serve o build
 ```
@@ -77,7 +77,7 @@ npm run agente -- --exploratorio   # Ctrl+C encerra e salva
 
 ## Resultado da verificação (última execução)
 
-- `npm test`: **236 testes passando** (20 arquivos, sinais do indicador MT5 com x sem cada filtro, limite de risco do dia, filtro de média móvel com treino/confirmação, incluindo leitor do MT5, ponte local e uma checagem estática de que o script MQL5 não tem chamadas de ordem) — cálculo de corpo/pavios, direção e sequências, topos/fundos, candles inválidos, duplicatas, estados do motor, prioridade dos filtros de não entrada, ausência de confirmação de gatilho, look-ahead, importação CSV, persistência (configurações, histórico e candles), histórico e exportação.
+- `npm test`: **237 testes passando** (20 arquivos, sinais do indicador MT5 com x sem cada filtro, limite de risco do dia, filtro de média móvel com treino/confirmação, incluindo leitor do MT5, ponte local e uma checagem estática de que o script MQL5 não tem chamadas de ordem) — cálculo de corpo/pavios, direção e sequências, topos/fundos, candles inválidos, duplicatas, estados do motor, prioridade dos filtros de não entrada, ausência de confirmação de gatilho, look-ahead, importação CSV, persistência (configurações, histórico e candles), histórico e exportação.
 - `npm run build`: typecheck estrito + build OK.
 - Verificação ponta a ponta em Chromium: 29 checagens do fluxo principal, 19 do ao vivo com a Binance **simulada** (a rede deste ambiente não alcança a Binance) e as de zonas/persistência/reprodução, mais 10 do modo forex com a ponte local lendo um arquivo M1 **simulado** (não testei com um MT5 de verdade; o script `.mq5` não foi compilado aqui). Não testei o feed contra a Binance de verdade: estado vazio, demonstração e selo de dados fictícios, parâmetros e validação, gráfico/tooltip, filtros, registro, histórico, resultado manual, exportação CSV, persistência após recarregar, importação inválida, fuso obrigatório, CSV de exemplo, ausência de rolagem horizontal em 390 px, sem erros de console.
 

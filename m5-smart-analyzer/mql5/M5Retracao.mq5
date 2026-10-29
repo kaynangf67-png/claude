@@ -42,6 +42,11 @@ input bool   InpReqEngulf     = false; // EXIGIR engolfo a favor
 input double InpRejWick       = 0.5;   // Rejeicao: pavio do lado da zona >= fracao da amplitude
 input double InpDojiBody      = 0.1;   // Doji: corpo <= fracao da amplitude
 input bool   InpExportCsv     = true;  // Gravar cada sinal resolvido em m5sinais_<SIMBOLO>.csv (pasta comum)
+//--- Regioes do pavio da ultima vela H1 fechada (hipotese: so registra, nao bloqueia)
+input bool   InpShowH1        = true;  // Desenhar os pavios da ultima vela H1
+input bool   InpReqH1         = false; // EXIGIR entrada dentro do pavio H1 do mesmo lado
+//--- Grafico
+input bool   InpOnlyArmed     = true;  // Desenhar so as zonas armadas (2+ toques); false = todas
 //--- Aviso
 input bool   InpAlert         = true;  // Alerta (som + janela) quando der ENTRADA
 
@@ -62,6 +67,10 @@ struct Zone
 MqlRates g_r[];       // [0] = mais antigo ... [n-1] = candle em formacao
 Zone     g_z[];
 string   g_lastAlert = "";
+MqlRates g_h1;            // ultima vela H1 FECHADA
+bool     g_h1ok = false;
+double   g_h1Up = 0;      // base do pavio superior (topo do corpo)
+double   g_h1Dn = 0;      // topo do pavio inferior (fundo do corpo)
 
 //+------------------------------------------------------------------+
 int OnInit()
@@ -246,6 +255,7 @@ void Update()
    Comment("");
    double tol = InpZoneTolMult * ref;
    BuildZones(ctxStart, last, tol, InpRetrMinMult * ref);
+   LoadH1();
 
    // zona em contato com o candle em formacao (a de mais toques validos)
    int best = -1;
@@ -305,14 +315,17 @@ void Update()
                   MathMin(lc.open, lc.close) <= MathMin(pc.open, pc.close)) ? 1 : 0;
       int dojiF = (lr > 0 && MathAbs(lc.close - lc.open) <= InpDojiBody * lr) ? 1 : 0;
       bool ma = !InpUseMA || maF == 1;
-      bool pat = (!InpReqRejection || rejF == 1) && (!InpReqEngulf || engF == 1);
-      string feats = StringFormat("MA=%d;REJ=%d;ENG=%d;DOJI=%d", maF, rejF, engF, dojiF);
+      int h1F = -1;
+      if(g_h1ok) h1F = (z.res ? (entry >= g_h1Up && entry <= g_h1.high) : (entry <= g_h1Dn && entry >= g_h1.low)) ? 1 : 0;
+      bool pat = (!InpReqRejection || rejF == 1) && (!InpReqEngulf || engF == 1) && (!InpReqH1 || h1F == 1);
+      string feats = StringFormat("MA=%d;REJ=%d;ENG=%d;DOJI=%d;H1=%d", maF, rejF, engF, dojiF, h1F);
 
       chk = StringFormat("%s Zona com %d toques\n%s Tempo >= %d:%02d\n%s Velas anteriores\n%s Sem reversao (F1)\n%s Nao nasceu na zona (F2)\n%s Sem 3 velas iguais (F3)\n%s 2 toques com pavio%s",
                          Mk(armed), z.priors, Mk(tempo), InpMinRemaining / 60, InpMinRemaining % 60, Mk(prev), Mk(!f1), Mk(!f2), Mk(!f3), Mk(wicks),
                          InpUseMA ? StringFormat("\n%s Medias a favor (hipotese)", Mk(ma)) : "");
-      chk += StringFormat("\nNo ultimo candle: medias %s | rejeicao %s | engolfo %s | doji %s",
-                          maF < 0 ? "?" : (maF == 1 ? "a favor" : "contra"), rejF ? "sim" : "nao", engF ? "sim" : "nao", dojiF ? "sim" : "nao");
+      chk += StringFormat("\nNo ultimo candle: medias %s | rejeicao %s | engolfo %s | doji %s | pavio H1 %s",
+                          maF < 0 ? "?" : (maF == 1 ? "a favor" : "contra"), rejF ? "sim" : "nao", engF ? "sim" : "nao", dojiF ? "sim" : "nao",
+                          h1F < 0 ? "?" : (h1F ? "sim" : "nao"));
 
       if(f1 || f2 || f3)
       {
@@ -363,10 +376,11 @@ void Update()
 string SigName(string kind, datetime t) { return(SPFX + kind + "_" + _Symbol + "_" + IntegerToString((long)t)); }
 
 // Placar por caracteristica: [f][1] = com a caracteristica, [f][0] = sem; contagem de ganhos e perdas
-string g_featName[4] = {"Medias a favor", "Rejeicao", "Engolfo", "Doji"};
-string g_featKey[4]  = {"MA", "REJ", "ENG", "DOJI"};
-int    g_fw[4][2];
-int    g_fl[4][2];
+#define NFEAT 5
+string g_featName[NFEAT] = {"Medias a favor", "Rejeicao", "Engolfo", "Doji", "No pavio da vela H1"};
+string g_featKey[NFEAT]  = {"MA", "REJ", "ENG", "DOJI", "H1"};
+int    g_fw[NFEAT][2];
+int    g_fl[NFEAT][2];
 
 int FeatValue(string feats, string key)
 {
@@ -378,7 +392,7 @@ int FeatValue(string feats, string key)
 string FeatureLines(int n)
 {
    string out = "";
-   for(int f = 0; f < 4; f++)
+   for(int f = 0; f < NFEAT; f++)
       out += StringFormat("\n%s: com %d/%d | sem %d/%d (ganhou/perdeu)", g_featName[f], g_fw[f][1], g_fl[f][1], g_fw[f][0], g_fl[f][0]);
    if(n < 50) out += StringFormat("\nAmostra pequena (%d): ainda nao da para concluir nada.", n);
    return(out);
@@ -390,13 +404,13 @@ void AppendCsv(datetime t, bool venda, double entry, double close, string res, s
    string fn = "m5sinais_" + _Symbol + ".csv";
    int h = FileOpen(fn, FILE_READ | FILE_WRITE | FILE_TXT | FILE_ANSI | FILE_COMMON);
    if(h == INVALID_HANDLE) return;
-   if(FileSize(h) == 0) FileWriteString(h, "timestamp,simbolo,lado,entrada,fechamento,resultado,ma,rejeicao,engolfo,doji\n");
+   if(FileSize(h) == 0) FileWriteString(h, "timestamp,simbolo,lado,entrada,fechamento,resultado,ma,rejeicao,engolfo,doji,h1\n");
    FileSeek(h, 0, SEEK_END);
    long tutc = (long)t - (long)(TimeTradeServer() - TimeGMT());
-   FileWriteString(h, StringFormat("%I64d,%s,%s,%s,%s,%s,%d,%d,%d,%d\n", tutc, _Symbol, venda ? "venda" : "compra",
+   FileWriteString(h, StringFormat("%I64d,%s,%s,%s,%s,%s,%d,%d,%d,%d,%d\n", tutc, _Symbol, venda ? "venda" : "compra",
                                    DoubleToString(entry, _Digits), DoubleToString(close, _Digits),
                                    res == "ganhou" ? "ganho" : (res == "perdeu" ? "perda" : "empate"),
-                                   FeatValue(feats, "MA"), FeatValue(feats, "REJ"), FeatValue(feats, "ENG"), FeatValue(feats, "DOJI")));
+                                   FeatValue(feats, "MA"), FeatValue(feats, "REJ"), FeatValue(feats, "ENG"), FeatValue(feats, "DOJI"), FeatValue(feats, "H1")));
    FileClose(h);
 }
 
@@ -451,7 +465,7 @@ void ResolveSignals(datetime formingT, int &ganhos, int &perdas, int &empates)
       if(txt == "ganhou" || txt == "perdeu")
       {
          string feats = ObjectGetString(0, nm, OBJPROP_TEXT);
-         for(int f = 0; f < 4; f++)
+         for(int f = 0; f < NFEAT; f++)
          {
             int v = FeatValue(feats, g_featKey[f]);
             if(v < 0) continue;                         // caracteristica desconhecida neste sinal
@@ -465,13 +479,48 @@ void ResolveSignals(datetime formingT, int &ganhos, int &perdas, int &empates)
 string Mk(bool ok) { return(ok ? "[v]" : "[x]"); }
 
 //+------------------------------------------------------------------+
+//| Ultima vela H1 fechada (posicao 1 = a anterior a vela em curso).  |
+//+------------------------------------------------------------------+
+void LoadH1()
+{
+   MqlRates h[];
+   g_h1ok = (CopyRates(_Symbol, PERIOD_H1, 1, 1, h) == 1);
+   if(!g_h1ok) return;
+   g_h1 = h[0];
+   g_h1Up = MathMax(g_h1.open, g_h1.close);
+   g_h1Dn = MathMin(g_h1.open, g_h1.close);
+}
+
+void DrawH1(datetime now)
+{
+   ObjectsDeleteAll(0, PFX + "H");
+   if(!InpShowH1 || !g_h1ok) return;
+   for(int k = 0; k < 2; k++)
+   {
+      string nm = PFX + "H" + IntegerToString(k);
+      double top = k == 0 ? g_h1.high : g_h1Dn;
+      double bot = k == 0 ? g_h1Up : g_h1.low;
+      ObjectCreate(0, nm, OBJ_RECTANGLE, 0, g_h1.time, top, now + 600, bot);
+      ObjectSetInteger(0, nm, OBJPROP_COLOR, k == 0 ? C'150,90,20' : C'30,90,150');
+      ObjectSetInteger(0, nm, OBJPROP_STYLE, STYLE_DOT);
+      ObjectSetInteger(0, nm, OBJPROP_FILL, false);
+      ObjectSetInteger(0, nm, OBJPROP_WIDTH, 2);
+      ObjectSetInteger(0, nm, OBJPROP_BACK, true);
+      ObjectSetInteger(0, nm, OBJPROP_SELECTABLE, false);
+      ObjectSetString(0, nm, OBJPROP_TOOLTIP, k == 0 ? "Pavio superior da ultima vela H1" : "Pavio inferior da ultima vela H1");
+   }
+}
+
+//+------------------------------------------------------------------+
 void DrawZones(int last, datetime now)
 {
    ObjectsDeleteAll(0, PFX + "Z");
+   DrawH1(now);
    for(int i = 0; i < ArraySize(g_z); i++)
    {
       string nm = PFX + "Z" + IntegerToString(i);
       bool armed = (g_z[i].priors >= InpMinPrior);
+      if(InpOnlyArmed && !armed) continue;
       color c = g_z[i].res ? (armed ? C'120,40,40' : C'60,30,30') : (armed ? C'30,100,60' : C'25,50,35');
       ObjectCreate(0, nm, OBJ_RECTANGLE, 0, g_r[g_z[i].firstIdx].time, g_z[i].upper, now + 600, g_z[i].lower);
       ObjectSetInteger(0, nm, OBJPROP_COLOR, c);

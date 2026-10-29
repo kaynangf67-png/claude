@@ -34,3 +34,14 @@ describe('sinais exportados pelo indicador MT5', () => {
     expect(s.breakeven).toBeCloseTo(0.5556, 3);
   });
 });
+
+describe('coluna do pavio H1', () => {
+  it('lê a 11ª coluna e trata arquivo antigo (sem a coluna) como desconhecido', () => {
+    const novo = parseSinaisMt5('t\n300,EURUSD,venda,1.1,1.0,ganho,1,0,0,0,1\n').sinais[0]!;
+    const antigo = parseSinaisMt5('t\n300,EURUSD,venda,1.1,1.0,ganho,1,0,0,0\n').sinais[0]!;
+    expect(novo.h1).toBe(1);
+    expect(antigo.h1).toBe(-1);
+    const r = resumoSinaisMt5([antigo], 80).caracteristicas.find((c) => c.id === 'h1')!;
+    expect(r.com.n + r.sem.n).toBe(0);
+  });
+});
