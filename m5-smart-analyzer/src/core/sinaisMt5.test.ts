@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseSinaisMt5, resumoSinaisMt5 } from './sinaisMt5';
+import { horaBrasilia, parseSinaisMt5, resumoSinaisMt5 } from './sinaisMt5';
 
 const HEAD = 'timestamp,simbolo,lado,entrada,fechamento,resultado,ma,rejeicao,engolfo,doji\n';
 const linha = (t: number, res: string, ma = 1, rej = 0, eng = 0, doji = 0, lado = 'venda') =>
@@ -43,5 +43,29 @@ describe('coluna do pavio H1', () => {
     expect(antigo.h1).toBe(-1);
     const r = resumoSinaisMt5([antigo], 80).caracteristicas.find((c) => c.id === 'h1')!;
     expect(r.com.n + r.sem.n).toBe(0);
+  });
+
+  it('converte UTC para a hora de Brasília', () => {
+    expect(horaBrasilia(0)).toBe(21); // 00:00 UTC = 21h do dia anterior
+    expect(horaBrasilia(12 * 3600)).toBe(9);
+    expect(horaBrasilia(3 * 3600 + 59 * 60)).toBe(0);
+  });
+
+  it('separa por período do dia e por par, sem misturar', () => {
+    const manha = 12 * 3600; // 9h Brasília
+    const noite = 23 * 3600; // 20h Brasília
+    const txt = HEAD + [
+      `${manha},EURUSD,venda,1,1,ganho,1,0,0,0`,
+      `${manha + 300},EURUSD,venda,1,1,perda,1,0,0,0`,
+      `${noite},USDJPY,compra,1,1,ganho,1,0,0,0`,
+      `${noite},EURUSD,compra,1,1,empate,1,0,0,0`,
+    ].join('\n');
+    const r = resumoSinaisMt5(parseSinaisMt5(txt).sinais, 80);
+    const p = Object.fromEntries(r.periodos.map((x) => [x.nome.split(' ')[0], x.t]));
+    expect(p['Manhã']).toMatchObject({ wins: 1, losses: 1 });
+    expect(p['Noite']).toMatchObject({ wins: 1, losses: 0, ties: 1 });
+    expect(p['Tarde']!.n).toBe(0);
+    expect(r.pares.map((x) => x.nome)).toEqual(['EURUSD', 'USDJPY']);
+    expect(r.pares[0]!.t).toMatchObject({ wins: 1, losses: 1, ties: 1 });
   });
 });

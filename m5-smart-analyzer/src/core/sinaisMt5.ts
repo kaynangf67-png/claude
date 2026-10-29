@@ -69,11 +69,32 @@ export interface LinhaCaracteristica {
   cmp: Comparison;
 }
 
+/** Períodos do dia no horário de Brasília (UTC-3, sem horário de verão desde 2019). */
+export const PERIODOS = [
+  { id: 'madrugada', nome: 'Madrugada (0h–6h)', de: 0, ate: 6 },
+  { id: 'manha', nome: 'Manhã (6h–12h)', de: 6, ate: 12 },
+  { id: 'tarde', nome: 'Tarde (12h–18h)', de: 12, ate: 18 },
+  { id: 'noite', nome: 'Noite (18h–24h)', de: 18, ate: 24 },
+] as const;
+
+/** Hora de Brasília (0–23) de um timestamp Unix em segundos (UTC). */
+export function horaBrasilia(t: number): number {
+  return (((Math.floor(t / 3600) - 3) % 24) + 24) % 24;
+}
+
+export interface LinhaGrupo {
+  nome: string;
+  t: Tally;
+  v: Verdict;
+}
+
 export interface ResumoSinais {
   breakeven: number;
   todos: Tally;
   veredito: Verdict;
   caracteristicas: LinhaCaracteristica[];
+  periodos: LinhaGrupo[];
+  pares: LinhaGrupo[];
 }
 
 export function resumoSinaisMt5(sinais: SinalMt5[], payoutPercent: number): ResumoSinais {
@@ -88,6 +109,14 @@ export function resumoSinaisMt5(sinais: SinalMt5[], payoutPercent: number): Resu
       const com = tally(conhecidos.filter((s) => s[id] === 1));
       const sem = tally(conhecidos.filter((s) => s[id] === 0));
       return { id, nome, com, sem, cmp: compareGroups(com, sem) };
+    }),
+    periodos: PERIODOS.map(({ nome, de, ate }) => {
+      const t = tally(sinais.filter((s) => { const h = horaBrasilia(s.t); return h >= de && h < ate; }));
+      return { nome, t, v: verdict(t, be) };
+    }),
+    pares: [...new Set(sinais.map((s) => s.simbolo))].sort().map((nome) => {
+      const t = tally(sinais.filter((s) => s.simbolo === nome));
+      return { nome, t, v: verdict(t, be) };
     }),
   };
 }
