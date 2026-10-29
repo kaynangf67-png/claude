@@ -4,7 +4,7 @@ import {
 } from './types';
 
 /** Versão do conjunto de regras. Incrementar ao incorporar novas aulas. */
-export const RULES_VERSION = 'aula-03@0.1.0';
+export const RULES_VERSION = 'aula-03@0.2.0';
 export const CONFIG_STORAGE_KEY = 'm5sa.config.v1';
 
 export interface ParamSpec {
@@ -54,6 +54,8 @@ export const PARAM_SPECS: Record<ParamKey, ParamSpec> = {
   prevCandlesRequired: { key: 'prevCandlesRequired', group: 'Gatilho (aulas 2 e 3)', label: 'Velas anteriores com força a favor (1 ou 2)', description: 'Quantas das 2 velas anteriores precisam ter pavio relevante ou cor a favor. A professora fala em "as duas" num trecho e "uma" em outro.', min: 1, max: 2, step: 1, integer: true, unit: 'velas' },
   htfContextWindow: { key: 'htfContextWindow', group: 'Contexto de timeframe maior (hipótese)', label: 'Janela de candles do timeframe maior', description: 'Quantos candles M15/H1 (montados com M5 fechados) entram na busca de zonas. H1 com 40 candles exige 480+ candles M5.', min: 15, max: 200, step: 1, integer: true, unit: 'candles' },
   htfMinTouches: { key: 'htfMinTouches', group: 'Contexto de timeframe maior (hipótese)', label: 'Toques válidos mínimos da zona maior', description: 'A zona do timeframe maior só conta se teve ao menos esta quantidade de toques com retração observável.', min: 1, max: 10, step: 1, integer: true, unit: 'toques' },
+  maFastPeriod: { key: 'maFastPeriod', group: 'Filtro de média móvel (hipótese)', label: 'Média rápida (EMA, em candles)', description: 'Período da média móvel exponencial rápida. 9 é um valor comum, não vem da aula. Mudar e retestar várias vezes faz o resultado parecer melhor por acaso.', min: 2, max: 100, step: 1, integer: true, unit: 'candles' },
+  maSlowPeriod: { key: 'maSlowPeriod', group: 'Filtro de média móvel (hipótese)', label: 'Média lenta (EMA, em candles)', description: 'Período da média móvel exponencial lenta; precisa ser maior que a rápida. 21 é um valor comum, não vem da aula.', min: 3, max: 200, step: 1, integer: true, unit: 'candles' },
   payoutPercent: { key: 'payoutPercent', group: 'Teste e diário', label: 'Payout da corretora (%)', description: 'Define o ponto de equilíbrio da taxa de acerto: 1 ÷ (1 + payout). Confirme o payout real do ativo na sua corretora.', min: 50, max: 100, step: 1, integer: true, unit: '%' },
   continuousMoveEfficiency: { key: 'continuousMoveEfficiency', group: 'Regra 6 · Não entrada', label: 'Movimento contínuo (eficiência direcional ≥)', description: 'Razão entre o deslocamento líquido e o caminho percorrido pelos fechamentos. Perto de 1 = movimento sem retrações.', min: 0.1, max: 1, step: 0.05, integer: false, percent: true },
 };
@@ -78,8 +80,11 @@ export function defaultConfig(): AnalysisConfig {
   params.payoutPercent = technical(80);
   params.htfContextWindow = technical(40);
   params.htfMinTouches = technical(1);
+  // Média móvel: hipótese; períodos comuns, não da aula. A regra nasce desligada.
+  params.maFastPeriod = technical(9);
+  params.maSlowPeriod = technical(21);
   // A confluência com timeframe maior é HIPÓTESE (não vem da aula): nasce desligada.
-  const enabled = Object.fromEntries(RULE_IDS.map((id) => [id, id !== 'confluencia_tf_maior'])) as Record<RuleId, boolean>;
+  const enabled = Object.fromEntries(RULE_IDS.map((id) => [id, id !== 'confluencia_tf_maior' && id !== 'filtro_media_movel'])) as Record<RuleId, boolean>;
   return { rulesVersion: RULES_VERSION, timeframe: 'M5', enabled, params };
 }
 
@@ -201,7 +206,7 @@ export function sanitizeConfig(raw: unknown): AnalysisConfig {
     }
   }
   // Os parâmetros essenciais de janela nunca podem ficar indefinidos.
-  for (const k of ['minCandles', 'contextWindow', 'observationWindow', 'alternationWindow', 'swingLookback', 'minPriorValidTouches', 'maxSameDirectionRun', 'triggerMinRemainingSeconds', 'payoutPercent', 'htfContextWindow', 'htfMinTouches'] as const) {
+  for (const k of ['minCandles', 'contextWindow', 'observationWindow', 'alternationWindow', 'swingLookback', 'minPriorValidTouches', 'maxSameDirectionRun', 'triggerMinRemainingSeconds', 'payoutPercent', 'htfContextWindow', 'htfMinTouches', 'maFastPeriod', 'maSlowPeriod'] as const) {
     if (base.params[k].value === null) base.params[k] = defaultConfig().params[k];
   }
   return base;

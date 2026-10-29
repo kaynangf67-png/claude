@@ -6,6 +6,7 @@ import {
 import { AULA03_TRIGGERS } from './gatilho';
 import { sessionRule } from './horario';
 import { htfConfluenceRule } from './htf';
+import { maFilterRule } from './mediaMovel';
 
 /**
  * Registro de regras. Para incorporar uma nova aula:
@@ -26,6 +27,7 @@ export const RULES: RuleDefinition[] = [
   velaLentaRule,
   undefinedStructureRule,
   htfConfluenceRule,
+  maFilterRule,
   continuousMoveRule,
   breakoutRule,
   sessionRule,

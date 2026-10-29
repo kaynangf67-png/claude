@@ -62,7 +62,7 @@ describe('teste histórico com resultado', () => {
     expect(s.todos.n + s.todos.ties).toBe(full.rows.length);
     expect(s.favoravel.n).toBeLessThanOrEqual(s.todos.n);
     expect(s.gatilho.n).toBeLessThanOrEqual(s.favoravel.n);
-    expect(s.ablation).toHaveLength(9);
+    expect(s.ablation).toHaveLength(10);
     for (const a of s.ablation.slice(0, 7)) expect(a.pass.n + a.fail.n + a.pass.ties + a.fail.ties).toBe(full.rows.length);
     // as linhas de confluência deixam de fora os toques sem dados do timeframe maior
     for (const a of s.ablation.slice(7)) expect(a.pass.n + a.fail.n + a.pass.ties + a.fail.ties).toBeLessThanOrEqual(full.rows.length);
@@ -75,6 +75,17 @@ describe('teste histórico com resultado', () => {
     const off = runBacktest(b.c5, b.m1, cfg, testSource(b.c5), { htf: false });
     expect(off.rows.length).toBe(full.rows.length);
     expect(off.rows.every((r) => r.htf.M15 === null && r.htf.H1 === null)).toBe(true);
+  });
+
+  it('cada linha traz o alinhamento das médias móveis (null sem candles suficientes), com bloco de treino e confirmação', () => {
+    expect(full.rows.every((r) => r.ma === null || typeof r.ma === 'boolean')).toBe(true);
+    expect(full.rows.some((r) => r.ma !== null)).toBe(true);
+    const m = summarizeBacktest(full.rows, 80).ma;
+    const usados = m.treino.pass.n + m.treino.fail.n + m.confirmacao.pass.n + m.confirmacao.fail.n;
+    expect(usados).toBeLessThanOrEqual(full.rows.length);
+    expect(m.treino.pass.n + m.treino.fail.n).toBeGreaterThan(0);
+    // sem vantagem real nos dados sintéticos, o filtro não pode sair "confirmado melhor" por acaso
+    expect(m.veredito).not.toBe('confirmado_melhor');
   });
 
   it('em dados sem vantagem, "todo toque" não aparece como acima do equilíbrio', () => {

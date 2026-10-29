@@ -1,7 +1,8 @@
 import { atr as atrOf } from './candle';
 import { analyze } from './engine';
 import { confluence, type HtfId } from './htf';
-import { breakevenRate, tally, verdict, type Tally, type Verdict } from './stats';
+import { MA_WINDOW, maReading } from './ma';
+import { breakevenRate, compareGroups, tally, verdict, type Comparison, type Tally, type Verdict } from './stats';
 import { priorValidTouches } from './zones';
 import type { AnalysisConfig, Candle, DataSourceInfo, FilterStatus, ScenarioState } from './types';
 
@@ -35,6 +36,8 @@ export interface BacktestRow {
   filters: Record<string, FilterStatus>;
   /** Confluência da zona com M15/H1 (hipótese). null = não avaliável (poucos candles ou parâmetros). */
   htf: Record<HtfId, boolean | null>;
+  /** Médias móveis a favor do lado da zona (hipótese). null = candles ou parâmetros insuficientes. */
+  ma: boolean | null;
 }
 
 export interface BacktestResult {
@@ -101,10 +104,15 @@ export function runBacktest(
       if (opts.htf !== false && a1.referenceRange !== null && p.zoneToleranceMult.value !== null) {
         Object.assign(htf, confluence(c5.slice(Math.max(0, i - htfLen), i), z, p.zoneToleranceMult.value * a1.referenceRange, config).byFrame);
       }
+      const maFast = p.maFastPeriod.value;
+      const maSlow = p.maSlowPeriod.value;
+      const ma = maFast !== null && maSlow !== null
+        ? (maReading(c5.slice(Math.max(0, i - MA_WINDOW), i), z.side, maFast, maSlow)?.aligned ?? null)
+        : null;
       rows.push({
         t: cand.t, zoneId: z.id, side: z.side, entry, close: cand.c,
         win: res ? cand.c < entry : cand.c > entry, tie: cand.c === entry,
-        remainingSeconds, state: a1.state, triggerConfirmed: a1.trigger.confirmed, criteria, filters, htf,
+        remainingSeconds, state: a1.state, triggerConfirmed: a1.trigger.confirmed, criteria, filters, htf, ma,
       });
     }
   }
@@ -125,9 +133,49 @@ export interface BacktestSummary {
   gatilho: Tally;
   verdicts: { todos: Verdict; favoravel: Verdict; gatilho: Verdict };
   ablation: AblationRow[];
+  ma: MaSplit;
 }
 
-const ABLATION: Array<{ id: string; label: string; kind: 'filter' | 'criterion' | 'htf' }> = [
+export interface MaHalf { pass: Tally; fail: Tally; cmp: Comparison }
+export interface MaSplit {
+  /** Instante (s) do corte: antes = treino, a partir daí = confirmação. */
+  cutT: number | null;
+  treino: MaHalf;
+  confirmacao: MaHalf;
+  /** Só "confirmado_*" quando a metade que o filtro NUNCA viu mostra a mesma direção, com intervalos separados. */
+  veredito: 'confirmado_melhor' | 'confirmado_pior' | 'inconclusivo' | 'sem_casos';
+}
+
+/** Parte do tempo usada para "escolher"; o restante só serve para conferir. */
+export const TRAIN_FRACTION = 0.6;
+
+function half(rows: BacktestRow[]): MaHalf {
+  const usable = rows.filter((r) => r.ma !== null);
+  const pass = tally(usable.filter((r) => r.ma === true));
+  const fail = tally(usable.filter((r) => r.ma === false));
+  return { pass, fail, cmp: compareGroups(pass, fail) };
+}
+
+/**
+ * Compara "médias a favor" x "contra" separadamente na primeira parte (60% dos
+ * toques, em ordem de tempo) e na última (40%). Quem escolhe os períodos olhando
+ * só o treino não pode usar a confirmação para ajustar de novo.
+ */
+export function splitMa(rows: BacktestRow[]): MaSplit {
+  const sorted = [...rows].filter((r) => r.ma !== null).sort((a, b) => a.t - b.t);
+  if (sorted.length < 2) return { cutT: null, treino: half([]), confirmacao: half([]), veredito: 'sem_casos' };
+  const cutT = sorted[Math.floor(sorted.length * TRAIN_FRACTION)]!.t;
+  const treino = half(sorted.filter((r) => r.t < cutT));
+  const confirmacao = half(sorted.filter((r) => r.t >= cutT));
+  const sinal = (h: MaHalf) => Math.sign(h.pass.rate - h.fail.rate);
+  let veredito: MaSplit['veredito'] = 'inconclusivo';
+  if (confirmacao.cmp === 'sem_casos' || treino.cmp === 'sem_casos') veredito = 'sem_casos';
+  else if (confirmacao.cmp === 'melhor' && sinal(treino) > 0) veredito = 'confirmado_melhor';
+  else if (confirmacao.cmp === 'pior' && sinal(treino) < 0) veredito = 'confirmado_pior';
+  return { cutT, treino, confirmacao, veredito };
+}
+
+const ABLATION: Array<{ id: string; label: string; kind: 'filter' | 'criterion' | 'htf' | 'ma' }> = [
   { id: 'gatilho_tempo_restante', label: 'Tempo restante ≥ 2:30', kind: 'criterion' },
   { id: 'reversao', label: 'Sem reversão contra (F1)', kind: 'filter' },
   { id: 'vela_proxima_regiao', label: 'Vela não nasceu perto da zona (F2)', kind: 'filter' },
@@ -137,6 +185,7 @@ const ABLATION: Array<{ id: string; label: string; kind: 'filter' | 'criterion' 
   { id: 'gatilho_dois_toques_com_pavio', label: '2 toques anteriores com pavio', kind: 'criterion' },
   { id: 'M15', label: 'Confluência com zona M15 (hipótese)', kind: 'htf' },
   { id: 'H1', label: 'Confluência com zona H1 (hipótese)', kind: 'htf' },
+  { id: 'media_movel', label: 'Médias móveis a favor (hipótese)', kind: 'ma' },
 ];
 
 export function summarizeBacktest(rows: BacktestRow[], payoutPercent: number): BacktestSummary {
@@ -145,9 +194,10 @@ export function summarizeBacktest(rows: BacktestRow[], payoutPercent: number): B
   const favoravel = tally(rows.filter((r) => r.state === 'FAVORAVEL'));
   const gatilho = tally(rows.filter((r) => r.triggerConfirmed));
   const passes = (r: BacktestRow, a: (typeof ABLATION)[number]) =>
-    a.kind === 'filter' ? r.filters[a.id] === 'favoravel' : a.kind === 'htf' ? r.htf[a.id as HtfId] === true : r.criteria[a.id] === 'atendido';
+    a.kind === 'filter' ? r.filters[a.id] === 'favoravel' : a.kind === 'htf' ? r.htf[a.id as HtfId] === true : a.kind === 'ma' ? r.ma === true : r.criteria[a.id] === 'atendido';
   // confluência: linhas sem dados do timeframe maior ficam fora dos dois lados
-  const usable = (r: BacktestRow, a: (typeof ABLATION)[number]) => a.kind !== 'htf' || r.htf[a.id as HtfId] !== null;
+  const usable = (r: BacktestRow, a: (typeof ABLATION)[number]) =>
+    a.kind === 'htf' ? r.htf[a.id as HtfId] !== null : a.kind === 'ma' ? r.ma !== null : true;
   return {
     breakeven: be,
     todos, favoravel, gatilho,
@@ -157,5 +207,6 @@ export function summarizeBacktest(rows: BacktestRow[], payoutPercent: number): B
       pass: tally(rows.filter((r) => usable(r, a) && passes(r, a))),
       fail: tally(rows.filter((r) => usable(r, a) && !passes(r, a))),
     })),
+    ma: splitMa(rows),
   };
 }

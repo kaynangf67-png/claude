@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { runBacktest, summarizeBacktest, type BacktestSummary } from '../core/backtest';
+import { runBacktest, summarizeBacktest, TRAIN_FRACTION, type BacktestSummary, type MaHalf, type MaSplit } from '../core/backtest';
 import { configHash } from '../core/config';
 import { bucketM1, looksLikeM1, parseMt5M1, type Bucketed } from '../core/mt5';
-import { verdict as verdictFn } from '../core/stats';
+import { verdict as verdictFn, type Comparison } from '../core/stats';
 import { formatDateTime } from '../core/time';
 import { fetchRange } from './binanceApi';
 import { Btn, Field, Panel } from './kit';
@@ -124,10 +124,11 @@ export function BacktestPanel() {
               ))}</tbody>
             </table>
           </div>
+          <MaBlock ma={s.ma} breakeven={s.breakeven} fast={config.params.maFastPeriod.value} slow={config.params.maSlowPeriod.value} />
           <div className="space-y-2 text-xs leading-relaxed text-faint">
             <p>{VERDICT_NOTE}</p>
             <p>As linhas de confluência com M15/H1 (hipótese) só contam toques que têm candles suficientes do timeframe maior, então a amostra é menor. Ligue a regra só se isso melhorar o resultado com folga, em outros pares e períodos.</p>
-            <p>Nove critérios olhados ao mesmo tempo: por puro acaso, um ou dois vão parecer bons. Só vale levar a sério o que se repetir em outros pares e períodos, com os números fixados antes. Pares de cripto andam juntos, então os casos não são independentes e o intervalo é otimista.</p>
+            <p>Dez critérios olhados ao mesmo tempo: por puro acaso, um ou dois vão parecer bons. Só vale levar a sério o que se repetir em outros pares e períodos, com os números fixados antes. Pares de cripto andam juntos, então os casos não são independentes e o intervalo é otimista.</p>
             <p>Como o teste é feito: a entrada é a borda da zona, o resultado é o fechamento do mesmo M5, e o tempo restante é estimado pelo minuto do toque. Dados de mercado real da fonte escolhida; isso não prova nada sobre o preço da Quotex (e menos ainda em OTC). Horários em {displayTimezone}; hoje é {formatDateTime(Date.now() / 1000, displayTimezone)}.</p>
           </div>
         </div>
@@ -137,3 +138,54 @@ export function BacktestPanel() {
 }
 
 const verdictOf = verdictFn;
+
+const CMP_TEXT: Record<Comparison, string> = {
+  sem_casos: 'sem casos nos dois grupos',
+  melhor: 'a favor foi melhor (intervalos separados)',
+  pior: 'a favor foi pior (intervalos separados)',
+  inconclusivo: 'diferença dentro do ruído',
+};
+
+const MA_VERDICT: Record<MaSplit['veredito'], { tone: string; text: string }> = {
+  confirmado_melhor: { tone: 'text-pos', text: 'Confirmado na parte que o filtro não viu: com as médias a favor, o acerto foi melhor. Ainda é um par e um período: repita em outros antes de confiar.' },
+  confirmado_pior: { tone: 'text-neg', text: 'Confirmado ao contrário: com as médias a favor, o acerto foi PIOR. Não ligue o filtro (a retração contra a tendência foi melhor nesta amostra).' },
+  inconclusivo: { tone: 'text-warn', text: 'Inconclusivo: a amostra não permite dizer se o filtro ajuda. É o resultado mais comum com poucos casos. Não ligue o filtro por causa disto.' },
+  sem_casos: { tone: 'text-muted', text: 'Casos insuficientes para comparar (precisa de toques em zona armada com candles suficientes para as médias).' },
+};
+
+function MaRow({ label, h, breakeven }: { label: string; h: MaHalf; breakeven: number }) {
+  return (
+    <tr className="border-b border-line/60 align-top">
+      <td className="py-2 pr-3">{label}</td>
+      <td className="pr-3"><StatCell t={h.pass} v={verdictFn(h.pass, breakeven)} /></td>
+      <td className="pr-3"><StatCell t={h.fail} v={verdictFn(h.fail, breakeven)} /></td>
+      <td className="text-xs text-muted">{CMP_TEXT[h.cmp]}</td>
+    </tr>
+  );
+}
+
+/** Filtro de média móvel (hipótese): treino e confirmação separados, para não se enganar com ajuste. */
+function MaBlock({ ma, breakeven: be, fast, slow }: { ma: MaSplit; breakeven: number; fast: number | null; slow: number | null }) {
+  const v = MA_VERDICT[ma.veredito];
+  return (
+    <div className="space-y-2 rounded-lg border border-line p-3">
+      <div className="text-[11px] uppercase tracking-wider text-faint">Filtro de média móvel (hipótese) · EMA {fast ?? '—'} e {slow ?? '—'} · não vem da aula</div>
+      <p className="text-xs leading-relaxed text-muted">
+        Compara os toques com as médias a favor do lado da zona (compra com a rápida acima da lenta; venda com a rápida abaixo) contra os toques com as médias contra.
+        Os toques são divididos no tempo: os primeiros {Math.round(TRAIN_FRACTION * 100)}% são o <b className="text-ink">treino</b>; os últimos, a <b className="text-ink">confirmação</b>, que não pode ser usada para ajustar de novo os períodos.
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[32rem] text-left text-[13px]">
+          <thead><tr className="border-b border-line text-[11px] uppercase tracking-wider text-faint"><th className="py-2 font-medium">Parte</th><th className="font-medium">Médias a favor</th><th className="font-medium">Médias contra</th><th className="font-medium">Leitura</th></tr></thead>
+          <tbody>
+            <MaRow label="Treino" h={ma.treino} breakeven={be} />
+            <MaRow label="Confirmação" h={ma.confirmacao} breakeven={be} />
+          </tbody>
+        </table>
+      </div>
+      <p className={`text-[13px] ${v.tone}`}>{v.text}</p>
+      <p className="text-xs text-faint">Mudar os períodos e rodar de novo vale como nova tentativa: quanto mais tentativas, maior a chance de achar um resultado bonito por acaso.</p>
+    </div>
+  );
+}
+

@@ -53,3 +53,17 @@ export function verdict(t: Tally, breakeven: number): Verdict {
   if (t.hi < breakeven) return 'abaixo';
   return 'inconclusivo';
 }
+
+export type Comparison = 'sem_casos' | 'melhor' | 'pior' | 'inconclusivo';
+
+/**
+ * Compara dois grupos (atendido x falha). Só diz "melhor"/"pior" quando os
+ * intervalos de Wilson NÃO se sobrepõem: critério conservador de propósito,
+ * porque a diferença parecer grande com poucos casos é o erro mais comum.
+ */
+export function compareGroups(pass: Tally, fail: Tally): Comparison {
+  if (pass.n === 0 || fail.n === 0) return 'sem_casos';
+  if (pass.lo > fail.hi) return 'melhor';
+  if (pass.hi < fail.lo) return 'pior';
+  return 'inconclusivo';
+}

@@ -12,7 +12,7 @@ Subprojeto independente dentro do repositório (não depende dos outros projetos
 cd m5-smart-analyzer
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 210 testes do núcleo, do agente, do simulador e das camadas do gráfico
+npm test           # 224 testes do núcleo, do agente, do simulador e das camadas do gráfico
 npm run build      # typecheck + build de produção (dist/)
 npm run preview    # serve o build
 ```
@@ -29,8 +29,9 @@ Regenerar o exemplo: `npx jiti scripts/gerar-exemplo.ts`.
 2. Em **Configurações**, defina os parâmetros que a aula não fornece (ou use os valores *exploratórios*, que **não vêm da aula**). Sem isso, os filtros ficam **pendentes**.
 3. **Ao vivo** (opcional): conecta à API pública da Binance (**cripto**) ou, para **forex**, ao seu MetaTrader 5 por um script somente leitura ([`docs/MT5.md`](docs/MT5.md)). Nenhuma das duas fontes é a Quotex e mostra, por par, o cenário, o cronômetro do candle M5 e os critérios do gatilho, com diário automático de resultados.
 4. **Dashboard**: estado (Favorável / Desfavorável / Aguardar / Não avaliável), motivos, contagens e gatilho. **Gráfico**: candles, topos/fundos, zonas, tooltip OHLC. **Filtros**: explicação, evidência, regra e detalhes técnicos de cada um.
-5. **Histórico → Teste histórico** mede o resultado das regras em velas passadas (Binance ou CSV de 1 minuto do MT5) contra o ponto de equilíbrio do seu payout, e **Reprodução histórica** refaz a análise candle a candle sem ver o futuro e mostra a distribuição dos estados (não mede acerto).
-6. **Registrar análise** guarda o resultado, a versão das regras e uma cópia da configuração. No **Histórico**: filtros, resultado posterior manual, comparação por classificação e exportação CSV.
+5. **Filtro de média móvel (hipótese, desligado por padrão):** EMA 9/21 como contexto a favor da tendência; o Teste histórico compara com e sem o filtro em treino e confirmação separados (ver `docs/REGRAS.md`).
+6. **Histórico → Teste histórico** mede o resultado das regras em velas passadas (Binance ou CSV de 1 minuto do MT5) contra o ponto de equilíbrio do seu payout, e **Reprodução histórica** refaz a análise candle a candle sem ver o futuro e mostra a distribuição dos estados (não mede acerto).
+7. **Registrar análise** guarda o resultado, a versão das regras e uma cópia da configuração. No **Histórico**: filtros, resultado posterior manual, comparação por classificação e exportação CSV.
 
 ## Estrutura
 
@@ -76,7 +77,7 @@ npm run agente -- --exploratorio   # Ctrl+C encerra e salva
 
 ## Resultado da verificação (última execução)
 
-- `npm test`: **210 testes passando** (17 arquivos, incluindo leitor do MT5, ponte local e uma checagem estática de que o script MQL5 não tem chamadas de ordem) — cálculo de corpo/pavios, direção e sequências, topos/fundos, candles inválidos, duplicatas, estados do motor, prioridade dos filtros de não entrada, ausência de confirmação de gatilho, look-ahead, importação CSV, persistência (configurações, histórico e candles), histórico e exportação.
+- `npm test`: **224 testes passando** (18 arquivos, filtro de média móvel com treino/confirmação, incluindo leitor do MT5, ponte local e uma checagem estática de que o script MQL5 não tem chamadas de ordem) — cálculo de corpo/pavios, direção e sequências, topos/fundos, candles inválidos, duplicatas, estados do motor, prioridade dos filtros de não entrada, ausência de confirmação de gatilho, look-ahead, importação CSV, persistência (configurações, histórico e candles), histórico e exportação.
 - `npm run build`: typecheck estrito + build OK.
 - Verificação ponta a ponta em Chromium: 29 checagens do fluxo principal, 19 do ao vivo com a Binance **simulada** (a rede deste ambiente não alcança a Binance) e as de zonas/persistência/reprodução, mais 10 do modo forex com a ponte local lendo um arquivo M1 **simulado** (não testei com um MT5 de verdade; o script `.mq5` não foi compilado aqui). Não testei o feed contra a Binance de verdade: estado vazio, demonstração e selo de dados fictícios, parâmetros e validação, gráfico/tooltip, filtros, registro, histórico, resultado manual, exportação CSV, persistência após recarregar, importação inválida, fuso obrigatório, CSV de exemplo, ausência de rolagem horizontal em 390 px, sem erros de console.
 

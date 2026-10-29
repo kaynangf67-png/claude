@@ -103,3 +103,13 @@ A anotação F1 cita "timeframes maiores"; o app tem **uma** regra experimental,
 - A análise recebe só candles até o "agora"; `replay()` (`src/core/replay.ts`) chama a análise com `candles[0..i]` para cada `i`.
 - Testes: pivô ausente antes da confirmação; conjunto de pivôs em `i` = calculado só com dados até `i`; alterar candles futuros não muda a análise passada.
 - No gráfico, topos/fundos aparecem **no candle do pivô**, embora só fossem conhecidos alguns candles depois (veja o painel de filtros).
+
+## Filtro de média móvel (hipótese, não é da aula)
+
+Regra experimental `filtro_media_movel`, **desligada por padrão** (Configurações → Critérios). Não vem de nenhuma aula: os períodos 9 e 21 são valores comuns (`padrao_tecnico`), e a ideia de que "retração a favor da tendência é melhor" é só uma hipótese.
+
+- **Definição:** EMA rápida (9) e lenta (21) dos fechamentos dos últimos 200 candles M5 **fechados** (semente na média simples). Com a zona em contato: suporte (compra) fica favorável se a rápida está acima da lenta; resistência (venda), se está abaixo. Sem 3× o período lento de candles, fica "não avaliável". Lenta ≤ rápida vira pendência de configuração.
+- **Papel:** contexto positivo. **Nunca confirma gatilho** e ligar a regra não muda os critérios do gatilho.
+- **Como medir:** o Teste histórico traz a linha "Médias móveis a favor" e um bloco próprio que divide os toques no tempo: os primeiros 60% são **treino** e os últimos 40% são **confirmação**. Só aparece "confirmado" se a parte de confirmação mostrar a mesma direção do treino, com intervalos de Wilson **sem sobreposição**. Com poucos casos o resultado esperado é "inconclusivo".
+- **Cuidado:** mudar períodos e rodar de novo é nova tentativa. Quanto mais tentativas, maior a chance de um resultado bonito por acaso. Não use a parte de confirmação para ajustar. Um par e um período não bastam; repita em outros.
+- O alinhamento é calculado igual ao vivo e no teste, mesmo com a regra desligada (para o teste poder medir antes de você ligar).
