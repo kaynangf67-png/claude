@@ -188,7 +188,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
           const semPonte = fonteRef.current.fonte === 'mt5' && e instanceof TypeError;
           analyses.current.set(s, {
             symbol: s, price: null, remaining: 0, analysis: null,
-            error: semPonte ? `ponte não encontrada em ${fonteRef.current.ponte} (rode "npm run ponte")` : msg,
+            error: semPonte ? `ponte não encontrada em ${fonteRef.current.ponte} (abra a ponte: node ponte-mt5.cjs)` : msg,
           });
         }
       }));
