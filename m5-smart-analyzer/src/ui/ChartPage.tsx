@@ -23,6 +23,8 @@ export function ChartPage({ compact = false }: { compact?: boolean } = {}) {
   const markers = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const zonesPrim = useRef<ZonesPrimitive | null>(null);
   const byTime = useRef(new Map<number, { v?: number }>());
+  // série enquadrada por último: só reenquadra quando mudar o par ou a fonte, para não desfazer o zoom
+  const framed = useRef<string | null>(null);
   const [tip, setTip] = useState<Tip | null>(null);
   const tzRef = useRef(displayTimezone);
   tzRef.current = displayTimezone;
@@ -62,7 +64,7 @@ export function ChartPage({ compact = false }: { compact?: boolean } = {}) {
     series.current = s;
     return () => {
       c.remove();
-      chart.current = null; series.current = null; markers.current = null; zonesPrim.current = null;
+      chart.current = null; series.current = null; markers.current = null; zonesPrim.current = null; framed.current = null;
     };
   }, [hasData]);
 
@@ -72,7 +74,11 @@ export function ChartPage({ compact = false }: { compact?: boolean } = {}) {
     byTime.current = new Map(data.candles.map((c) => [c.t, { v: c.v }]));
     series.current.setData(data.candles.map((c) => ({ time: c.t as UTCTimestamp, open: c.o, high: c.h, low: c.l, close: c.c })));
     const n = data.candles.length;
-    chart.current.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 90), to: n + 3 });
+    const key = data.source.name; // inclui o par; não usa o 1º candle, que muda a cada M5 no ao vivo
+    if (framed.current !== key) {
+      framed.current = key;
+      chart.current.timeScale().setVisibleLogicalRange({ from: Math.max(0, n - 90), to: n + 3 });
+    }
   }, [data?.candles]);
 
   // candle em formação (feed ao vivo): atualiza só a última barra
