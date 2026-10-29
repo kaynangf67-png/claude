@@ -1,0 +1,15 @@
+PONTE MT5 -> M5 SMART ANALYZER (somente leitura)
+
+Ela le o arquivo que o script M5Exportador grava no MT5 e entrega os candles
+para o app aberto no navegador DESTE computador (endereco 127.0.0.1:8765).
+Nao envia ordens, nao usa senha e nao acessa a internet.
+
+1. Instale o Node.js (versao LTS) em https://nodejs.org (so na primeira vez).
+2. No MT5, deixe o script M5Exportador rodando no grafico (InpSymbols = EURUSD,GBPUSD,USDJPY).
+3. De dois cliques em INICIAR-PONTE.bat e deixe a janela aberta.
+4. No app: Ao vivo > Fonte "MetaTrader 5" > endereco http://127.0.0.1:8765 > Conectar.
+
+Se o MT5 usar outra pasta, abra um Prompt de Comando nesta pasta e rode:
+  node ponte-mt5.cjs --pasta "C:\caminho\Terminal\Common\Files"
+
+Arquivo ponte-mt5.cjs gerado a partir de agent/ponte.ts (npm run build:ponte).

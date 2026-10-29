@@ -11,7 +11,8 @@
     "test": "vitest run",
     "gerar-exemplo": "jiti scripts/gerar-exemplo.ts",
     "agente": "jiti agent/agente.ts",
-    "ponte": "jiti agent/ponte.ts"
+    "ponte": "jiti agent/ponte.ts",
+    "build:ponte": "rolldown agent/ponte.ts --platform node --format cjs --file ponte-pc/ponte-mt5.cjs"
   },
   "dependencies": {
     "lightweight-charts": "^5.2.1",
