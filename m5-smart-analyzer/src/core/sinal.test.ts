@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { atr } from './candle';
 import { analyze } from './engine';
-import { calcularSinal, checklist, zonaMaisProxima } from './sinal';
+import { calcularSinal, checklist, horaRelogio, janelaEntrada, zonaMaisProxima } from './sinal';
 import { fullConfig, rangeBound, strongTrend, testSource, touchingIntrabar } from './testing/fixtures';
 
 const cs = rangeBound(5, 5);
@@ -77,5 +77,16 @@ describe('sinal simples', () => {
     const r = analyze({ candles: cs, source: testSource(cs), config: cfg });
     expect(zonaMaisProxima(r, zona.upper + 1)?.lado).not.toBe('resistencia');
     expect(zonaMaisProxima(r, 1.101, 99)).toBeNull();
+  });
+});
+
+describe('horário da entrada', () => {
+  it('entra até restarem 2:30 e vence no fechamento do M5', () => {
+    expect(janelaEntrada(1000, 270, 150)).toEqual({ ate: 1120, vence: 1270 });
+    expect(janelaEntrada(1000, 100, 150)).toEqual({ ate: 1000, vence: 1100 });
+  });
+  it('formata no fuso de São Paulo', () => {
+    // 12:00:05 UTC = 09:00:05 em Brasília
+    expect(horaRelogio(Date.UTC(2026, 9, 29, 12, 0, 5) / 1000, 'America/Sao_Paulo')).toBe('09:00:05');
   });
 });

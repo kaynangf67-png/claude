@@ -51,7 +51,7 @@ export function SinaisMt5Panel() {
     <Panel title="Sinais do indicador MT5">
       <p className="mb-3 max-w-3xl text-[13px] leading-relaxed text-muted">
         O indicador M5Retracao grava cada sinal resolvido em <b className="text-ink">m5sinais_PAR.csv</b>, na mesma pasta comum do MT5 (Common\Files).
-        Abra o arquivo aqui para ver o acerto geral e se cada filtro (médias, rejeição, engolfo, doji, pavio H1) separa sinais melhores dos piores.
+        Abra o arquivo aqui para ver o acerto geral e se cada filtro (médias, rejeição, engolfo, doji, pavio H1, exaustão, RSI) separa sinais melhores dos piores.
       </p>
       <Field label="Arquivos m5sinais_*.csv (pode escolher vários)"><input type="file" multiple accept=".csv,.txt" onChange={(e) => void ler(e.target.files)} /></Field>
       {err && <p role="alert" className="mt-3 text-[13px] text-neg">{err}</p>}
@@ -82,7 +82,7 @@ export function SinaisMt5Panel() {
           <div className="space-y-1 text-xs leading-relaxed text-faint">
             <p>{VERDICT_NOTE}</p>
             <p>Período e par se leem um a um: o total de cima pode estar acima do equilíbrio só porque um par ou um horário puxa os outros. Opere só onde o grupo, sozinho, sair do inconclusivo.</p>
-            <p>Cinco filtros, quatro períodos e vários pares olhados ao mesmo tempo: um deles pode parecer bom por puro acaso. Só torne um filtro obrigatório no indicador se ele separar com folga, em mais de um par e em semanas diferentes.</p>
+            <p>Sete filtros, quatro períodos e vários pares olhados ao mesmo tempo: um deles pode parecer bom por puro acaso. Só torne um filtro obrigatório no indicador se ele separar com folga, em mais de um par e em semanas diferentes.</p>
             <p>O resultado usa o preço da corretora do seu MT5 no fechamento do M5, não o da Quotex.</p>
           </div>
         </div>

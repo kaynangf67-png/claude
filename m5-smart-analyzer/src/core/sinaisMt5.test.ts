@@ -68,4 +68,14 @@ describe('coluna do pavio H1', () => {
     expect(r.pares.map((x) => x.nome)).toEqual(['EURUSD', 'USDJPY']);
     expect(r.pares[0]!.t).toMatchObject({ wins: 1, losses: 1, ties: 1 });
   });
+
+  it('lê exaustão e RSI (colunas 12 e 13); arquivo sem elas fica desconhecido', () => {
+    const txt = HEAD + ['300,EURUSD,venda,1,1,ganho,1,0,0,0,1,1,0', '600,EURUSD,venda,1,1,perda,1,0,0,0,1'].join('\n');
+    const [a, b] = parseSinaisMt5(txt).sinais;
+    expect([a!.exaustao, a!.rsi]).toEqual([1, 0]);
+    expect([b!.exaustao, b!.rsi]).toEqual([-1, -1]);
+    const ids = resumoSinaisMt5([a!, b!], 80).caracteristicas.map((c) => c.id);
+    expect(ids).toContain('exaustao');
+    expect(ids).toContain('rsi');
+  });
 });

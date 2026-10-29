@@ -108,3 +108,17 @@ export function calcularSinal(a: AnalysisResult | null, price: number | null, mi
     detalhe: prox ? `${nomeLado(prox.lado)[0]!.toUpperCase()}${nomeLado(prox.lado).slice(1)} armada a ${fmtPct(prox.distPct)} do preço.` : 'Nenhuma zona armada perto do preço.',
   };
 }
+
+/**
+ * Horários da entrada no relógio: até quando ainda dá para entrar (restarem
+ * `minRem` segundos) e quando a operação vence (fechamento do M5). Em segundos Unix.
+ */
+export function janelaEntrada(agora: number, restante: number, minRem: number): { ate: number; vence: number } {
+  const r = Math.max(0, restante);
+  return { ate: agora + Math.max(0, r - minRem), vence: agora + r };
+}
+
+/** HH:MM:SS no fuso indicado. */
+export function horaRelogio(t: number, timeZone: string): string {
+  return new Intl.DateTimeFormat('pt-BR', { timeZone, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(t * 1000);
+}

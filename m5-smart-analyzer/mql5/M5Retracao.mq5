@@ -41,6 +41,10 @@ input bool   InpReqRejection  = false; // EXIGIR rejeicao (pavio do lado da zona
 input bool   InpReqEngulf     = false; // EXIGIR engolfo a favor
 input double InpRejWick       = 0.5;   // Rejeicao: pavio do lado da zona >= fracao da amplitude
 input double InpDojiBody      = 0.1;   // Doji: corpo <= fracao da amplitude
+input double InpExhaustMult   = 1.5;   // Exaustao: amplitude do ultimo candle >= x media dos 10 anteriores
+input int    InpRsiPeriod     = 14;    // RSI (Wilder) do ultimo candle fechado
+input double InpRsiHigh       = 70;    // RSI extremo para VENDA (>=)
+input double InpRsiLow        = 30;    // RSI extremo para COMPRA (<=)
 input bool   InpExportCsv     = true;  // Gravar cada sinal resolvido em m5sinais_<SIMBOLO>.csv (pasta comum)
 //--- Regioes do pavio da ultima vela H1 fechada (hipotese: so registra, nao bloqueia)
 input bool   InpShowH1        = true;  // Desenhar os pavios da ultima vela H1
@@ -136,6 +140,28 @@ double Ema(int last, int period)
    e /= period;
    for(int i = from + period; i <= last; i++) e = g_r[i].close * k + e * (1 - k);
    return(e);
+}
+
+// RSI de Wilder no fechamento do candle 'last'; EMPTY_VALUE se faltar historico
+double Rsi(int last, int period)
+{
+   int from = MathMax(1, last - 199);
+   if(last - from + 1 < period * 3) return(EMPTY_VALUE);
+   double up = 0, dn = 0;
+   for(int i = from; i < from + period; i++)
+   {
+      double ch = g_r[i].close - g_r[i - 1].close;
+      if(ch > 0) up += ch; else dn -= ch;
+   }
+   up /= period; dn /= period;
+   for(int i = from + period; i <= last; i++)
+   {
+      double ch = g_r[i].close - g_r[i - 1].close;
+      up = (up * (period - 1) + MathMax(ch, 0)) / period;
+      dn = (dn * (period - 1) + MathMax(-ch, 0)) / period;
+   }
+   if(dn == 0) return(up == 0 ? 50 : 100);
+   return(100 - 100 / (1 + up / dn));
 }
 
 //+------------------------------------------------------------------+
@@ -317,8 +343,15 @@ void Update()
       bool ma = !InpUseMA || maF == 1;
       int h1F = -1;
       if(g_h1ok) h1F = (z.res ? (entry >= g_h1Up && entry <= g_h1.high) : (entry <= g_h1Dn && entry >= g_h1.low)) ? 1 : 0;
+      // Exaustao: o ultimo candle e bem maior que a media dos 10 anteriores
+      double avg = 0;
+      for(int i = last - 10; i < last; i++) avg += g_r[i].high - g_r[i].low;
+      avg /= 10;
+      int exaF = (avg > 0 && lr >= InpExhaustMult * avg) ? 1 : 0;
+      double rsi = Rsi(last, InpRsiPeriod);
+      int rsiF = (rsi == EMPTY_VALUE) ? -1 : ((z.res ? rsi >= InpRsiHigh : rsi <= InpRsiLow) ? 1 : 0);
       bool pat = (!InpReqRejection || rejF == 1) && (!InpReqEngulf || engF == 1) && (!InpReqH1 || h1F == 1);
-      string feats = StringFormat("MA=%d;REJ=%d;ENG=%d;DOJI=%d;H1=%d", maF, rejF, engF, dojiF, h1F);
+      string feats = StringFormat("MA=%d;REJ=%d;ENG=%d;DOJI=%d;H1=%d;EXA=%d;RSI=%d", maF, rejF, engF, dojiF, h1F, exaF, rsiF);
 
       chk = StringFormat("%s Zona com %d toques\n%s Tempo >= %d:%02d\n%s Velas anteriores\n%s Sem reversao (F1)\n%s Nao nasceu na zona (F2)\n%s Sem 3 velas iguais (F3)\n%s 2 toques com pavio%s",
                          Mk(armed), z.priors, Mk(tempo), InpMinRemaining / 60, InpMinRemaining % 60, Mk(prev), Mk(!f1), Mk(!f2), Mk(!f3), Mk(wicks),
@@ -326,6 +359,8 @@ void Update()
       chk += StringFormat("\nNo ultimo candle: medias %s | rejeicao %s | engolfo %s | doji %s | pavio H1 %s",
                           maF < 0 ? "?" : (maF == 1 ? "a favor" : "contra"), rejF ? "sim" : "nao", engF ? "sim" : "nao", dojiF ? "sim" : "nao",
                           h1F < 0 ? "?" : (h1F ? "sim" : "nao"));
+      chk += StringFormat("\nExaustao %s | RSI %s%s", exaF ? "sim" : "nao",
+                          rsi == EMPTY_VALUE ? "?" : DoubleToString(rsi, 0), rsiF == 1 ? " (extremo)" : "");
 
       if(f1 || f2 || f3)
       {
@@ -335,7 +370,10 @@ void Update()
       else if(armed && tempo && prev && wicks && ma && pat)
       {
          titulo = lado + " AGORA"; cor = clrLimeGreen; entrada = true;
-         detalhe = StringFormat("%s com %d toques anteriores.", z.res ? "Resistencia" : "Suporte", z.priors);
+         // horarios do relogio do computador: entrar ate restarem 2:30; a operacao vence no fechamento do M5
+         datetime ate = TimeLocal() + (datetime)(remaining - InpMinRemaining);
+         datetime vence = TimeLocal() + (datetime)remaining;
+         detalhe = StringFormat("Entre ate %s | expira %s (fim do M5)", TimeToString(ate, TIME_SECONDS), TimeToString(vence, TIME_SECONDS));
       }
       else
       {
@@ -376,9 +414,9 @@ void Update()
 string SigName(string kind, datetime t) { return(SPFX + kind + "_" + _Symbol + "_" + IntegerToString((long)t)); }
 
 // Placar por caracteristica: [f][1] = com a caracteristica, [f][0] = sem; contagem de ganhos e perdas
-#define NFEAT 5
-string g_featName[NFEAT] = {"Medias a favor", "Rejeicao", "Engolfo", "Doji", "No pavio da vela H1"};
-string g_featKey[NFEAT]  = {"MA", "REJ", "ENG", "DOJI", "H1"};
+#define NFEAT 7
+string g_featName[NFEAT] = {"Medias a favor", "Rejeicao", "Engolfo", "Doji", "No pavio da vela H1", "Exaustao", "RSI extremo"};
+string g_featKey[NFEAT]  = {"MA", "REJ", "ENG", "DOJI", "H1", "EXA", "RSI"};
 int    g_fw[NFEAT][2];
 int    g_fl[NFEAT][2];
 
@@ -404,13 +442,14 @@ void AppendCsv(datetime t, bool venda, double entry, double close, string res, s
    string fn = "m5sinais_" + _Symbol + ".csv";
    int h = FileOpen(fn, FILE_READ | FILE_WRITE | FILE_TXT | FILE_ANSI | FILE_COMMON);
    if(h == INVALID_HANDLE) return;
-   if(FileSize(h) == 0) FileWriteString(h, "timestamp,simbolo,lado,entrada,fechamento,resultado,ma,rejeicao,engolfo,doji,h1\n");
+   if(FileSize(h) == 0) FileWriteString(h, "timestamp,simbolo,lado,entrada,fechamento,resultado,ma,rejeicao,engolfo,doji,h1,exaustao,rsi\n");
    FileSeek(h, 0, SEEK_END);
    long tutc = (long)t - (long)(TimeTradeServer() - TimeGMT());
-   FileWriteString(h, StringFormat("%I64d,%s,%s,%s,%s,%s,%d,%d,%d,%d,%d\n", tutc, _Symbol, venda ? "venda" : "compra",
+   FileWriteString(h, StringFormat("%I64d,%s,%s,%s,%s,%s,%d,%d,%d,%d,%d,%d,%d\n", tutc, _Symbol, venda ? "venda" : "compra",
                                    DoubleToString(entry, _Digits), DoubleToString(close, _Digits),
                                    res == "ganhou" ? "ganho" : (res == "perdeu" ? "perda" : "empate"),
-                                   FeatValue(feats, "MA"), FeatValue(feats, "REJ"), FeatValue(feats, "ENG"), FeatValue(feats, "DOJI"), FeatValue(feats, "H1")));
+                                   FeatValue(feats, "MA"), FeatValue(feats, "REJ"), FeatValue(feats, "ENG"), FeatValue(feats, "DOJI"), FeatValue(feats, "H1"),
+                                   FeatValue(feats, "EXA"), FeatValue(feats, "RSI")));
    FileClose(h);
 }
 

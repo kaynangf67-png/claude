@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { carregarLimite, salvarLimite, statusDia, type LimiteConfig, type RegistroReal, type Resultado } from '../core/limiteDia';
-import { calcularSinal, type Sinal, type SinalTipo } from '../core/sinal';
+import { calcularSinal, type Sinal, type SinalTipo, horaRelogio, janelaEntrada } from '../core/sinal';
 import { fmtPrice } from '../core/format';
 import { ChartPage } from './ChartPage';
 import { useLive } from './live';
@@ -115,6 +115,15 @@ export function SimplePage() {
       <section aria-live="polite" className={`rounded-xl border-2 p-4 ${tom.borda} ${tom.fundo}`}>
         <div className={`text-3xl font-bold tracking-tight sm:text-4xl ${tom.texto}`}>{sinal.titulo}</div>
         <p className="mt-1 text-[14px] leading-snug text-ink">{sinal.detalhe}</p>
+        {sinal.tipo === 'entrada' && rem !== null && rem >= minRem && (() => {
+          const j = janelaEntrada(Date.now() / 1000, rem, minRem);
+          return (
+            <p className="num mt-2 text-lg font-semibold text-ink">
+              Entre até <span className={tom.texto}>{horaRelogio(j.ate, displayTimezone)}</span>
+              <span className="text-sm font-normal text-muted"> · expira {horaRelogio(j.vence, displayTimezone)} (fim do M5)</span>
+            </p>
+          );
+        })()}
         {rem !== null && (
           <div className="mt-4">
             <div className="flex items-baseline gap-3">
