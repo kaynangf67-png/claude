@@ -12,7 +12,7 @@ Subprojeto independente dentro do repositório (não depende dos outros projetos
 cd m5-smart-analyzer
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 224 testes do núcleo, do agente, do simulador e das camadas do gráfico
+npm test           # 230 testes do núcleo, do agente, do simulador e das camadas do gráfico
 npm run build      # typecheck + build de produção (dist/)
 npm run preview    # serve o build
 ```
@@ -23,7 +23,7 @@ Regenerar o exemplo: `npx jiti scripts/gerar-exemplo.ts`.
 
 ## Como usar
 
-**Modo simples (tela inicial):** abre sozinho, conecta à Binance e mostra uma tela só: o **sinal** (VENDA agora, COMPRA agora, Zona tocada, NÃO ENTRE, Aguarde), o cronômetro do candle, o gráfico com as zonas e 7 critérios com ✓/✕. Sem botões de configuração. O **Modo avançado** (link no topo) traz todas as abas abaixo.
+**Modo simples (tela inicial):** abre sozinho, conecta à Binance e mostra uma tela só: o **sinal** (VENDA agora, COMPRA agora, Zona tocada, NÃO ENTRE, Aguarde), o cronômetro do candle, o gráfico com as zonas e 7 critérios com ✓/✕. Sem botões de configuração. Também tem **🔔 Alerta** (som, vibração e título piscando quando surge ENTRADA em qualquer par; o navegador exige um toque para liberar o som) e o **limite do dia**: você registra cada operação real (+ Ganhei / − Perdi / Empate) e, ao bater o limite que definir (padrão: 3 perdas; opcional em R$), a tela mostra **PARE POR HOJE** até a meia-noite. O **Modo avançado** (link no topo) traz todas as abas abaixo.
 
 1. Importe um CSV (`timestamp,open,high,low,close[,volume]`). Se os horários não trouxerem fuso (`Z`, `-03:00`), escolha o fuso do arquivo.
 2. Em **Configurações**, defina os parâmetros que a aula não fornece (ou use os valores *exploratórios*, que **não vêm da aula**). Sem isso, os filtros ficam **pendentes**.
@@ -77,7 +77,7 @@ npm run agente -- --exploratorio   # Ctrl+C encerra e salva
 
 ## Resultado da verificação (última execução)
 
-- `npm test`: **224 testes passando** (18 arquivos, filtro de média móvel com treino/confirmação, incluindo leitor do MT5, ponte local e uma checagem estática de que o script MQL5 não tem chamadas de ordem) — cálculo de corpo/pavios, direção e sequências, topos/fundos, candles inválidos, duplicatas, estados do motor, prioridade dos filtros de não entrada, ausência de confirmação de gatilho, look-ahead, importação CSV, persistência (configurações, histórico e candles), histórico e exportação.
+- `npm test`: **230 testes passando** (19 arquivos, limite de risco do dia, filtro de média móvel com treino/confirmação, incluindo leitor do MT5, ponte local e uma checagem estática de que o script MQL5 não tem chamadas de ordem) — cálculo de corpo/pavios, direção e sequências, topos/fundos, candles inválidos, duplicatas, estados do motor, prioridade dos filtros de não entrada, ausência de confirmação de gatilho, look-ahead, importação CSV, persistência (configurações, histórico e candles), histórico e exportação.
 - `npm run build`: typecheck estrito + build OK.
 - Verificação ponta a ponta em Chromium: 29 checagens do fluxo principal, 19 do ao vivo com a Binance **simulada** (a rede deste ambiente não alcança a Binance) e as de zonas/persistência/reprodução, mais 10 do modo forex com a ponte local lendo um arquivo M1 **simulado** (não testei com um MT5 de verdade; o script `.mq5` não foi compilado aqui). Não testei o feed contra a Binance de verdade: estado vazio, demonstração e selo de dados fictícios, parâmetros e validação, gráfico/tooltip, filtros, registro, histórico, resultado manual, exportação CSV, persistência após recarregar, importação inválida, fuso obrigatório, CSV de exemplo, ausência de rolagem horizontal em 390 px, sem erros de console.
 
