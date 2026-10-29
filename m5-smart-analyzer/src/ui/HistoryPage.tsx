@@ -9,6 +9,7 @@ import { Btn, Chip, Field, Panel, SCENARIO_LABEL, Status, scenarioTone } from '.
 import { BacktestPanel } from './BacktestPanel';
 import { BancaPanel } from './BancaPanel';
 import { ReplayPanel } from './ReplayPanel';
+import { SinaisMt5Panel } from './SinaisMt5Panel';
 import { useStore } from './store';
 
 const OUTCOME_LABEL: Record<OutcomeValue | '', string> = {
@@ -141,6 +142,7 @@ export function HistoryPage() {
       </Panel>
 
       <BacktestPanel />
+      <SinaisMt5Panel />
 
       <BancaPanel />
 

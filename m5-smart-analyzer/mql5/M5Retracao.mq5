@@ -33,9 +33,15 @@ input int    InpPrevNeed      = 2;     // Velas anteriores com forca a favor (1 
 input double InpApproachATR   = 0.3;   // F2: distancia minima abertura->zona (x ATR)
 input double InpReversalATR   = 0.15;  // F1: movimento contra maximo (x ATR)
 //--- Filtro de media movel (hipotese, desligado)
-input bool   InpUseMA         = false; // Exigir medias moveis a favor (hipotese)
+input bool   InpUseMA         = false; // EXIGIR medias moveis a favor (hipotese; padrao: so registra)
 input int    InpMaFast        = 9;     // EMA rapida
 input int    InpMaSlow        = 21;    // EMA lenta
+//--- Padroes de candle (hipotese): por padrao so REGISTRA em cada sinal, nao bloqueia
+input bool   InpReqRejection  = false; // EXIGIR rejeicao (pavio do lado da zona)
+input bool   InpReqEngulf     = false; // EXIGIR engolfo a favor
+input double InpRejWick       = 0.5;   // Rejeicao: pavio do lado da zona >= fracao da amplitude
+input double InpDojiBody      = 0.1;   // Doji: corpo <= fracao da amplitude
+input bool   InpExportCsv     = true;  // Gravar cada sinal resolvido em m5sinais_<SIMBOLO>.csv (pasta comum)
 //--- Aviso
 input bool   InpAlert         = true;  // Alerta (som + janela) quando der ENTRADA
 
@@ -287,23 +293,33 @@ void Update()
          if(WickRatio(g_r[i], z.res) >= InpWickRatio || Dir(g_r[i]) == (z.res ? -1 : 1)) favor++;
       bool prev = (favor >= InpPrevNeed);
       bool wicks = (z.wickTouches >= 2);
-      bool ma = true;
-      if(InpUseMA)
-      {
-         double ef = Ema(last, InpMaFast), es = Ema(last, InpMaSlow);
-         ma = (ef != EMPTY_VALUE && es != EMPTY_VALUE && (z.res ? ef < es : ef > es));
-      }
+      // Caracteristicas registradas em cada sinal (usam so candles FECHADOS: o ultimo e o anterior)
+      double ef = Ema(last, InpMaFast), es = Ema(last, InpMaSlow);
+      int maF = (ef == EMPTY_VALUE || es == EMPTY_VALUE) ? -1 : ((z.res ? ef < es : ef > es) ? 1 : 0);
+      MqlRates lc = g_r[last];
+      MqlRates pc = g_r[last - 1];
+      double lr = lc.high - lc.low;
+      int rejF = (lr > 0 && WickRatio(lc, z.res) >= InpRejWick) ? 1 : 0;
+      int engF = (Dir(lc) == (z.res ? -1 : 1) && Dir(pc) == (z.res ? 1 : -1) &&
+                  MathMax(lc.open, lc.close) >= MathMax(pc.open, pc.close) &&
+                  MathMin(lc.open, lc.close) <= MathMin(pc.open, pc.close)) ? 1 : 0;
+      int dojiF = (lr > 0 && MathAbs(lc.close - lc.open) <= InpDojiBody * lr) ? 1 : 0;
+      bool ma = !InpUseMA || maF == 1;
+      bool pat = (!InpReqRejection || rejF == 1) && (!InpReqEngulf || engF == 1);
+      string feats = StringFormat("MA=%d;REJ=%d;ENG=%d;DOJI=%d", maF, rejF, engF, dojiF);
 
       chk = StringFormat("%s Zona com %d toques\n%s Tempo >= %d:%02d\n%s Velas anteriores\n%s Sem reversao (F1)\n%s Nao nasceu na zona (F2)\n%s Sem 3 velas iguais (F3)\n%s 2 toques com pavio%s",
                          Mk(armed), z.priors, Mk(tempo), InpMinRemaining / 60, InpMinRemaining % 60, Mk(prev), Mk(!f1), Mk(!f2), Mk(!f3), Mk(wicks),
                          InpUseMA ? StringFormat("\n%s Medias a favor (hipotese)", Mk(ma)) : "");
+      chk += StringFormat("\nNo ultimo candle: medias %s | rejeicao %s | engolfo %s | doji %s",
+                          maF < 0 ? "?" : (maF == 1 ? "a favor" : "contra"), rejF ? "sim" : "nao", engF ? "sim" : "nao", dojiF ? "sim" : "nao");
 
       if(f1 || f2 || f3)
       {
          titulo = "NAO ENTRE"; cor = clrTomato;
          detalhe = f3 ? "Fluxo de velas da mesma cor." : (f1 ? "Reversao contra a operacao." : "Vela nasceu perto da zona.");
       }
-      else if(armed && tempo && prev && wicks && ma)
+      else if(armed && tempo && prev && wicks && ma && pat)
       {
          titulo = lado + " AGORA"; cor = clrLimeGreen; entrada = true;
          detalhe = StringFormat("%s com %d toques anteriores.", z.res ? "Resistencia" : "Suporte", z.priors);
@@ -314,7 +330,7 @@ void Update()
          detalhe = !armed ? "Zona ainda sem 2 toques validos." : (!tempo ? "Menos de 2:30: espere o proximo candle." : "Faltam criterios.");
       }
 
-      if(entrada) MarkSignal(f.time, z.res, entry);
+      if(entrada) MarkSignal(f.time, z.res, entry, feats);
 
       if(entrada && InpAlert)
       {
@@ -332,8 +348,11 @@ void Update()
    int ganhos = 0, perdas = 0, empates = 0;
    ResolveSignals(f.time, ganhos, perdas, empates);
    if(ganhos + perdas + empates > 0)
+   {
       chk += StringFormat("%sSinais no grafico: %d ganharam, %d perderam%s (fechamento do M5)", chk == "" ? "" : "\n",
                           ganhos, perdas, empates > 0 ? StringFormat(", %d empate(s)", empates) : "");
+      chk += FeatureLines(ganhos + perdas);
+   }
    DrawPanel(titulo, detalhe, chk, cor, remaining);
 }
 
@@ -343,7 +362,45 @@ void Update()
 //+------------------------------------------------------------------+
 string SigName(string kind, datetime t) { return(SPFX + kind + "_" + _Symbol + "_" + IntegerToString((long)t)); }
 
-void MarkSignal(datetime t, bool venda, double price)
+// Placar por caracteristica: [f][1] = com a caracteristica, [f][0] = sem; contagem de ganhos e perdas
+string g_featName[4] = {"Medias a favor", "Rejeicao", "Engolfo", "Doji"};
+string g_featKey[4]  = {"MA", "REJ", "ENG", "DOJI"};
+int    g_fw[4][2];
+int    g_fl[4][2];
+
+int FeatValue(string feats, string key)
+{
+   int p = StringFind(feats, key + "=");
+   if(p < 0) return(-1);
+   return((int)StringToInteger(StringSubstr(feats, p + StringLen(key) + 1, 2)));
+}
+
+string FeatureLines(int n)
+{
+   string out = "";
+   for(int f = 0; f < 4; f++)
+      out += StringFormat("\n%s: com %d/%d | sem %d/%d (ganhou/perdeu)", g_featName[f], g_fw[f][1], g_fl[f][1], g_fw[f][0], g_fl[f][0]);
+   if(n < 50) out += StringFormat("\nAmostra pequena (%d): ainda nao da para concluir nada.", n);
+   return(out);
+}
+
+void AppendCsv(datetime t, bool venda, double entry, double close, string res, string feats)
+{
+   if(!InpExportCsv) return;
+   string fn = "m5sinais_" + _Symbol + ".csv";
+   int h = FileOpen(fn, FILE_READ | FILE_WRITE | FILE_TXT | FILE_ANSI | FILE_COMMON);
+   if(h == INVALID_HANDLE) return;
+   if(FileSize(h) == 0) FileWriteString(h, "timestamp,simbolo,lado,entrada,fechamento,resultado,ma,rejeicao,engolfo,doji\n");
+   FileSeek(h, 0, SEEK_END);
+   long tutc = (long)t - (long)(TimeTradeServer() - TimeGMT());
+   FileWriteString(h, StringFormat("%I64d,%s,%s,%s,%s,%s,%d,%d,%d,%d\n", tutc, _Symbol, venda ? "venda" : "compra",
+                                   DoubleToString(entry, _Digits), DoubleToString(close, _Digits),
+                                   res == "ganhou" ? "ganho" : (res == "perdeu" ? "perda" : "empate"),
+                                   FeatValue(feats, "MA"), FeatValue(feats, "REJ"), FeatValue(feats, "ENG"), FeatValue(feats, "DOJI")));
+   FileClose(h);
+}
+
+void MarkSignal(datetime t, bool venda, double price, string feats)
 {
    string nm = SigName("A", t);
    if(ObjectFind(0, nm) >= 0) return;                 // ja marcado neste candle
@@ -353,12 +410,15 @@ void MarkSignal(datetime t, bool venda, double price)
    ObjectSetInteger(0, nm, OBJPROP_COLOR, venda ? clrTomato : clrLimeGreen);
    ObjectSetInteger(0, nm, OBJPROP_WIDTH, 3);
    ObjectSetInteger(0, nm, OBJPROP_SELECTABLE, false);
-   ObjectSetString(0, nm, OBJPROP_TOOLTIP, StringFormat("%s em %s", venda ? "VENDA" : "COMPRA", DoubleToString(price, _Digits)));
+   ObjectSetString(0, nm, OBJPROP_TEXT, feats);          // caracteristicas no momento do sinal
+   ObjectSetString(0, nm, OBJPROP_TOOLTIP, StringFormat("%s em %s | %s", venda ? "VENDA" : "COMPRA", DoubleToString(price, _Digits), feats));
 }
 
 void ResolveSignals(datetime formingT, int &ganhos, int &perdas, int &empates)
 {
    string pre = SPFX + "A_" + _Symbol + "_";
+   ArrayInitialize(g_fw, 0);
+   ArrayInitialize(g_fl, 0);
    int total = ObjectsTotal(0, 0, OBJ_ARROW);
    for(int i = 0; i < total; i++)
    {
@@ -382,11 +442,23 @@ void ResolveSignals(datetime formingT, int &ganhos, int &perdas, int &empates)
          ObjectSetInteger(0, rn, OBJPROP_COLOR, res == "ganhou" ? clrLimeGreen : (res == "perdeu" ? clrTomato : clrSilver));
          ObjectSetInteger(0, rn, OBJPROP_FONTSIZE, 8);
          ObjectSetInteger(0, rn, OBJPROP_SELECTABLE, false);
+         AppendCsv(t, venda, entry, close, res, ObjectGetString(0, nm, OBJPROP_TEXT));
       }
       string txt = ObjectGetString(0, rn, OBJPROP_TEXT);
       if(txt == "ganhou") ganhos++;
       else if(txt == "perdeu") perdas++;
       else if(txt != "") empates++;
+      if(txt == "ganhou" || txt == "perdeu")
+      {
+         string feats = ObjectGetString(0, nm, OBJPROP_TEXT);
+         for(int f = 0; f < 4; f++)
+         {
+            int v = FeatValue(feats, g_featKey[f]);
+            if(v < 0) continue;                         // caracteristica desconhecida neste sinal
+            if(txt == "ganhou") g_fw[f][v > 0 ? 1 : 0]++;
+            else                g_fl[f][v > 0 ? 1 : 0]++;
+         }
+      }
    }
 }
 

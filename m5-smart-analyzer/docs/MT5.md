@@ -38,6 +38,18 @@ O que você precisa saber:
 - Os valores de zona e retração são os **exploratórios** (não vêm da aula), os mesmos do modo simples. Dá para mudar na aba **Parâmetros de entrada**.
 - Não foi compilado aqui (não há MetaEditor neste ambiente). Se der erro no F7, mande a mensagem.
 
+### Filtros e padrões: medir antes de exigir
+
+Em cada seta o indicador **anota** (não bloqueia) o que havia no último candle fechado:
+- **Médias 9/21 a favor** (rápida abaixo da lenta para venda, acima para compra);
+- **Rejeição**: pavio do lado da zona com pelo menos 50% da amplitude;
+- **Engolfo a favor**: o último candle tem a cor da operação e o corpo cobre o corpo do anterior, de cor oposta;
+- **Doji**: corpo com no máximo 10% da amplitude.
+
+O painel mostra, para cada um, *com* × *sem* (ganhou/perdeu). Cada sinal resolvido também é gravado em **`m5sinais_PAR.csv`** (pasta comum). Em **Histórico → Sinais do indicador MT5** o app abre esse arquivo e diz, com intervalo de confiança, se a diferença é real ou ruído.
+
+Só depois de umas 50 ou mais entradas, e se um filtro separar com folga, ligue-o como obrigatório nos parâmetros (`InpUseMA`, `InpReqRejection`, `InpReqEngulf`). As definições acima são fixas de propósito: mudar até "dar certo" é a forma mais comum de se enganar.
+
 ## Usar no app (modo simples)
 
 1. Na pasta do projeto, em outro terminal: `npm run ponte` (usa a pasta padrão acima; senão `npm run ponte -- --pasta "CAMINHO\Common\Files"`). Ou dê dois cliques em `agent\iniciar-ponte.bat`.
