@@ -1,0 +1,35 @@
+//@version=6
+// Trade AI — envia cada candle M5 FECHADO para o webhook do Trade AI.
+// Como usar:
+// 1) Abra o ativo no gráfico de 5 minutos e adicione este indicador.
+// 2) Preencha o segredo (o mesmo valor de TRADINGVIEW_WEBHOOK_SECRET no servidor).
+// 3) Crie um alerta: Condição = "Trade AI Feed M5" -> "Any alert() function call".
+//    Notificações -> Webhook URL = https://SEU-SERVIDOR/api/webhooks/tradingview
+// Um alerta por ativo. O Trade AI só aceita M5 e recusa outros tempos gráficos.
+indicator("Trade AI Feed M5", overlay = true)
+
+secret = input.string("", "Segredo do webhook")
+mkt = input.string("auto", "Mercado", options = ["auto", "forex", "crypto", "b3", "us_stocks", "indices", "futures", "commodities"])
+
+if timeframe.period != "5"
+    runtime.error("Trade AI: use o gráfico de 5 minutos (M5).")
+
+num(float v) => str.tostring(v, "#.##########")
+
+if barstate.isconfirmed
+    marketField = mkt == "auto" ? "" : "\"market\":\"" + mkt + "\","
+    payload = "{" +
+      "\"secret\":\"" + secret + "\"," +
+      "\"type\":\"bar\"," +
+      "\"symbol\":\"" + syminfo.ticker + "\"," +
+      "\"exchange\":\"" + syminfo.prefix + "\"," +
+      marketField +
+      "\"timeframe\":\"" + timeframe.period + "\"," +
+      "\"time\":" + str.tostring(time) + "," +
+      "\"open\":" + num(open) + "," +
+      "\"high\":" + num(high) + "," +
+      "\"low\":" + num(low) + "," +
+      "\"close\":" + num(close) + "," +
+      "\"volume\":" + num(nz(volume)) +
+      "}"
+    alert(payload, alert.freq_once_per_bar_close)
