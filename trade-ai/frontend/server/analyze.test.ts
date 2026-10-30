@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { applyGuards, handleAnalyze, timeframeMinutes, type Reading } from "./analyze";
+import { applyGuards, handleAnalyze, normalizeSymbol, sameAsset, timeframeMinutes, type Reading } from "./analyze";
 import { breakEven, entryTimes, units, wilson } from "../src/lib/math";
 
 const base: Reading = {
-  is_chart: true, platform: "Corretora X", symbol: "EUR/USD", timeframe: "M1", last_price: 1.0842,
+  is_chart: true, platform: "Corretora X", symbol: "EUR/USD", timeframe: "M5", last_price: 1.0842,
   visible_time: "14:32", trend: "alta", last_candles: "três velas de alta", supports: [1.083], resistances: [1.086],
   indicators: [], decision: "CALL", setup_quality: "moderada", entry_reference_price: 1.0842, expiration_candles: 1,
   reasons: ["Tendência de alta", "Rejeição no suporte"], against: [], invalidation: null, missing: [],
@@ -46,7 +46,7 @@ describe("travas", () => {
     const r = applyGuards(base, 20);
     expect(r.decision).toBe("CALL");
     expect(r.blocks).toEqual([]);
-    expect(r.timeframe_minutes).toBe(1);
+    expect(r.timeframe_minutes).toBe(5);
   });
   it("print antigo vira NÃO OPERAR", () => {
     const r = applyGuards(base, 600);
@@ -62,8 +62,26 @@ describe("travas", () => {
     expect(applyGuards({ ...base, timeframe: "H1" }, 0).decision).toBe("NAO_OPERAR");
     expect(applyGuards({ ...base, reasons: ["só um"] }, 0).decision).toBe("NAO_OPERAR");
   });
-  it("limita a expiração entre 1 e 5 velas", () => {
-    expect(applyGuards({ ...base, expiration_candles: 12 }, 0).expiration_candles).toBe(5);
+  it("só aceita M5", () => {
+    expect(applyGuards({ ...base, timeframe: "M1" }, 0).blocks[0]).toMatch(/5 minutos/);
+    expect(applyGuards({ ...base, timeframe: "15m" }, 0).decision).toBe("NAO_OPERAR");
+    expect(applyGuards({ ...base, timeframe: "5m" }, 0).decision).toBe("CALL");
+  });
+  it("confere o ativo selecionado", () => {
+    expect(applyGuards(base, 0, "EUR/USD").decision).toBe("CALL");
+    expect(applyGuards({ ...base, symbol: "EUR/USD (OTC)" }, 0, "EUR/USD").decision).toBe("CALL");
+    expect(applyGuards({ ...base, symbol: "GBP/USD" }, 0, "EUR/USD").blocks[0]).toMatch(/GBP\/USD/);
+    expect(applyGuards({ ...base, symbol: null }, 0, "EUR/USD").decision).toBe("NAO_OPERAR");
+  });
+  it("normaliza símbolos de corretora", () => {
+    expect(normalizeSymbol("BTCUSDT")).toBe("BTCUSD");
+    expect(normalizeSymbol("Gold")).toBe("XAUUSD");
+    expect(sameAsset("XAU/USD", "Ouro (XAU/USD)")).toBe(true);
+    expect(sameAsset("Ouro", "XAU/USD")).toBe(true);
+    expect(sameAsset("EUR/JPY", "EUR/USD")).toBe(false);
+  });
+  it("limita a expiração entre 1 e 3 velas", () => {
+    expect(applyGuards({ ...base, expiration_candles: 12 }, 0).expiration_candles).toBe(3);
     expect(applyGuards({ ...base, expiration_candles: 0 }, 0).expiration_candles).toBe(1);
   });
 });
@@ -101,7 +119,7 @@ describe("API /api/analyze", () => {
         content: [{ type: "text", text: JSON.stringify(base) }],
       }), { status: 200, headers: { "content-type": "application/json" } });
     }));
-    const res = await handleAnalyze(req({ image: "aGVsbG8=", media_type: "image/jpeg", image_age_s: 900 }));
+    const res = await handleAnalyze(req({ image: "aGVsbG8=", media_type: "image/jpeg", image_age_s: 900, asset: "EUR/USD" }));
     const body = await res.json();
     expect(res.status).toBe(200);
     expect(body.ai_decision).toBe("CALL");
@@ -111,6 +129,7 @@ describe("API /api/analyze", () => {
     expect((sent.output_config as { format: { type: string } }).format.type).toBe("json_schema");
     const content = (sent.messages as { content: { type: string }[] }[])[0].content;
     expect(content[0].type).toBe("image");
+    expect((content[1] as unknown as { text: string }).text).toContain("EUR/USD");
     expect(headers!.get("anthropic-beta")).toContain("server-side-fallback-2026-07-01");
   });
 });

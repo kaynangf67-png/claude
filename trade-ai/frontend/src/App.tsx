@@ -8,6 +8,8 @@ import { breakEven, entryTimes, hhmm, wilson } from "./lib/math";
 import { load, save, type Entry } from "./lib/history";
 import { Logo } from "./components/Logo";
 import { Candle3D, CandleScene, Tilt } from "./components/ThreeD";
+import { LiveChart } from "./components/LiveChart";
+import { ASSETS, GROUPS, findAsset } from "./lib/markets";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 const pct = (v: number) => `${(v * 100).toFixed(1).replace(".", ",")}%`;
@@ -39,6 +41,23 @@ export default function App() {
   const [result, setResult] = useState<Result | null>(null);
   const [timing, setTiming] = useState<{ entry: Date; expiry: Date } | null>(null);
   const [history, setHistory] = useState<Entry[]>(load);
+  const [assetId, setAssetId] = useState(() => {
+    try {
+      return localStorage.getItem("trade-ai:ativo");
+    } catch {
+      return null;
+    }
+  });
+  const asset = findAsset(assetId);
+  const pickAsset = (id: string) => {
+    setAssetId(id);
+    setResult(null);
+    setTiming(null);
+    setError(null);
+    try {
+      localStorage.setItem("trade-ai:ativo", id);
+    } catch { /* sem armazenamento */ }
+  };
   const [drag, setDrag] = useState(false);
 
   useEffect(() => save(history), [history]);
@@ -87,6 +106,7 @@ export default function App() {
         body: JSON.stringify({
           image: img.data, media_type: img.mediaType,
           image_age_s: capturedAt ? (Date.now() - capturedAt) / 1000 : null,
+          asset: asset.label,
         }),
       });
       const body = await res.json().catch(() => ({
@@ -102,7 +122,7 @@ export default function App() {
       setTiming(t);
       if (r.decision !== "NAO_OPERAR") {
         setHistory((h) => [{
-          id: crypto.randomUUID(), at: Date.now(), symbol: r.symbol, timeframe: r.timeframe, decision: r.decision,
+          id: crypto.randomUUID(), at: Date.now(), symbol: r.symbol ?? asset.label, timeframe: r.timeframe, decision: r.decision,
           quality: r.setup_quality, payout: payout / 100, entryAt: t?.entry.getTime() ?? null,
           expiryAt: t?.expiry.getTime() ?? null, result: null,
         }, ...h]);
@@ -123,7 +143,7 @@ export default function App() {
         <Logo size={44} />
         <div className="leading-tight">
           <div className="text-[18px] font-extrabold tracking-[0.08em]">TRADE <span className="title-gradient">AI</span></div>
-          <div className="text-[11.5px] text-faint">Leitura de print para binárias</div>
+          <div className="text-[11.5px] text-faint">Binárias · gráfico de 5 minutos</div>
         </div>
         <div className="ml-auto hidden items-end gap-5 pr-2 sm:flex" style={{ perspective: 600 }} aria-hidden>
           <Candle3D up w={14} h={34} wick={10} />
@@ -131,7 +151,40 @@ export default function App() {
         </div>
       </header>
 
-      <main className="mt-7 grid flex-1 gap-5 lg:grid-cols-[1.1fr_1fr]">
+      {/* Mercado ao vivo */}
+      <section className="card3d animate-fade mt-7 overflow-hidden">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line px-5 py-3.5">
+          <span className="flex items-center gap-2 text-[13px] font-semibold">
+            <span className="size-2 animate-pulse rounded-full bg-buy" /> Mercado ao vivo
+          </span>
+          <span className="num rounded-md border border-buy/40 bg-buy/10 px-1.5 py-0.5 text-[11px] font-bold text-buy">M5</span>
+          <span className="text-[13px] font-bold">{asset.label}</span>
+          <span className="ml-auto text-[11px] text-faint">Cotação do TradingView, pode diferir um pouco da corretora</span>
+        </div>
+        <div className="space-y-2.5 px-5 py-3.5">
+          {GROUPS.map((g) => (
+            <div key={g} className="flex items-center gap-2 overflow-x-auto pb-0.5">
+              <span className="w-[86px] shrink-0 text-[11px] font-semibold uppercase tracking-wider text-faint">{g}</span>
+              {ASSETS.filter((a) => a.group === g).map((a) => (
+                <button key={a.id} onClick={() => pickAsset(a.id)}
+                  className={cx("shrink-0 rounded-lg border px-2.5 py-1 text-[12.5px] font-semibold transition-colors",
+                    a.id === asset.id ? "border-buy bg-buy text-[#03130a]" : "border-line-2 text-mute hover:border-buy/50 hover:text-ink")}>
+                  {a.label}
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+        <div className="h-[380px] border-t border-line bg-panel md:h-[460px]">
+          <LiveChart symbol={asset.tv} />
+        </div>
+        <p className="px-5 py-2.5 text-[11.5px] text-faint">
+          Para analisar: tire um print do gráfico M5 de <b className="text-mute">{asset.label}</b> (daqui ou da corretora) e selecione abaixo.
+          Pares OTC não têm cotação pública; para eles, use o print da própria corretora.
+        </p>
+      </section>
+
+      <main className="mt-5 grid flex-1 gap-5 lg:grid-cols-[1.1fr_1fr]">
         {/* Print */}
         <Tilt className="card3d animate-fade min-w-0 p-5" max={2.5}>
           <label
@@ -147,7 +200,7 @@ export default function App() {
             ) : (
               <>
                 <div className="grid size-14 place-items-center rounded-2xl border border-line bg-card-2"><ImagePlus size={24} className="text-mute" /></div>
-                <div className="text-[15px] font-semibold">Selecione o print do mercado</div>
+                <div className="text-[15px] font-semibold">Selecione o print de {asset.label} em M5</div>
                 <div className="max-w-xs text-[12.5px] leading-relaxed text-mute">
                   Toque para escolher, arraste ou cole com Ctrl+V. Mostre ativo, tempo gráfico, escala de preço e as últimas velas.
                 </div>

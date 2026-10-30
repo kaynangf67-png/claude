@@ -9,6 +9,8 @@ Regras obrigatórias:
 - Não indique entrada no meio de vela esticada, logo após vela de força muito grande, em lateralização sem direção, ou com o preço colado em suporte/resistência contra a direção.
 - Se o print estiver cortado, sem as velas mais recentes, sem escala de preço, borrado, ou não for um gráfico, marque request_new_capture=true e decida NAO_OPERAR.
 - Liste com honestidade os fatores contra a entrada.
+- O Trade AI opera só no gráfico de 5 minutos (M5). A expiração é contada em velas de 5 minutos (1 a 3).
+- O usuário informa qual ativo selecionou. Use isso só para conferir: se o ativo visível no print for outro, registre em "against" e não troque o nome lido.
 - Responda em português do Brasil, frases curtas.`;
 
 export const SCHEMA = {
@@ -36,7 +38,7 @@ export const SCHEMA = {
     decision: { type: "string", enum: ["CALL", "PUT", "NAO_OPERAR"] },
     setup_quality: { type: "string", enum: ["fraca", "moderada", "forte"] },
     entry_reference_price: { type: ["number", "null"], description: "Preço visível de referência para a entrada" },
-    expiration_candles: { type: "integer", description: "Expiração sugerida em número de velas (1 a 5)" },
+    expiration_candles: { type: "integer", description: "Expiração sugerida em velas de 5 minutos (1 a 3)" },
     reasons: { type: "array", items: { type: "string" } },
     against: { type: "array", items: { type: "string" } },
     invalidation: { type: ["string", "null"], description: "O que invalida a entrada antes de entrar" },
@@ -95,19 +97,41 @@ export function timeframeMinutes(tf: string | null): number | null {
   return null;
 }
 
+const ALIASES: Record<string, string> = {
+  GOLD: "XAUUSD", OURO: "XAUUSD", SILVER: "XAGUSD", PRATA: "XAGUSD",
+  WTI: "USOIL", CRUDE: "USOIL", CRUDEOIL: "USOIL", OIL: "USOIL", PETROLEO: "USOIL",
+  BITCOIN: "BTCUSD", ETHEREUM: "ETHUSD", LITECOIN: "LTCUSD",
+};
+
+/** "EUR/USD (OTC)" -> "EURUSD"; "BTCUSDT" -> "BTCUSD"; "Gold" -> "XAUUSD". */
+export function normalizeSymbol(s: string): string {
+  const n = s.toUpperCase().normalize("NFD").replace(/[^A-Z]/g, "").replace(/OTC/g, "").replace(/USDT$/, "USD");
+  return ALIASES[n] ?? n;
+}
+
+export function sameAsset(read: string, selected: string): boolean {
+  const a = normalizeSymbol(read);
+  const b = normalizeSymbol(selected);
+  return a.length > 0 && (a.includes(b) || b.includes(a));
+}
+
 /** Travas que não dependem da IA: na dúvida, NÃO OPERAR. */
-export function applyGuards(r: Reading, imageAgeSeconds: number | null): Result {
+export function applyGuards(r: Reading, imageAgeSeconds: number | null, selected: string | null = null): Result {
   const blocks: string[] = [];
   const tfm = timeframeMinutes(r.timeframe);
   if (!r.is_chart) blocks.push("A imagem não parece ser um gráfico de preços.");
   if (r.request_new_capture) blocks.push(r.new_capture_reason || "Print incompleto: envie uma nova captura.");
-  if (tfm === null) blocks.push("Tempo gráfico não visível: sem ele não dá para definir entrada e expiração.");
-  else if (tfm > 15) blocks.push(`Tempo gráfico ${r.timeframe} é longo demais para binárias de curto prazo.`);
+  if (tfm === null) blocks.push("Tempo gráfico não visível no print. Use o gráfico de 5 minutos (M5).");
+  else if (tfm !== 5) blocks.push(`O print está em ${r.timeframe}. O Trade AI opera só no gráfico de 5 minutos (M5).`);
+  if (selected) {
+    if (!r.symbol) blocks.push(`O ativo não aparece no print: não dá para confirmar que é ${selected}.`);
+    else if (!sameAsset(r.symbol, selected)) blocks.push(`O print é de ${r.symbol}, mas o ativo selecionado é ${selected}.`);
+  }
   if (imageAgeSeconds !== null && imageAgeSeconds > 180)
     blocks.push(`O print tem ${Math.round(imageAgeSeconds / 60)} min: o mercado já andou. Tire um print novo.`);
   if (r.decision !== "NAO_OPERAR" && r.setup_quality === "fraca") blocks.push("Setup fraco.");
   if (r.decision !== "NAO_OPERAR" && r.reasons.length < 2) blocks.push("Poucos motivos a favor.");
-  const exp = Math.min(5, Math.max(1, Math.round(r.expiration_candles || 1)));
+  const exp = Math.min(3, Math.max(1, Math.round(r.expiration_candles || 1)));
   return {
     ...r,
     expiration_candles: exp,
@@ -127,7 +151,7 @@ export async function handleAnalyze(request: Request): Promise<Response> {
   if (!process.env.ANTHROPIC_API_KEY)
     return json({ error: "Análise desativada: configure ANTHROPIC_API_KEY no servidor (Vercel → Settings → Environment Variables)." }, 503);
 
-  let body: { image?: string; media_type?: string; image_age_s?: number | null };
+  let body: { image?: string; media_type?: string; image_age_s?: number | null; asset?: string | null };
   try {
     body = await request.json();
   } catch {
@@ -137,6 +161,7 @@ export async function handleAnalyze(request: Request): Promise<Response> {
   if (!image || !media_type || !MEDIA.has(media_type)) return json({ error: "Envie uma imagem PNG, JPEG, WEBP ou GIF" }, 400);
   if (image.length > 6_000_000) return json({ error: "Imagem grande demais" }, 413);
 
+  const selected = typeof body.asset === "string" && body.asset.trim() ? body.asset.trim().slice(0, 40) : null;
   const client = new Anthropic();
   try {
     const response = await client.beta.messages.create({
@@ -150,7 +175,7 @@ export async function handleAnalyze(request: Request): Promise<Response> {
         role: "user",
         content: [
           { type: "image", source: { type: "base64", media_type: media_type as "image/png", data: image } },
-          { type: "text", text: "Analise este print e preencha o JSON." },
+          { type: "text", text: `Ativo selecionado pelo usuário: ${selected ?? "não informado"}. Analise este print e preencha o JSON.` },
         ],
       }],
     });
@@ -159,7 +184,7 @@ export async function handleAnalyze(request: Request): Promise<Response> {
     if (!text) return json({ error: "Resposta vazia da IA" }, 502);
     const reading = JSON.parse(text) as Reading;
     const age = typeof body.image_age_s === "number" ? body.image_age_s : null;
-    return json(applyGuards(reading, age));
+    return json(applyGuards(reading, age, selected));
   } catch (err) {
     if (err instanceof Anthropic.RateLimitError) return json({ error: "Limite de uso da IA atingido. Tente em instantes." }, 429);
     if (err instanceof Anthropic.AuthenticationError) return json({ error: "Chave da IA inválida." }, 503);

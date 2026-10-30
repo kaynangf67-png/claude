@@ -1,6 +1,6 @@
 # TRADE AI — leitura de print para binárias
 
-Uma página: você seleciona (ou cola) o print do gráfico, informa o payout e clica em **CALCULAR ENTRADA**.
+Uma página: você escolhe o ativo (forex, cripto ou commodities das corretoras de binárias), acompanha o gráfico ao vivo em 5 minutos (widget do TradingView), seleciona o print M5, informa o payout e clica em **CALCULAR ENTRADA**.
 A IA (Claude) lê o que está visível e responde **CALL**, **PUT** ou **NÃO OPERAR**, com horário de entrada
 (abertura da próxima vela), expiração, motivos a favor e contra e o que invalida a entrada.
 
@@ -13,8 +13,8 @@ trade-ai/frontend/
 
 ## Travas (no servidor, não dependem da IA)
 
-Vira **NÃO OPERAR** quando: a imagem não é gráfico, falta tempo gráfico, o print tem mais de 3 minutos
-(data do arquivo), o tempo gráfico passa de 15 min, o setup é fraco, há menos de 2 motivos a favor ou a IA
+Vira **NÃO OPERAR** quando: a imagem não é gráfico, o print não está em M5, o ativo do print é diferente do selecionado, o print tem mais de 3 minutos
+(data do arquivo), o setup é fraco, há menos de 2 motivos a favor ou a IA
 pede nova captura. A IA é instruída a não inventar preço, horário ou ativo que não aparecem.
 
 ## Desempenho real
@@ -28,7 +28,7 @@ funciona para você, não a confiança da IA.
 ```bash
 cd frontend
 npm install
-npm test           # 20 testes
+npm test           # 23 testes
 npm run dev        # interface; a função /api só roda na Vercel (ou com `vercel dev`)
 ```
 
