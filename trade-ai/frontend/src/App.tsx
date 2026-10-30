@@ -27,7 +27,13 @@ export default function App() {
   const [blob, setBlob] = useState<Blob | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [capturedAt, setCapturedAt] = useState<number | null>(null);
-  const [payout, setPayout] = useState(() => Number(localStorage.getItem("trade-ai:payout")) || 85);
+  const [payout, setPayout] = useState(() => {
+    try {
+      return Number(localStorage.getItem("trade-ai:payout")) || 85;
+    } catch {
+      return 85;
+    }
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Result | null>(null);
@@ -66,6 +72,10 @@ export default function App() {
 
   const analyze = async () => {
     if (!blob) return;
+    if (import.meta.env.VITE_PREVIEW) {
+      setError("Esta é só uma prévia da interface. A análise com IA funciona no site da Vercel, depois de cadastrar a ANTHROPIC_API_KEY.");
+      return;
+    }
     setBusy(true);
     setError(null);
     setResult(null);
@@ -301,6 +311,7 @@ function Performance({ history, setHistory }: { history: Entry[]; setHistory: (f
       units: done.reduce((s, h) => s + (h.result === "win" ? h.payout : -1), 0), pending: history.length - n, avgPayout };
   }, [history]);
 
+  const [confirmClear, setConfirmClear] = useState(false);
   const mark = (id: string, result: Entry["result"]) => setHistory((h) => h.map((e) => (e.id === id ? { ...e, result } : e)));
 
   let verdict = "Marque o resultado de cada entrada. Só assim dá para saber se a leitura funciona para você.";
@@ -315,10 +326,16 @@ function Performance({ history, setHistory }: { history: Entry[]; setHistory: (f
     <section className="card3d animate-fade mt-5 p-5">
       <div className="flex items-center justify-between">
         <h2 className="text-[15px] font-semibold">Seu desempenho real</h2>
-        {history.length > 0 && (
-          <button onClick={() => confirm("Apagar todo o histórico?") && setHistory(() => [])}
+        {history.length > 0 && (confirmClear ? (
+          <div className="flex items-center gap-2 text-[12px]">
+            <span className="text-mute">Apagar todo o histórico?</span>
+            <button onClick={() => { setHistory(() => []); setConfirmClear(false); }} className="font-semibold text-sell">Apagar</button>
+            <button onClick={() => setConfirmClear(false)} className="text-faint hover:text-mute">Cancelar</button>
+          </div>
+        ) : (
+          <button onClick={() => setConfirmClear(true)}
             className="flex items-center gap-1.5 text-[12px] text-faint hover:text-sell"><Trash2 size={13} /> Limpar</button>
-        )}
+        ))}
       </div>
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
         <Stat k="Operações" v={String(stats.n)} hint={stats.pending ? `${stats.pending} sem resultado` : undefined} />
