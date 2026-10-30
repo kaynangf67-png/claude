@@ -48,6 +48,8 @@ input double InpExhaustMult   = 1.5;   // Exaustao: amplitude do ultimo candle >
 input int    InpRsiPeriod     = 14;    // RSI (Wilder) do ultimo candle fechado
 input double InpRsiHigh       = 70;    // RSI extremo para VENDA (>=)
 input double InpRsiLow        = 30;    // RSI extremo para COMPRA (<=)
+input int    InpVpBars        = 288;   // Perfil de volume: velas M5 (mesmo padrao do M5Perfil)
+input double InpVpNearATR     = 0.3;   // Perfil: entrada a ate isso (x ATR) do POC, VAH ou VAL
 input bool   InpExportCsv     = true;  // Gravar cada sinal resolvido em m5sinais_<SIMBOLO>.csv (pasta comum)
 //--- Regioes do pavio da ultima vela H1 fechada (hipotese: so registra, nao bloqueia)
 input bool   InpShowH1        = true;  // Desenhar os pavios da ultima vela H1
@@ -166,6 +168,37 @@ double Rsi(int last, int period)
    }
    if(dn == 0) return(up == 0 ? 50 : 100);
    return(100 - 100 / (1 + up / dn));
+}
+
+// Perfil de volume (igual ao M5Perfil): POC, VAH e VAL das velas FECHADAS ate 'last'
+bool VolumeProfile(int last, int bars, double &poc, double &vah, double &val)
+{
+   int from = MathMax(0, last - bars + 1), bins = 60;
+   if(last - from + 1 < 20) return(false);
+   double lo = g_r[from].low, hi = g_r[from].high;
+   for(int i = from + 1; i <= last; i++) { lo = MathMin(lo, g_r[i].low); hi = MathMax(hi, g_r[i].high); }
+   if(hi <= lo) return(false);
+   double step = (hi - lo) / bins;
+   double total = 0;
+   double vol[60];
+   ArrayInitialize(vol, 0);
+   for(int i = from; i <= last; i++)
+   {
+      int a = MathMax(0, MathMin(bins - 1, (int)MathFloor((g_r[i].low - lo) / step)));
+      int b = MathMax(0, MathMin(bins - 1, (int)MathFloor((g_r[i].high - lo) / step)));
+      for(int k = a; k <= b; k++) vol[k] += (double)g_r[i].tick_volume / (b - a + 1);
+      total += (double)g_r[i].tick_volume;
+   }
+   if(total <= 0) return(false);
+   int p = ArrayMaximum(vol), v0 = p, v1 = p;
+   double acc = vol[p];
+   while(acc < 0.70 * total && (v0 > 0 || v1 < bins - 1))
+   {
+      double dn = v0 > 0 ? vol[v0 - 1] : -1, up = v1 < bins - 1 ? vol[v1 + 1] : -1;
+      if(up >= dn) acc += vol[++v1]; else acc += vol[--v0];
+   }
+   poc = lo + (p + 0.5) * step; vah = lo + (v1 + 1) * step; val = lo + v0 * step;
+   return(true);
 }
 
 //+------------------------------------------------------------------+
@@ -380,8 +413,15 @@ void Update()
       int exaF = (avg > 0 && lr >= InpExhaustMult * avg) ? 1 : 0;
       double rsi = Rsi(last, InpRsiPeriod);
       int rsiF = (rsi == EMPTY_VALUE) ? -1 : ((z.res ? rsi >= InpRsiHigh : rsi <= InpRsiLow) ? 1 : 0);
+      double vPoc, vVah, vVal;
+      int vpF = -1;
+      if(VolumeProfile(last, InpVpBars, vPoc, vVah, vVal))
+      {
+         double nd = MathMin(MathAbs(entry - vPoc), MathMin(MathAbs(entry - vVah), MathAbs(entry - vVal)));
+         vpF = (nd <= InpVpNearATR * atr) ? 1 : 0;
+      }
       bool pat = (!InpReqRejection || rejF == 1) && (!InpReqEngulf || engF == 1) && (!InpReqH1 || h1F == 1);
-      string feats = StringFormat("MA=%d;REJ=%d;ENG=%d;DOJI=%d;H1=%d;EXA=%d;RSI=%d", maF, rejF, engF, dojiF, h1F, exaF, rsiF);
+      string feats = StringFormat("MA=%d;REJ=%d;ENG=%d;DOJI=%d;H1=%d;EXA=%d;RSI=%d;VP=%d", maF, rejF, engF, dojiF, h1F, exaF, rsiF, vpF);
 
       chk = StringFormat("%s Zona com %d toques\n%s Tempo >= %d:%02d\n%s Velas anteriores\n%s Sem reversao (F1)\n%s Nao nasceu na zona (F2)\n%s Sem 3 velas iguais (F3)\n%s Vela nao lenta/parada (F4)\n%s Sem movimento continuo\n%s 2 toques com pavio%s",
                          Mk(armed), z.priors, Mk(tempo), InpMinRemaining / 60, InpMinRemaining % 60, Mk(prev), Mk(!f1), Mk(!f2), Mk(!f3), Mk(!f4), Mk(!cont), Mk(wicks),
@@ -389,8 +429,9 @@ void Update()
       chk += StringFormat("\nNo ultimo candle: medias %s | rejeicao %s | engolfo %s | doji %s | pavio H1 %s",
                           maF < 0 ? "?" : (maF == 1 ? "a favor" : "contra"), rejF ? "sim" : "nao", engF ? "sim" : "nao", dojiF ? "sim" : "nao",
                           h1F < 0 ? "?" : (h1F ? "sim" : "nao"));
-      chk += StringFormat("\nExaustao %s | RSI %s%s", exaF ? "sim" : "nao",
-                          rsi == EMPTY_VALUE ? "?" : DoubleToString(rsi, 0), rsiF == 1 ? " (extremo)" : "");
+      chk += StringFormat("\nExaustao %s | RSI %s%s | perto do POC/VAH/VAL %s", exaF ? "sim" : "nao",
+                          rsi == EMPTY_VALUE ? "?" : DoubleToString(rsi, 0), rsiF == 1 ? " (extremo)" : "",
+                          vpF < 0 ? "?" : (vpF ? "sim" : "nao"));
 
       if(f1 || f2 || f3 || f4 || cont)
       {
@@ -445,9 +486,9 @@ void Update()
 string SigName(string kind, datetime t) { return(SPFX + kind + "_" + _Symbol + "_" + IntegerToString((long)t)); }
 
 // Placar por caracteristica: [f][1] = com a caracteristica, [f][0] = sem; contagem de ganhos e perdas
-#define NFEAT 7
-string g_featName[NFEAT] = {"Medias a favor", "Rejeicao", "Engolfo", "Doji", "No pavio da vela H1", "Exaustao", "RSI extremo"};
-string g_featKey[NFEAT]  = {"MA", "REJ", "ENG", "DOJI", "H1", "EXA", "RSI"};
+#define NFEAT 8
+string g_featName[NFEAT] = {"Medias a favor", "Rejeicao", "Engolfo", "Doji", "No pavio da vela H1", "Exaustao", "RSI extremo", "Perto do POC/VAH/VAL"};
+string g_featKey[NFEAT]  = {"MA", "REJ", "ENG", "DOJI", "H1", "EXA", "RSI", "VP"};
 int    g_fw[NFEAT][2];
 int    g_fl[NFEAT][2];
 
@@ -473,14 +514,14 @@ void AppendCsv(datetime t, bool venda, double entry, double close, string res, s
    string fn = "m5sinais_" + _Symbol + ".csv";
    int h = FileOpen(fn, FILE_READ | FILE_WRITE | FILE_TXT | FILE_ANSI | FILE_COMMON);
    if(h == INVALID_HANDLE) return;
-   if(FileSize(h) == 0) FileWriteString(h, "timestamp,simbolo,lado,entrada,fechamento,resultado,ma,rejeicao,engolfo,doji,h1,exaustao,rsi\n");
+   if(FileSize(h) == 0) FileWriteString(h, "timestamp,simbolo,lado,entrada,fechamento,resultado,ma,rejeicao,engolfo,doji,h1,exaustao,rsi,perfil\n");
    FileSeek(h, 0, SEEK_END);
    long tutc = (long)t - (long)(TimeTradeServer() - TimeGMT());
-   FileWriteString(h, StringFormat("%I64d,%s,%s,%s,%s,%s,%d,%d,%d,%d,%d,%d,%d\n", tutc, _Symbol, venda ? "venda" : "compra",
+   FileWriteString(h, StringFormat("%I64d,%s,%s,%s,%s,%s,%d,%d,%d,%d,%d,%d,%d,%d\n", tutc, _Symbol, venda ? "venda" : "compra",
                                    DoubleToString(entry, _Digits), DoubleToString(close, _Digits),
                                    res == "ganhou" ? "ganho" : (res == "perdeu" ? "perda" : "empate"),
                                    FeatValue(feats, "MA"), FeatValue(feats, "REJ"), FeatValue(feats, "ENG"), FeatValue(feats, "DOJI"), FeatValue(feats, "H1"),
-                                   FeatValue(feats, "EXA"), FeatValue(feats, "RSI")));
+                                   FeatValue(feats, "EXA"), FeatValue(feats, "RSI"), FeatValue(feats, "VP")));
    FileClose(h);
 }
 

@@ -51,6 +51,12 @@ Em cada seta o indicador **anota** (não bloqueia) o que havia no último candle
 
 Sequência de velas da mesma cor não entrou como anotação porque a aula 2 já usa isso como filtro de NÃO entrada (F3: 3 velas iguais bloqueiam).
 
+- **Perto do POC/VAH/VAL**: a entrada fica a até 0,3 ATR do POC ou das bordas da área de valor (70%) do perfil de volume das últimas 288 velas M5 (`InpVpBars`, `InpVpNearATR`).
+
+## Perfil de volume (`mql5/M5Perfil.mq5`)
+
+Indicador separado, só de desenho: histograma de volume das últimas 288 velas M5 (24 h), com **POC** (linha dourada, preço com mais volume) e a **área de valor** de 70% (VAH/VAL pontilhadas, barras mais claras). Usa volume de **ticks** da corretora: forex não tem volume central, então mostra onde o preço mais negociou, não quem comprou. Não gera sinal. Instale como o M5Retracao, mas na pasta `Indicators`.
+
 Quando dá ENTRADA, o painel mostra **"Entre até HH:MM:SS | expira HH:MM:SS"**: até quando ainda restam 2:30 no candle e quando o M5 fecha, no relógio do computador.
 
 Para limpar o gráfico, o indicador desenha **só as zonas armadas** (2+ toques). Para ver todas, ponha `InpOnlyArmed = false`.
