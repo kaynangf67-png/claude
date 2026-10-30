@@ -53,6 +53,7 @@ input bool   InpReqH1         = false; // EXIGIR entrada dentro do pavio H1 do m
 input bool   InpOnlyArmed     = true;  // Desenhar so as zonas armadas (2+ toques); false = todas
 //--- Aviso
 input bool   InpAlert         = true;  // Alerta (som + janela) quando der ENTRADA
+input int    InpPanelY        = 95;    // Distancia do painel ao topo (abaixo da caixa SELL/BUY do MT5)
 
 #define PFX "M5R_"
 #define SPFX "M5RS_"   // sinais: ficam no grafico ao trocar de tempo grafico
@@ -572,15 +573,33 @@ void DrawZones(int last, datetime now)
 
 void DrawPanel(string titulo, string detalhe, string chk, color cor, long remaining)
 {
-   Label("T", titulo, 20, cor, 30);
-   Label("D", detalhe, 10, clrWhite, 62);
-   Label("C", StringFormat("Cronometro M5: %d:%02d", (int)(remaining / 60), (int)(remaining % 60)), 12,
-         remaining >= InpMinRemaining ? clrLimeGreen : clrTomato, 82);
    string lines[];
    int k = StringSplit(chk, '\n', lines);
+   int y0 = InpPanelY;
+   int altura = 106 + MathMax(k, 0) * 15 + 26;
+   // fundo escuro primeiro: os textos criados depois ficam por cima e nao se misturam com as velas
+   string bg = PFX + "BG";
+   if(ObjectFind(0, bg) < 0)
+   {
+      ObjectCreate(0, bg, OBJ_RECTANGLE_LABEL, 0, 0, 0);
+      ObjectSetInteger(0, bg, OBJPROP_CORNER, CORNER_LEFT_UPPER);
+      ObjectSetInteger(0, bg, OBJPROP_XDISTANCE, 4);
+      ObjectSetInteger(0, bg, OBJPROP_BGCOLOR, C'16,20,32');
+      ObjectSetInteger(0, bg, OBJPROP_BORDER_TYPE, BORDER_FLAT);
+      ObjectSetInteger(0, bg, OBJPROP_COLOR, C'60,70,90');
+      ObjectSetInteger(0, bg, OBJPROP_SELECTABLE, false);
+   }
+   ObjectSetInteger(0, bg, OBJPROP_YDISTANCE, y0 - 6);
+   ObjectSetInteger(0, bg, OBJPROP_XSIZE, 560);
+   ObjectSetInteger(0, bg, OBJPROP_YSIZE, altura);
+
+   Label("T", titulo, 20, cor, y0);
+   Label("D", detalhe, 10, clrWhite, y0 + 32);
+   Label("C", StringFormat("Cronometro M5: %d:%02d", (int)(remaining / 60), (int)(remaining % 60)), 12,
+         remaining >= InpMinRemaining ? clrLimeGreen : clrTomato, y0 + 52);
    ObjectsDeleteAll(0, PFX + "K");
-   for(int i = 0; i < k; i++) Label("K" + IntegerToString(i), lines[i], 9, clrSilver, 106 + i * 15);
-   Label("A", "Somente leitura. Nao garante resultado. Voce entra na corretora.", 8, clrGray, 106 + MathMax(k, 0) * 15 + 6);
+   for(int i = 0; i < k; i++) Label("K" + IntegerToString(i), lines[i], 9, clrSilver, y0 + 76 + i * 15);
+   Label("A", "Somente leitura. Nao garante resultado. Voce entra na corretora.", 8, clrGray, y0 + 76 + MathMax(k, 0) * 15 + 6);
    ChartRedraw();
 }
 
