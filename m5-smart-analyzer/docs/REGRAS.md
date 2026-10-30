@@ -1,0 +1,115 @@
+# Regras implementadas
+
+Versão das regras: `aula-03@0.1.0` (campo `rulesVersion`, gravado em todo registro do histórico).
+
+**Princípio:** o aplicativo só afirma o que as aulas afirmam. Onde a aula é qualitativa, o parâmetro numérico começa como
+**"não definido"** e o filtro fica **pendente de configuração** (nunca satisfeito). Cada parâmetro registra a origem:
+
+| Origem | Significado |
+|---|---|
+| `aula` | número citado explicitamente na aula |
+| `padrao_tecnico` | escolha neutra do app (tamanho de janela etc.) |
+| `usuario` | definido por você |
+| `preset_exploratorio` | valor de teste aplicado pelo botão "Preencher com valores exploratórios". **Não vem da aula e não foi validado.** |
+| `nao_definido` | a aula não define |
+
+Valores que vêm da aula: toques anteriores = **2** (aula 1), fluxo da mesma cor = **3 ou mais** (aula 2),
+tempo restante mínimo = **2 min 30 s** (aula 3; confirmado por você: "não pegar entrada com menos que isso"), "2 toques na região deixando pavio" (aula 2).
+
+## Estados do motor (`src/core/engine.ts`)
+
+1. **NÃO AVALIÁVEL** — poucos candles, candle inválido, timestamps duplicados/fora de ordem, lacuna dentro da janela analisada, intervalo incompatível com M5, amplitude zero.
+2. **DESFAVORÁVEL** — algum filtro de *não entrada* detectado. Vence tudo (inclusive critérios pendentes).
+3. **AGUARDAR** — algum critério positivo não atendido/pendente, ou filtro de não entrada que não pôde ser verificado por falta de parâmetro.
+4. **FAVORÁVEL** — todos os critérios positivos habilitados atendidos e nenhum filtro de não entrada detectado. **Não é entrada confirmada.**
+
+Filtros que exigem o *candle em formação* (F2, F4) aparecem como "não avaliável" e entram como **ressalva** na análise (não bloqueiam nem são tratados como satisfeitos).
+
+Estados de cada filtro: favorável, desfavorável, pendente, não avaliável. Em filtros de contexto, "desfavorável" = critério contrário
+(não leva sozinho ao cenário desfavorável). Em filtros de não entrada, "desfavorável" = condição detectada.
+
+## Aula 1 — escolha de pares para retração (M5)
+
+| # | Filtro (`id`) | Papel | Operacionalização | Parâmetros |
+|---|---|---|---|---|
+| 1 | Pavios visíveis (`pavios`) | contexto | candles da janela de observação cujo maior pavio ≥ limite da amplitude; favorável se a contagem ≥ mínimo | `wickRelevantRatio`, `minRelevantWickCandles` *(não definidos)* |
+| 2 | Alternância de cores (`alternancia`) | contexto | taxa de trocas de cor entre candles consecutivos (dojis ignorados) na janela; desfavorável se uma cor predomina | `alternationWindow` (12), `alternationFavorableMin`, `directionalDominanceMin` |
+| 3 | Topos e fundos (`topos_fundos`) | contexto | candidato geométrico: máxima/mínima extrema entre N candles de cada lado; **validado**: preço se afastou ≥ mínimo (× amplitude média) usando só candles fechados | `swingLookback` (2), `swingMinDisplacementMult`, `minValidatedSwings` |
+| 4 | Regiões com retrações (`zonas`) | contexto | pivôs do mesmo lado a menos da tolerância formam zona; classifica toque / aproximação / rompimento; favorável se o último candle toca ou se aproxima | `zoneToleranceMult`, `retractionMinMult`, `retractionWindow` |
+| 5 | Histórico mínimo (`historico_minimo`) | contexto | zona em contato com ≥ N toques anteriores **válidos** (toque + retração observável) → "zona candidata" (**não é gatilho**) | `minPriorValidTouches` (2, **aula**) + parâmetros da regra 4 |
+| 6a | Corpos grandes, pavios pequenos (`corpo_grande`) | não entrada | corpo ≥ limite da amplitude em ≥ N candles da janela | `bigBodyRatio`, `bigBodyMinCount` |
+| 6b | Fluxo da mesma cor (`sequencia_direcional`) | não entrada | ver aula 2 | `maxSameDirectionRun` (3, **aula 2**) |
+| 6c | Topos/fundos pouco definidos (`estrutura_indefinida`) | não entrada | menos pivôs validados que o mínimo da regra 3 | idem regra 3 |
+| 6d | Movimento contínuo (`movimento_continuo`) | não entrada | eficiência direcional = \|Δ líquido\| ÷ caminho percorrido (fechamentos) na janela ≥ limite *(operacionalização provisória)* | `continuousMoveEfficiency` |
+| 6e | Rompimento sem retração (`rompimento_sem_retracao`) | não entrada | fechamento além da borda externa de uma **região consolidada** (≥ `minPriorValidTouches` toques válidos antes) na janela de observação, sem retorno | parâmetros da regra 4 |
+| 7 | Horário e OTC (`horario_otc`) | informativo | registra horário do último candle, fuso, OTC declarado e origem. **Nenhum horário recebe preferência.** | — |
+
+Definições provisórias de zona (a aula não dá números):
+*toque* = extremo do candle alcança a faixa sem fechar além da borda externa; *aproximação* = extremo a até uma tolerância da faixa;
+*rompimento* = fechamento além da borda externa; *retração observável* = afastamento ≥ mínimo a partir do extremo do toque dentro da janela, sem rompimento antes.
+Toque e aproximação consecutivos formam um único episódio de contato (evita contar o mesmo toque duas vezes).
+
+## Aulas 2 e 3 — filtros de não entrada e gatilho
+
+Fontes: **fotografia de anotações manuscritas** (aula 2) e o arquivo `analisador-m5.html` enviado por você, que registra a aula 3.
+**Não vi a transcrição da aula 3**: o que está abaixo vem desse arquivo e da sua confirmação do cronômetro. O arquivo também ajudou a ler a anotação F1.
+
+Os filtros F1, F2 e F4 usam o **candle em formação** (preço de agora, abertura, minutos já fechados). Sem feed ao vivo (CSV) eles ficam "não avaliáveis" e entram como ressalva.
+Com o feed, são avaliados para a **zona em contato** com o candle em formação (`EntryCandidate`: borda da zona, preço de entrada = preço atual limitado à borda, toques válidos anteriores).
+
+| Item | Regra | Operacionalização | Parâmetros |
+|---|---|---|---|
+| F1 `reversao` | "Reversão em M5…" (leitura inferida do arquivo; **a confirmar**) | não entrada se, neste candle, o preço já andou contra a operação mais que o limite (× ATR). Só o M5 atual, não "timeframes maiores" | `reversalATR` |
+| F2 `vela_proxima_regiao` | vela nascendo próxima da região = sinal de rompimento | não entrada se a abertura está a menos que o mínimo (× ATR) da borda de entrada | `approachATR` |
+| F3 `sequencia_direcional` | fluxo de 3 ou mais velas da mesma cor | não entrada se a sequência que **termina no último candle** tem ≥ 3 (qualquer direção; mais conservador que "rumo à zona") | `maxSameDirectionRun` (3, **aula**) |
+| F4 `vela_lenta_parada` | vela lenta ou parada = chance de rompimento | aproximação provisória: lenta = eficiência (deslocamento ÷ caminho nos fechamentos de 1 min) acima do limite; parada = amplitude pequena após 1 min | `slowEfficiencyMax`, `stoppedRangeATR` |
+
+Critérios do gatilho (`src/core/rules/gatilho.ts`) — todos precisam ser atendidos **e** o cenário precisa estar FAVORÁVEL (sem F1–F4 detectados):
+
+| Critério | Operacionalização | Origem |
+|---|---|---|
+| Tempo restante | tempo restante do candle ≥ 150 s (exatamente 150 vale; abaixo disso não entra) | aula 3, **confirmado** |
+| Velas anteriores com força a favor | das 2 velas fechadas anteriores, quantas têm pavio relevante do lado da zona **ou** cor a favor; `prevCandlesRequired` (1 ou 2: a professora fala "as duas" e "uma" em trechos diferentes) | aula 3 (arquivo) |
+| "Pico de vela" | **interpretação provisória**: o preço do candle em formação alcançou a borda de entrada da zona (entrada no extremo) | **a confirmar** — a anotação não define o termo |
+| 2 toques anteriores com pavio | zona em contato com ≥ 2 toques anteriores cujo candle do extremo deixou pavio relevante | aula 2 |
+
+Parâmetros de F1/F2/F4 e `prevCandlesRequired` **não existem nas aulas** (no arquivo, o autor os marca como "meus"). Entram só no preset exploratório.
+
+Diferenças em relação ao arquivo `analisador-m5.html` (não adotado):
+- a **nota de 0 a 100** por par (mistura os pilares numa pontuação arbitrária; o briefing proíbe pontuação que esconda critérios). Aqui o ranking é por estado do cenário;
+- o modelo de zonas é outro (tolerância em ATR, rejeição = fechamento de volta). Mantive o meu, único para o ao vivo e o teste histórico.
+
+## Contexto de timeframe maior (HIPÓTESE, não é regra da aula)
+
+A anotação F1 cita "timeframes maiores"; o app tem **uma** regra experimental, `confluencia_tf_maior`, **desligada por padrão** (Configurações → Critérios):
+- Candles **M15** (3 × M5) e **H1** (12 × M5) são montados com M5 **fechados**, só janelas completas e alinhadas. O candle maior em formação nunca é usado e lacunas quebram a série. Não há dado novo: tudo vem do M5.
+- Zonas do M15/H1 usam as mesmas definições (pivôs, tolerância, retração) com os mesmos múltiplos da análise M5, e só contam com ≥ `htfMinTouches` (1) toque válido.
+- Favorável se a zona M5 em contato coincide (mesmo lado, faixas sobrepostas) com zona sólida de M15 ou H1. Sem candles suficientes (H1 com 40 candles exige 480+ M5) fica "não avaliável".
+- **Cuidado com a tolerância**: o múltiplo de tolerância é sobre a amplitude média de cada timeframe. Com valores altos (ex.: 1×), a faixa de uma zona M15/H1 cobre quase toda a oscilação e nenhum toque se completa. Use valores menores nos testes.
+- **Teste de verdade**: o Teste histórico traz as linhas "Confluência com zona M15/H1": compara os toques com e sem confluência (só toques com dados do timeframe maior). Se não melhorar com folga, em amostra grande, **deixe desligado**. Mais um critério também aumenta o risco de achar padrão por acaso.
+
+## Teste histórico e diário (medem resultado)
+
+- **Resultado**: o candle M5 fecha do lado certo do preço de entrada (borda da zona): venda ganha se fecha abaixo, compra se fecha acima; igual = empate (fora da taxa). Expiração = fechamento do M5. Isso **não vem da aula**.
+- **Ponto de equilíbrio** = 1 ÷ (1 + payout). Com 80%: 55,6%. O payout é um parâmetro seu (`payoutPercent`, padrão técnico 80: confirme na corretora).
+- **Veredito**: "acima" só se o intervalo de confiança (Wilson 95%) inteiro está acima do equilíbrio; "abaixo" se inteiro abaixo; senão **inconclusivo**.
+- **Teste histórico** (`src/core/backtest.ts`): para cada toque numa zona **armada** (≥ 2 toques válidos anteriores), reproduz o caminho do candle com velas de 1 minuto até o toque, avalia o gatilho com o mesmo código do ao vivo e confere o fechamento. Usa só velas anteriores. Instante do toque = meio do minuto em que a borda foi alcançada. Mostra 3 recortes (todo toque / cenário favorável / gatilho confirmado) e a contribuição de cada critério.
+- **Diário ao vivo** (`src/core/journal.ts`): registra cada toque do candle em formação em zona armada e resolve no fechamento. Só com a aba aberta e visível.
+- Limitações estatísticas: 9 critérios olhados de uma vez (alguns vão parecer bons por acaso), casos de pares de cripto correlacionados (o intervalo é otimista) e dados que não são os da Quotex.
+
+## Sem look-ahead
+
+- Um pivô só é conhecido `swingLookback` candles depois (`confirmedAtIndex`); a validação registra `validatedAtIndex`; a retração registra `confirmedAtIndex`.
+- A análise recebe só candles até o "agora"; `replay()` (`src/core/replay.ts`) chama a análise com `candles[0..i]` para cada `i`.
+- Testes: pivô ausente antes da confirmação; conjunto de pivôs em `i` = calculado só com dados até `i`; alterar candles futuros não muda a análise passada.
+- No gráfico, topos/fundos aparecem **no candle do pivô**, embora só fossem conhecidos alguns candles depois (veja o painel de filtros).
+
+## Filtro de média móvel (hipótese, não é da aula)
+
+Regra experimental `filtro_media_movel`, **desligada por padrão** (Configurações → Critérios). Não vem de nenhuma aula: os períodos 9 e 21 são valores comuns (`padrao_tecnico`), e a ideia de que "retração a favor da tendência é melhor" é só uma hipótese.
+
+- **Definição:** EMA rápida (9) e lenta (21) dos fechamentos dos últimos 200 candles M5 **fechados** (semente na média simples). Com a zona em contato: suporte (compra) fica favorável se a rápida está acima da lenta; resistência (venda), se está abaixo. Sem 3× o período lento de candles, fica "não avaliável". Lenta ≤ rápida vira pendência de configuração.
+- **Papel:** contexto positivo. **Nunca confirma gatilho** e ligar a regra não muda os critérios do gatilho.
+- **Como medir:** o Teste histórico traz a linha "Médias móveis a favor" e um bloco próprio que divide os toques no tempo: os primeiros 60% são **treino** e os últimos 40% são **confirmação**. Só aparece "confirmado" se a parte de confirmação mostrar a mesma direção do treino, com intervalos de Wilson **sem sobreposição**. Com poucos casos o resultado esperado é "inconclusivo".
+- **Cuidado:** mudar períodos e rodar de novo é nova tentativa. Quanto mais tentativas, maior a chance de um resultado bonito por acaso. Não use a parte de confirmação para ajustar. Um par e um período não bastam; repita em outros.
+- O alinhamento é calculado igual ao vivo e no teste, mesmo com a regra desligada (para o teste poder medir antes de você ligar).
