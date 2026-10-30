@@ -5,12 +5,11 @@
 //| SOMENTE LEITURA: nao abre, fecha nem modifica ordens; nao usa     |
 //| DLL, internet, chaves ou senhas. Desenha zonas e mostra o sinal.  |
 //|                                                                   |
-//| E uma versao SIMPLIFICADA do motor do app M5 Smart Analyzer:      |
-//| zonas, toques com retracao, zona armada (2 toques), cronometro    |
-//| 2:30, fluxo de 3 velas (F3), reversao (F1), vela nascendo perto   |
-//| (F2), velas anteriores e 2 toques com pavio. NAO avalia a vela    |
-//| lenta/parada (F4) nem os filtros de contexto do app. Em caso de   |
-//| duvida, o app e a referencia.                                     |
+//| Regras: zonas, toques com retracao, zona armada (2 toques),      |
+//| cronometro 2:30, velas anteriores, 2 toques com pavio e os NAO   |
+//| ENTRE F1, F2, F3, F4 (vela lenta/parada) e movimento continuo.   |
+//| Ainda NAO avalia (aula 1): corpos grandes, topos/fundos pouco    |
+//| definidos e rompimento sem retracao.                             |
 //+------------------------------------------------------------------+
 #property copyright   "M5 Smart Analyzer"
 #property version     "1.00"
@@ -32,6 +31,10 @@ input double InpWickRatio     = 0.35;  // Pavio relevante (fracao da amplitude)
 input int    InpPrevNeed      = 2;     // Velas anteriores com forca a favor (1 ou 2)
 input double InpApproachATR   = 0.3;   // F2: distancia minima abertura->zona (x ATR)
 input double InpReversalATR   = 0.15;  // F1: movimento contra maximo (x ATR)
+input double InpSlowEff       = 0.85;  // F4 vela lenta: deslocamento / caminho (fechamentos M1) acima disso
+input double InpStoppedATR    = 0.2;   // F4 vela parada: apos 1 minuto, amplitude abaixo disso (x ATR)
+input int    InpContWindow    = 12;    // Movimento continuo (aula 1): janela em candles M5
+input double InpContEff       = 0.6;   // Movimento continuo: eficiencia direcional >= isso bloqueia
 //--- Filtro de media movel (hipotese, desligado)
 input bool   InpUseMA         = false; // EXIGIR medias moveis a favor (hipotese; padrao: so registra)
 input int    InpMaFast        = 9;     // EMA rapida
@@ -302,6 +305,13 @@ void Update()
    if(d != 0) for(int i = last; i >= 0 && Dir(g_r[i]) == d; i--) run++;
    bool f3 = (run >= InpMaxRun);
 
+   // Movimento continuo (aula 1): |fechamento final - inicial| / caminho dos fechamentos na janela
+   int cFrom = MathMax(1, last - InpContWindow + 1);
+   double cPath = 0;
+   for(int i = cFrom + 1; i <= last; i++) cPath += MathAbs(g_r[i].close - g_r[i - 1].close);
+   double cEff = cPath > 0 ? MathAbs(g_r[last].close - g_r[cFrom].close) / cPath : 0;
+   bool cont = (cEff >= InpContEff);
+
    string titulo, detalhe, lado = "";
    string chk = "";
    color cor = clrSilver;
@@ -309,9 +319,10 @@ void Update()
 
    if(best < 0)
    {
-      titulo = f3 ? "NAO ENTRE" : "AGUARDE";
-      detalhe = f3 ? StringFormat("Fluxo de %d velas da mesma cor.", run) : "Preco longe das zonas.";
-      cor = f3 ? clrTomato : clrSilver;
+      titulo = (f3 || cont) ? "NAO ENTRE" : "AGUARDE";
+      detalhe = f3 ? StringFormat("Fluxo de %d velas da mesma cor.", run)
+                   : (cont ? StringFormat("Movimento continuo sem retracao (%.0f%%).", cEff * 100) : "Preco longe das zonas.");
+      cor = (f3 || cont) ? clrTomato : clrSilver;
    }
    else
    {
@@ -329,6 +340,24 @@ void Update()
       for(int i = last - 1; i <= last; i++)
          if(WickRatio(g_r[i], z.res) >= InpWickRatio || Dir(g_r[i]) == (z.res ? -1 : 1)) favor++;
       bool prev = (favor >= InpPrevNeed);
+      // F4 (aula 2): vela lenta (so avanca, pelos fechamentos M1) ou parada (amplitude pequena apos 1 minuto)
+      MqlRates m1[];
+      int nm1 = CopyRates(_Symbol, PERIOD_M1, f.time, TimeCurrent(), m1);
+      double steps = 0, prevPx = f.open;
+      int closedM1 = 0;
+      for(int i = 0; i < nm1; i++)
+      {
+         if(m1[i].time < f.time || (long)m1[i].time + 60 > (long)TimeCurrent()) continue;   // so minutos fechados deste M5
+         steps += MathAbs(m1[i].close - prevPx);
+         prevPx = m1[i].close;
+         closedM1++;
+      }
+      steps += MathAbs(entry - prevPx);
+      double slowEff = steps > 0 ? MathAbs(entry - f.open) / steps : 0;
+      long elapsed = 300 - remaining;
+      bool lenta = (closedM1 >= 1 && slowEff > InpSlowEff);
+      bool parada = (elapsed >= 60 && (f.high - f.low) < InpStoppedATR * atr);
+      bool f4 = (lenta || parada);
       bool wicks = (z.wickTouches >= 2);
       // Caracteristicas registradas em cada sinal (usam so candles FECHADOS: o ultimo e o anterior)
       double ef = Ema(last, InpMaFast), es = Ema(last, InpMaSlow);
@@ -354,8 +383,8 @@ void Update()
       bool pat = (!InpReqRejection || rejF == 1) && (!InpReqEngulf || engF == 1) && (!InpReqH1 || h1F == 1);
       string feats = StringFormat("MA=%d;REJ=%d;ENG=%d;DOJI=%d;H1=%d;EXA=%d;RSI=%d", maF, rejF, engF, dojiF, h1F, exaF, rsiF);
 
-      chk = StringFormat("%s Zona com %d toques\n%s Tempo >= %d:%02d\n%s Velas anteriores\n%s Sem reversao (F1)\n%s Nao nasceu na zona (F2)\n%s Sem 3 velas iguais (F3)\n%s 2 toques com pavio%s",
-                         Mk(armed), z.priors, Mk(tempo), InpMinRemaining / 60, InpMinRemaining % 60, Mk(prev), Mk(!f1), Mk(!f2), Mk(!f3), Mk(wicks),
+      chk = StringFormat("%s Zona com %d toques\n%s Tempo >= %d:%02d\n%s Velas anteriores\n%s Sem reversao (F1)\n%s Nao nasceu na zona (F2)\n%s Sem 3 velas iguais (F3)\n%s Vela nao lenta/parada (F4)\n%s Sem movimento continuo\n%s 2 toques com pavio%s",
+                         Mk(armed), z.priors, Mk(tempo), InpMinRemaining / 60, InpMinRemaining % 60, Mk(prev), Mk(!f1), Mk(!f2), Mk(!f3), Mk(!f4), Mk(!cont), Mk(wicks),
                          InpUseMA ? StringFormat("\n%s Medias a favor (hipotese)", Mk(ma)) : "");
       chk += StringFormat("\nNo ultimo candle: medias %s | rejeicao %s | engolfo %s | doji %s | pavio H1 %s",
                           maF < 0 ? "?" : (maF == 1 ? "a favor" : "contra"), rejF ? "sim" : "nao", engF ? "sim" : "nao", dojiF ? "sim" : "nao",
@@ -363,10 +392,11 @@ void Update()
       chk += StringFormat("\nExaustao %s | RSI %s%s", exaF ? "sim" : "nao",
                           rsi == EMPTY_VALUE ? "?" : DoubleToString(rsi, 0), rsiF == 1 ? " (extremo)" : "");
 
-      if(f1 || f2 || f3)
+      if(f1 || f2 || f3 || f4 || cont)
       {
          titulo = "NAO ENTRE"; cor = clrTomato;
-         detalhe = f3 ? "Fluxo de velas da mesma cor." : (f1 ? "Reversao contra a operacao." : "Vela nasceu perto da zona.");
+         detalhe = f3 ? "Fluxo de velas da mesma cor." : (f1 ? "Reversao contra a operacao." : (f2 ? "Vela nasceu perto da zona." :
+                   (f4 ? (parada ? "Vela parada na regiao (F4)." : "Vela lenta, so avanca (F4).") : "Movimento continuo sem retracao.")));
       }
       else if(armed && tempo && prev && wicks && ma && pat)
       {
