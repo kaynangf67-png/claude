@@ -6,19 +6,20 @@
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
 
-  --color-bg: #06080d;
-  --color-panel: #0c1018;
-  --color-card: #10151f;
-  --color-card-2: #151b27;
-  --color-line: #1d2431;
-  --color-line-2: #283142;
-  --color-ink: #e7eaf1;
-  --color-mute: #8a93a6;
-  --color-faint: #586176;
+  --color-bg: #050706;
+  --color-panel: #0a0f0c;
+  --color-card: #0e1411;
+  --color-card-2: #141c17;
+  --color-line: #1c2721;
+  --color-line-2: #26342c;
+  --color-ink: #ecf2ee;
+  --color-mute: #8fa096;
+  --color-faint: #5b6a61;
   --color-buy: #22c55e;
-  --color-sell: #f04444;
-  --color-info: #3b82f6;
-  --color-warn: #f5a524;
+  --color-sell: #ef4444;
+  /* tema verde e vermelho: "info" é verde, "aviso" é vermelho claro */
+  --color-info: #22c55e;
+  --color-warn: #f87171;
 
   --animate-fade: fade 0.35s ease-out both;
   @keyframes fade {
@@ -30,8 +31,9 @@
 html, body, #root { min-height: 100%; }
 body {
   background:
-    radial-gradient(1000px 520px at 90% -10%, #12305a26, transparent 60%),
-    radial-gradient(800px 480px at -10% 110%, #0f3a2a1f, transparent 60%),
+    radial-gradient(900px 520px at 100% -10%, #ef444424, transparent 60%),
+    radial-gradient(900px 560px at -10% 0%, #22c55e22, transparent 60%),
+    radial-gradient(700px 420px at 50% 120%, #22c55e14, transparent 60%),
     var(--color-bg);
   color: var(--color-ink);
   font-family: var(--font-sans);
@@ -39,7 +41,45 @@ body {
 }
 .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 input { color-scheme: dark; }
-:focus-visible { outline: 2px solid var(--color-info); outline-offset: 2px; border-radius: 10px; }
+:focus-visible { outline: 2px solid var(--color-buy); outline-offset: 2px; border-radius: 10px; }
+
+/* ---------- 3D ---------- */
+@keyframes c3d-spin { from { transform: rotateX(-14deg) rotateY(0deg); } to { transform: rotateX(-14deg) rotateY(360deg); } }
+@keyframes c3d-float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -18px; } }
+.c3d-spin { animation: c3d-spin 14s linear infinite; }
+.c3d-float { animation: c3d-float 7s ease-in-out infinite; }
+
+.tilt {
+  transition: transform 0.25s ease-out, box-shadow 0.25s;
+  transform-style: preserve-3d;
+  will-change: transform;
+  position: relative;
+}
+.tilt::after {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  background: radial-gradient(420px circle at var(--gx, 50%) var(--gy, 0%), #ffffff0d, transparent 45%);
+}
+
+.card3d {
+  border-radius: 1.5rem;
+  border: 1px solid var(--color-line);
+  background: linear-gradient(180deg, #111915, #0c120f);
+  box-shadow: 0 1px 0 0 #ffffff0d inset, 0 24px 50px -24px #000, 0 2px 0 0 #00000080;
+}
+
+.btn3d {
+  background: linear-gradient(180deg, #34d36f, #16a34a);
+  box-shadow: 0 6px 0 0 #0f5f30, 0 16px 34px -10px #22c55e88;
+  transform: translateY(0);
+  transition: transform 0.08s, box-shadow 0.08s, opacity 0.2s;
+}
+.btn3d:not(:disabled):hover { box-shadow: 0 6px 0 0 #0f5f30, 0 18px 40px -8px #22c55eaa; }
+.btn3d:not(:disabled):active { transform: translateY(5px); box-shadow: 0 1px 0 0 #0f5f30, 0 8px 20px -10px #22c55e88; }
+
+.title-gradient {
+  background: linear-gradient(90deg, #4ade80, #22c55e 40%, #ef4444 75%, #f87171);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }

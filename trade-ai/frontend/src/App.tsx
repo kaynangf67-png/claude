@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle, ArrowDownRight, ArrowUpRight, Ban, Check, ImagePlus, Loader2, RefreshCw, Sparkles, Trash2, X,
+  AlertTriangle, ArrowDownRight, ArrowUpRight, Ban, Check, ImagePlus, Loader2, RefreshCw, Trash2, X,
 } from "lucide-react";
 import type { Result } from "../server/analyze";
 import { prepareImage } from "./lib/image";
 import { breakEven, entryTimes, hhmm, wilson } from "./lib/math";
 import { load, save, type Entry } from "./lib/history";
+import { Logo } from "./components/Logo";
+import { Candle3D, CandleScene, Tilt } from "./components/ThreeD";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 const pct = (v: number) => `${(v * 100).toFixed(1).replace(".", ",")}%`;
@@ -102,19 +104,22 @@ export default function App() {
 
   return (
     <div className="mx-auto flex min-h-screen max-w-[1180px] flex-col px-4 py-6 md:px-8 md:py-8">
+      <CandleScene />
       <header className="flex items-center gap-3">
-        <div className="grid size-10 place-items-center rounded-xl border border-buy/30 bg-gradient-to-br from-buy/25 to-info/10">
-          <Sparkles size={18} className="text-buy" />
-        </div>
+        <Logo size={44} />
         <div className="leading-tight">
-          <div className="text-[17px] font-extrabold tracking-[0.08em]">TRADE <span className="text-buy">AI</span></div>
+          <div className="text-[18px] font-extrabold tracking-[0.08em]">TRADE <span className="title-gradient">AI</span></div>
           <div className="text-[11.5px] text-faint">Leitura de print para binárias</div>
+        </div>
+        <div className="ml-auto hidden items-end gap-5 pr-2 sm:flex" style={{ perspective: 600 }} aria-hidden>
+          <Candle3D up w={14} h={34} wick={10} />
+          <Candle3D up={false} w={14} h={26} wick={12} style={{ animationDelay: "-3s" }} />
         </div>
       </header>
 
       <main className="mt-7 grid flex-1 gap-5 lg:grid-cols-[1.1fr_1fr]">
         {/* Print */}
-        <section className="animate-fade rounded-3xl border border-line bg-card p-5 shadow-[0_10px_30px_-12px_#000]">
+        <Tilt className="card3d animate-fade min-w-0 p-5" max={2.5}>
           <label
             onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
             onDragLeave={() => setDrag(false)}
@@ -152,17 +157,17 @@ export default function App() {
           </div>
 
           <button onClick={analyze} disabled={!blob || busy}
-            className="mt-4 flex w-full items-center justify-center gap-2.5 rounded-2xl bg-buy py-4 text-[15px] font-extrabold tracking-[0.06em] text-[#04130a] shadow-[0_10px_40px_-12px_#22c55e99] transition-opacity disabled:cursor-not-allowed disabled:opacity-40">
+            className="btn3d mt-4 mb-1.5 flex w-full items-center justify-center gap-2.5 rounded-2xl py-4 text-[15px] font-extrabold tracking-[0.06em] text-[#03130a] disabled:cursor-not-allowed disabled:opacity-40">
             {busy ? <><Loader2 size={18} className="animate-spin" /> ANALISANDO O PRINT…</> : "CALCULAR ENTRADA"}
           </button>
           {blob && !busy && (
             <button onClick={() => { setBlob(null); setPreview(null); setResult(null); setError(null); }}
               className="mt-2 w-full py-1 text-[12px] text-faint hover:text-mute">Trocar print</button>
           )}
-        </section>
+        </Tilt>
 
         {/* Resultado */}
-        <section className="animate-fade rounded-3xl border border-line bg-card p-5 shadow-[0_10px_30px_-12px_#000]">
+        <Tilt className="card3d animate-fade min-w-0 p-5" max={3}>
           {error ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 py-10 text-center">
               <AlertTriangle className="text-sell" />
@@ -176,14 +181,17 @@ export default function App() {
             <ResultView r={result} timing={timing} />
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-3 py-14 text-center">
-              <div className="grid size-12 place-items-center rounded-2xl border border-line bg-card-2 text-mute"><Sparkles size={20} /></div>
+              <div className="flex h-24 items-end gap-6" style={{ perspective: 600 }} aria-hidden>
+                <Candle3D up w={18} h={44} wick={14} />
+                <Candle3D up={false} w={18} h={34} wick={16} style={{ animationDelay: "-4s" }} />
+              </div>
               <div className="text-[15px] font-semibold">A entrada aparece aqui</div>
               <p className="max-w-sm text-[12.5px] leading-relaxed text-mute">
                 CALL, PUT ou NÃO OPERAR, com horário de entrada, expiração e motivos. Quando o print não deixa claro, a resposta é não operar.
               </p>
             </div>
           )}
-        </section>
+        </Tilt>
       </main>
 
       <Performance history={history} setHistory={setHistory} />
@@ -206,14 +214,16 @@ function ResultView({ r, timing }: { r: Result; timing: { entry: Date; expiry: D
   return (
     <div className="animate-fade space-y-4">
       <div className={cx("flex items-center gap-4 rounded-2xl border p-4",
-        wait ? "border-line-2 bg-card-2" : call ? "border-buy/40 bg-buy/10" : "border-sell/40 bg-sell/10")}>
-        <div className={cx("grid size-14 shrink-0 place-items-center rounded-2xl",
-          wait ? "bg-panel text-mute" : call ? "bg-buy text-[#04130a]" : "bg-sell text-white")}>
-          {wait ? <Ban size={26} /> : call ? <ArrowUpRight size={30} /> : <ArrowDownRight size={30} />}
+        wait ? "border-line-2 bg-card-2" : call ? "border-buy/40 bg-buy/10 shadow-[0_0_40px_-12px_#22c55e]" : "border-sell/40 bg-sell/10 shadow-[0_0_40px_-12px_#ef4444]")}>
+        <div className={cx("grid size-16 shrink-0 place-items-center rounded-2xl border",
+          wait ? "border-line bg-panel text-mute" : call ? "border-buy/40 bg-buy/15" : "border-sell/40 bg-sell/15")}
+          style={{ perspective: 400 }}>
+          {wait ? <Ban size={26} /> : <Candle3D up={call} w={14} h={26} wick={9} />}
         </div>
         <div className="min-w-0">
-          <div className={cx("text-[28px] font-extrabold leading-none tracking-wide", wait ? "text-mute" : call ? "text-buy" : "text-sell")}>
+          <div className={cx("flex items-center gap-2 text-[28px] font-extrabold leading-none tracking-wide", wait ? "text-mute" : call ? "text-buy" : "text-sell")}>
             {wait ? "NÃO OPERAR" : r.decision}
+            {!wait && (call ? <ArrowUpRight size={26} /> : <ArrowDownRight size={26} />)}
           </div>
           <div className="mt-1.5 text-[12.5px] text-mute">
             {[r.symbol, r.timeframe, r.platform].filter(Boolean).join(" · ") || "ativo não identificado"}
@@ -302,7 +312,7 @@ function Performance({ history, setHistory }: { history: Entry[]; setHistory: (f
   }
 
   return (
-    <section className="animate-fade mt-5 rounded-3xl border border-line bg-card p-5 shadow-[0_10px_30px_-12px_#000]">
+    <section className="card3d animate-fade mt-5 p-5">
       <div className="flex items-center justify-between">
         <h2 className="text-[15px] font-semibold">Seu desempenho real</h2>
         {history.length > 0 && (
