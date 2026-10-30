@@ -15,51 +15,31 @@
   --color-ink: #e7eaf1;
   --color-mute: #8a93a6;
   --color-faint: #586176;
-
   --color-buy: #22c55e;
-  --color-buy-soft: #22c55e1f;
   --color-sell: #f04444;
-  --color-sell-soft: #f044441f;
   --color-info: #3b82f6;
-  --color-info-soft: #3b82f61f;
   --color-warn: #f5a524;
-  --color-warn-soft: #f5a5241f;
 
-  --shadow-card: 0 1px 0 0 #ffffff08 inset, 0 10px 30px -12px #00000099;
   --animate-fade: fade 0.35s ease-out both;
-  --animate-pulse-dot: pulse-dot 1.8s ease-in-out infinite;
-
   @keyframes fade {
-    from { opacity: 0; transform: translateY(4px); }
+    from { opacity: 0; transform: translateY(6px); }
     to { opacity: 1; transform: none; }
-  }
-  @keyframes pulse-dot {
-    0%, 100% { box-shadow: 0 0 0 0 currentColor; opacity: 1; }
-    50% { box-shadow: 0 0 0 5px transparent; opacity: 0.75; }
   }
 }
 
-html, body, #root { height: 100%; }
+html, body, #root { min-height: 100%; }
 body {
   background:
-    radial-gradient(1200px 600px at 85% -10%, #12305a22, transparent 60%),
-    radial-gradient(900px 500px at -10% 110%, #0f3a2a1a, transparent 60%),
+    radial-gradient(1000px 520px at 90% -10%, #12305a26, transparent 60%),
+    radial-gradient(800px 480px at -10% 110%, #0f3a2a1f, transparent 60%),
     var(--color-bg);
   color: var(--color-ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
-  font-feature-settings: "cv11", "ss01";
 }
-
-.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
-
-::-webkit-scrollbar { width: 10px; height: 10px; }
-::-webkit-scrollbar-thumb { background: #1d2431; border-radius: 10px; border: 2px solid var(--color-bg); }
-::-webkit-scrollbar-track { background: transparent; }
-
-input, select, textarea { color-scheme: dark; }
-:focus-visible { outline: 2px solid var(--color-info); outline-offset: 2px; border-radius: 8px; }
-
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+input { color-scheme: dark; }
+:focus-visible { outline: 2px solid var(--color-info); outline-offset: 2px; border-radius: 10px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
