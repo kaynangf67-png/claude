@@ -89,7 +89,11 @@ export default function App() {
           image_age_s: capturedAt ? (Date.now() - capturedAt) / 1000 : null,
         }),
       });
-      const body = await res.json().catch(() => ({ error: `Erro ${res.status}` }));
+      const body = await res.json().catch(() => ({
+        error: res.status >= 500
+          ? `O servidor falhou ao analisar (erro ${res.status}). Tente de novo em instantes.`
+          : `Erro ${res.status}`,
+      }));
       if (!res.ok) throw new Error(body.error ?? `Erro ${res.status}`);
       const r = body as Result;
       setResult(r);
