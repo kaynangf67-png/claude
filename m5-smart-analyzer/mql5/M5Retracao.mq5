@@ -462,10 +462,20 @@ void MarkSignal(datetime t, bool venda, double price, string feats)
    ObjectSetInteger(0, nm, OBJPROP_ARROWCODE, venda ? 234 : 233);
    ObjectSetInteger(0, nm, OBJPROP_ANCHOR, venda ? ANCHOR_BOTTOM : ANCHOR_TOP);
    ObjectSetInteger(0, nm, OBJPROP_COLOR, venda ? clrTomato : clrLimeGreen);
-   ObjectSetInteger(0, nm, OBJPROP_WIDTH, 3);
+   ObjectSetInteger(0, nm, OBJPROP_WIDTH, 5);
    ObjectSetInteger(0, nm, OBJPROP_SELECTABLE, false);
    ObjectSetString(0, nm, OBJPROP_TEXT, feats);          // caracteristicas no momento do sinal
    ObjectSetString(0, nm, OBJPROP_TOOLTIP, StringFormat("%s em %s | %s", venda ? "VENDA" : "COMPRA", DoubleToString(price, _Digits), feats));
+
+   // texto ao lado da seta, na mesma cor
+   string ln = SigName("L", t);
+   ObjectCreate(0, ln, OBJ_TEXT, 0, t, price);
+   ObjectSetString(0, ln, OBJPROP_TEXT, venda ? "  VENDA" : "  COMPRA");
+   ObjectSetInteger(0, ln, OBJPROP_ANCHOR, venda ? ANCHOR_LEFT_LOWER : ANCHOR_LEFT_UPPER);
+   ObjectSetInteger(0, ln, OBJPROP_COLOR, venda ? clrTomato : clrLimeGreen);
+   ObjectSetInteger(0, ln, OBJPROP_FONTSIZE, 10);
+   ObjectSetString(0, ln, OBJPROP_FONT, "Arial Bold");
+   ObjectSetInteger(0, ln, OBJPROP_SELECTABLE, false);
 }
 
 void ResolveSignals(datetime formingT, int &ganhos, int &perdas, int &empates)
