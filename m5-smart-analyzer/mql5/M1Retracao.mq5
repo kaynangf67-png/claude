@@ -1,0 +1,710 @@
+//+------------------------------------------------------------------+
+//| M1Retracao.mq5  (GERADO de M5Retracao.mq5 por gerar-m1.py)        |
+//| EXPERIMENTAL: o motor do M5 rodando em M1. As regras das aulas   |
+//| sao de M5; em M1 os valores NAO tem base e o acerto e incerto.   |
+//|                                                                   |
+//| SOMENTE LEITURA: nao abre, fecha nem modifica ordens; nao usa     |
+//| DLL, internet, chaves ou senhas. Desenha zonas e mostra o sinal.  |
+//|                                                                   |
+//| Regras: zonas, toques com retracao, zona armada (2 toques),      |
+//| cronometro 2:30, velas anteriores, 2 toques com pavio e os NAO   |
+//| ENTRE F1, F2, F3, F4 (vela lenta/parada) e movimento continuo.   |
+//| Ainda NAO avalia (aula 1): corpos grandes, topos/fundos pouco    |
+//| definidos e rompimento sem retracao.                             |
+//+------------------------------------------------------------------+
+#property copyright   "M5 Smart Analyzer"
+#property version     "1.00"
+#property description "Retracao M1 EXPERIMENTAL (somente leitura, sem ordens). Regras sem base em aula. Nao garante resultado."
+#property indicator_chart_window
+#property indicator_plots 0
+
+//--- Valores da aula
+input int    InpMinPrior      = 2;     // Toques validos anteriores (aula 1)
+input int    InpMaxRun        = 3;     // Fluxo da mesma cor que bloqueia (aula 2)
+input int    InpMinRemaining  = 30;    // Tempo restante minimo em segundos (metade da vela M1; SEM base em aula)
+//--- Valores EXPLORATORIOS (nao vem da aula)
+input int    InpContext       = 60;    // Janela de contexto (candles M5)
+input int    InpLookback      = 2;     // Vizinhos para topo/fundo
+input double InpZoneTolMult   = 0.75;  // Tolerancia da zona (x amplitude media)
+input double InpRetrMinMult   = 1.5;   // Retracao minima (x amplitude media)
+input int    InpRetrWindow    = 6;     // Janela para a retracao (candles)
+input double InpWickRatio     = 0.35;  // Pavio relevante (fracao da amplitude)
+input int    InpPrevNeed      = 2;     // Velas anteriores com forca a favor (1 ou 2)
+input double InpApproachATR   = 0.3;   // F2: distancia minima abertura->zona (x ATR)
+input double InpReversalATR   = 0.15;  // F1: movimento contra maximo (x ATR)
+input double InpSlowEff       = 0.85;  // F4 vela lenta: deslocamento / caminho (fechamentos M1) acima disso
+input double InpStoppedATR    = 0.2;   // F4 vela parada: apos 1 minuto, amplitude abaixo disso (x ATR)
+input int    InpContWindow    = 12;    // Movimento continuo (aula 1): janela em candles M5
+input double InpContEff       = 0.6;   // Movimento continuo: eficiencia direcional >= isso bloqueia
+//--- Filtro de media movel (hipotese, desligado)
+input bool   InpUseMA         = false; // EXIGIR medias moveis a favor (hipotese; padrao: so registra)
+input int    InpMaFast        = 9;     // EMA rapida
+input int    InpMaSlow        = 21;    // EMA lenta
+//--- Padroes de candle (hipotese): por padrao so REGISTRA em cada sinal, nao bloqueia
+input bool   InpReqRejection  = false; // EXIGIR rejeicao (pavio do lado da zona)
+input bool   InpReqEngulf     = false; // EXIGIR engolfo a favor
+input double InpRejWick       = 0.5;   // Rejeicao: pavio do lado da zona >= fracao da amplitude
+input double InpDojiBody      = 0.1;   // Doji: corpo <= fracao da amplitude
+input double InpExhaustMult   = 1.5;   // Exaustao: amplitude do ultimo candle >= x media dos 10 anteriores
+input int    InpRsiPeriod     = 14;    // RSI (Wilder) do ultimo candle fechado
+input double InpRsiHigh       = 70;    // RSI extremo para VENDA (>=)
+input double InpRsiLow        = 30;    // RSI extremo para COMPRA (<=)
+input int    InpVpBars        = 288;   // Perfil de volume: velas M5 (mesmo padrao do M5Perfil)
+input double InpVpNearATR     = 0.3;   // Perfil: entrada a ate isso (x ATR) do POC, VAH ou VAL
+input bool   InpExportCsv     = true;  // Gravar cada sinal resolvido em m5sinais_<SIMBOLO>.csv (pasta comum)
+//--- Regioes do pavio da ultima vela H1 fechada (hipotese: so registra, nao bloqueia)
+input bool   InpShowH1        = true;  // Desenhar os pavios da ultima vela H1
+input bool   InpReqH1         = false; // EXIGIR entrada dentro do pavio H1 do mesmo lado
+//--- Grafico
+input bool   InpOnlyArmed     = true;  // Desenhar so as zonas armadas (2+ toques); false = todas
+//--- Aviso
+input bool   InpAlert         = true;  // Alerta (som + janela) quando der ENTRADA
+input int    InpPanelY        = 95;    // Distancia do painel ao topo (abaixo da caixa SELL/BUY do MT5)
+
+#define PFX "M1R_"
+#define SPFX "M1RS_"   // sinais: ficam no grafico ao trocar de tempo grafico
+#define NBARS 300
+// Tempo grafico do motor (o M1Retracao.mq5 e gerado a partir deste arquivo trocando so este bloco)
+#define TF      PERIOD_M1
+#define TFSEC   60
+#define TFNAME  "M1"
+#define CSVPFX  "m1sinais_"
+
+struct Zone
+{
+   bool   res;        // true = resistencia, false = suporte
+   double lower;
+   double upper;
+   int    firstIdx;
+   int    priors;     // toques anteriores com retracao confirmada
+   int    wickTouches;// toques anteriores com pavio relevante
+};
+
+MqlRates g_r[];       // [0] = mais antigo ... [n-1] = candle em formacao
+Zone     g_z[];
+string   g_lastAlert = "";
+MqlRates g_h1;            // ultima vela H1 FECHADA
+bool     g_h1ok = false;
+double   g_h1Up = 0;      // base do pavio superior (topo do corpo)
+double   g_h1Dn = 0;      // topo do pavio inferior (fundo do corpo)
+
+//+------------------------------------------------------------------+
+int OnInit()
+{
+   EventSetTimer(1);
+   return(INIT_SUCCEEDED);
+}
+
+void OnDeinit(const int reason)
+{
+   EventKillTimer();
+   ObjectsDeleteAll(0, PFX);
+   if(reason == REASON_REMOVE) ObjectsDeleteAll(0, SPFX);   // tirou o indicador: limpa os sinais tambem
+   Comment("");
+}
+
+int OnCalculate(const int rates_total, const int prev_calculated, const datetime &time[],
+                const double &open[], const double &high[], const double &low[], const double &close[],
+                const long &tick_volume[], const long &volume[], const int &spread[])
+{
+   Update();
+   return(rates_total);
+}
+
+void OnTimer() { Update(); }
+
+//+------------------------------------------------------------------+
+double MeanRange(int from, int to)
+{
+   double s = 0; int n = 0;
+   for(int i = MathMax(0, from); i <= to; i++) { s += g_r[i].high - g_r[i].low; n++; }
+   return(n > 0 ? s / n : 0);
+}
+
+double Atr(int last, int n = 14)
+{
+   double s = 0; int k = 0;
+   for(int i = MathMax(1, last - n + 1); i <= last; i++)
+   {
+      double pc = g_r[i - 1].close;
+      s += MathMax(g_r[i].high - g_r[i].low, MathMax(MathAbs(g_r[i].high - pc), MathAbs(g_r[i].low - pc)));
+      k++;
+   }
+   return(k > 0 ? s / k : 0);
+}
+
+double WickRatio(const MqlRates &c, bool upper)
+{
+   double range = c.high - c.low;
+   if(range <= 0) return(-1);
+   double top = MathMax(c.open, c.close), bot = MathMin(c.open, c.close);
+   return(upper ? (c.high - top) / range : (bot - c.low) / range);
+}
+
+int Dir(const MqlRates &c) { return(c.close > c.open ? 1 : (c.close < c.open ? -1 : 0)); }
+
+double Ema(int last, int period)
+{
+   int from = MathMax(0, last - 199);
+   if(last - from + 1 < period * 3) return(EMPTY_VALUE);
+   double k = 2.0 / (period + 1), e = 0;
+   for(int i = from; i < from + period; i++) e += g_r[i].close;
+   e /= period;
+   for(int i = from + period; i <= last; i++) e = g_r[i].close * k + e * (1 - k);
+   return(e);
+}
+
+// RSI de Wilder no fechamento do candle 'last'; EMPTY_VALUE se faltar historico
+double Rsi(int last, int period)
+{
+   int from = MathMax(1, last - 199);
+   if(last - from + 1 < period * 3) return(EMPTY_VALUE);
+   double up = 0, dn = 0;
+   for(int i = from; i < from + period; i++)
+   {
+      double ch = g_r[i].close - g_r[i - 1].close;
+      if(ch > 0) up += ch; else dn -= ch;
+   }
+   up /= period; dn /= period;
+   for(int i = from + period; i <= last; i++)
+   {
+      double ch = g_r[i].close - g_r[i - 1].close;
+      up = (up * (period - 1) + MathMax(ch, 0)) / period;
+      dn = (dn * (period - 1) + MathMax(-ch, 0)) / period;
+   }
+   if(dn == 0) return(up == 0 ? 50 : 100);
+   return(100 - 100 / (1 + up / dn));
+}
+
+// Perfil de volume (igual ao M5Perfil): POC, VAH e VAL das velas FECHADAS ate 'last'
+bool VolumeProfile(int last, int bars, double &poc, double &vah, double &val)
+{
+   int from = MathMax(0, last - bars + 1), bins = 60;
+   if(last - from + 1 < 20) return(false);
+   double lo = g_r[from].low, hi = g_r[from].high;
+   for(int i = from + 1; i <= last; i++) { lo = MathMin(lo, g_r[i].low); hi = MathMax(hi, g_r[i].high); }
+   if(hi <= lo) return(false);
+   double step = (hi - lo) / bins;
+   double total = 0;
+   double vol[60];
+   ArrayInitialize(vol, 0);
+   for(int i = from; i <= last; i++)
+   {
+      int a = MathMax(0, MathMin(bins - 1, (int)MathFloor((g_r[i].low - lo) / step)));
+      int b = MathMax(0, MathMin(bins - 1, (int)MathFloor((g_r[i].high - lo) / step)));
+      for(int k = a; k <= b; k++) vol[k] += (double)g_r[i].tick_volume / (b - a + 1);
+      total += (double)g_r[i].tick_volume;
+   }
+   if(total <= 0) return(false);
+   int p = ArrayMaximum(vol), v0 = p, v1 = p;
+   double acc = vol[p];
+   while(acc < 0.70 * total && (v0 > 0 || v1 < bins - 1))
+   {
+      double dn = v0 > 0 ? vol[v0 - 1] : -1, up = v1 < bins - 1 ? vol[v1 + 1] : -1;
+      if(up >= dn) acc += vol[++v1]; else acc += vol[--v0];
+   }
+   poc = lo + (p + 0.5) * step; vah = lo + (v1 + 1) * step; val = lo + v0 * step;
+   return(true);
+}
+
+//+------------------------------------------------------------------+
+//| Zonas: pivos do mesmo lado a menos de 'tol' entre si.             |
+//+------------------------------------------------------------------+
+void BuildZones(int ctxStart, int last, double tol, double retrMin)
+{
+   ArrayResize(g_z, 0);
+   for(int side = 0; side < 2; side++)
+   {
+      bool res = (side == 0);
+      double price[]; int idx[]; int np = 0;
+      for(int i = MathMax(ctxStart, InpLookback); i <= last - InpLookback; i++)
+      {
+         bool ok = true;
+         for(int k = 1; k <= InpLookback && ok; k++)
+         {
+            if(res) ok = (g_r[i].high > g_r[i - k].high && g_r[i].high >= g_r[i + k].high);
+            else    ok = (g_r[i].low  < g_r[i - k].low  && g_r[i].low  <= g_r[i + k].low);
+         }
+         if(!ok) continue;
+         ArrayResize(price, np + 1); ArrayResize(idx, np + 1);
+         price[np] = res ? g_r[i].high : g_r[i].low; idx[np] = i; np++;
+      }
+      // ordena por preco (insercao)
+      for(int a = 1; a < np; a++)
+      {
+         double p = price[a]; int ix = idx[a]; int b = a - 1;
+         while(b >= 0 && price[b] > p) { price[b + 1] = price[b]; idx[b + 1] = idx[b]; b--; }
+         price[b + 1] = p; idx[b + 1] = ix;
+      }
+      int s = 0;
+      while(s < np)
+      {
+         int e = s;
+         while(e + 1 < np && price[e + 1] - price[s] <= tol) e++;
+         Zone z;
+         z.res = res;
+         z.lower = price[s] - tol / 2;
+         z.upper = price[e] + tol / 2;
+         z.firstIdx = idx[s];
+         for(int q = s; q <= e; q++) z.firstIdx = MathMin(z.firstIdx, idx[q]);
+         CountTouches(z, last, tol, retrMin);
+         int n = ArraySize(g_z); ArrayResize(g_z, n + 1); g_z[n] = z;
+         s = e + 1;
+      }
+   }
+}
+
+//+------------------------------------------------------------------+
+//| Toques anteriores com retracao confirmada e com pavio relevante.  |
+//+------------------------------------------------------------------+
+void CountTouches(Zone &z, int last, double tol, double retrMin)
+{
+   z.priors = 0; z.wickTouches = 0;
+   int i = z.firstIdx;
+   while(i <= last)
+   {
+      int rel = Rel(z, g_r[i], tol);           // 0 distante, 1 aproximacao, 2 toque, 3 rompimento
+      if(rel == 0) { i++; continue; }
+      if(rel == 3) { while(i <= last && Rel(z, g_r[i], tol) == 3) i++; continue; }
+      int start = i; bool touch = false;
+      while(i <= last)
+      {
+         int r = Rel(z, g_r[i], tol);
+         if(r != 1 && r != 2) break;
+         if(r == 2) touch = true;
+         i++;
+      }
+      int end = i - 1;
+      if(!touch) continue;
+      int ext = start;
+      for(int j = start; j <= end; j++)
+         if(z.res ? g_r[j].high > g_r[ext].high : g_r[j].low < g_r[ext].low) ext = j;
+      double extreme = z.res ? g_r[ext].high : g_r[ext].low;
+      if(WickRatio(g_r[ext], z.res) >= InpWickRatio) z.wickTouches++;
+      if(end >= last) continue;               // contato que chega ao ultimo candle: retracao ainda em andamento
+      double mag = MathMax(0, z.res ? extreme - g_r[end].close : g_r[end].close - extreme);
+      bool ok = (mag >= retrMin);
+      for(int j = end + 1; !ok && j <= MathMin(end + InpRetrWindow, last); j++)
+      {
+         if(z.res ? g_r[j].close > z.upper : g_r[j].close < z.lower) break;   // rompida
+         mag = MathMax(mag, z.res ? extreme - g_r[j].low : g_r[j].high - extreme);
+         if(mag >= retrMin) ok = true;
+      }
+      if(ok) z.priors++;
+   }
+}
+
+int Rel(const Zone &z, const MqlRates &c, double tol)
+{
+   if(z.res)
+   {
+      if(c.close > z.upper) return(3);
+      if(c.high >= z.lower) return(2);
+      if(c.high >= z.lower - tol) return(1);
+      return(0);
+   }
+   if(c.close < z.lower) return(3);
+   if(c.low <= z.upper) return(2);
+   if(c.low <= z.upper + tol) return(1);
+   return(0);
+}
+
+//+------------------------------------------------------------------+
+void Update()
+{
+   int got = CopyRates(_Symbol, TF, 0, NBARS, g_r);
+   if(got < InpContext + 20) { Comment("Retracao " + TFNAME + ": carregando historico..."); return; }
+   int n = got;
+   int last = n - 2;                                   // ultimo candle FECHADO
+   MqlRates f = g_r[n - 1];                            // candle em formacao
+   int ctxStart = MathMax(0, last - InpContext + 1);
+   double ref = MeanRange(ctxStart, last);
+   double atr = Atr(last);
+   if(ref <= 0 || atr <= 0) return;
+   Comment("");
+   double tol = InpZoneTolMult * ref;
+   BuildZones(ctxStart, last, tol, InpRetrMinMult * ref);
+   LoadH1();
+
+   // zona em contato com o candle em formacao (a de mais toques validos)
+   int best = -1;
+   for(int i = 0; i < ArraySize(g_z); i++)
+   {
+      bool touching = g_z[i].res ? (f.high >= g_z[i].lower && f.close <= g_z[i].upper)
+                                 : (f.low <= g_z[i].upper && f.close >= g_z[i].lower);
+      if(touching && (best < 0 || g_z[i].priors > g_z[best].priors)) best = i;
+   }
+
+   long remaining = (long)f.time + TFSEC - (long)TimeTradeServer();
+   if(remaining < 0) remaining = 0;
+   if(remaining > TFSEC) remaining = TFSEC;
+
+   // F3: fluxo da mesma cor terminando no ultimo candle fechado
+   int d = Dir(g_r[last]), run = 0;
+   if(d != 0) for(int i = last; i >= 0 && Dir(g_r[i]) == d; i--) run++;
+   bool f3 = (run >= InpMaxRun);
+
+   // Movimento continuo (aula 1): |fechamento final - inicial| / caminho dos fechamentos na janela
+   int cFrom = MathMax(1, last - InpContWindow + 1);
+   double cPath = 0;
+   for(int i = cFrom + 1; i <= last; i++) cPath += MathAbs(g_r[i].close - g_r[i - 1].close);
+   double cEff = cPath > 0 ? MathAbs(g_r[last].close - g_r[cFrom].close) / cPath : 0;
+   bool cont = (cEff >= InpContEff);
+
+   string titulo, detalhe, lado = "";
+   string chk = "";
+   color cor = clrSilver;
+   bool entrada = false;
+
+   if(best < 0)
+   {
+      titulo = (f3 || cont) ? "NAO ENTRE" : "AGUARDE";
+      detalhe = f3 ? StringFormat("Fluxo de %d velas da mesma cor.", run)
+                   : (cont ? StringFormat("Movimento continuo sem retracao (%.0f%%).", cEff * 100) : "Preco longe das zonas.");
+      cor = (f3 || cont) ? clrTomato : clrSilver;
+   }
+   else
+   {
+      Zone z = g_z[best];
+      lado = z.res ? "VENDA" : "COMPRA";
+      double edge = z.res ? z.lower : z.upper;
+      double entry = z.res ? MathMax(f.close, edge) : MathMin(f.close, edge);
+      bool armed = (z.priors >= InpMinPrior);
+      bool tempo = (remaining >= InpMinRemaining);
+      double counter = z.res ? MathMax(0, f.open - f.low) : MathMax(0, f.high - f.open);
+      bool f1 = (counter / atr > InpReversalATR);
+      double dist = (z.res ? entry - f.open : f.open - entry) / atr;
+      bool f2 = (dist < InpApproachATR);
+      int favor = 0;
+      for(int i = last - 1; i <= last; i++)
+         if(WickRatio(g_r[i], z.res) >= InpWickRatio || Dir(g_r[i]) == (z.res ? -1 : 1)) favor++;
+      bool prev = (favor >= InpPrevNeed);
+      // F4 (aula 2): vela lenta (so avanca, pelos fechamentos M1) ou parada (amplitude pequena apos 1 minuto)
+      MqlRates m1[];
+      int nm1 = CopyRates(_Symbol, PERIOD_M1, f.time, TimeCurrent(), m1);
+      double steps = 0, prevPx = f.open;
+      int closedM1 = 0;
+      for(int i = 0; i < nm1; i++)
+      {
+         if(m1[i].time < f.time || (long)m1[i].time + 60 > (long)TimeCurrent()) continue;   // so minutos fechados deste M5
+         steps += MathAbs(m1[i].close - prevPx);
+         prevPx = m1[i].close;
+         closedM1++;
+      }
+      steps += MathAbs(entry - prevPx);
+      double slowEff = steps > 0 ? MathAbs(entry - f.open) / steps : 0;
+      long elapsed = TFSEC - remaining;
+      bool lenta = (closedM1 >= 1 && slowEff > InpSlowEff);
+      bool parada = (elapsed >= TFSEC / 5 && (f.high - f.low) < InpStoppedATR * atr);
+      bool f4 = (lenta || parada);
+      bool wicks = (z.wickTouches >= 2);
+      // Caracteristicas registradas em cada sinal (usam so candles FECHADOS: o ultimo e o anterior)
+      double ef = Ema(last, InpMaFast), es = Ema(last, InpMaSlow);
+      int maF = (ef == EMPTY_VALUE || es == EMPTY_VALUE) ? -1 : ((z.res ? ef < es : ef > es) ? 1 : 0);
+      MqlRates lc = g_r[last];
+      MqlRates pc = g_r[last - 1];
+      double lr = lc.high - lc.low;
+      int rejF = (lr > 0 && WickRatio(lc, z.res) >= InpRejWick) ? 1 : 0;
+      int engF = (Dir(lc) == (z.res ? -1 : 1) && Dir(pc) == (z.res ? 1 : -1) &&
+                  MathMax(lc.open, lc.close) >= MathMax(pc.open, pc.close) &&
+                  MathMin(lc.open, lc.close) <= MathMin(pc.open, pc.close)) ? 1 : 0;
+      int dojiF = (lr > 0 && MathAbs(lc.close - lc.open) <= InpDojiBody * lr) ? 1 : 0;
+      bool ma = !InpUseMA || maF == 1;
+      int h1F = -1;
+      if(g_h1ok) h1F = (z.res ? (entry >= g_h1Up && entry <= g_h1.high) : (entry <= g_h1Dn && entry >= g_h1.low)) ? 1 : 0;
+      // Exaustao: o ultimo candle e bem maior que a media dos 10 anteriores
+      double avg = 0;
+      for(int i = last - 10; i < last; i++) avg += g_r[i].high - g_r[i].low;
+      avg /= 10;
+      int exaF = (avg > 0 && lr >= InpExhaustMult * avg) ? 1 : 0;
+      double rsi = Rsi(last, InpRsiPeriod);
+      int rsiF = (rsi == EMPTY_VALUE) ? -1 : ((z.res ? rsi >= InpRsiHigh : rsi <= InpRsiLow) ? 1 : 0);
+      double vPoc, vVah, vVal;
+      int vpF = -1;
+      if(VolumeProfile(last, InpVpBars, vPoc, vVah, vVal))
+      {
+         double nd = MathMin(MathAbs(entry - vPoc), MathMin(MathAbs(entry - vVah), MathAbs(entry - vVal)));
+         vpF = (nd <= InpVpNearATR * atr) ? 1 : 0;
+      }
+      bool pat = (!InpReqRejection || rejF == 1) && (!InpReqEngulf || engF == 1) && (!InpReqH1 || h1F == 1);
+      string feats = StringFormat("MA=%d;REJ=%d;ENG=%d;DOJI=%d;H1=%d;EXA=%d;RSI=%d;VP=%d", maF, rejF, engF, dojiF, h1F, exaF, rsiF, vpF);
+
+      chk = StringFormat("%s Zona com %d toques\n%s Tempo >= %d:%02d\n%s Velas anteriores\n%s Sem reversao (F1)\n%s Nao nasceu na zona (F2)\n%s Sem 3 velas iguais (F3)\n%s Vela nao lenta/parada (F4)\n%s Sem movimento continuo\n%s 2 toques com pavio%s",
+                         Mk(armed), z.priors, Mk(tempo), InpMinRemaining / 60, InpMinRemaining % 60, Mk(prev), Mk(!f1), Mk(!f2), Mk(!f3), Mk(!f4), Mk(!cont), Mk(wicks),
+                         InpUseMA ? StringFormat("\n%s Medias a favor (hipotese)", Mk(ma)) : "");
+      chk += StringFormat("\nNo ultimo candle: medias %s | rejeicao %s | engolfo %s | doji %s | pavio H1 %s",
+                          maF < 0 ? "?" : (maF == 1 ? "a favor" : "contra"), rejF ? "sim" : "nao", engF ? "sim" : "nao", dojiF ? "sim" : "nao",
+                          h1F < 0 ? "?" : (h1F ? "sim" : "nao"));
+      chk += StringFormat("\nExaustao %s | RSI %s%s | perto do POC/VAH/VAL %s", exaF ? "sim" : "nao",
+                          rsi == EMPTY_VALUE ? "?" : DoubleToString(rsi, 0), rsiF == 1 ? " (extremo)" : "",
+                          vpF < 0 ? "?" : (vpF ? "sim" : "nao"));
+
+      if(f1 || f2 || f3 || f4 || cont)
+      {
+         titulo = "NAO ENTRE"; cor = clrTomato;
+         detalhe = f3 ? "Fluxo de velas da mesma cor." : (f1 ? "Reversao contra a operacao." : (f2 ? "Vela nasceu perto da zona." :
+                   (f4 ? (parada ? "Vela parada na regiao (F4)." : "Vela lenta, so avanca (F4).") : "Movimento continuo sem retracao.")));
+      }
+      else if(armed && tempo && prev && wicks && ma && pat)
+      {
+         titulo = lado + " AGORA"; cor = clrLimeGreen; entrada = true;
+         // horarios do relogio do computador: entrar ate restarem 2:30; a operacao vence no fechamento do M5
+         datetime ate = TimeLocal() + (datetime)(remaining - InpMinRemaining);
+         datetime vence = TimeLocal() + (datetime)remaining;
+         detalhe = StringFormat("Entre ate %s | expira %s (fim do %s)", TimeToString(ate, TIME_SECONDS), TimeToString(vence, TIME_SECONDS), TFNAME);
+      }
+      else
+      {
+         titulo = "ZONA TOCADA"; cor = clrGold;
+         detalhe = !armed ? "Zona ainda sem 2 toques validos." : (!tempo ? "Menos de 2:30: espere o proximo candle." : "Faltam criterios.");
+      }
+
+      if(entrada) MarkSignal(f.time, z.res, entry, feats);
+
+      if(entrada && InpAlert)
+      {
+         string key = StringFormat("%s|%d|%d", _Symbol, z.firstIdx, (int)f.time);
+         if(key != g_lastAlert)
+         {
+            g_lastAlert = key;
+            Alert(StringFormat("Retracao %s %s: %s (restam %d:%02d). Confira antes de entrar.", TFNAME, _Symbol, titulo, (int)(remaining / 60), (int)(remaining % 60)));
+            PlaySound("alert.wav");
+         }
+      }
+   }
+
+   DrawZones(last, f.time);
+   int ganhos = 0, perdas = 0, empates = 0;
+   ResolveSignals(f.time, ganhos, perdas, empates);
+   if(ganhos + perdas + empates > 0)
+   {
+      chk += StringFormat("%sSinais no grafico: %d ganharam, %d perderam%s (fechamento do %s)", chk == "" ? "" : "\n",
+                          ganhos, perdas, empates > 0 ? StringFormat(", %d empate(s)", empates) : "", TFNAME);
+      chk += FeatureLines(ganhos + perdas);
+   }
+   DrawPanel(titulo, detalhe, chk, cor, remaining);
+}
+
+//+------------------------------------------------------------------+
+//| Seta no candle em que surgiu a ENTRADA (uma por candle), no preco |
+//| de entrada. Depois do fechamento, marca o resultado ao lado.      |
+//+------------------------------------------------------------------+
+string SigName(string kind, datetime t) { return(SPFX + kind + "_" + _Symbol + "_" + IntegerToString((long)t)); }
+
+// Placar por caracteristica: [f][1] = com a caracteristica, [f][0] = sem; contagem de ganhos e perdas
+#define NFEAT 8
+string g_featName[NFEAT] = {"Medias a favor", "Rejeicao", "Engolfo", "Doji", "No pavio da vela H1", "Exaustao", "RSI extremo", "Perto do POC/VAH/VAL"};
+string g_featKey[NFEAT]  = {"MA", "REJ", "ENG", "DOJI", "H1", "EXA", "RSI", "VP"};
+int    g_fw[NFEAT][2];
+int    g_fl[NFEAT][2];
+
+int FeatValue(string feats, string key)
+{
+   int p = StringFind(feats, key + "=");
+   if(p < 0) return(-1);
+   return((int)StringToInteger(StringSubstr(feats, p + StringLen(key) + 1, 2)));
+}
+
+string FeatureLines(int n)
+{
+   string out = "";
+   for(int f = 0; f < NFEAT; f++)
+      out += StringFormat("\n%s: com %d/%d | sem %d/%d (ganhou/perdeu)", g_featName[f], g_fw[f][1], g_fl[f][1], g_fw[f][0], g_fl[f][0]);
+   if(n < 50) out += StringFormat("\nAmostra pequena (%d): ainda nao da para concluir nada.", n);
+   return(out);
+}
+
+void AppendCsv(datetime t, bool venda, double entry, double close, string res, string feats)
+{
+   if(!InpExportCsv) return;
+   string fn = CSVPFX + _Symbol + ".csv";
+   int h = FileOpen(fn, FILE_READ | FILE_WRITE | FILE_TXT | FILE_ANSI | FILE_COMMON);
+   if(h == INVALID_HANDLE) return;
+   if(FileSize(h) == 0) FileWriteString(h, "timestamp,simbolo,lado,entrada,fechamento,resultado,ma,rejeicao,engolfo,doji,h1,exaustao,rsi,perfil\n");
+   FileSeek(h, 0, SEEK_END);
+   long tutc = (long)t - (long)(TimeTradeServer() - TimeGMT());
+   FileWriteString(h, StringFormat("%I64d,%s,%s,%s,%s,%s,%d,%d,%d,%d,%d,%d,%d,%d\n", tutc, _Symbol, venda ? "venda" : "compra",
+                                   DoubleToString(entry, _Digits), DoubleToString(close, _Digits),
+                                   res == "ganhou" ? "ganho" : (res == "perdeu" ? "perda" : "empate"),
+                                   FeatValue(feats, "MA"), FeatValue(feats, "REJ"), FeatValue(feats, "ENG"), FeatValue(feats, "DOJI"), FeatValue(feats, "H1"),
+                                   FeatValue(feats, "EXA"), FeatValue(feats, "RSI"), FeatValue(feats, "VP")));
+   FileClose(h);
+}
+
+void MarkSignal(datetime t, bool venda, double price, string feats)
+{
+   string nm = SigName("A", t);
+   if(ObjectFind(0, nm) >= 0) return;                 // ja marcado neste candle
+   ObjectCreate(0, nm, OBJ_ARROW, 0, t, price);
+   ObjectSetInteger(0, nm, OBJPROP_ARROWCODE, venda ? 234 : 233);
+   ObjectSetInteger(0, nm, OBJPROP_ANCHOR, venda ? ANCHOR_BOTTOM : ANCHOR_TOP);
+   ObjectSetInteger(0, nm, OBJPROP_COLOR, venda ? clrTomato : clrLimeGreen);
+   ObjectSetInteger(0, nm, OBJPROP_WIDTH, 5);
+   ObjectSetInteger(0, nm, OBJPROP_SELECTABLE, false);
+   ObjectSetString(0, nm, OBJPROP_TEXT, feats);          // caracteristicas no momento do sinal
+   ObjectSetString(0, nm, OBJPROP_TOOLTIP, StringFormat("%s em %s | %s", venda ? "VENDA" : "COMPRA", DoubleToString(price, _Digits), feats));
+
+   // texto ao lado da seta, na mesma cor
+   string ln = SigName("L", t);
+   ObjectCreate(0, ln, OBJ_TEXT, 0, t, price);
+   ObjectSetString(0, ln, OBJPROP_TEXT, venda ? "  VENDA" : "  COMPRA");
+   ObjectSetInteger(0, ln, OBJPROP_ANCHOR, venda ? ANCHOR_LEFT_LOWER : ANCHOR_LEFT_UPPER);
+   ObjectSetInteger(0, ln, OBJPROP_COLOR, venda ? clrTomato : clrLimeGreen);
+   ObjectSetInteger(0, ln, OBJPROP_FONTSIZE, 10);
+   ObjectSetString(0, ln, OBJPROP_FONT, "Arial Bold");
+   ObjectSetInteger(0, ln, OBJPROP_SELECTABLE, false);
+}
+
+void ResolveSignals(datetime formingT, int &ganhos, int &perdas, int &empates)
+{
+   string pre = SPFX + "A_" + _Symbol + "_";
+   ArrayInitialize(g_fw, 0);
+   ArrayInitialize(g_fl, 0);
+   int total = ObjectsTotal(0, 0, OBJ_ARROW);
+   for(int i = 0; i < total; i++)
+   {
+      string nm = ObjectName(0, i, 0, OBJ_ARROW);
+      if(StringFind(nm, pre) != 0) continue;
+      datetime t = (datetime)ObjectGetInteger(0, nm, OBJPROP_TIME);
+      string rn = SigName("R", t);
+      if(ObjectFind(0, rn) < 0)
+      {
+         if(t >= formingT) continue;                   // candle ainda aberto
+         int k = -1;
+         for(int j = ArraySize(g_r) - 1; j >= 0; j--) if(g_r[j].time == t) { k = j; break; }
+         if(k < 0) continue;
+         bool venda = (ObjectGetInteger(0, nm, OBJPROP_ARROWCODE) == 234);
+         double entry = ObjectGetDouble(0, nm, OBJPROP_PRICE);
+         double close = g_r[k].close;
+         string res = (close == entry) ? "= empate" : (((venda && close < entry) || (!venda && close > entry)) ? "ganhou" : "perdeu");
+         ObjectCreate(0, rn, OBJ_TEXT, 0, t, venda ? g_r[k].high : g_r[k].low);
+         ObjectSetString(0, rn, OBJPROP_TEXT, res);
+         ObjectSetInteger(0, rn, OBJPROP_ANCHOR, venda ? ANCHOR_LOWER : ANCHOR_UPPER);
+         ObjectSetInteger(0, rn, OBJPROP_COLOR, res == "ganhou" ? clrLimeGreen : (res == "perdeu" ? clrTomato : clrSilver));
+         ObjectSetInteger(0, rn, OBJPROP_FONTSIZE, 8);
+         ObjectSetInteger(0, rn, OBJPROP_SELECTABLE, false);
+         AppendCsv(t, venda, entry, close, res, ObjectGetString(0, nm, OBJPROP_TEXT));
+      }
+      string txt = ObjectGetString(0, rn, OBJPROP_TEXT);
+      if(txt == "ganhou") ganhos++;
+      else if(txt == "perdeu") perdas++;
+      else if(txt != "") empates++;
+      if(txt == "ganhou" || txt == "perdeu")
+      {
+         string feats = ObjectGetString(0, nm, OBJPROP_TEXT);
+         for(int f = 0; f < NFEAT; f++)
+         {
+            int v = FeatValue(feats, g_featKey[f]);
+            if(v < 0) continue;                         // caracteristica desconhecida neste sinal
+            if(txt == "ganhou") g_fw[f][v > 0 ? 1 : 0]++;
+            else                g_fl[f][v > 0 ? 1 : 0]++;
+         }
+      }
+   }
+}
+
+string Mk(bool ok) { return(ok ? "[v]" : "[x]"); }
+
+//+------------------------------------------------------------------+
+//| Ultima vela H1 fechada (posicao 1 = a anterior a vela em curso).  |
+//+------------------------------------------------------------------+
+void LoadH1()
+{
+   MqlRates h[];
+   g_h1ok = (CopyRates(_Symbol, PERIOD_H1, 1, 1, h) == 1);
+   if(!g_h1ok) return;
+   g_h1 = h[0];
+   g_h1Up = MathMax(g_h1.open, g_h1.close);
+   g_h1Dn = MathMin(g_h1.open, g_h1.close);
+}
+
+void DrawH1(datetime now)
+{
+   ObjectsDeleteAll(0, PFX + "H");
+   if(!InpShowH1 || !g_h1ok) return;
+   for(int k = 0; k < 2; k++)
+   {
+      string nm = PFX + "H" + IntegerToString(k);
+      double top = k == 0 ? g_h1.high : g_h1Dn;
+      double bot = k == 0 ? g_h1Up : g_h1.low;
+      ObjectCreate(0, nm, OBJ_RECTANGLE, 0, g_h1.time, top, now + 600, bot);
+      ObjectSetInteger(0, nm, OBJPROP_COLOR, k == 0 ? C'150,90,20' : C'30,90,150');
+      ObjectSetInteger(0, nm, OBJPROP_STYLE, STYLE_DOT);
+      ObjectSetInteger(0, nm, OBJPROP_FILL, false);
+      ObjectSetInteger(0, nm, OBJPROP_WIDTH, 2);
+      ObjectSetInteger(0, nm, OBJPROP_BACK, true);
+      ObjectSetInteger(0, nm, OBJPROP_SELECTABLE, false);
+      ObjectSetString(0, nm, OBJPROP_TOOLTIP, k == 0 ? "Pavio superior da ultima vela H1" : "Pavio inferior da ultima vela H1");
+   }
+}
+
+//+------------------------------------------------------------------+
+void DrawZones(int last, datetime now)
+{
+   ObjectsDeleteAll(0, PFX + "Z");
+   DrawH1(now);
+   for(int i = 0; i < ArraySize(g_z); i++)
+   {
+      string nm = PFX + "Z" + IntegerToString(i);
+      bool armed = (g_z[i].priors >= InpMinPrior);
+      if(InpOnlyArmed && !armed) continue;
+      color c = g_z[i].res ? (armed ? C'120,40,40' : C'60,30,30') : (armed ? C'30,100,60' : C'25,50,35');
+      ObjectCreate(0, nm, OBJ_RECTANGLE, 0, g_r[g_z[i].firstIdx].time, g_z[i].upper, now + 600, g_z[i].lower);
+      ObjectSetInteger(0, nm, OBJPROP_COLOR, c);
+      ObjectSetInteger(0, nm, OBJPROP_FILL, true);
+      ObjectSetInteger(0, nm, OBJPROP_BACK, true);
+      ObjectSetInteger(0, nm, OBJPROP_SELECTABLE, false);
+      ObjectSetString(0, nm, OBJPROP_TOOLTIP, StringFormat("%s: %d toque(s) valido(s)", g_z[i].res ? "Resistencia" : "Suporte", g_z[i].priors));
+   }
+}
+
+void DrawPanel(string titulo, string detalhe, string chk, color cor, long remaining)
+{
+   string lines[];
+   int k = StringSplit(chk, '\n', lines);
+   int y0 = InpPanelY;
+   int altura = 106 + MathMax(k, 0) * 15 + 26;
+   // fundo escuro primeiro: os textos criados depois ficam por cima e nao se misturam com as velas
+   string bg = PFX + "BG";
+   if(ObjectFind(0, bg) < 0)
+   {
+      ObjectCreate(0, bg, OBJ_RECTANGLE_LABEL, 0, 0, 0);
+      ObjectSetInteger(0, bg, OBJPROP_CORNER, CORNER_LEFT_UPPER);
+      ObjectSetInteger(0, bg, OBJPROP_XDISTANCE, 4);
+      ObjectSetInteger(0, bg, OBJPROP_BGCOLOR, C'16,20,32');
+      ObjectSetInteger(0, bg, OBJPROP_BORDER_TYPE, BORDER_FLAT);
+      ObjectSetInteger(0, bg, OBJPROP_COLOR, C'60,70,90');
+      ObjectSetInteger(0, bg, OBJPROP_SELECTABLE, false);
+   }
+   ObjectSetInteger(0, bg, OBJPROP_YDISTANCE, y0 - 6);
+   ObjectSetInteger(0, bg, OBJPROP_XSIZE, 560);
+   ObjectSetInteger(0, bg, OBJPROP_YSIZE, altura);
+
+   Label("T", titulo, 20, cor, y0);
+   Label("D", detalhe, 10, clrWhite, y0 + 32);
+   Label("C", StringFormat("Cronometro %s: %d:%02d", TFNAME, (int)(remaining / 60), (int)(remaining % 60)), 12,
+         remaining >= InpMinRemaining ? clrLimeGreen : clrTomato, y0 + 52);
+   ObjectsDeleteAll(0, PFX + "K");
+   for(int i = 0; i < k; i++) Label("K" + IntegerToString(i), lines[i], 9, clrSilver, y0 + 76 + i * 15);
+   Label("A", TFSEC < 300 ? TFNAME + " EXPERIMENTAL: regras sem base em aula. So para medir em conta demo."
+                         : "Somente leitura. Nao garante resultado. Voce entra na corretora.", 8, TFSEC < 300 ? clrOrange : clrGray, y0 + 76 + MathMax(k, 0) * 15 + 6);
+   ChartRedraw();
+}
+
+void Label(string id, string text, int size, color c, int y)
+{
+   string nm = PFX + id;
+   if(ObjectFind(0, nm) < 0)
+   {
+      ObjectCreate(0, nm, OBJ_LABEL, 0, 0, 0);
+      ObjectSetInteger(0, nm, OBJPROP_CORNER, CORNER_LEFT_UPPER);
+      ObjectSetInteger(0, nm, OBJPROP_XDISTANCE, 12);
+      ObjectSetInteger(0, nm, OBJPROP_SELECTABLE, false);
+   }
+   ObjectSetInteger(0, nm, OBJPROP_YDISTANCE, y);
+   ObjectSetInteger(0, nm, OBJPROP_FONTSIZE, size);
+   ObjectSetInteger(0, nm, OBJPROP_COLOR, c);
+   ObjectSetString(0, nm, OBJPROP_FONT, "Arial Bold");
+   ObjectSetString(0, nm, OBJPROP_TEXT, text);
+}
+//+------------------------------------------------------------------+

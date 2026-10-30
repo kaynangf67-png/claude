@@ -108,4 +108,17 @@ describe('segurança dos arquivos MQL5 (script e indicador)', () => {
     expect(ind).toMatch(/InpMinRemaining\s*=\s*150;/);
     expect(ind).toMatch(/InpUseMA\s*=\s*false;/);
   });
+
+  it('o M1Retracao é o mesmo motor em M1, marcado como experimental e com CSV separado', () => {
+    const m5 = readFileSync(join(dir, 'M5Retracao.mq5'), 'utf8');
+    const m1 = readFileSync(join(dir, 'M1Retracao.mq5'), 'utf8');
+    expect(m1).toMatch(/#define TF\s+PERIOD_M1/);
+    expect(m1).toMatch(/#define TFSEC\s+60/);
+    expect(m1).toContain('"m1sinais_"');
+    expect(m1).toMatch(/InpMinRemaining\s*=\s*30;/);
+    expect(m1).toContain('EXPERIMENTAL');
+    // fora do bloco trocado pelo gerador, o corpo é idêntico: corta a partir de OnInit
+    const corpo = (s: string) => s.slice(s.indexOf('int OnInit'));
+    expect(corpo(m1)).toBe(corpo(m5));
+  });
 });

@@ -96,3 +96,9 @@ O agente lê o mesmo arquivo, registra entradas **virtuais** e resolve no fecham
 ## TradingView
 
 Não implementei. Para ler dados do TradingView seria preciso um indicador em Pine Script mais alertas/webhook ou exportação manual de CSV, e o que está disponível depende do seu plano; eu não consigo testar Pine aqui. Se o MT5 resolver, não há motivo para trocar.
+
+## M1 experimental (`mql5/M1Retracao.mq5`)
+
+O mesmo motor do M5Retracao rodando em velas de 1 minuto. **As regras das aulas são de M5**: em M1 os valores não têm base, e o acerto é desconhecido. O gatilho vira 30 s restantes (metade da vela), a "vela lenta" do F4 fica desligada (não há minutos fechados dentro de uma vela M1) e a "vela parada" usa 1/5 da vela (12 s). Os sinais vão para `m1sinais_PAR.csv`, separados do M5. Use só para medir em conta demo.
+
+O arquivo é **gerado**: não edite o M1Retracao à mão. Mude o M5Retracao e rode `python3 mql5/gerar-m1.py`. Um teste confere que os dois têm o mesmo corpo.

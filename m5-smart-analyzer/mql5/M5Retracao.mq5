@@ -63,6 +63,11 @@ input int    InpPanelY        = 95;    // Distancia do painel ao topo (abaixo da
 #define PFX "M5R_"
 #define SPFX "M5RS_"   // sinais: ficam no grafico ao trocar de tempo grafico
 #define NBARS 300
+// Tempo grafico do motor (o M1Retracao.mq5 e gerado a partir deste arquivo trocando so este bloco)
+#define TF      PERIOD_M5
+#define TFSEC   300
+#define TFNAME  "M5"
+#define CSVPFX  "m5sinais_"
 
 struct Zone
 {
@@ -306,8 +311,8 @@ int Rel(const Zone &z, const MqlRates &c, double tol)
 //+------------------------------------------------------------------+
 void Update()
 {
-   int got = CopyRates(_Symbol, PERIOD_M5, 0, NBARS, g_r);
-   if(got < InpContext + 20) { Comment("M5 Retracao: carregando historico M5..."); return; }
+   int got = CopyRates(_Symbol, TF, 0, NBARS, g_r);
+   if(got < InpContext + 20) { Comment("Retracao " + TFNAME + ": carregando historico..."); return; }
    int n = got;
    int last = n - 2;                                   // ultimo candle FECHADO
    MqlRates f = g_r[n - 1];                            // candle em formacao
@@ -329,9 +334,9 @@ void Update()
       if(touching && (best < 0 || g_z[i].priors > g_z[best].priors)) best = i;
    }
 
-   long remaining = (long)f.time + 300 - (long)TimeTradeServer();
+   long remaining = (long)f.time + TFSEC - (long)TimeTradeServer();
    if(remaining < 0) remaining = 0;
-   if(remaining > 300) remaining = 300;
+   if(remaining > TFSEC) remaining = TFSEC;
 
    // F3: fluxo da mesma cor terminando no ultimo candle fechado
    int d = Dir(g_r[last]), run = 0;
@@ -387,9 +392,9 @@ void Update()
       }
       steps += MathAbs(entry - prevPx);
       double slowEff = steps > 0 ? MathAbs(entry - f.open) / steps : 0;
-      long elapsed = 300 - remaining;
+      long elapsed = TFSEC - remaining;
       bool lenta = (closedM1 >= 1 && slowEff > InpSlowEff);
-      bool parada = (elapsed >= 60 && (f.high - f.low) < InpStoppedATR * atr);
+      bool parada = (elapsed >= TFSEC / 5 && (f.high - f.low) < InpStoppedATR * atr);
       bool f4 = (lenta || parada);
       bool wicks = (z.wickTouches >= 2);
       // Caracteristicas registradas em cada sinal (usam so candles FECHADOS: o ultimo e o anterior)
@@ -445,7 +450,7 @@ void Update()
          // horarios do relogio do computador: entrar ate restarem 2:30; a operacao vence no fechamento do M5
          datetime ate = TimeLocal() + (datetime)(remaining - InpMinRemaining);
          datetime vence = TimeLocal() + (datetime)remaining;
-         detalhe = StringFormat("Entre ate %s | expira %s (fim do M5)", TimeToString(ate, TIME_SECONDS), TimeToString(vence, TIME_SECONDS));
+         detalhe = StringFormat("Entre ate %s | expira %s (fim do %s)", TimeToString(ate, TIME_SECONDS), TimeToString(vence, TIME_SECONDS), TFNAME);
       }
       else
       {
@@ -461,7 +466,7 @@ void Update()
          if(key != g_lastAlert)
          {
             g_lastAlert = key;
-            Alert(StringFormat("M5 Retracao %s: %s (restam %d:%02d). Confira antes de entrar.", _Symbol, titulo, (int)(remaining / 60), (int)(remaining % 60)));
+            Alert(StringFormat("Retracao %s %s: %s (restam %d:%02d). Confira antes de entrar.", TFNAME, _Symbol, titulo, (int)(remaining / 60), (int)(remaining % 60)));
             PlaySound("alert.wav");
          }
       }
@@ -472,8 +477,8 @@ void Update()
    ResolveSignals(f.time, ganhos, perdas, empates);
    if(ganhos + perdas + empates > 0)
    {
-      chk += StringFormat("%sSinais no grafico: %d ganharam, %d perderam%s (fechamento do M5)", chk == "" ? "" : "\n",
-                          ganhos, perdas, empates > 0 ? StringFormat(", %d empate(s)", empates) : "");
+      chk += StringFormat("%sSinais no grafico: %d ganharam, %d perderam%s (fechamento do %s)", chk == "" ? "" : "\n",
+                          ganhos, perdas, empates > 0 ? StringFormat(", %d empate(s)", empates) : "", TFNAME);
       chk += FeatureLines(ganhos + perdas);
    }
    DrawPanel(titulo, detalhe, chk, cor, remaining);
@@ -511,7 +516,7 @@ string FeatureLines(int n)
 void AppendCsv(datetime t, bool venda, double entry, double close, string res, string feats)
 {
    if(!InpExportCsv) return;
-   string fn = "m5sinais_" + _Symbol + ".csv";
+   string fn = CSVPFX + _Symbol + ".csv";
    int h = FileOpen(fn, FILE_READ | FILE_WRITE | FILE_TXT | FILE_ANSI | FILE_COMMON);
    if(h == INVALID_HANDLE) return;
    if(FileSize(h) == 0) FileWriteString(h, "timestamp,simbolo,lado,entrada,fechamento,resultado,ma,rejeicao,engolfo,doji,h1,exaustao,rsi,perfil\n");
@@ -676,11 +681,12 @@ void DrawPanel(string titulo, string detalhe, string chk, color cor, long remain
 
    Label("T", titulo, 20, cor, y0);
    Label("D", detalhe, 10, clrWhite, y0 + 32);
-   Label("C", StringFormat("Cronometro M5: %d:%02d", (int)(remaining / 60), (int)(remaining % 60)), 12,
+   Label("C", StringFormat("Cronometro %s: %d:%02d", TFNAME, (int)(remaining / 60), (int)(remaining % 60)), 12,
          remaining >= InpMinRemaining ? clrLimeGreen : clrTomato, y0 + 52);
    ObjectsDeleteAll(0, PFX + "K");
    for(int i = 0; i < k; i++) Label("K" + IntegerToString(i), lines[i], 9, clrSilver, y0 + 76 + i * 15);
-   Label("A", "Somente leitura. Nao garante resultado. Voce entra na corretora.", 8, clrGray, y0 + 76 + MathMax(k, 0) * 15 + 6);
+   Label("A", TFSEC < 300 ? TFNAME + " EXPERIMENTAL: regras sem base em aula. So para medir em conta demo."
+                         : "Somente leitura. Nao garante resultado. Voce entra na corretora.", 8, TFSEC < 300 ? clrOrange : clrGray, y0 + 76 + MathMax(k, 0) * 15 + 6);
    ChartRedraw();
 }
 
