@@ -14,11 +14,7 @@
     "noUnusedParameters": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "isolatedModules": true,
-    "types": [
-      "vite/client",
-      "node"
-    ]
+    "isolatedModules": true
   },
   "include": [
     "src",
