@@ -19,9 +19,9 @@
 input int    InpBars       = 288;      // Velas M5 no perfil (288 = 24 horas)
 input int    InpBins       = 60;       // Faixas de preco do histograma
 input double InpValueArea  = 0.70;     // Area de valor (fracao do volume)
-input int    InpWidthBars  = 40;       // Largura maxima do histograma (em velas, a partir da vela atual)
-input color  InpColor      = C'60,70,95';    // Cor das barras
-input color  InpVaColor    = C'70,95,140';   // Cor das barras dentro da area de valor
+input int    InpWidthBars  = 18;       // Largura maxima do histograma (em velas, a partir da vela atual)
+input color  InpColor      = C'32,36,48';    // Cor das barras (escura: fica de fundo)
+input color  InpVaColor    = C'40,52,74';    // Cor das barras dentro da area de valor
 input color  InpPocColor   = clrGold;        // Cor da linha do POC
 input color  InpVaLineColor = clrSilver;     // Cor das linhas VAH / VAL
 
