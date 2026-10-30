@@ -45,6 +45,7 @@ export interface Status {
   server_time: number;
   assets_total: number;
   assets_live: number;
+  assets_fresh: number;
   assets_stale: number;
   simulated_present: boolean;
   active_signals: number;

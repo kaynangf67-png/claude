@@ -11,7 +11,7 @@ export function Card({ children, className, title, action, pad = true }: {
   children: ReactNode; className?: string; title?: ReactNode; action?: ReactNode; pad?: boolean;
 }) {
   return (
-    <section className={cx("rounded-2xl border border-line bg-card shadow-card animate-fade", className)}>
+    <section className={cx("min-w-0 rounded-2xl border border-line bg-card shadow-card animate-fade", className)}>
       {(title || action) && (
         <header className="flex items-center justify-between gap-3 border-b border-line px-5 py-3.5">
           <h2 className="text-[13px] font-semibold tracking-wide text-ink">{title}</h2>

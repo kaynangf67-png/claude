@@ -242,6 +242,7 @@ class Core:
             "running": self.running, "started_at": self.started_at, "last_cycle": self.last_cycle,
             "cycles": self.cycles, "timeframe": "M5", "server_time": time.time(),
             "assets_total": len(assets), "assets_live": sum(1 for a in assets if a.is_live and not a.is_stale()),
+            "assets_fresh": sum(1 for a in assets if not a.is_stale()),
             "assets_stale": sum(1 for a in assets if a.is_stale()),
             "simulated_present": any(not a.is_live for a in assets),
             "active_signals": len(self.signals.active()),
