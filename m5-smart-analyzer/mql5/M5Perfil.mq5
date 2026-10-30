@@ -19,7 +19,7 @@
 input int    InpBars       = 288;      // Velas M5 no perfil (288 = 24 horas)
 input int    InpBins       = 60;       // Faixas de preco do histograma
 input double InpValueArea  = 0.70;     // Area de valor (fracao do volume)
-input int    InpWidthBars  = 40;       // Largura maxima do histograma (em velas)
+input int    InpWidthBars  = 40;       // Largura maxima do histograma (em velas, a partir da vela atual)
 input color  InpColor      = C'60,70,95';    // Cor das barras
 input color  InpVaColor    = C'70,95,140';   // Cor das barras dentro da area de valor
 input color  InpPocColor   = clrGold;        // Cor da linha do POC
@@ -112,8 +112,9 @@ bool Draw()
    {
       if(vol[k] <= 0) continue;
       string nm = PFX + "B" + IntegerToString(k);
-      datetime t1 = (datetime)((long)t0 + (long)(width * vol[k] / maxV));
-      ObjectCreate(0, nm, OBJ_RECTANGLE, 0, t0, lo + k * step, t1, lo + (k + 1) * step);
+      // barras coladas na direita (vela atual), crescendo para a esquerda
+      datetime t1 = (datetime)((long)tEnd - (long)(width * vol[k] / maxV));
+      ObjectCreate(0, nm, OBJ_RECTANGLE, 0, t1, lo + k * step, tEnd, lo + (k + 1) * step);
       ObjectSetInteger(0, nm, OBJPROP_COLOR, (k >= va0 && k <= va1) ? InpVaColor : InpColor);
       ObjectSetInteger(0, nm, OBJPROP_FILL, true);
       ObjectSetInteger(0, nm, OBJPROP_BACK, true);
