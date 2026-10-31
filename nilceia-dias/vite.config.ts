@@ -62,9 +62,14 @@ export default defineConfig(({ mode, isSsrBuild }) => {
   const siteUrl = (env.VITE_SITE_URL || '').replace(/\/$/, '');
   return {
     plugins: [react(), tailwindcss(), seo(siteUrl)],
+    // `vite build --mode preview-artifact`: uma única página com tudo embutido
+    // (imagens e fontes em data URI), para pré-visualização privada fora da Vercel.
+    ...(mode === 'preview-artifact' ? { base: './' } : {}),
     build: isSsrBuild
       ? { outDir: 'dist-ssr', emptyOutDir: true }
-      : {
+      : mode === 'preview-artifact'
+        ? { outDir: 'dist-preview', assetsInlineLimit: 100_000_000, rollupOptions: { input: { home: resolve(import.meta.dirname, 'index.html') } } }
+        : {
           rollupOptions: {
             input: Object.fromEntries(Object.entries(pageEntries).map(([k, f]) => [k, resolve(import.meta.dirname, f)])),
           },
