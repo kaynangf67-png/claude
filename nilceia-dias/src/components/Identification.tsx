@@ -48,7 +48,7 @@ export function Identification() {
               } ${i === 2 ? 'lg:pr-0' : ''}`}
               style={{ transitionDelay: `${i * 90}ms` }}
             >
-              <span aria-hidden="true" className="display text-[3.4rem] leading-none text-gold italic">
+              <span aria-hidden="true" className="display text-[2.8rem] leading-none text-gold">
                 {p.letter}
               </span>
               <h3 className="mt-5 text-[0.82rem] leading-relaxed font-semibold tracking-[0.16em] uppercase">{p.title}</h3>

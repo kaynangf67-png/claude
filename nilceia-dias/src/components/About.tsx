@@ -21,11 +21,11 @@ export function About({ intent }: { intent: Intent }) {
               <span className="absolute inset-4 border border-gold/40" aria-hidden="true" />
               {facts.years.show ? (
                 <>
-                  <span className="display text-[9rem] leading-[0.8] sm:text-[11rem]">{facts.years.value}</span>
+                  <span className="display text-[7rem] leading-[0.85] sm:text-[8.5rem]">{facts.years.value}</span>
                   <span className="mt-4 text-[0.7rem] font-semibold tracking-[0.3em] text-gold-ink uppercase">{facts.years.label}</span>
                 </>
               ) : (
-                <span className="display text-[4rem] italic">ND</span>
+                <span className="display text-[3.4rem]">ND</span>
               )}
             </div>
           )}
@@ -37,7 +37,7 @@ export function About({ intent }: { intent: Intent }) {
             Experiência que se traduz <em className="accent">em cuidado.</em>
           </h2>
           <blockquote className="reveal mt-8">
-            <p className="display text-[1.5rem] leading-[1.45] text-onyx sm:text-[1.75rem]">
+            <p className="display text-[1.25rem] leading-[1.5] text-onyx sm:text-[1.45rem]">
               “São anos dedicados à beleza, ao cuidado e aos momentos especiais de tantas mulheres. Acredito que cada atendimento deve
               respeitar a individualidade de cada cliente, valorizando suas preferências e entendendo o que realmente procura.”
             </p>

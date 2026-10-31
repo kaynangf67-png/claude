@@ -16,7 +16,7 @@ export function Authority() {
           {items.map((it, i) => {
             const body = (
               <>
-                <span className="display block text-[2.6rem] leading-none text-paper sm:text-[3.4rem]">{it.value}</span>
+                <span className="display block text-[2.1rem] leading-none text-paper sm:text-[2.8rem]">{it.value}</span>
                 <span className="mt-2 flex items-start gap-1 text-[0.66rem] leading-snug font-semibold tracking-[0.18em] text-muted-dark uppercase">
                   {it.label}
                   {it.href?.startsWith('http') && <ArrowUpRight aria-hidden="true" strokeWidth={1.5} className="size-3 shrink-0 text-gold" />}

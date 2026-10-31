@@ -97,7 +97,7 @@ export function Header({ page }: { page: PageConfig }) {
                 <li key={l.id}>
                   <a href={l.href} onClick={() => setOpen(false)} className="flex min-h-16 items-baseline gap-4 py-4">
                     <span className="text-[0.7rem] font-semibold tracking-[0.2em] text-gold-ink">0{i + 1}</span>
-                    <span className="display text-[2rem] leading-none">{l.label}</span>
+                    <span className="display text-[1.7rem] leading-none">{l.label}</span>
                   </a>
                 </li>
               ))}

@@ -114,7 +114,7 @@ export function Gallery() {
           </ul>
         ) : (
           <div className="reveal mt-12 grid gap-6 border border-line p-7 sm:p-10 lg:grid-cols-12 lg:items-center">
-            <p className="display text-[1.6rem] leading-snug lg:col-span-8 sm:text-[1.9rem]">
+            <p className="display text-[1.3rem] leading-snug lg:col-span-8 sm:text-[1.55rem]">
               Os trabalhos reais da Nilcéia, de produções de noivas a cortes e penteados, ficam reunidos no Instagram do salão.
             </p>
             <div className="lg:col-span-4 lg:text-right">

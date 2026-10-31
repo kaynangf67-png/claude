@@ -18,7 +18,7 @@ export function Steps({ intent }: { intent: Intent }) {
         <ol className="mt-14 grid gap-0 lg:grid-cols-3">
           {STEPS.map((s, i) => (
             <li key={s.n} className={`reveal border-t border-gold/25 py-8 lg:py-10 ${i > 0 ? 'lg:border-l lg:pl-10' : 'lg:pr-10'}`} style={{ transitionDelay: `${i * 90}ms` }}>
-              <span className="display text-[3.2rem] leading-none text-gold">{s.n}</span>
+              <span className="display text-[2.6rem] leading-none text-gold">{s.n}</span>
               <h3 className="mt-5 text-[0.8rem] font-semibold tracking-[0.18em] text-paper uppercase">{s.title}</h3>
               <p className="mt-3 max-w-xs text-muted-dark">{s.text}</p>
             </li>

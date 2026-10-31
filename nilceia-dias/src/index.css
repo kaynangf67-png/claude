@@ -1,11 +1,11 @@
 @import 'tailwindcss';
-@import '@fontsource-variable/cormorant-garamond/wght.css';
-@import '@fontsource-variable/cormorant-garamond/wght-italic.css';
-@import '@fontsource-variable/montserrat/wght.css';
+/* Arial em todo o site. Android não tem Arial instalada: lá entra a Arimo,
+   fonte livre com as mesmas medidas da Arial, baixada só se a Arial faltar. */
+@import '@fontsource-variable/arimo/wght.css';
 
 @theme {
-  --font-sans: 'Montserrat Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --font-display: 'Cormorant Garamond Variable', 'Cormorant Garamond', ui-serif, Georgia, serif;
+  --font-sans: Arial, 'Arimo Variable', 'Liberation Sans', Helvetica, sans-serif;
+  --font-display: Arial, 'Arimo Variable', 'Liberation Sans', Helvetica, sans-serif;
 
   --color-paper: #f9f8f6;
   --color-onyx: #1a1a1a;
@@ -63,7 +63,7 @@
 @utility display {
   font-family: var(--font-display);
   font-weight: 400;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.025em;
   text-wrap: balance;
   font-variant-numeric: lining-nums;
 }
@@ -91,16 +91,16 @@
     @apply h-px w-7 bg-gold;
   }
   .h-hero {
-    @apply display text-[2.75rem] leading-[0.98] sm:text-6xl lg:text-[5.4rem];
+    @apply display text-[2.3rem] leading-[1.05] sm:text-[3.2rem] lg:text-[4.3rem];
   }
   .h-section {
-    @apply display text-[2.25rem] leading-[1.04] sm:text-5xl lg:text-[3.6rem];
+    @apply display text-[1.9rem] leading-[1.1] sm:text-[2.5rem] lg:text-[2.95rem];
   }
   .h-card {
-    @apply display text-[1.75rem] leading-[1.1] sm:text-[2rem];
+    @apply display text-[1.45rem] leading-[1.2] sm:text-[1.65rem];
   }
   .accent {
-    @apply font-display italic;
+    @apply font-display;
     color: var(--color-gold-ink);
   }
   .on-dark .accent {

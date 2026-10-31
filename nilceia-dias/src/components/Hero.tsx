@@ -34,12 +34,12 @@ export function Hero({ page }: { page: PageConfig }) {
               {proofs.map((f, i) => (
                 <div key={f.label} className={`flex flex-col ${i > 0 ? 'border-l border-line pl-6 sm:pl-10' : ''}`}>
                   <dt className="order-2 mt-1 text-[0.68rem] font-semibold tracking-[0.18em] text-muted uppercase">{f.label}</dt>
-                  <dd className="display order-1 text-[2.4rem] leading-none sm:text-5xl">{f.value}</dd>
+                  <dd className="display order-1 text-[2rem] leading-none sm:text-[2.6rem]">{f.value}</dd>
                 </div>
               ))}
               <div className="hidden flex-col border-l border-line pl-10 sm:flex">
                 <dt className="order-2 mt-1 text-[0.68rem] font-semibold tracking-[0.18em] text-muted uppercase">no Casamentos.com.br</dt>
-                <dd className="display order-1 text-5xl leading-none">{brand.casamentos.rating}</dd>
+                <dd className="display order-1 text-[2.6rem] leading-none">{brand.casamentos.rating}</dd>
               </div>
             </dl>
           )}

@@ -22,7 +22,7 @@ export function FAQ() {
               onToggle={(e) => (e.currentTarget as HTMLDetailsElement).open && track('faq_open', { faq_index: i + 1 }, { once: `faq-${i}` })}
             >
               <summary className="flex min-h-16 cursor-pointer list-none items-center justify-between gap-6 py-5 [&::-webkit-details-marker]:hidden">
-                <span className="display text-[1.35rem] leading-snug sm:text-[1.55rem]">{f.question}</span>
+                <span className="display text-[1.1rem] leading-snug sm:text-[1.25rem]">{f.question}</span>
                 <Plus aria-hidden="true" strokeWidth={1.25} className="size-5 shrink-0 text-gold-ink transition-transform duration-300 group-open:rotate-45" />
               </summary>
               <div className="pb-7">

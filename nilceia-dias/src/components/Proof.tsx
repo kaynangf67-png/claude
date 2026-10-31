@@ -22,7 +22,7 @@ export function Proof() {
             className="group block border-t border-onyx pt-8"
           >
             <div className="flex items-end gap-5">
-              <span className="display text-[5.5rem] leading-[0.8] sm:text-[7rem]">{brand.casamentos.rating}</span>
+              <span className="display text-[4.4rem] leading-[0.85] sm:text-[5.6rem]">{brand.casamentos.rating}</span>
               <span aria-hidden="true" className="mb-2 flex gap-1 text-gold">
                 {Array.from({ length: 5 }, (_, i) => (
                   <svg key={i} viewBox="0 0 20 20" className="size-4"><path fill="currentColor" d="m10 1.5 2.6 5.6 6.1.7-4.5 4.2 1.2 6L10 15l-5.4 3 1.2-6-4.5-4.2 6.1-.7Z" /></svg>
@@ -42,7 +42,7 @@ export function Proof() {
             {reviews.map((r) => (
               <li key={r.author + r.text.slice(0, 20)} className="reveal border-t border-line pt-6">
                 <blockquote>
-                  <p className="display text-[1.35rem] leading-snug">“{r.text}”</p>
+                  <p className="display text-[1.15rem] leading-snug">“{r.text}”</p>
                   <footer className="mt-4 text-[0.72rem] font-semibold tracking-[0.16em] text-muted uppercase">
                     {r.author} · {r.source}
                     {r.date ? ` · ${r.date}` : ''}

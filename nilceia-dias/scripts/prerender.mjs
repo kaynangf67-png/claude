@@ -1,6 +1,6 @@
 // Pré-renderiza cada página em HTML estático (melhor LCP, SEO e prévias de link).
 // Roda depois de `vite build` (cliente) e `vite build --ssr` (servidor).
-import { readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -15,12 +15,6 @@ const files = {
   privacidade: 'privacidade/index.html',
 };
 
-// Pré-carrega as duas fontes latinas usadas acima da dobra.
-const assets = readdirSync(resolve(root, 'dist/assets'));
-const fontPreloads = ['cormorant-garamond-latin-wght-normal', 'montserrat-latin-wght-normal']
-  .map((n) => assets.find((f) => f.startsWith(n) && f.endsWith('.woff2')))
-  .filter(Boolean)
-  .map((f) => `<link rel="preload" href="/assets/${f}" as="font" type="font/woff2" crossorigin />`);
 
 for (const [key, file] of Object.entries(files)) {
   const path = resolve(root, 'dist', file);
@@ -30,7 +24,7 @@ for (const [key, file] of Object.entries(files)) {
   // Imagem do hero (LCP) com prioridade de download.
   const hero = /<img[^>]*fetchPriority="high"[^>]*>|<img[^>]*fetchpriority="high"[^>]*>/i.exec(body)?.[0];
   const heroSrc = hero && /src="([^"]+)"/.exec(hero)?.[1];
-  const preloads = [...fontPreloads, heroSrc && `<link rel="preload" href="${heroSrc}" as="image" fetchpriority="high" />`]
+  const preloads = [heroSrc && `<link rel="preload" href="${heroSrc}" as="image" fetchpriority="high" />`]
     .filter(Boolean)
     .join('\n    ');
   writeFileSync(path, html.replace('<!--app-html-->', body).replace('</title>', `</title>\n    ${preloads}`));

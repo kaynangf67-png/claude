@@ -32,7 +32,7 @@ export function Brides() {
             />
             {facts.brides.show && (
               <div className="absolute right-0 -bottom-6 bg-paper px-6 py-5 text-onyx sm:-right-6">
-                <p className="display text-[2.6rem] leading-none">{facts.brides.value}</p>
+                <p className="display text-[2.2rem] leading-none">{facts.brides.value}</p>
                 <p className="mt-1 text-[0.62rem] font-semibold tracking-[0.2em] text-muted uppercase">{facts.brides.label}</p>
               </div>
             )}
@@ -52,7 +52,7 @@ export function Brides() {
           <ul className="mt-10 grid gap-x-10 sm:grid-cols-2">
             {POINTS.map((pt) => (
               <li key={pt.title} className="reveal border-t border-gold/25 py-6">
-                <h3 className="display text-[1.45rem] leading-tight text-paper">{pt.title}</h3>
+                <h3 className="display text-[1.2rem] leading-tight text-paper">{pt.title}</h3>
                 <p className="mt-2 text-[0.95rem] text-muted-dark">{pt.text}</p>
               </li>
             ))}

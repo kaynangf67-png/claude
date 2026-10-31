@@ -58,7 +58,7 @@ export function DirectionsLink({ source, className, children }: { source: string
 export function Wordmark({ dark = false, compact = false }: { dark?: boolean; compact?: boolean }) {
   return (
     <span className="flex flex-col leading-none">
-      <span className={`font-display ${compact ? 'text-[1.45rem]' : 'text-[1.7rem]'} tracking-[0.01em] ${dark ? 'text-champagne' : 'text-onyx'}`}>
+      <span className={`font-display ${compact ? 'text-[1.2rem]' : 'text-[1.4rem]'} tracking-[-0.01em] ${dark ? 'text-champagne' : 'text-onyx'}`}>
         Nilcéia Dias
       </span>
       <span className={`mt-1 text-[0.56rem] font-semibold tracking-[0.42em] uppercase ${dark ? 'text-gold' : 'text-gold-ink'}`}>
