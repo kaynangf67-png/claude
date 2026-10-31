@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  AlertTriangle, ArrowDownRight, ArrowUpRight, Ban, Check, ImagePlus, Loader2, RefreshCw, Trash2, X,
+  AlertTriangle, ArrowDownRight, ArrowUpRight, Ban, Check, ClipboardPaste, ImagePlus, Loader2, RefreshCw, Trash2, X,
 } from "lucide-react";
 import type { Result } from "../server/analyze";
 import { prepareImage } from "./lib/image";
@@ -73,6 +73,9 @@ export default function App() {
     } catch { /* sem armazenamento */ }
   }, [payout]);
 
+  // null = escondida; texto = caixa de "toque e segure → Colar" aberta com essa explicação
+  const [pasteBox, setPasteBox] = useState<string | null>(null);
+
   const take = useCallback((b: Blob | null | undefined, when?: number) => {
     if (!b || !b.type.startsWith("image/")) return;
     setBlob(b);
@@ -80,6 +83,7 @@ export default function App() {
     setResult(null);
     setTiming(null);
     setError(null);
+    setPasteBox(null);
     setPreview((old) => {
       if (old) URL.revokeObjectURL(old);
       return URL.createObjectURL(b);
@@ -89,11 +93,38 @@ export default function App() {
   useEffect(() => {
     const onPaste = (e: ClipboardEvent) => {
       const item = [...(e.clipboardData?.items ?? [])].find((i) => i.type.startsWith("image/"));
-      if (item) take(item.getAsFile(), Date.now());
+      if (item) {
+        e.preventDefault();
+        take(item.getAsFile(), Date.now());
+      } else if (e.target instanceof HTMLTextAreaElement) {
+        e.preventDefault();
+        setPasteBox("O que foi colado não é uma imagem. Copie o print (não o texto) e tente de novo.");
+      }
     };
     window.addEventListener("paste", onPaste);
     return () => window.removeEventListener("paste", onPaste);
   }, [take]);
+
+  /** Botão "Colar imagem copiada": lê a área de transferência; se o navegador não deixar, abre a caixa de colar. */
+  const pasteFromClipboard = async () => {
+    const manual = "Seu navegador não deixa colar pelo botão. Toque e segure na caixa abaixo e escolha Colar.";
+    if (!navigator.clipboard?.read) {
+      setPasteBox(manual);
+      return;
+    }
+    try {
+      for (const item of await navigator.clipboard.read()) {
+        const type = item.types.find((t) => t.startsWith("image/"));
+        if (type) {
+          take(await item.getType(type), Date.now());
+          return;
+        }
+      }
+      setPasteBox("Não há imagem copiada. Copie o print e toque em Colar de novo, ou cole na caixa abaixo.");
+    } catch {
+      setPasteBox(manual);
+    }
+  };
 
   const analyze = async () => {
     if (!blob) return;
@@ -222,11 +253,25 @@ export default function App() {
                 <div className="grid size-14 place-items-center rounded-2xl border border-line bg-card-2"><ImagePlus size={24} className="text-mute" /></div>
                 <div className="text-[15px] font-semibold">Selecione o print de {asset.label} em M5</div>
                 <div className="max-w-xs text-[12.5px] leading-relaxed text-mute">
-                  Toque para escolher, arraste ou cole com Ctrl+V. Mostre ativo, tempo gráfico, escala de preço e as últimas velas.
+                  Toque para escolher da galeria, arraste ou use o botão Colar abaixo. Mostre ativo, tempo gráfico, escala de preço e as últimas velas.
                 </div>
               </>
             )}
           </label>
+
+          <button type="button" onClick={pasteFromClipboard}
+            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-buy/40 bg-buy/10 py-2.5 text-[13.5px] font-bold text-buy transition-colors hover:bg-buy/20">
+            <ClipboardPaste size={16} /> Colar imagem copiada
+          </button>
+          {pasteBox && (
+            <div className="mt-2 space-y-1.5">
+              <p className="text-[12px] text-warn">{pasteBox}</p>
+              <textarea id="caixa-colar" rows={2} autoFocus aria-label="Caixa para colar o print"
+                placeholder="Toque e segure aqui → Colar"
+                onChange={(e) => { e.target.value = ""; }}
+                className="w-full resize-none rounded-xl border border-dashed border-buy/50 bg-panel px-3 py-2.5 text-center text-[13px] text-ink placeholder:text-mute focus:border-buy focus:outline-none" />
+            </div>
+          )}
 
           <div className="mt-4 flex items-end gap-3">
             <label className="w-32">
