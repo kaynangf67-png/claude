@@ -76,6 +76,11 @@ input { color-scheme: dark; }
 .btn3d:not(:disabled):hover { box-shadow: 0 6px 0 0 #0f5f30, 0 18px 40px -8px #22c55eaa; }
 .btn3d:not(:disabled):active { transform: translateY(5px); box-shadow: 0 1px 0 0 #0f5f30, 0 8px 20px -10px #22c55e88; }
 
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+/* esmaece as bordas de uma fileira que rola para o lado */
+.fade-x { mask-image: linear-gradient(90deg, transparent 0, #000 20px, #000 calc(100% - 28px), transparent 100%); }
+
 .title-gradient {
   background: linear-gradient(90deg, #4ade80, #22c55e 40%, #ef4444 75%, #f87171);
   -webkit-background-clip: text; background-clip: text; color: transparent;
