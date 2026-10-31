@@ -9,7 +9,7 @@ import { load, save, type Entry } from "./lib/history";
 import { Logo } from "./components/Logo";
 import { Candle3D, CandleScene, Tilt } from "./components/ThreeD";
 import { LiveChart } from "./components/LiveChart";
-import { ASSETS, GROUPS, findAsset } from "./lib/markets";
+import { ASSETS, GROUPS, findAsset, marketState } from "./lib/markets";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 const pct = (v: number) => `${(v * 100).toFixed(1).replace(".", ",")}%`;
@@ -49,6 +49,12 @@ export default function App() {
     }
   });
   const asset = findAsset(assetId);
+  const [clock, setClock] = useState(() => new Date());
+  useEffect(() => {
+    const id = setInterval(() => setClock(new Date()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+  const state = marketState(asset, clock);
   const pickAsset = (id: string) => {
     setAssetId(id);
     setResult(null);
@@ -155,7 +161,8 @@ export default function App() {
       <section className="card3d animate-fade mt-7 overflow-hidden">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line px-5 py-3.5">
           <span className="flex items-center gap-2 text-[13px] font-semibold">
-            <span className="size-2 animate-pulse rounded-full bg-buy" /> Mercado ao vivo
+            <span className={cx("size-2 rounded-full", state.open ? "animate-pulse bg-buy" : "bg-sell")} />
+            {state.open ? "Mercado ao vivo" : "Mercado fechado"}
           </span>
           <span className="num rounded-md border border-buy/40 bg-buy/10 px-1.5 py-0.5 text-[11px] font-bold text-buy">M5</span>
           <span className="text-[13px] font-bold">{asset.label}</span>
@@ -169,16 +176,29 @@ export default function App() {
                 <button key={a.id} onClick={() => pickAsset(a.id)}
                   className={cx("shrink-0 rounded-lg border px-2.5 py-1 text-[12.5px] font-semibold transition-colors",
                     a.id === asset.id ? "border-buy bg-buy text-[#03130a]" : "border-line-2 text-mute hover:border-buy/50 hover:text-ink")}>
+                  <span className={cx("mr-1.5 inline-block size-1.5 rounded-full align-middle",
+                    marketState(a, clock).open ? (a.id === asset.id ? "bg-[#03130a]" : "bg-buy") : "bg-faint")} />
                   {a.label}
                 </button>
               ))}
             </div>
           ))}
         </div>
+        {!state.open && (
+          <div className="flex flex-wrap items-center gap-3 border-t border-sell/30 bg-sell/10 px-5 py-3 text-[12.5px]">
+            <span className="min-w-0 flex-1 text-warn">
+              <b>{asset.label} está fechado agora.</b> {state.note}. O gráfico fica parado na última vela até reabrir.
+              {" "}Para OTC, use o print da sua corretora.
+            </span>
+            <button onClick={() => pickAsset("BTCUSD")}
+              className="shrink-0 rounded-lg bg-buy px-3 py-1.5 text-[12.5px] font-bold text-[#03130a]">Ver BTC/USD ao vivo</button>
+          </div>
+        )}
         <div className="h-[380px] border-t border-line bg-panel md:h-[460px]">
           <LiveChart symbol={asset.tv} />
         </div>
         <p className="px-5 py-2.5 text-[11.5px] text-faint">
+          <span className={state.open ? "text-buy" : "text-warn"}>{state.note}.</span>{" "}
           Para analisar: tire um print do gráfico M5 de <b className="text-mute">{asset.label}</b> (daqui ou da corretora) e selecione abaixo.
           Pares OTC não têm cotação pública; para eles, use o print da própria corretora.
         </p>
