@@ -11,6 +11,10 @@ Plataforma web para **vender no TikTok Shop sem aparecer**: organize produtos e 
 
 Por isso o fluxo é: o LiveFlow prepara (vídeo, legenda, hashtags, produto), programa e **avisa na hora**; você posta pelo app (≈1 min) e cola o link do vídeo para registrar. `TikTokService.publishVideo()` já existe na interface para quando o app for auditado.
 
+### Programar em lote
+
+Em *Publicações → Programar em lote*: selecione vários vídeos, informe os horários do dia (ex.: `12:00, 18:00, 21:00`) e a data de início. O LiveFlow distribui um vídeo por horário, pula horários passados, fins de semana (opcional) e horários a menos de 30 min de outra publicação, e gera legenda e hashtags pelo produto de cada vídeo (com um produto padrão para os vídeos sem produto). O formato pode ser fixo ou alternado entre os vídeos, para comparar o que vende. É tudo ou nada: se algum item for inválido ou o lote passar do limite mensal do plano, nada é gravado. Máximo de 60 por lote. A regra de horários fica em `src/services/batch.ts`.
+
 ## ⚠️ Leia antes de usar: o que o LiveFlow faz (e não faz)
 
 - **O LiveFlow não transmite lives e não publica sozinho no TikTok.** Não existe API pública oficial para criar ou iniciar uma LIVE no TikTok/TikTok Shop. O app organiza, agenda e mede — a execução da live é sua.
@@ -22,7 +26,7 @@ Por isso o fluxo é: o LiveFlow prepara (vídeo, legenda, hashtags, produto), pr
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # 39 testes (recorrência, analytics, validação, publicações, legendas, CSV/importação, regras de domínio, IA local)
+npm test           # 50 testes (recorrência, analytics, validação, publicações, programação em lote, legendas, CSV/importação, regras de domínio, IA local)
 npm run build
 ```
 
