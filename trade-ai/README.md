@@ -41,3 +41,17 @@ Na Vercel: projeto com pasta raiz `trade-ai/frontend` e a variável `ANTHROPIC_A
 - A CVM já emitiu alertas contra corretoras de opções binárias (IQ Option, Olymp Trade, Binomo) por captarem
   clientes no Brasil sem autorização.
 - O scanner multimercado anterior (FastAPI + WebSocket) está no histórico do git, commit `825ae05`.
+
+## Escritório 3D (mesas de IA, operação simulada)
+
+Aba **Escritório 3D**: duas mesas, cada uma com uma assistente de IA (Lia e Nara) que opera sozinha em **cripto**
+(BTC, ETH, LTC, XRP, SOL, BNB) com **preços reais** da Binance (`data-api.binance.vision`), em **saldo simulado**.
+
+- A cada fechamento de vela M5, a mesa ligada pede uma análise (`POST /api/desk`): o servidor busca as velas reais e o
+  Claude decide CALL, PUT ou AGUARDAR. Travas no servidor: dado atrasado, setup fraco ou poucos motivos → AGUARDAR.
+- Entrada ao preço do momento, expiração no fechamento de 1 a 3 velas M5, resultado pela vela real (`GET /api/candles`).
+- Regras por mesa: **5 wins** no dia ou **2 losses** no dia travam a mesa por **24 horas**; depois o placar zera.
+  Sem trava, o placar zera na virada do dia (horário de Brasília). Empate devolve a entrada e não conta.
+- As mesas operam no navegador, só com o site aberto (o plano gratuito da Vercel não roda tarefas a cada 5 minutos).
+  Com o site aberto em várias abas, só uma opera.
+- Nenhuma ordem vai para corretora. Forex ao vivo precisaria de um provedor de dados pago.
