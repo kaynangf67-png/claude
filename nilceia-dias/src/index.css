@@ -1,0 +1,177 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/cormorant-garamond/wght.css';
+@import '@fontsource-variable/cormorant-garamond/wght-italic.css';
+@import '@fontsource-variable/montserrat/wght.css';
+
+@theme {
+  --font-sans: 'Montserrat Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Cormorant Garamond Variable', 'Cormorant Garamond', ui-serif, Georgia, serif;
+
+  --color-paper: #f9f8f6;
+  --color-onyx: #1a1a1a;
+  --color-onyx-800: #242322;
+  --color-onyx-700: #2f2d2b;
+  --color-gold: #c49f5a;
+  /* Dourado escurecido para TEXTO pequeno sobre fundo claro (o #C49F5A não passa no contraste AA). */
+  --color-gold-ink: #85662d;
+  --color-champagne: #f0e7d6;
+  --color-sand: #e6dccb;
+  --color-ink: #1a1a1a;
+  --color-muted: #5b5650;
+  --color-muted-dark: #b9b2a7;
+  --color-line: #ddd5c8;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 4.5rem;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply bg-paper font-sans text-ink antialiased;
+    overflow-x: clip;
+    font-size: 1rem;
+    line-height: 1.65;
+  }
+  ::selection {
+    background: var(--color-onyx);
+    color: var(--color-champagne);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-gold);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@utility display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+  font-variant-numeric: lining-nums;
+}
+
+@utility btn {
+  @apply inline-flex min-h-12 items-center justify-center gap-3 px-5 text-[0.74rem] font-semibold tracking-[0.1em] sm:px-6 sm:text-[0.8rem] sm:tracking-[0.12em] uppercase transition-[background-color,color,border-color,transform] duration-300 ease-out select-none;
+  &:active {
+    transform: translateY(1px);
+  }
+}
+
+@layer components {
+  .wrap {
+    @apply mx-auto w-full max-w-[1240px] px-5 sm:px-8 lg:px-12;
+  }
+  .eyebrow {
+    @apply inline-flex items-center gap-3 text-[0.7rem] font-semibold tracking-[0.24em] uppercase;
+    color: var(--color-gold-ink);
+  }
+  .on-dark .eyebrow {
+    color: var(--color-gold);
+  }
+  .eyebrow::before {
+    content: '';
+    @apply h-px w-7 bg-gold;
+  }
+  .h-hero {
+    @apply display text-[2.75rem] leading-[0.98] sm:text-6xl lg:text-[5.4rem];
+  }
+  .h-section {
+    @apply display text-[2.25rem] leading-[1.04] sm:text-5xl lg:text-[3.6rem];
+  }
+  .h-card {
+    @apply display text-[1.75rem] leading-[1.1] sm:text-[2rem];
+  }
+  .accent {
+    @apply font-display italic;
+    color: var(--color-gold-ink);
+  }
+  .on-dark .accent {
+    color: var(--color-gold);
+  }
+  .lead {
+    @apply text-[1rem] leading-[1.75] text-muted sm:text-[1.075rem];
+  }
+  .on-dark .lead {
+    color: var(--color-muted-dark);
+  }
+  .rule {
+    @apply h-px w-full bg-line;
+  }
+  .on-dark .rule {
+    background: rgb(196 159 90 / 0.25);
+  }
+
+  /* Botões */
+  .btn-primary {
+    @apply btn bg-onyx text-paper hover:bg-onyx-700;
+  }
+  .btn-gold {
+    @apply btn bg-gold text-onyx hover:bg-champagne;
+  }
+  .btn-ghost {
+    @apply btn border border-onyx/25 text-onyx hover:border-onyx hover:bg-onyx hover:text-paper;
+  }
+  .on-dark .btn-ghost {
+    @apply border-champagne/30 text-champagne hover:border-champagne hover:bg-champagne hover:text-onyx;
+  }
+  .link-arrow {
+    @apply inline-flex min-h-12 items-center gap-2 text-[0.8rem] font-semibold tracking-[0.12em] uppercase underline-offset-[6px] hover:underline;
+    color: var(--color-onyx);
+  }
+  .on-dark .link-arrow {
+    color: var(--color-champagne);
+  }
+
+  /* Recorte editorial das fotos: canto superior em arco */
+  .arch {
+    border-radius: 999px 999px 0 0;
+  }
+
+  /* Revelação suave ao rolar (só com JS ativo e sem reduced-motion) */
+  .js .reveal {
+    opacity: 0;
+    transform: translateY(18px);
+    transition:
+      opacity 0.9s cubic-bezier(0.2, 0.7, 0.2, 1),
+      transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .js .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .js .reveal {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .safe-bottom {
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
+}
