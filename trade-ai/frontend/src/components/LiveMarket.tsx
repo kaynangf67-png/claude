@@ -12,7 +12,7 @@ export function LiveMarket({ asset, state, clock, onPick }: {
   const [group, setGroup] = useState<Asset["group"]>(asset.group);
 
   return (
-    <section className="card3d animate-fade mt-5 overflow-hidden">
+    <section className="card3d animate-fade mt-7 overflow-hidden">
       {/* Cabeçalho: ativo + estado */}
       <div className="flex items-center gap-3 px-5 pt-4">
         <div className="min-w-0">

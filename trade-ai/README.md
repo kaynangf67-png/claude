@@ -41,18 +41,3 @@ Na Vercel: projeto com pasta raiz `trade-ai/frontend` e a variável `ANTHROPIC_A
 - A CVM já emitiu alertas contra corretoras de opções binárias (IQ Option, Olymp Trade, Binomo) por captarem
   clientes no Brasil sem autorização.
 - O scanner multimercado anterior (FastAPI + WebSocket) está no histórico do git, commit `825ae05`.
-
-## Escritório 3D (mesas de sinais com IA)
-
-Aba **Escritório 3D**: duas mesas, cada uma com uma assistente de IA (Lia e Nara) que analisa **cripto** ao vivo
-(BTC, ETH, LTC, XRP, SOL, BNB) com velas reais da Binance (`data-api.binance.vision`) e **indica a entrada**:
-COMPRA (CALL) ou VENDA (PUT). Quem entra é você, na corretora. Não há ordem automática.
-
-- A cada fechamento de vela M5, a mesa ligada pede uma análise (`POST /api/desk`): o servidor busca as velas reais e o
-  Claude decide COMPRA, VENDA ou aguardar. Travas no servidor: dado atrasado, setup fraco ou poucos motivos → aguardar.
-- O sinal mostra o preço de referência, a janela para entrar (90 s) e a expiração no fechamento de 1 a 3 velas M5.
-  Depois a mesa confere o sinal na vela real (`GET /api/candles`) e conta acerto ou erro.
-- Regras por mesa: **5 acertos** ou **2 erros** no dia pausam a mesa por **24 horas**; depois o placar zera.
-  Sem pausa, o placar zera na virada do dia (horário de Brasília). Empate não conta.
-- Alertas opcionais de novo sinal: som, vibração, notificação (quando o navegador permite) e título da aba piscando.
-- A análise roda no navegador, só com o site aberto. Com várias abas abertas, só uma analisa.

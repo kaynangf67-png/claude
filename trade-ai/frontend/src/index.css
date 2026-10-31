@@ -73,14 +73,6 @@ input { color-scheme: dark; }
 .btn3d:not(:disabled):hover { box-shadow: 0 6px 0 0 #0f5f30, 0 18px 40px -8px #22c55eaa; }
 .btn3d:not(:disabled):active { transform: translateY(5px); box-shadow: 0 1px 0 0 #0f5f30, 0 8px 20px -10px #22c55e88; }
 
-/* escritório */
-@keyframes office-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
-@keyframes office-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
-@keyframes office-glow { 0%, 100% { filter: drop-shadow(0 0 2px currentColor); } 50% { filter: drop-shadow(0 0 9px currentColor); } }
-.office-bob { animation: office-bob 3.2s ease-in-out infinite; }
-.office-blink { animation: office-blink 1.6s ease-in-out infinite; }
-.office-glow { animation: office-glow 2.4s ease-in-out infinite; }
-
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 /* esmaece as bordas de uma fileira que rola para o lado */

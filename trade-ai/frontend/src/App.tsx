@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle, ArrowDownRight, ArrowUpRight, Ban, Check, ClipboardPaste, ImagePlus, Loader2, RefreshCw, Trash2, X,
 } from "lucide-react";
@@ -9,9 +9,6 @@ import { load, save, type Entry } from "./lib/history";
 import { Logo } from "./components/Logo";
 import { Candle3D, CandleScene, Tilt } from "./components/ThreeD";
 import { LiveMarket } from "./components/LiveMarket";
-import { Office } from "./pages/Office";
-import { useDesks } from "./lib/useDesks";
-import { fireSignal } from "./lib/alerts";
 import { findAsset, marketState } from "./lib/markets";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -26,12 +23,6 @@ function useNow() {
     return () => clearInterval(id);
   }, []);
   return now;
-}
-
-function history_replace(hash: string) {
-  try {
-    window.history.replaceState(null, "", hash === "#" ? location.pathname + location.search : hash);
-  } catch { /* ambiente sem history */ }
 }
 
 export default function App() {
@@ -50,31 +41,6 @@ export default function App() {
   const [result, setResult] = useState<Result | null>(null);
   const [timing, setTiming] = useState<{ entry: Date; expiry: Date } | null>(null);
   const [history, setHistory] = useState<Entry[]>(load);
-  // as mesas operam em qualquer aba do app, não só com o escritório aberto
-  const { desks, update: updateDesk, otherTab } = useDesks();
-  const [view, setView] = useState<"print" | "office">(() => (location.hash === "#escritorio" ? "office" : "print"));
-  useEffect(() => {
-    const onHash = () => setView(location.hash === "#escritorio" ? "office" : "print");
-    window.addEventListener("hashchange", onHash);
-    return () => window.removeEventListener("hashchange", onHash);
-  }, []);
-  const go = (v: "print" | "office") => {
-    setView(v);
-    history_replace(v === "office" ? "#escritorio" : "#");
-  };
-  const deskActive = desks.filter((d) => d.on).length;
-  const signalsNow = desks.filter((d) => d.open).length;
-  // alerta quando uma mesa emite um sinal novo
-  const seenSignals = useRef(new Set(desks.flatMap((d) => (d.open ? [d.open.id] : []))));
-  useEffect(() => {
-    for (const d of desks) {
-      if (!d.open || seenSignals.current.has(d.open.id)) continue;
-      seenSignals.current.add(d.open.id);
-      const buy = d.open.direction === "CALL";
-      const exp = new Date(d.open.expiry * 1000).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-      fireSignal(`${buy ? "COMPRA" : "VENDA"} ${d.asset.replace("USD", "/USD")}`, `${d.name}: entre agora, expiração ${exp}`, buy);
-    }
-  }, [desks]);
   const [assetId, setAssetId] = useState(() => {
     try {
       return localStorage.getItem("trade-ai:ativo");
@@ -222,29 +188,6 @@ export default function App() {
         </div>
       </header>
 
-      <nav className="mt-6 flex gap-1 rounded-2xl border border-line bg-panel p-1">
-        {([["print", "Análise de print"], ["office", "Escritório 3D"]] as const).map(([v, l]) => (
-          <button key={v} onClick={() => go(v)}
-            className={cx("flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-[13.5px] font-bold transition-colors",
-              view === v ? "bg-card-2 text-ink shadow-[0_1px_0_0_#ffffff0d_inset]" : "text-mute hover:text-ink")}>
-            {l}
-            {v === "office" && signalsNow > 0 ? (
-              <span className="flex items-center gap-1 rounded-full bg-buy px-2 py-0.5 text-[11px] font-extrabold text-[#03130a]">
-                <span className="size-1.5 animate-pulse rounded-full bg-[#03130a]" />SINAL
-              </span>
-            ) : v === "office" && deskActive > 0 && (
-              <span className="flex items-center gap-1 rounded-full bg-buy/15 px-2 py-0.5 text-[11px] text-buy">
-                <span className="size-1.5 animate-pulse rounded-full bg-buy" />{deskActive} ligada{deskActive > 1 ? "s" : ""}
-              </span>
-            )}
-          </button>
-        ))}
-      </nav>
-
-      {view === "office" ? (
-        <Office desks={desks} update={updateDesk} otherTab={otherTab} />
-      ) : (
-      <>
 
       <LiveMarket asset={asset} state={state} clock={clock} onPick={pickAsset} />
 
@@ -340,8 +283,6 @@ export default function App() {
       </main>
 
       <Performance history={history} setHistory={setHistory} />
-      </>
-      )}
 
       <footer className="mt-8 space-y-1 text-center text-[11px] leading-relaxed text-faint">
         <p>A leitura de um print não prevê a próxima vela. Nenhum resultado é garantido; opere só o que pode perder.</p>
