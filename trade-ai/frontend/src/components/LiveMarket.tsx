@@ -41,13 +41,13 @@ export function LiveMarket({ asset, state, clock, onPick }: {
       </div>
 
       {/* Ativos da aba */}
-      <div className="no-scrollbar fade-x mt-3 flex gap-2 overflow-x-auto px-5 pb-4 md:flex-wrap md:overflow-visible md:[mask-image:none]">
+      <div className="no-scrollbar fade-x mt-3 flex gap-2 overflow-x-auto px-5 pb-4 md:grid md:grid-cols-6 md:overflow-visible md:[mask-image:none]">
         {ASSETS.filter((a) => a.group === group).map((a) => {
           const open = marketState(a, clock).open;
           const active = a.id === asset.id;
           return (
             <button key={a.id} onClick={() => onPick(a.id)}
-              className={cx("flex shrink-0 items-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-semibold transition-all",
+              className={cx("flex shrink-0 items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-[13px] font-semibold transition-all",
                 active ? "border-buy bg-buy/15 text-ink shadow-[0_0_24px_-10px_#22c55e]" : "border-line bg-panel text-mute hover:border-line-2 hover:text-ink")}>
               <span className={cx("size-1.5 rounded-full", open ? "bg-buy" : "bg-faint")} />
               {a.label}
