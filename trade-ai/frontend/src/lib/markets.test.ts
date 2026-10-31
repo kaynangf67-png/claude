@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findAsset, marketState } from "./markets";
+import { brt, findAsset, marketState, nextOpen } from "./markets";
 
 const eur = findAsset("EURUSD");
 const gold = findAsset("XAUUSD");
@@ -28,5 +28,19 @@ describe("horário dos mercados", () => {
     expect(marketState(gold, at("2026-11-03T22:30:00Z")).open).toBe(false); // terça 17h30 NY
     expect(marketState(gold, at("2026-11-03T23:30:00Z")).open).toBe(true);
     expect(marketState(eur, at("2026-11-03T22:30:00Z")).open).toBe(true);
+  });
+});
+
+describe("próxima abertura", () => {
+  it("forex no sábado reabre domingo 19h de Brasília (17h em NY, já no horário de inverno)", () => {
+    const d = nextOpen(eur, at("2026-10-31T05:43:00Z"))!;
+    expect(d.toISOString()).toBe("2026-11-01T22:00:00.000Z");
+    expect(brt(d)).toBe("domingo, 19:00");
+  });
+  it("ouro reabre uma hora depois do forex", () => {
+    expect(nextOpen(gold, at("2026-10-31T05:43:00Z"))!.toISOString()).toBe("2026-11-01T23:00:00.000Z");
+  });
+  it("aberto devolve null", () => {
+    expect(nextOpen(btc, at("2026-10-31T05:43:00Z"))).toBeNull();
   });
 });

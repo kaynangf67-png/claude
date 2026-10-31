@@ -44,7 +44,7 @@ describe("regras da mesa", () => {
     for (let i = 0; i < 5; i++) d = applyResult(d, won(), T0 + i);
     expect(d.wins).toBe(5);
     expect(d.lockUntil).toBe(T0 + 4 + LOCK_S);
-    expect(d.lockReason).toMatch(/5 wins/);
+    expect(d.lockReason).toMatch(/5 acertos/);
     expect(canTrade(d, T0 + 3600)).toBe(false);
     expect(d.balance).toBeCloseTo(1000 + 5 * 8.5);
   });
@@ -54,7 +54,7 @@ describe("regras da mesa", () => {
     d = applyResult(d, lost(), T0 + 1);
     expect(d.lockUntil).toBeNull();
     d = applyResult(d, lost(), T0 + 2);
-    expect(d.lockReason).toMatch(/2 losses/);
+    expect(d.lockReason).toMatch(/2 erros/);
     expect(canTrade(d, T0 + LOCK_S)).toBe(false);
   });
   it("depois de 24 horas destrava e zera o placar do dia", () => {

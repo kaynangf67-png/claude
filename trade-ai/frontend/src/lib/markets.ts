@@ -70,3 +70,21 @@ export function marketState(asset: Asset, now = new Date()): MarketState {
   if (hour >= 17 && hour < 18) return { open: false, note: "Pausa diária de 1 hora; reabre em instantes" };
   return { open: true, note: "Aberto agora" };
 }
+
+/** Próxima abertura (procura em passos de 5 min por até 4 dias). null = já aberto. */
+export function nextOpen(asset: Asset, now = new Date()): Date | null {
+  if (marketState(asset, now).open) return null;
+  const step = 5 * 60_000;
+  let t = Math.ceil(now.getTime() / step) * step;
+  for (let i = 0; i < (4 * 24 * 60) / 5; i++, t += step) {
+    if (marketState(asset, new Date(t)).open) return new Date(t);
+  }
+  return null;
+}
+
+/** "domingo, 19:00" no horário de Brasília. */
+export function brt(d: Date): string {
+  const day = d.toLocaleDateString("pt-BR", { weekday: "long", timeZone: "America/Sao_Paulo" });
+  const hm = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
+  return `${day}, ${hm}`;
+}

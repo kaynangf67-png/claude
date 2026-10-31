@@ -1,4 +1,4 @@
-/** Regras das mesas de operação simulada. Funções puras: o motor (useDesks) só as aplica. */
+/** Regras das mesas de sinais. Cada sinal é conferido na vela real; funções puras, o motor (useDesks) só as aplica. */
 
 export const WIN_GOAL = 5;
 export const LOSS_LIMIT = 2;
@@ -101,7 +101,7 @@ export function settle(t: Trade, candles: Candle[]): Pick<Trade, "result" | "exi
   return { result: win ? "win" : "loss", exitPrice: c.close, profit: win ? t.stake * t.payout : -t.stake };
 }
 
-/** Aplica o resultado e as regras: 5 wins ou 2 losses no dia travam a mesa por 24 horas. */
+/** Aplica o resultado e as regras: 5 acertos ou 2 erros no dia pausam a mesa por 24 horas. */
 export function applyResult(s: DeskState, t: Trade, nowS: number): DeskState {
   const done: Trade = t;
   let next: DeskState = {
@@ -112,8 +112,8 @@ export function applyResult(s: DeskState, t: Trade, nowS: number): DeskState {
     wins: s.wins + (done.result === "win" ? 1 : 0),
     losses: s.losses + (done.result === "loss" ? 1 : 0),
   };
-  if (next.wins >= WIN_GOAL) next = { ...next, lockUntil: nowS + LOCK_S, lockReason: `Meta de ${WIN_GOAL} wins batida` };
-  else if (next.losses >= LOSS_LIMIT) next = { ...next, lockUntil: nowS + LOCK_S, lockReason: `Limite de ${LOSS_LIMIT} losses atingido` };
+  if (next.wins >= WIN_GOAL) next = { ...next, lockUntil: nowS + LOCK_S, lockReason: `Meta de ${WIN_GOAL} acertos batida` };
+  else if (next.losses >= LOSS_LIMIT) next = { ...next, lockUntil: nowS + LOCK_S, lockReason: `Limite de ${LOSS_LIMIT} erros atingido` };
   return next;
 }
 

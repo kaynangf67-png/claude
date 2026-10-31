@@ -38,17 +38,17 @@ function moodOf(d: DeskState, now: number): Mood {
 }
 
 const MOOD_COLOR: Record<Mood, string> = {
-  on: "#22c55e", trade: "#4ade80", locked: "#ef4444", off: "#5b6a61", error: "#f87171",
+  on: "#22c55e", trade: "#4ade80", locked: "#ef4444", off: "#63636b", error: "#f87171",
 };
 
 function bubbleText(d: DeskState, now: number): string {
   const hhmm = (t: number) => new Date(t * 1000).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   const asset = d.asset.replace("USD", "/USD");
   if (d.lockUntil && now < d.lockUntil) return `${d.lockReason} · volto ${hhmm(d.lockUntil)}`;
-  if (d.open) return `${d.open.direction} ${asset} · expira ${hhmm(d.open.expiry)}`;
-  if (!d.on) return "Desligada";
+  if (d.open) return `${d.open.direction === "CALL" ? "COMPRA" : "VENDA"} ${asset} · expira ${hhmm(d.open.expiry)}`;
+  if (!d.on) return "Análise desligada";
   if (d.last?.decision === "ERRO") return "Sem conseguir analisar";
-  if (d.last?.decision === "AGUARDAR") return `Sem setup em ${asset} · aguardando`;
+  if (d.last?.decision === "AGUARDAR") return `Sem sinal em ${asset} · aguardando`;
   return `Analisando ${asset} a cada vela M5`;
 }
 
@@ -66,8 +66,8 @@ function Desk({ x, y, desk, now, hair, shirt }: { x: number; y: number; desk: De
   return (
     <g>
       {/* cadeira (atrás da assistente) */}
-      <Box x={x + 1.85} y={y - 1.0} w={0.8} d={0.12} h={1.7} top="#26342c" left="#1a241f" right="#141c17" />
-      <Box x={x + 1.85} y={y - 0.95} w={0.8} d={0.7} z={0.75} h={0.1} top="#26342c" left="#1a241f" right="#141c17" />
+      <Box x={x + 1.85} y={y - 1.0} w={0.8} d={0.12} h={1.7} top="#2a2a2a" left="#1a1a1a" right="#141414" />
+      <Box x={x + 1.85} y={y - 0.95} w={0.8} d={0.7} z={0.75} h={0.1} top="#2a2a2a" left="#1a1a1a" right="#141414" />
       {/* assistente (billboard voltado para a câmera) */}
       <g className={mood === "off" ? undefined : "office-bob"} style={{ transformOrigin: `${hx}px ${hy}px` }}>
         <path d={`M ${hx - 22} ${hy + 64} Q ${hx - 24} ${hy + 22} ${hx} ${hy + 18} Q ${hx + 24} ${hy + 22} ${hx + 22} ${hy + 64} Z`} fill={shirt} />
@@ -84,45 +84,45 @@ function Desk({ x, y, desk, now, hair, shirt }: { x: number; y: number; desk: De
         <path d={`M ${hx - 4} ${hy + 7} Q ${hx} ${hy + 10} ${hx + 4} ${hy + 7}`} stroke="#9a5b45" strokeWidth={1.4} fill="none" strokeLinecap="round" />
       </g>
       {/* mesa: tampo e laterais */}
-      <Box x={x} y={y} z={1.0} w={3.2} d={1.4} h={0.12} top="#1f2b24" left="#16201b" right="#121a16" stroke="#22c55e33" />
-      <Box x={x} y={y} w={0.1} d={1.4} h={1.0} top="#16201b" left="#121a16" right="#0f1612" />
-      <Box x={x + 3.1} y={y} w={0.1} d={1.4} h={1.0} top="#16201b" left="#121a16" right="#0f1612" />
-      <Box x={x + 0.1} y={y + 0.1} w={3.0} d={0.06} h={0.9} top="#141c17" left="#101713" right="#0d130f" />
+      <Box x={x} y={y} z={1.0} w={3.2} d={1.4} h={0.12} top="#1c1c1c" left="#151515" right="#0d0d0d" stroke="#22c55e33" />
+      <Box x={x} y={y} w={0.1} d={1.4} h={1.0} top="#151515" left="#0d0d0d" right="#0e0e0e" />
+      <Box x={x + 3.1} y={y} w={0.1} d={1.4} h={1.0} top="#151515" left="#0d0d0d" right="#0e0e0e" />
+      <Box x={x + 0.1} y={y + 0.1} w={3.0} d={0.06} h={0.9} top="#141414" left="#0f0f0f" right="#0c0c0c" />
       {/* monitor */}
-      <Box x={x + 1.0} y={y + 0.25} z={1.12} w={0.2} d={0.12} h={0.25} top="#26342c" left="#1a241f" right="#141c17" />
-      <Box x={x + 0.4} y={y + 0.3} z={1.3} w={1.4} d={0.1} h={0.85} top="#26342c" left="#0b100d" right="#141c17" />
-      <polygon points={pts(...screen)} fill="#07100b" stroke={glow} strokeWidth={1.2} className={mood === "off" ? undefined : "office-glow"} style={{ color: glow }} />
+      <Box x={x + 1.0} y={y + 0.25} z={1.12} w={0.2} d={0.12} h={0.25} top="#2a2a2a" left="#1a1a1a" right="#141414" />
+      <Box x={x + 0.4} y={y + 0.3} z={1.3} w={1.4} d={0.1} h={0.85} top="#2a2a2a" left="#080808" right="#141414" />
+      <polygon points={pts(...screen)} fill="#020202" stroke={glow} strokeWidth={1.2} className={mood === "off" ? undefined : "office-glow"} style={{ color: glow }} />
       <g transform={`matrix(0.866 0.5 0 1 ${sx} ${sy})`}>
         <text x={0} y={-12} fontSize={9} fontWeight={700} fill={glow} fontFamily="JetBrains Mono Variable, monospace">
           {desk.asset.replace("USD", "/USD")}
         </text>
         {desk.open ? (
           <text x={0} y={2} fontSize={13} fontWeight={800} fill={arrowUp ? "#22c55e" : "#ef4444"} fontFamily="Inter Variable, sans-serif">
-            {arrowUp ? "▲ CALL" : "▼ PUT"}
+            {arrowUp ? "▲ COMPRA" : "▼ VENDA"}
           </text>
         ) : (
           <polyline points="0,0 6,-4 12,-2 18,-8 24,-5 30,-11 36,-7 42,-10" fill="none" stroke={glow} strokeWidth={1.6} />
         )}
       </g>
       {/* teclado e caneca */}
-      <Box x={x + 0.5} y={y + 0.85} z={1.12} w={1.1} d={0.32} h={0.04} top="#2c3a32" left="#1a241f" right="#141c17" />
+      <Box x={x + 0.5} y={y + 0.85} z={1.12} w={1.1} d={0.32} h={0.04} top="#2a2a2a" left="#1a1a1a" right="#141414" />
       <Box x={x + 2.6} y={y + 0.8} z={1.12} w={0.22} d={0.22} h={0.26} top="#3a2a20" left="#c2410c" right="#9a3412" />
       {/* placar da mesa na frente */}
       <g transform={`matrix(0.866 0.5 0 1 ${iso([x + 0.3, y + 1.4, 0.75])[0]} ${iso([x + 0.3, y + 1.4, 0.75])[1]})`}>
-        <text x={0} y={0} fontSize={11} fontWeight={800} fill="#ecf2ee" fontFamily="Inter Variable, sans-serif">{desk.name}</text>
+        <text x={0} y={0} fontSize={11} fontWeight={800} fill="#f4f4f5" fontFamily="Inter Variable, sans-serif">{desk.name}</text>
         <text x={0} y={14} fontSize={10} fontWeight={700} fontFamily="JetBrains Mono Variable, monospace">
           <tspan fill="#22c55e">{desk.wins}W</tspan>
-          <tspan fill="#8fa096"> · </tspan>
+          <tspan fill="#a1a1aa"> · </tspan>
           <tspan fill="#ef4444">{desk.losses}L</tspan>
         </text>
       </g>
       {/* balão de status */}
       <g>
-        <rect x={bx - bw / 2} y={by - 24} width={bw} height={24} rx={12} fill="#0a0f0cf0" stroke={glow} strokeWidth={1.2} />
-        <path d={`M ${bx - 6} ${by} L ${bx} ${by + 8} L ${bx + 6} ${by} Z`} fill="#0a0f0cf0" stroke={glow} strokeWidth={1.2} />
-        <rect x={bx - 7} y={by - 2} width={14} height={4} fill="#0a0f0c" />
+        <rect x={bx - bw / 2} y={by - 24} width={bw} height={24} rx={12} fill="#000000f0" stroke={glow} strokeWidth={1.2} />
+        <path d={`M ${bx - 6} ${by} L ${bx} ${by + 8} L ${bx + 6} ${by} Z`} fill="#000000f0" stroke={glow} strokeWidth={1.2} />
+        <rect x={bx - 7} y={by - 2} width={14} height={4} fill="#000000" />
         <circle cx={bx - bw / 2 + 13} cy={by - 12} r={3.5} fill={glow} className={mood === "on" || mood === "trade" ? "office-blink" : undefined} />
-        <text x={bx - bw / 2 + 22} y={by - 8} fontSize={10.5} fontWeight={600} fill="#ecf2ee" fontFamily="Inter Variable, sans-serif">{text}</text>
+        <text x={bx - bw / 2 + 22} y={by - 8} fontSize={10.5} fontWeight={600} fill="#f4f4f5" fontFamily="Inter Variable, sans-serif">{text}</text>
       </g>
     </g>
   );
@@ -144,12 +144,12 @@ function Server({ x, y }: { x: number; y: number }) {
   const leds = [0.5, 0.9, 1.3, 1.7, 2.1];
   return (
     <g>
-      <Box x={x} y={y} w={0.9} d={0.8} h={2.4} top="#1a241f" left="#0f1612" right="#0b100d" />
+      <Box x={x} y={y} w={0.9} d={0.8} h={2.4} top="#1a1a1a" left="#0e0e0e" right="#080808" />
       {leds.map((z, i) => {
         const [lx, ly] = iso([x + 0.15, y + 0.8, z]);
         return (
           <g key={z}>
-            <rect x={lx} y={ly - 2} width={22} height={3} rx={1} fill="#141c17" transform={`skewY(30)`} style={{ transformBox: "fill-box", transformOrigin: "left" }} />
+            <rect x={lx} y={ly - 2} width={22} height={3} rx={1} fill="#141414" transform={`skewY(30)`} style={{ transformBox: "fill-box", transformOrigin: "left" }} />
             <circle cx={lx + 3} cy={ly + 3} r={1.8} fill={i % 3 === 1 ? "#ef4444" : "#22c55e"} className="office-blink" style={{ animationDelay: `${i * 0.37}s` }} />
           </g>
         );
@@ -166,42 +166,42 @@ export function Office3D({ desks, now }: { desks: DeskState[]; now: number }) {
     <svg viewBox={`0 0 ${VW.toFixed(0)} ${VH.toFixed(0)}`} className="h-auto w-full" role="img" aria-label="Escritório 3D com duas mesas de assistentes de IA">
       <defs>
         <linearGradient id="of-sky" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#0b1d16" />
+          <stop offset="0" stopColor="#06140d" />
           <stop offset="1" stopColor="#1a0f12" />
         </linearGradient>
         <radialGradient id="of-floor" cx="0.5" cy="0.6" r="0.7">
-          <stop offset="0" stopColor="#121a16" />
-          <stop offset="1" stopColor="#0a0f0c" />
+          <stop offset="0" stopColor="#0d0d0d" />
+          <stop offset="1" stopColor="#000000" />
         </radialGradient>
       </defs>
 
       {/* paredes */}
-      <polygon points={pts([0, 0, 0], [0, D, 0], [0, D, H], [0, 0, H])} fill="#0e1512" />
-      <polygon points={pts([0, 0, 0], [W, 0, 0], [W, 0, H], [0, 0, H])} fill="#111a15" />
+      <polygon points={pts([0, 0, 0], [0, D, 0], [0, D, H], [0, 0, H])} fill="#0a0a0a" />
+      <polygon points={pts([0, 0, 0], [W, 0, 0], [W, 0, H], [0, 0, H])} fill="#0d0d0d" />
       <polygon points={pts([0, 0, H], [W, 0, H], [W, 0, H - 0.08], [0, 0, H - 0.08])} fill="#22c55e55" />
       <polygon points={pts([0, 0, H], [0, D, H], [0, D, H - 0.08], [0, 0, H - 0.08])} fill="#ef444455" />
 
       {/* janela com cidade */}
-      <polygon points={pts([1.2, 0, 1.5], [5.0, 0, 1.5], [5.0, 0, 3.5], [1.2, 0, 3.5])} fill="url(#of-sky)" stroke="#26342c" strokeWidth={3} />
+      <polygon points={pts([1.2, 0, 1.5], [5.0, 0, 1.5], [5.0, 0, 3.5], [1.2, 0, 3.5])} fill="url(#of-sky)" stroke="#2a2a2a" strokeWidth={3} />
       {[1.6, 2.2, 2.9, 3.5, 4.2].map((bx, i) => (
-        <polygon key={bx} points={pts([bx, 0, 1.5], [bx + 0.45, 0, 1.5], [bx + 0.45, 0, 2.1 + (i % 3) * 0.4], [bx, 0, 2.1 + (i % 3) * 0.4])} fill="#0a120e" />
+        <polygon key={bx} points={pts([bx, 0, 1.5], [bx + 0.45, 0, 1.5], [bx + 0.45, 0, 2.1 + (i % 3) * 0.4], [bx, 0, 2.1 + (i % 3) * 0.4])} fill="#050505" />
       ))}
       {[[1.75, 1.9], [2.35, 2.2], [3.05, 1.8], [3.65, 2.5], [4.35, 2.1], [2.45, 1.7]].map(([lx, lz]) => {
         const [cx, cy] = iso([lx, 0, lz]);
         return <rect key={`${lx}-${lz}`} x={cx} y={cy} width={3} height={3} fill="#fde68a" opacity={0.7} className="office-blink" style={{ animationDelay: `${lx}s` }} />;
       })}
-      <polygon points={pts([3.1, 0, 1.5], [3.1, 0, 3.5])} stroke="#26342c" strokeWidth={3} fill="none" />
+      <polygon points={pts([3.1, 0, 1.5], [3.1, 0, 3.5])} stroke="#2a2a2a" strokeWidth={3} fill="none" />
 
       {/* marca na parede */}
       <g transform={`matrix(0.866 0.5 0 1 ${iso([6.4, 0, 3.0])[0]} ${iso([6.4, 0, 3.0])[1]})`}>
-        <text x={0} y={0} fontSize={26} fontWeight={900} fill="#ecf2ee" letterSpacing={3} fontFamily="Inter Variable, sans-serif">
+        <text x={0} y={0} fontSize={26} fontWeight={900} fill="#f4f4f5" letterSpacing={3} fontFamily="Inter Variable, sans-serif">
           TRADE <tspan fill="#22c55e">A</tspan><tspan fill="#ef4444">I</tspan>
         </text>
-        <text x={2} y={18} fontSize={10} fill="#8fa096" letterSpacing={2} fontFamily="Inter Variable, sans-serif">MESA DE OPERAÇÕES · SIMULADA</text>
+        <text x={2} y={18} fontSize={10} fill="#a1a1aa" letterSpacing={2} fontFamily="Inter Variable, sans-serif">MESA DE SINAIS · IA</text>
       </g>
 
       {/* telão na parede esquerda */}
-      <polygon points={pts([0.02, 1.2, 1.6], [0.02, 6.4, 1.6], [0.02, 6.4, 3.6], [0.02, 1.2, 3.6])} fill="#07100b" stroke="#26342c" strokeWidth={3} />
+      <polygon points={pts([0.02, 1.2, 1.6], [0.02, 6.4, 1.6], [0.02, 6.4, 3.6], [0.02, 1.2, 3.6])} fill="#020202" stroke="#2a2a2a" strokeWidth={3} />
       <polyline points={pts(...chartPts)} fill="none" stroke="#22c55e" strokeWidth={2.2} />
       {chart.map((z, i) => {
         const up = i === 0 || z >= chart[i - 1];

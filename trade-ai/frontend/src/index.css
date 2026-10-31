@@ -6,15 +6,16 @@
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
 
-  --color-bg: #050706;
-  --color-panel: #0a0f0c;
-  --color-card: #0e1411;
-  --color-card-2: #141c17;
-  --color-line: #1c2721;
-  --color-line-2: #26342c;
-  --color-ink: #ecf2ee;
-  --color-mute: #8fa096;
-  --color-faint: #5b6a61;
+  /* full black: neutros sem tom, só verde e vermelho de destaque */
+  --color-bg: #000000;
+  --color-panel: #050505;
+  --color-card: #0a0a0a;
+  --color-card-2: #121212;
+  --color-line: #1c1c1c;
+  --color-line-2: #2a2a2a;
+  --color-ink: #f4f4f5;
+  --color-mute: #a1a1aa;
+  --color-faint: #63636b;
   --color-buy: #22c55e;
   --color-sell: #ef4444;
   /* tema verde e vermelho: "info" é verde, "aviso" é vermelho claro */
@@ -30,11 +31,7 @@
 
 html, body, #root { min-height: 100%; }
 body {
-  background:
-    radial-gradient(900px 520px at 100% -10%, #ef444424, transparent 60%),
-    radial-gradient(900px 560px at -10% 0%, #22c55e22, transparent 60%),
-    radial-gradient(700px 420px at 50% 120%, #22c55e14, transparent 60%),
-    var(--color-bg);
+  background: var(--color-bg);
   color: var(--color-ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
@@ -63,8 +60,8 @@ input { color-scheme: dark; }
 .card3d {
   border-radius: 1.5rem;
   border: 1px solid var(--color-line);
-  background: linear-gradient(180deg, #111915, #0c120f);
-  box-shadow: 0 1px 0 0 #ffffff0d inset, 0 24px 50px -24px #000, 0 2px 0 0 #00000080;
+  background: var(--color-card);
+  box-shadow: 0 1px 0 0 #ffffff0a inset;
 }
 
 .btn3d {

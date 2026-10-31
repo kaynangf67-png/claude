@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ASSETS, GROUPS, marketState, type Asset, type MarketState } from "../lib/markets";
+import { Moon } from "lucide-react";
+import { ASSETS, GROUPS, brt, marketState, nextOpen, type Asset, type MarketState } from "../lib/markets";
 import { LiveChart } from "./LiveChart";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -55,18 +56,33 @@ export function LiveMarket({ asset, state, clock, onPick }: {
         })}
       </div>
 
-      {/* Fechado */}
-      {!state.open && (
-        <div className="mx-5 mb-4 flex flex-col gap-3 rounded-2xl border border-sell/25 bg-sell/10 px-4 py-3 text-[12.5px] sm:flex-row sm:items-center">
-          <span className="min-w-0 flex-1 text-warn">{state.note}. O gráfico fica parado até reabrir.</span>
-          <button onClick={() => { setGroup("Cripto"); onPick("BTCUSD"); }}
-            className="shrink-0 rounded-lg bg-buy px-3 py-2 text-[12.5px] font-bold text-[#03130a]">Ver BTC/USD ao vivo</button>
-        </div>
-      )}
-
-      {/* Gráfico */}
-      <div className="h-[340px] border-t border-line bg-panel md:h-[440px]">
+      {/* Gráfico (com aviso centralizado quando o mercado está fechado) */}
+      <div className="relative h-[340px] border-t border-line bg-black md:h-[440px]">
         <LiveChart symbol={asset.tv} />
+        {!state.open && (
+          <div className="absolute inset-0 grid place-items-center bg-black/70 p-5 backdrop-blur-[2px]">
+            <div className="w-full max-w-[320px] rounded-3xl border border-line-2 bg-black/90 px-6 py-6 text-center shadow-[0_20px_60px_-20px_#000]">
+              <div className="mx-auto grid size-12 place-items-center rounded-2xl bg-sell/15 text-warn">
+                <Moon size={22} />
+              </div>
+              <div className="mt-3 text-[17px] font-extrabold">{asset.label} está fechado</div>
+              {(() => {
+                const at = nextOpen(asset, clock);
+                return at ? (
+                  <div className="mt-1.5 text-[13px] text-mute">
+                    Reabre <b className="text-ink">{brt(at)}</b>
+                    <div className="text-[11.5px] text-faint">horário de Brasília</div>
+                  </div>
+                ) : <div className="mt-1.5 text-[13px] text-mute">{state.note}</div>;
+              })()}
+              <button onClick={() => { setGroup("Cripto"); onPick("BTCUSD"); }}
+                className="btn3d mt-5 w-full rounded-xl py-2.5 text-[13.5px] font-extrabold text-[#03130a]">
+                Ver BTC/USD ao vivo
+              </button>
+              <div className="mt-2.5 text-[11px] text-faint">Cripto negocia 24 horas, todos os dias</div>
+            </div>
+          </div>
+        )}
       </div>
 
       <p className="flex flex-wrap gap-x-3 gap-y-1 px-5 py-3 text-[11.5px] text-faint">

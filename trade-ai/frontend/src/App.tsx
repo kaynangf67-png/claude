@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle, ArrowDownRight, ArrowUpRight, Ban, Check, ClipboardPaste, ImagePlus, Loader2, RefreshCw, Trash2, X,
 } from "lucide-react";
@@ -11,6 +11,7 @@ import { Candle3D, CandleScene, Tilt } from "./components/ThreeD";
 import { LiveMarket } from "./components/LiveMarket";
 import { Office } from "./pages/Office";
 import { useDesks } from "./lib/useDesks";
+import { fireSignal } from "./lib/alerts";
 import { findAsset, marketState } from "./lib/markets";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -62,6 +63,18 @@ export default function App() {
     history_replace(v === "office" ? "#escritorio" : "#");
   };
   const deskActive = desks.filter((d) => d.on).length;
+  const signalsNow = desks.filter((d) => d.open).length;
+  // alerta quando uma mesa emite um sinal novo
+  const seenSignals = useRef(new Set(desks.flatMap((d) => (d.open ? [d.open.id] : []))));
+  useEffect(() => {
+    for (const d of desks) {
+      if (!d.open || seenSignals.current.has(d.open.id)) continue;
+      seenSignals.current.add(d.open.id);
+      const buy = d.open.direction === "CALL";
+      const exp = new Date(d.open.expiry * 1000).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      fireSignal(`${buy ? "COMPRA" : "VENDA"} ${d.asset.replace("USD", "/USD")}`, `${d.name}: entre agora, expiração ${exp}`, buy);
+    }
+  }, [desks]);
   const [assetId, setAssetId] = useState(() => {
     try {
       return localStorage.getItem("trade-ai:ativo");
@@ -215,7 +228,11 @@ export default function App() {
             className={cx("flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-[13.5px] font-bold transition-colors",
               view === v ? "bg-card-2 text-ink shadow-[0_1px_0_0_#ffffff0d_inset]" : "text-mute hover:text-ink")}>
             {l}
-            {v === "office" && deskActive > 0 && (
+            {v === "office" && signalsNow > 0 ? (
+              <span className="flex items-center gap-1 rounded-full bg-buy px-2 py-0.5 text-[11px] font-extrabold text-[#03130a]">
+                <span className="size-1.5 animate-pulse rounded-full bg-[#03130a]" />SINAL
+              </span>
+            ) : v === "office" && deskActive > 0 && (
               <span className="flex items-center gap-1 rounded-full bg-buy/15 px-2 py-0.5 text-[11px] text-buy">
                 <span className="size-1.5 animate-pulse rounded-full bg-buy" />{deskActive} ligada{deskActive > 1 ? "s" : ""}
               </span>
