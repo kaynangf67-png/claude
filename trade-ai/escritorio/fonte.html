@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Escritório Trade AI</title>
+<style>
+  :root { color-scheme: dark; --ink: #f4f4f5; --mute: #a1a1aa; --line: #262626; --buy: #22c55e; --sell: #ef4444; }
+  html, body { margin: 0; height: 100%; background: #000; color: var(--ink); font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  .hud { position: fixed; left: max(16px, env(safe-area-inset-left)); right: max(16px, env(safe-area-inset-right)); top: max(16px, env(safe-area-inset-top)); display: flex; align-items: center; gap: 12px; pointer-events: none; }
+  .brand { display: flex; align-items: center; gap: 10px; pointer-events: auto; }
+  .logo { width: 36px; height: 36px; border-radius: 10px; background: #0d1410; border: 1px solid #ffffff14; display: grid; place-items: center; }
+  .brand b { display: block; font-size: 15px; letter-spacing: .08em; }
+  .brand b span { background: linear-gradient(90deg, #4ade80, #22c55e 45%, #ef4444 75%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .brand small { display: block; font-size: 11px; color: var(--mute); }
+  .bar { position: fixed; left: 50%; transform: translateX(-50%); bottom: max(18px, env(safe-area-inset-bottom)); display: flex; gap: 6px; padding: 6px; border-radius: 16px; background: #0a0a0acc; border: 1px solid var(--line); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); max-width: calc(100vw - 32px); flex-wrap: wrap; justify-content: center; }
+  .bar button { appearance: none; border: 0; border-radius: 11px; padding: 10px 14px; font: 700 13px/1 inherit; font-family: inherit; color: var(--mute); background: transparent; cursor: pointer; display: flex; align-items: center; gap: 7px; }
+  .bar button:hover { color: var(--ink); background: #151515; }
+  .bar button.on { color: #03130a; background: linear-gradient(180deg, #34d36f, #16a34a); }
+  .bar button:focus-visible { outline: 2px solid var(--buy); outline-offset: 2px; }
+  .hint { position: fixed; right: max(16px, env(safe-area-inset-right)); top: max(22px, env(safe-area-inset-top)); font-size: 12px; color: #63636b; pointer-events: none; text-align: right; }
+  @media (max-width: 560px) { .hint { display: none; } .bar { display: grid; grid-template-columns: 1fr 1fr; width: calc(100vw - 32px); box-sizing: border-box; } .bar button { justify-content: center; padding: 11px 8px; font-size: 12.5px; } }
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="Escritório 3D com uma mesa de trading. Arraste para girar."></canvas>
+
+<div class="hud">
+  <div class="brand">
+    <div class="logo"><svg width="26" height="26" viewBox="0 0 48 48"><line x1="17" y1="8" x2="17" y2="40" stroke="#22c55e" stroke-width="2.5"/><rect x="12" y="14" width="9" height="18" rx="1.5" fill="#22c55e"/><line x1="32" y1="12" x2="32" y2="42" stroke="#ef4444" stroke-width="2.5"/><rect x="27" y="18" width="9" height="16" rx="1.5" fill="#ef4444"/></svg></div>
+    <div><b>TRADE <span>AI</span></b><small>Escritório · prévia 3D</small></div>
+  </div>
+</div>
+<div class="hint">Arraste para girar 360°<br>Role ou faça pinça para aproximar</div>
+
+<nav class="bar" aria-label="Câmera">
+  <button id="spin" class="on" type="button">⟳ Girar 360°</button>
+  <button id="top" type="button">Visão de cima</button>
+  <button id="desk" type="button">Ver a mesa</button>
+  <button id="reset" type="button">Visão ampla</button>
+</nav>
+
+<script>/*THREE*/</script>
+<script>/*ORBIT*/</script>
+<script>
+(() => {
+  const canvas = document.getElementById("c");
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.0;
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x000000);
+  scene.fog = new THREE.Fog(0x000000, 22, 45);
+
+  const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
+  const controls = new THREE.OrbitControls(camera, canvas);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.minDistance = 3;
+  controls.maxDistance = 34;
+  controls.minPolarAngle = 0.05;           // quase de cima
+  controls.maxPolarAngle = Math.PI / 2.15; // nunca abaixo do piso
+  controls.target.set(0, 0.6, 0);
+  controls.autoRotateSpeed = 0.9;
+
+  // ---------- materiais ----------
+  const mat = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, metalness: 0.05, ...o });
+  const M = {
+    floor: mat(0x060606, { roughness: 0.5, metalness: 0.2 }),
+    wall: mat(0x101010, { roughness: 0.95 }),
+    desk: mat(0x141414, { roughness: 0.35, metalness: 0.25 }),
+    edge: mat(0x22c55e, { emissive: 0x22c55e, emissiveIntensity: 1.2 }),
+    metal: mat(0x2a2a2a, { roughness: 0.3, metalness: 0.8 }),
+    black: mat(0x050505, { roughness: 0.4 }),
+    fabric: mat(0x181818, { roughness: 1 }),
+    green: mat(0x16a34a, { roughness: 0.9 }),
+    leaf: mat(0x15803d, { roughness: 0.9 }),
+    pot: mat(0x2b2b2b, { roughness: 0.7 }),
+    red: mat(0xef4444, { emissive: 0xef4444, emissiveIntensity: 1.4 }),
+    grn: mat(0x22c55e, { emissive: 0x22c55e, emissiveIntensity: 1.4 }),
+    mug: mat(0xc2410c, { roughness: 0.5 }),
+  };
+
+  function box(w, h, d, m, x, y, z, cast = true) {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+    b.position.set(x, y, z);
+    b.castShadow = cast;
+    b.receiveShadow = true;
+    scene.add(b);
+    return b;
+  }
+  function cyl(rt, rb, h, m, x, y, z, seg = 24) {
+    const c = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), m);
+    c.position.set(x, y, z);
+    c.castShadow = true;
+    c.receiveShadow = true;
+    scene.add(c);
+    return c;
+  }
+
+  // ---------- sala ----------
+  const W = 12, D = 9, H = 3.6;
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D), M.floor);
+  floor.rotation.x = -Math.PI / 2;
+  floor.receiveShadow = true;
+  scene.add(floor);
+  const grid = new THREE.GridHelper(Math.max(W, D), 24, 0x1f1f1f, 0x141414);
+  grid.position.y = 0.002;
+  grid.scale.set(W / Math.max(W, D), 1, D / Math.max(W, D));
+  scene.add(grid);
+
+  // Paredes viradas para dentro: de fora ficam invisíveis, então dá para girar 360° sem tapar a vista.
+  function wall(w, h, x, z, ry) {
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ color: 0x090909, roughness: 0.95, side: THREE.FrontSide }));
+    p.position.set(x, h / 2, z);
+    p.rotation.y = ry;
+    p.receiveShadow = true;
+    scene.add(p);
+    return p;
+  }
+  wall(W, H, 0, -D / 2, 0);              // fundo
+  wall(D, H, -W / 2, 0, Math.PI / 2);    // esquerda
+  wall(D, H, W / 2, 0, -Math.PI / 2);    // direita
+  wall(W, H, 0, D / 2, Math.PI);         // frente
+
+  // fitas de LED no rodapé (verde e vermelha)
+  box(W, 0.03, 0.03, M.grn, 0, 0.04, -D / 2 + 0.03, false);
+  box(0.03, 0.03, D, M.red, -W / 2 + 0.03, 0.04, 0, false);
+  box(0.03, 0.03, D, M.grn, W / 2 - 0.03, 0.04, 0, false);
+  box(W, 0.03, 0.03, M.red, 0, 0.04, D / 2 - 0.03, false);
+
+  // tapete
+  const rug = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 3.6), mat(0x0a0a0a, { roughness: 1 }));
+  rug.rotation.x = -Math.PI / 2; rug.position.set(0, 0.004, 0.2); rug.receiveShadow = true; scene.add(rug);
+  const rugEdge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(5.2, 3.6)), new THREE.LineBasicMaterial({ color: 0x22c55e, transparent: true, opacity: 0.35 }));
+  rugEdge.rotation.x = -Math.PI / 2; rugEdge.position.set(0, 0.006, 0.2); scene.add(rugEdge);
+
+  // ---------- texturas de tela (gráfico de velas) ----------
+  function chartTexture(seed, w = 512, h = 300, title = "BTC/USD · M5") {
+    const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+    const g = cv.getContext("2d");
+    const tex = new THREE.CanvasTexture(cv);
+    tex.encoding = THREE.sRGBEncoding;
+    let s = seed;
+    const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
+    const n = 36;
+    const candles = [];
+    let p = 100;
+    for (let i = 0; i < n; i++) { const o = p; p += (rnd() - 0.47) * 4; candles.push([o, p, Math.max(o, p) + rnd() * 2, Math.min(o, p) - rnd() * 2]); }
+    function draw() {
+      g.fillStyle = "#030303"; g.fillRect(0, 0, w, h);
+      g.strokeStyle = "#ffffff10"; g.lineWidth = 1;
+      for (let y = 40; y < h; y += 40) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
+      const hi = Math.max(...candles.map(c => c[2])), lo = Math.min(...candles.map(c => c[3]));
+      const Y = v => 50 + (hi - v) / (hi - lo) * (h - 70);
+      const cw = (w - 40) / n;
+      candles.forEach((c, i) => {
+        const up = c[1] >= c[0], x = 20 + i * cw + cw / 2;
+        g.strokeStyle = g.fillStyle = up ? "#22c55e" : "#ef4444";
+        g.beginPath(); g.moveTo(x, Y(c[2])); g.lineTo(x, Y(c[3])); g.stroke();
+        g.fillRect(x - cw * 0.32, Math.min(Y(c[0]), Y(c[1])), cw * 0.64, Math.max(2, Math.abs(Y(c[0]) - Y(c[1]))));
+      });
+      g.fillStyle = "#f4f4f5"; g.font = "bold 22px Inter, sans-serif"; g.fillText(title, 18, 32);
+      const last = candles[n - 1], up = last[1] >= last[0];
+      g.fillStyle = up ? "#22c55e" : "#ef4444"; g.font = "bold 20px monospace";
+      g.fillText((up ? "▲ " : "▼ ") + last[1].toFixed(2), w - 150, 32);
+      tex.needsUpdate = true;
+    }
+    draw();
+    return {
+      tex,
+      step() { const o = candles[n - 1][1]; const c = o + (rnd() - 0.47) * 4; candles.shift(); candles.push([o, c, Math.max(o, c) + rnd() * 2, Math.min(o, c) - rnd() * 2]); draw(); },
+    };
+  }
+  function cityTexture() {
+    const cv = document.createElement("canvas"); cv.width = 512; cv.height = 256;
+    const g = cv.getContext("2d");
+    const grad = g.createLinearGradient(0, 0, 0, 256); grad.addColorStop(0, "#04120b"); grad.addColorStop(1, "#160608");
+    g.fillStyle = grad; g.fillRect(0, 0, 512, 256);
+    let x = 0;
+    while (x < 512) {
+      const bw = 30 + Math.random() * 50, bh = 60 + Math.random() * 150;
+      g.fillStyle = "#060606"; g.fillRect(x, 256 - bh, bw, bh);
+      for (let yy = 256 - bh + 8; yy < 250; yy += 14) for (let xx = x + 6; xx < x + bw - 6; xx += 11)
+        if (Math.random() < 0.35) { g.fillStyle = Math.random() < 0.8 ? "#fde68a" : "#22c55e"; g.globalAlpha = 0.75; g.fillRect(xx, yy, 4, 6); g.globalAlpha = 1; }
+      x += bw + 4;
+    }
+    const t = new THREE.CanvasTexture(cv); t.encoding = THREE.sRGBEncoding; return t;
+  }
+
+  // ---------- janela e telão ----------
+  const win = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 1.9), new THREE.MeshBasicMaterial({ map: cityTexture() }));
+  win.position.set(-2.4, 2.1, -D / 2 + 0.02); scene.add(win);
+  box(4.4, 0.08, 0.08, M.metal, -2.4, 3.08, -D / 2 + 0.05, false);
+  box(4.4, 0.08, 0.08, M.metal, -2.4, 1.12, -D / 2 + 0.05, false);
+  box(0.06, 1.95, 0.06, M.metal, -2.4, 2.1, -D / 2 + 0.05, false);
+
+  const tv = chartTexture(7, 768, 400, "TRADE AI · MERCADO AO VIVO");
+  const tvMesh = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.7), new THREE.MeshBasicMaterial({ map: tv.tex }));
+  tvMesh.position.set(-W / 2 + 0.03, 2.05, 0.3); tvMesh.rotation.y = Math.PI / 2; scene.add(tvMesh);
+  box(0.05, 1.8, 3.3, M.black, -W / 2 + 0.01, 2.05, 0.3, false);
+
+  // letreiro na parede do fundo
+  const signCv = document.createElement("canvas"); signCv.width = 1024; signCv.height = 200;
+  const sg = signCv.getContext("2d");
+  sg.font = "900 120px Inter, sans-serif"; sg.fillStyle = "#f4f4f5"; sg.fillText("TRADE", 40, 140);
+  sg.fillStyle = "#22c55e"; sg.fillText("A", 490, 140); sg.fillStyle = "#ef4444"; sg.fillText("I", 575, 140);
+  const signTex = new THREE.CanvasTexture(signCv); signTex.encoding = THREE.sRGBEncoding;
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 0.62), new THREE.MeshBasicMaterial({ map: signTex, transparent: true }));
+  sign.position.set(2.9, 2.6, -D / 2 + 0.02); scene.add(sign);
+
+  // ---------- mesa ----------
+  const DX = 0, DZ = -0.6, DH = 0.76;
+  box(2.6, 0.05, 1.15, M.desk, DX, DH, DZ);
+  box(2.6, 0.012, 0.012, M.edge, DX, DH - 0.02, DZ + 0.575, false); // filete de LED na borda
+  [[-1.22, -0.5], [1.22, -0.5], [-1.22, 0.5], [1.22, 0.5]].forEach(([x, z]) => box(0.05, DH, 0.05, M.metal, DX + x, DH / 2, DZ + z));
+  box(2.4, 0.12, 0.04, M.black, DX, DH - 0.12, DZ - 0.5); // calha de cabos
+
+  // monitores
+  const screens = [];
+  function monitor(x, z, ry, seed, title) {
+    const g = new THREE.Group();
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.5, 0.03), M.black); frame.castShadow = true; g.add(frame);
+    const ch = chartTexture(seed, 512, 300, title);
+    const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.78, 0.46), new THREE.MeshBasicMaterial({ map: ch.tex }));
+    scr.position.z = 0.016; g.add(scr);
+    const neck = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.22, 0.04), M.metal); neck.position.set(0, -0.33, -0.03); g.add(neck);
+    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.015, 0.18), M.metal); foot.position.set(0, -0.44, 0); g.add(foot);
+    g.position.set(DX + x, DH + 0.47, DZ + z); g.rotation.y = ry; scene.add(g);
+    screens.push(ch);
+  }
+  monitor(0, -0.32, 0, 3, "BTC/USD · M5");
+  monitor(-0.86, -0.18, 0.42, 11, "ETH/USD · M5");
+  monitor(0.86, -0.18, -0.42, 23, "EUR/USD · M5");
+  const glow = new THREE.PointLight(0x7dd3a8, 1.3, 3.2, 2); glow.position.set(DX, DH + 0.5, DZ + 0.15); scene.add(glow);
+
+  // teclado, mouse, caneca, luminária
+  box(0.48, 0.02, 0.16, mat(0x1c1c1c), DX - 0.05, DH + 0.035, DZ + 0.22);
+  box(0.07, 0.025, 0.11, mat(0x1c1c1c), DX + 0.33, DH + 0.037, DZ + 0.24);
+  cyl(0.045, 0.04, 0.1, M.mug, DX + 0.9, DH + 0.075, DZ + 0.25);
+  cyl(0.07, 0.08, 0.02, M.metal, DX - 1.05, DH + 0.035, DZ + 0.15);
+  const arm = box(0.02, 0.42, 0.02, M.metal, DX - 1.05, DH + 0.24, DZ + 0.15);
+  const head = cyl(0.07, 0.1, 0.09, M.black, DX - 0.98, DH + 0.46, DZ + 0.2); head.rotation.z = -0.6;
+  const lampLight = new THREE.SpotLight(0xfff1d6, 1.4, 3, 0.7, 0.5, 1.5);
+  lampLight.position.set(DX - 0.95, DH + 0.44, DZ + 0.2); lampLight.target.position.set(DX - 0.6, DH, DZ + 0.25);
+  scene.add(lampLight, lampLight.target);
+
+  // cadeira
+  const CZ = DZ + 1.05;
+  box(0.56, 0.08, 0.54, M.fabric, DX, 0.5, CZ);
+  const back = box(0.54, 0.68, 0.07, M.fabric, DX, 0.9, CZ + 0.28); back.rotation.x = -0.12;
+  box(0.56, 0.035, 0.035, M.edge, DX, 1.25, CZ + 0.32, false);
+  box(0.05, 0.05, 0.38, M.black, DX - 0.3, 0.68, CZ + 0.02); box(0.05, 0.05, 0.38, M.black, DX + 0.3, 0.68, CZ + 0.02);
+  cyl(0.035, 0.035, 0.36, M.metal, DX, 0.28, CZ);
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2;
+    const leg = box(0.3, 0.03, 0.04, M.metal, DX + Math.cos(a) * 0.15, 0.08, CZ + Math.sin(a) * 0.15); leg.rotation.y = -a;
+    cyl(0.03, 0.03, 0.04, M.black, DX + Math.cos(a) * 0.29, 0.03, CZ + Math.sin(a) * 0.29);
+  }
+
+  // ---------- outros móveis ----------
+  // servidor com luzes
+  box(0.7, 2.0, 0.6, mat(0x0a0a0a, { metalness: 0.4, roughness: 0.4 }), -W / 2 + 0.5, 1.0, -D / 2 + 0.45);
+  const leds = [];
+  for (let i = 0; i < 9; i++) {
+    const m = (i % 3 === 1 ? M.red : M.grn).clone();
+    leds.push(m);
+    box(0.05, 0.03, 0.01, m, -W / 2 + 0.3 + (i % 3) * 0.12, 0.5 + Math.floor(i / 3) * 0.45, -D / 2 + 0.755, false);
+  }
+  // estante
+  box(1.6, 1.8, 0.35, mat(0x111111), 4.6, 0.9, -D / 2 + 0.2);
+  [0.45, 0.9, 1.35].forEach((y) => box(1.5, 0.03, 0.32, mat(0x1a1a1a), 4.6, y, -D / 2 + 0.22));
+  [[4.1, 0.6], [4.35, 0.6], [4.9, 1.05], [5.1, 1.5], [4.3, 1.5]].forEach(([x, y], i) => box(0.12, 0.26, 0.22, i % 2 ? M.green : mat(0x7f1d1d), x, y, -D / 2 + 0.22));
+  // sofá
+  box(2.2, 0.4, 0.8, M.fabric, 3.6, 0.2, 2.6);
+  box(2.2, 0.55, 0.18, M.fabric, 3.6, 0.55, 2.95);
+  box(0.18, 0.55, 0.8, M.fabric, 2.6, 0.45, 2.6); box(0.18, 0.55, 0.8, M.fabric, 4.6, 0.45, 2.6);
+  box(1.0, 0.3, 0.55, mat(0x161616, { metalness: 0.3, roughness: 0.4 }), 3.6, 0.15, 1.65);
+  // plantas
+  function plant(x, z, s = 1) {
+    cyl(0.2 * s, 0.16 * s, 0.4 * s, M.pot, x, 0.2 * s, z);
+    [[0, 0.6, 0, 0.3], [0.15, 0.5, 0.1, 0.22], [-0.14, 0.52, -0.08, 0.22], [0.05, 0.78, -0.05, 0.2]].forEach(([dx, dy, dz, r]) => {
+      const l = new THREE.Mesh(new THREE.IcosahedronGeometry(r * s, 1), M.leaf); l.position.set(x + dx * s, dy * s, z + dz * s); l.castShadow = true; scene.add(l);
+    });
+  }
+  plant(-W / 2 + 0.6, D / 2 - 0.6, 1.2); plant(W / 2 - 0.5, -D / 2 + 0.6, 1); plant(-1.8, -D / 2 + 0.5, 0.8); plant(1.8, -D / 2 + 0.5, 0.8);
+
+  // ---------- luzes ----------
+  scene.add(new THREE.AmbientLight(0xffffff, 0.07));
+  scene.add(new THREE.HemisphereLight(0x9ca3af, 0x050505, 0.12));
+  const key = new THREE.DirectionalLight(0xffffff, 0.5);
+  key.position.set(5, 9, 6); key.castShadow = true;
+  key.shadow.mapSize.set(2048, 2048);
+  Object.assign(key.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8, near: 1, far: 30 });
+  key.shadow.bias = -0.0005;
+  scene.add(key);
+  const gl = new THREE.PointLight(0x22c55e, 1.6, 9, 2); gl.position.set(3, 1.2, -D / 2 + 0.6); scene.add(gl);
+  const rl = new THREE.PointLight(0xef4444, 1.4, 9, 2); rl.position.set(-W / 2 + 0.6, 1.2, 1.5); scene.add(rl);
+  const ceiling = new THREE.PointLight(0xffffff, 0.6, 14, 2); ceiling.position.set(0, 3.4, 0); ceiling.castShadow = true; scene.add(ceiling);
+
+  // ---------- câmera e botões ----------
+  const VIEWS = {
+    wide: { pos: [9.5, 9.5, 11], target: [0, 0.6, 0] },
+    top: { pos: [0.01, 18, 0.01], target: [0, 0, 0] },
+    desk: { pos: [1.5, 2.3, 1.7], target: [0, 1.0, -0.75] },
+  };
+  // em tela estreita, câmera mais longe para caber a sala inteira
+  const narrow = () => window.innerWidth < 600;
+  if (narrow()) { VIEWS.wide.pos = [13, 15, 16]; VIEWS.top.pos = [0.01, 26, 0.01]; VIEWS.desk.pos = [2.0, 2.8, 2.6]; }
+  camera.position.set(...VIEWS.wide.pos);
+  let tween = null;
+  function go(name) {
+    const v = VIEWS[name];
+    tween = { t: 0, from: camera.position.clone(), to: new THREE.Vector3(...v.pos), tf: controls.target.clone(), tt: new THREE.Vector3(...v.target) };
+  }
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const spinBtn = document.getElementById("spin");
+  function setSpin(on) { controls.autoRotate = on; spinBtn.classList.toggle("on", on); spinBtn.setAttribute("aria-pressed", String(on)); }
+  setSpin(!reduce);
+  spinBtn.onclick = () => setSpin(!controls.autoRotate);
+  document.getElementById("top").onclick = () => go("top");
+  document.getElementById("desk").onclick = () => { setSpin(false); go("desk"); };
+  document.getElementById("reset").onclick = () => go("wide");
+
+  function resize() {
+    const w = window.innerWidth, h = window.innerHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.fov = w < 600 ? 60 : 45; // no celular, mais campo de visão
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  const clock = new THREE.Clock();
+  let acc = 0;
+  function frame() {
+    const dt = clock.getDelta();
+    if (tween) {
+      tween.t = Math.min(1, tween.t + dt / 1.2);
+      const e = tween.t < 0.5 ? 4 * tween.t ** 3 : 1 - (-2 * tween.t + 2) ** 3 / 2;
+      camera.position.lerpVectors(tween.from, tween.to, e);
+      controls.target.lerpVectors(tween.tf, tween.tt, e);
+      if (tween.t >= 1) tween = null;
+    }
+    acc += dt;
+    if (acc > 1.6 && !reduce) { acc = 0; screens.forEach((s) => s.step()); tv.step(); }
+    const t = clock.elapsedTime;
+    leds.forEach((m, i) => { m.emissiveIntensity = 0.4 + 1.2 * (0.5 + 0.5 * Math.sin(t * 3 + i * 1.7)); });
+    controls.update();
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+  frame();
+})();
+</script>
+</body>
+</html>
