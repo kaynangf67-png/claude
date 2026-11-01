@@ -17,11 +17,11 @@ export const SCHEMA = {
   type: "object",
   properties: {
     is_chart: { type: "boolean" },
-    platform: { type: ["string", "null"], description: "Corretora ou plataforma, se visível" },
-    symbol: { type: ["string", "null"] },
-    timeframe: { type: ["string", "null"], description: "Tempo gráfico como aparece: M1, 1m, 5, M5, 15m..." },
-    last_price: { type: ["number", "null"] },
-    visible_time: { type: ["string", "null"], description: "Horário visível no print, como aparece" },
+    platform: { anyOf: [{ type: "string" }, { type: "null" }], description: "Corretora ou plataforma, se visível" },
+    symbol: { anyOf: [{ type: "string" }, { type: "null" }] },
+    timeframe: { anyOf: [{ type: "string" }, { type: "null" }], description: "Tempo gráfico como aparece: M1, 1m, 5, M5, 15m..." },
+    last_price: { anyOf: [{ type: "number" }, { type: "null" }] },
+    visible_time: { anyOf: [{ type: "string" }, { type: "null" }], description: "Horário visível no print, como aparece" },
     trend: { type: "string", enum: ["alta", "baixa", "lateral", "indefinida"] },
     last_candles: { type: "string", description: "Descrição das 3 últimas velas visíveis" },
     supports: { type: "array", items: { type: "number" } },
@@ -37,14 +37,14 @@ export const SCHEMA = {
     },
     decision: { type: "string", enum: ["CALL", "PUT", "NAO_OPERAR"] },
     setup_quality: { type: "string", enum: ["fraca", "moderada", "forte"] },
-    entry_reference_price: { type: ["number", "null"], description: "Preço visível de referência para a entrada" },
+    entry_reference_price: { anyOf: [{ type: "number" }, { type: "null" }], description: "Preço visível de referência para a entrada" },
     expiration_candles: { type: "integer", description: "Expiração sugerida em velas de 5 minutos (1 a 3)" },
     reasons: { type: "array", items: { type: "string" } },
     against: { type: "array", items: { type: "string" } },
-    invalidation: { type: ["string", "null"], description: "O que invalida a entrada antes de entrar" },
+    invalidation: { anyOf: [{ type: "string" }, { type: "null" }], description: "O que invalida a entrada antes de entrar" },
     missing: { type: "array", items: { type: "string" } },
     request_new_capture: { type: "boolean" },
-    new_capture_reason: { type: ["string", "null"] },
+    new_capture_reason: { anyOf: [{ type: "string" }, { type: "null" }] },
   },
   required: [
     "is_chart", "platform", "symbol", "timeframe", "last_price", "visible_time", "trend", "last_candles",
@@ -188,7 +188,11 @@ export async function handleAnalyze(request: Request): Promise<Response> {
   } catch (err) {
     if (err instanceof Anthropic.RateLimitError) return json({ error: "Limite de uso da IA atingido. Tente em instantes." }, 429);
     if (err instanceof Anthropic.AuthenticationError) return json({ error: "Chave da IA inválida." }, 503);
-    if (err instanceof Anthropic.APIError) return json({ error: `Falha na IA (${err.status ?? "rede"}).` }, 502);
+    if (err instanceof Anthropic.APIError) {
+      console.error("analyze: erro da API da Anthropic", err.status, err.message);
+      const m = err.message || "";
+      return json({ error: /credit balance/i.test(m) ? "Sua conta da Anthropic está sem créditos. Adicione em console.anthropic.com → Billing." : `Falha na IA (${err.status ?? "rede"}): ${m.replace(/\s+/g, " ").slice(0, 300)}` }, 502);
+    }
     if (err instanceof SyntaxError) return json({ error: "Resposta da IA em formato inesperado." }, 502);
     throw err;
   }

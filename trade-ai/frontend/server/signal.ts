@@ -137,8 +137,8 @@ const SCHEMA = {
     decision: { type: "string", enum: ["CALL", "PUT", "NAO_OPERAR"] },
     strength: { type: "integer", description: "0 a 100: força do sinal, não probabilidade de acerto" },
     expiry_candles: { type: "integer", description: "1 a 3 velas de 5 minutos" },
-    invalidation_price: { type: ["number", "null"], description: "preço que, se atingido, invalida a leitura" },
-    target_price: { type: ["number", "null"], description: "preço de referência para onde o movimento pode ir" },
+    invalidation_price: { anyOf: [{ type: "number" }, { type: "null" }], description: "preço que, se atingido, invalida a leitura" },
+    target_price: { anyOf: [{ type: "number" }, { type: "null" }], description: "preço de referência para onde o movimento pode ir" },
     reasons_for: { type: "array", items: { type: "string" } },
     reasons_against: { type: "array", items: { type: "string" } },
     summary: { type: "string" },
@@ -161,19 +161,33 @@ type Ask = (prompt: string) => Promise<AiReading>;
 
 async function askClaude(prompt: string): Promise<AiReading> {
   const client = new Anthropic();
-  const response = await client.beta.messages.create({
+  const base = {
     model: "claude-opus-5-5",
-    max_tokens: 4000,
-    betas: ["server-side-fallback-2026-07-01"],
-    fallbacks: "default",
-    output_config: { effort: "medium", format: { type: "json_schema", schema: SCHEMA } },
+    max_tokens: 8000,
+    output_config: { effort: "medium" as const, format: { type: "json_schema" as const, schema: SCHEMA } },
     system: SYSTEM_PROMPT,
-    messages: [{ role: "user", content: prompt }],
-  });
+    messages: [{ role: "user" as const, content: prompt }],
+  };
+  let response;
+  try {
+    // fallback no servidor: se o modelo recusar, outro modelo responde na mesma chamada
+    response = await client.beta.messages.create({ ...base, betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" });
+  } catch (err) {
+    // conta sem acesso a esse beta: tenta de novo sem o fallback
+    if (err instanceof Anthropic.BadRequestError && /anthropic-beta|fallbacks/i.test(err.message)) response = await client.beta.messages.create(base);
+    else throw err;
+  }
   if (response.stop_reason === "refusal") throw new SignalError("A IA recusou analisar este ativo.", 422);
   const text = response.content.map((b) => (b.type === "text" ? b.text : "")).join("");
   if (!text) throw new SignalError("Resposta vazia da IA", 502);
   return JSON.parse(text) as AiReading;
+}
+
+/** Mensagem de erro da API para o usuário: explica os casos comuns e mostra o texto original (nunca contém a chave). */
+export function aiErrorText(err: { status?: number; message: string }): string {
+  const m = err.message || "";
+  if (/credit balance/i.test(m)) return "Sua conta da Anthropic está sem créditos. Adicione em console.anthropic.com → Billing.";
+  return `Falha na IA (${err.status ?? "rede"}): ${m.replace(/\s+/g, " ").slice(0, 300)}`;
 }
 
 class SignalError extends Error { constructor(msg: string, public status: number) { super(msg); } }
@@ -257,7 +271,10 @@ export async function handleSignal(request: Request, deps: { ask?: Ask; now?: ()
     if (err instanceof SignalError) return json({ error: err.message }, err.status);
     if (err instanceof Anthropic.RateLimitError) return json({ error: "Limite de uso da IA atingido. Tente em instantes." }, 429);
     if (err instanceof Anthropic.AuthenticationError) return json({ error: "Chave da IA inválida." }, 503);
-    if (err instanceof Anthropic.APIError) return json({ error: `Falha na IA (${err.status ?? "rede"}).` }, 502);
+    if (err instanceof Anthropic.APIError) {
+      console.error("signal: erro da API da Anthropic", err.status, err.message);
+      return json({ error: aiErrorText(err) }, 502);
+    }
     if (err instanceof SyntaxError) return json({ error: "Resposta da IA em formato inesperado." }, 502);
     throw err;
   }

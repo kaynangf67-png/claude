@@ -108,3 +108,11 @@ describe("API /api/signal", () => {
     expect((await handleSignal(req("EURUSD"), deps)).status).toBe(502);
   });
 });
+
+describe("mensagem de erro da IA", async () => {
+  const { aiErrorText } = await import("./signal");
+  it("explica falta de crédito e mostra o texto original nos outros casos", () => {
+    expect(aiErrorText({ status: 400, message: "400 Your credit balance is too low to access the Anthropic API." })).toMatch(/sem créditos/);
+    expect(aiErrorText({ status: 400, message: "output_config.format.schema: invalid" })).toBe("Falha na IA (400): output_config.format.schema: invalid");
+  });
+});
