@@ -32,6 +32,35 @@
   .news a[aria-disabled="true"] { pointer-events: none; opacity: .4; }
   .news button { flex: 0 0 auto; color: var(--ink); background: #1a1a1a; }
   .news .note { margin-top: 12px; font-size: 11.5px; color: #63636b; }
+  .pc { position: fixed; inset: 0; z-index: 6; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 20px; background: #000c; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  .pc.open { display: flex; }
+  .pc-monitor { width: min(1100px, 100%); background: linear-gradient(180deg, #1a1a1a, #0b0b0b); border: 1px solid #2c2c2c; border-radius: 18px; padding: 14px 14px 0; box-shadow: 0 40px 90px -30px #000, inset 0 1px 0 #ffffff12; box-sizing: border-box; }
+  .pc-screen { background: #000; border-radius: 8px; overflow: hidden; border: 1px solid #000; display: flex; flex-direction: column; height: min(62vh, 600px); }
+  .pc-top { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: #0b0b0b; border-bottom: 1px solid #1c1c1c; font-size: 13px; }
+  .pc-dots { display: flex; gap: 6px; } .pc-dots i { width: 10px; height: 10px; border-radius: 50%; background: #2a2a2a; } .pc-dots i:first-child { background: #ef4444; } .pc-dots i:last-child { background: #22c55e; }
+  .pc-top b { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pc-state { font-size: 11.5px; font-weight: 800; padding: 4px 9px; border-radius: 99px; white-space: nowrap; }
+  .pc-state.on { color: #22c55e; background: #22c55e1f; } .pc-state.off { color: #f59e0b; background: #f59e0b1f; }
+  .pc-top button { appearance: none; border: 0; background: #1a1a1a; color: var(--ink); width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+  .pc-top button:hover { background: #262626; }
+  .pc-pick { padding: 10px 12px; border-bottom: 1px solid #1c1c1c; display: flex; flex-direction: column; gap: 8px; }
+  .pc-groups { display: flex; gap: 4px; }
+  .pc-groups button, .pc-assets button { appearance: none; font-family: inherit; cursor: pointer; }
+  .pc-groups button { border: 0; border-radius: 99px; padding: 6px 12px; font-size: 12.5px; font-weight: 800; color: var(--mute); background: transparent; }
+  .pc-groups button.on { background: var(--ink); color: #000; }
+  .pc-assets { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+  .pc-assets::-webkit-scrollbar { display: none; }
+  .pc-assets button { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; border: 1px solid #262626; background: #0b0b0b; color: var(--mute); border-radius: 10px; padding: 7px 11px; font-size: 12.5px; font-weight: 700; }
+  .pc-assets button:hover { color: var(--ink); border-color: #3a3a3a; }
+  .pc-assets button.on { border-color: var(--buy); color: var(--ink); background: #22c55e1a; }
+  .pc-assets i { width: 6px; height: 6px; border-radius: 50%; background: #3f3f46; } .pc-assets i.up { background: var(--buy); }
+  .pc-chart { flex: 1; min-height: 0; background: #000; }
+  .pc-chin { height: 34px; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 11px; font-weight: 800; letter-spacing: .2em; color: #52525b; }
+  .pc-chin em { font-style: normal; color: #22c55e; }
+  .pc-led { width: 5px; height: 5px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+  .pc-neck { width: 70px; height: 34px; background: linear-gradient(90deg, #111, #2a2a2a, #111); }
+  .pc-foot { width: 240px; height: 10px; border-radius: 6px 6px 3px 3px; background: linear-gradient(180deg, #2a2a2a, #111); }
+  @media (max-width: 560px) { .pc { padding: 10px; } .pc-monitor { padding: 8px 8px 0; border-radius: 14px; } .pc-screen { height: 72vh; } .pc-neck, .pc-foot { display: none; } .pc-chin { height: 26px; } }
   @media (max-width: 560px) { .hint { display: none; } .bar { display: grid; grid-template-columns: 1fr 1fr; width: calc(100vw - 32px); box-sizing: border-box; } .bar button { justify-content: center; padding: 11px 8px; font-size: 12.5px; } }
 </style>
 </head>
@@ -66,6 +95,28 @@
     </div>
     <div class="note">A matéria abre no site do veículo, numa nova aba. Alguns sites exigem assinatura.</div>
   </div>
+</div>
+
+<div class="pc" id="pc" role="dialog" aria-modal="true" aria-labelledby="pc-title">
+  <div class="pc-monitor">
+    <div class="pc-screen">
+      <div class="pc-top">
+        <span class="pc-dots"><i></i><i></i><i></i></span>
+        <b id="pc-title">Monitor</b>
+        <span class="pc-state" id="pc-state"></span>
+        <button id="pc-close" type="button" aria-label="Fechar">✕</button>
+      </div>
+      <div class="pc-pick">
+        <div class="pc-groups" id="pc-groups">
+          <button type="button" data-g="Forex">Forex</button><button type="button" data-g="Cripto">Cripto</button><button type="button" data-g="Commodities">Commodities</button>
+        </div>
+        <div class="pc-assets" id="pc-assets"></div>
+      </div>
+      <div class="pc-chart" id="pc-chart"></div>
+    </div>
+    <div class="pc-chin"><span>TRADE <em>AI</em></span><i class="pc-led"></i></div>
+  </div>
+  <div class="pc-neck"></div><div class="pc-foot"></div>
 </div>
 
 <script>/**
@@ -1245,14 +1296,15 @@
         g.fillRect(x - cw * 0.32, Math.min(Y(c[0]), Y(c[1])), cw * 0.64, Math.max(2, Math.abs(Y(c[0]) - Y(c[1]))));
       });
       g.fillStyle = "#f4f4f5"; g.font = "bold 22px Inter, sans-serif"; g.fillText(title, 18, 32);
-      const last = candles[n - 1], up = last[1] >= last[0];
-      g.fillStyle = up ? "#22c55e" : "#ef4444"; g.font = "bold 20px monospace";
-      g.fillText((up ? "▲ " : "▼ ") + last[1].toFixed(2), w - 150, 32);
+      // velas decorativas: sem preço na tela da mesa; o gráfico real abre ao clicar
+      g.fillStyle = "#63636b"; g.font = "600 15px Inter, sans-serif"; g.textAlign = "right";
+      g.fillText("CLIQUE PARA ABRIR", w - 16, 30); g.textAlign = "left";
       tex.needsUpdate = true;
     }
     draw();
     return {
       tex,
+      setTitle(t) { title = t; draw(); },
       step() { const o = candles[n - 1][1]; const c = o + (rnd() - 0.47) * 4; candles.shift(); candles.push([o, c, Math.max(o, c) + rnd() * 2, Math.min(o, c) - rnd() * 2]); draw(); },
     };
   }
@@ -1500,7 +1552,7 @@
   box(2.4, 0.12, 0.04, M.black, DX, DH - 0.12, DZ - 0.5); // calha de cabos
 
   // monitores
-  const screens = [];
+  const screens = [], screenMeshes = [];
   function monitor(x, z, ry, seed, title) {
     const g = new THREE.Group();
     const frame = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.5, 0.03), M.black); frame.castShadow = true; g.add(frame);
@@ -1510,10 +1562,11 @@
     const neck = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.22, 0.04), M.metal); neck.position.set(0, -0.33, -0.03); g.add(neck);
     const foot = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.015, 0.18), M.metal); foot.position.set(0, -0.44, 0); g.add(foot);
     g.position.set(DX + x, DH + 0.47, DZ + z); g.rotation.y = ry; scene.add(g);
-    screens.push(ch);
+    screens.push(ch); scr.userData.monitor = screenMeshes.length; screenMeshes.push(scr);
   }
-  monitor(0, -0.32, 0, 3, "BTC/USD · M5");
+  // da esquerda para a direita: monitor 1, 2 e 3
   monitor(-0.86, -0.18, 0.42, 11, "ETH/USD · M5");
+  monitor(0, -0.32, 0, 3, "BTC/USD · M5");
   monitor(0.86, -0.18, -0.42, 23, "EUR/USD · M5");
   const glow = new THREE.PointLight(0x7dd3a8, 1.3, 3.2, 2); glow.position.set(DX, DH + 0.5, DZ + 0.15); scene.add(glow);
 
@@ -1734,8 +1787,9 @@
     const r = canvas.getBoundingClientRect();
     ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
     ray.setFromCamera(ndc, camera);
-    const hitTv = ray.intersectObjects([tvMesh, calMesh])[0];
+    const hitTv = ray.intersectObjects([tvMesh, calMesh, ...screenMeshes])[0];
     if (!hitTv) return null;
+    if (hitTv.object.userData.monitor !== undefined) return { monitor: hitTv.object.userData.monitor };
     if (hitTv.object === calMesh) return { screen: "cal" };
     const n = hitTv.uv ? tv.hit(hitTv.uv.x, hitTv.uv.y) : null;
     return n ? { screen: "news", news: n } : { screen: "news" };
@@ -1751,14 +1805,81 @@
   const closeNews = () => newsBox.classList.remove("open");
   document.getElementById("news-close").onclick = closeNews;
   newsBox.addEventListener("click", (e) => { if (e.target === newsBox) closeNews(); });
-  addEventListener("keydown", (e) => { if (e.key === "Escape") closeNews(); });
+  addEventListener("keydown", (e) => { if (e.key === "Escape") { closeNews(); closePc(); } });
+
+  // ---------- tela de computador: gráfico real (TradingView, M5) com escolha de mercado ----------
+  const ASSETS = [
+    ["EURUSD", "EUR/USD", "Forex", "FX:EURUSD"], ["GBPUSD", "GBP/USD", "Forex", "FX:GBPUSD"], ["USDJPY", "USD/JPY", "Forex", "FX:USDJPY"],
+    ["AUDUSD", "AUD/USD", "Forex", "FX:AUDUSD"], ["USDCAD", "USD/CAD", "Forex", "FX:USDCAD"], ["USDCHF", "USD/CHF", "Forex", "FX:USDCHF"],
+    ["NZDUSD", "NZD/USD", "Forex", "FX:NZDUSD"], ["EURJPY", "EUR/JPY", "Forex", "FX:EURJPY"], ["EURGBP", "EUR/GBP", "Forex", "FX:EURGBP"],
+    ["GBPJPY", "GBP/JPY", "Forex", "FX:GBPJPY"], ["AUDCAD", "AUD/CAD", "Forex", "FX:AUDCAD"], ["AUDJPY", "AUD/JPY", "Forex", "FX:AUDJPY"],
+    ["BTCUSD", "BTC/USD", "Cripto", "BINANCE:BTCUSDT"], ["ETHUSD", "ETH/USD", "Cripto", "BINANCE:ETHUSDT"], ["LTCUSD", "LTC/USD", "Cripto", "BINANCE:LTCUSDT"],
+    ["XAUUSD", "Ouro", "Commodities", "OANDA:XAUUSD"], ["XAGUSD", "Prata", "Commodities", "OANDA:XAGUSD"], ["USOIL", "Petróleo", "Commodities", "TVC:USOIL"],
+  ].map(([id, label, group, tv]) => ({ id, label, group, tv }));
+  const findAsset = (id) => ASSETS.find((a) => a.id === id) || ASSETS[0];
+  // horário de Nova York: forex dom 17h–sex 17h; commodities dom 18h–sex 17h com pausa 17h–18h; cripto 24h
+  function isOpen(a) {
+    if (a.group === "Cripto") return true;
+    const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "short", hour: "numeric", minute: "numeric", hourCycle: "h23" }).formatToParts(new Date());
+    const get = (t) => (parts.find((x) => x.type === t) || {}).value || "";
+    const day = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(get("weekday")), h = Number(get("hour")) + Number(get("minute")) / 60;
+    const start = a.group === "Forex" ? 17 : 18;
+    if (day === 6 || (day === 5 && h >= 17) || (day === 0 && h < start)) return false;
+    return a.group === "Forex" || !(h >= 17 && h < 18);
+  }
+  const STORE = "tradeai-monitores";
+  let picks = ["ETHUSD", "BTCUSD", "EURUSD"];
+  try { const saved = JSON.parse(localStorage.getItem(STORE)); if (Array.isArray(saved) && saved.length === 3) picks = saved.map((id) => findAsset(id).id); } catch {}
+  const mtitle = (id) => `${findAsset(id).label} · M5`;
+  picks.forEach((id, i) => screens[i].setTitle(mtitle(id)));
+
+  const pc = document.getElementById("pc"), pcChart = document.getElementById("pc-chart");
+  let pcIdx = 0, pcGroup = "Forex";
+  function mountChart(a) {
+    pcChart.innerHTML = '<div class="tradingview-widget-container" style="height:100%;width:100%"><div class="tradingview-widget-container__widget" style="height:100%;width:100%"></div></div>';
+    const sc = document.createElement("script");
+    sc.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js"; sc.async = true;
+    sc.textContent = JSON.stringify({ autosize: true, symbol: a.tv, interval: "5", timezone: "America/Sao_Paulo", theme: "dark", style: "1", locale: "br",
+      backgroundColor: "#000000", gridColor: "rgba(255,255,255,0.04)", allow_symbol_change: false, hide_side_toolbar: true, hide_volume: true,
+      save_image: false, details: false, calendar: false, support_host: "https://www.tradingview.com" });
+    pcChart.firstChild.appendChild(sc);
+  }
+  function renderPc() {
+    const a = findAsset(picks[pcIdx]), open = isOpen(a);
+    document.getElementById("pc-title").textContent = `Monitor ${pcIdx + 1} · ${a.label} · M5`;
+    const st = document.getElementById("pc-state");
+    st.textContent = open ? "Ao vivo" : "Mercado fechado"; st.className = "pc-state " + (open ? "on" : "off");
+    document.querySelectorAll("#pc-groups button").forEach((b) => b.classList.toggle("on", b.dataset.g === pcGroup));
+    const list = document.getElementById("pc-assets"); list.innerHTML = "";
+    ASSETS.filter((x) => x.group === pcGroup).forEach((x) => {
+      const b = document.createElement("button"); b.type = "button";
+      b.className = x.id === a.id ? "on" : ""; b.innerHTML = `<i class="${isOpen(x) ? "up" : ""}"></i>`; b.append(x.label);
+      b.onclick = () => pickAsset(x.id); list.appendChild(b);
+    });
+  }
+  function pickAsset(id) {
+    if (picks[pcIdx] === id) return;
+    picks[pcIdx] = id; screens[pcIdx].setTitle(mtitle(id));
+    try { localStorage.setItem(STORE, JSON.stringify(picks)); } catch {}
+    renderPc(); mountChart(findAsset(id));
+  }
+  function openPc(i) {
+    pcIdx = i; pcGroup = findAsset(picks[i]).group; setSpin(false);
+    renderPc(); mountChart(findAsset(picks[i])); pc.classList.add("open");
+    document.getElementById("pc-close").focus();
+  }
+  function closePc() { if (!pc.classList.contains("open")) return; pc.classList.remove("open"); pcChart.innerHTML = ""; }
+  document.querySelectorAll("#pc-groups button").forEach((b) => (b.onclick = () => { pcGroup = b.dataset.g; renderPc(); }));
+  document.getElementById("pc-close").onclick = closePc;
+  pc.addEventListener("click", (e) => { if (e.target === pc) closePc(); });
   let down = null;
   canvas.addEventListener("pointerdown", (e) => { down = { x: e.clientX, y: e.clientY }; });
   canvas.addEventListener("pointerup", (e) => {
     if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) return;
     const t = newsAt(e); if (!t) return;
     // manchete abre a notícia; qualquer outro ponto de um telão leva a câmera para a frente dele
-    if (t.news) openNews(t.news); else { setSpin(false); go(t.screen); }
+    if (t.monitor !== undefined) openPc(t.monitor);
+    else if (t.news) openNews(t.news); else { setSpin(false); go(t.screen); }
   });
   canvas.addEventListener("pointermove", (e) => { if (e.pointerType === "mouse" && !e.buttons) canvas.style.cursor = newsAt(e) ? "pointer" : ""; });
   // Tela 1 = telão da esquerda (calendário econômico); Tela 2 = telão da direita (cotações e notícias)
