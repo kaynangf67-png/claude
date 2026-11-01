@@ -677,13 +677,88 @@
   box(0.18, 0.55, 0.8, M.fabric, 2.6, 0.45, 2.6); box(0.18, 0.55, 0.8, M.fabric, 4.6, 0.45, 2.6);
   box(1.0, 0.3, 0.55, mat(0x161616, { metalness: 0.3, roughness: 0.4 }), 3.6, 0.15, 1.65);
   // plantas
-  function plant(x, z, s = 1) {
-    cyl(0.2 * s, 0.16 * s, 0.4 * s, M.pot, x, 0.2 * s, z);
-    [[0, 0.6, 0, 0.3], [0.15, 0.5, 0.1, 0.22], [-0.14, 0.52, -0.08, 0.22], [0.05, 0.78, -0.05, 0.2]].forEach(([dx, dy, dz, r]) => {
-      const l = new THREE.Mesh(new THREE.IcosahedronGeometry(r * s, 1), M.leaf); l.position.set(x + dx * s, dy * s, z + dz * s); l.castShadow = true; scene.add(l);
-    });
+  // ---------- plantas: vaso de cerâmica torneado, terra e folhas modeladas ----------
+  let pseed = 7;
+  const prnd = () => (pseed = (pseed * 16807) % 2147483647) / 2147483647;
+  function leafTexture(kind) {
+    const cv = document.createElement("canvas"); cv.width = 128; cv.height = 256;
+    const g = cv.getContext("2d");
+    if (kind === "fig") {
+      const gr = g.createLinearGradient(0, 0, 128, 0); gr.addColorStop(0, "#1f6b33"); gr.addColorStop(0.5, "#2f8a45"); gr.addColorStop(1, "#1f6b33");
+      g.fillStyle = gr; g.fillRect(0, 0, 128, 256);
+      g.strokeStyle = "#7fc48d"; g.lineWidth = 3; g.beginPath(); g.moveTo(64, 256); g.lineTo(64, 0); g.stroke();   // nervura central
+      g.strokeStyle = "#5aa86a88"; g.lineWidth = 1.5;
+      for (let y = 230; y > 20; y -= 26) { g.beginPath(); g.moveTo(64, y); g.quadraticCurveTo(30, y - 18, 4, y - 40); g.moveTo(64, y); g.quadraticCurveTo(98, y - 18, 124, y - 40); g.stroke(); }
+    } else {
+      // espada-de-são-jorge: verde escuro com faixas claras e borda amarela
+      g.fillStyle = "#1d4d2b"; g.fillRect(0, 0, 128, 256);
+      for (let y = 4; y < 256; y += 9 + prnd() * 8) {
+        g.strokeStyle = `rgba(150, 200, 140, ${0.18 + prnd() * 0.2})`; g.lineWidth = 2 + prnd() * 3;
+        g.beginPath(); g.moveTo(0, y); for (let x = 0; x <= 128; x += 16) g.lineTo(x, y + Math.sin(x / 14 + y) * 3); g.stroke();
+      }
+      g.fillStyle = "#d9c45a"; g.fillRect(0, 0, 9, 256); g.fillRect(119, 0, 9, 256);
+    }
+    const t = new THREE.CanvasTexture(cv); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4; return t;
   }
-  plant(-W / 2 + 0.6, D / 2 - 0.6, 1.2); plant(W / 2 - 0.5, -D / 2 + 0.6, 1); plant(-1.8, -D / 2 + 0.5, 0.8); plant(1.8, -D / 2 + 0.5, 0.8);
+  // folha: plano subdividido, com contorno, dobra na nervura e caimento na ponta
+  function leafGeometry(L, wdt, fold, droop, profile) {
+    const geo = new THREE.PlaneGeometry(1, 1, 6, 12), pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const u = pos.getX(i), v = pos.getY(i) + 0.5;               // u em -0,5..0,5; v em 0..1 (base → ponta)
+      const x = u * wdt * profile(v), y = v * L;
+      pos.setXYZ(i, x, y, -fold * Math.abs(x) + droop * v * v * L);
+    }
+    geo.computeVertexNormals(); return geo;
+  }
+  const FIG_LEAF = leafGeometry(0.26, 0.2, 0.35, 0.18, (v) => Math.pow(Math.sin(Math.PI * Math.min(1, v * 1.08)), 0.7) * (1.15 - 0.35 * v));
+  const BLADE = leafGeometry(1, 0.075, 0.25, 0.06, (v) => (v < 0.85 ? 1 - 0.25 * v : (1 - v) / 0.15 * 0.79));
+  const figMat = new THREE.MeshStandardMaterial({ map: leafTexture("fig"), roughness: 0.55, side: THREE.DoubleSide });
+  const bladeMat = new THREE.MeshStandardMaterial({ map: leafTexture("blade"), roughness: 0.6, side: THREE.DoubleSide });
+  const soilMat = mat(0x24170f, { roughness: 1 });
+  const POTS = { concrete: mat(0x3d3d3b, { roughness: 0.92 }), ceramic: mat(0xe8e4dc, { roughness: 0.45 }) };
+  const barkMat = mat(0x4a3523, { roughness: 0.9 });
+
+  // vaso torneado (LatheGeometry): parede com espessura, borda arredondada e base mais estreita
+  function pot(x, z, r, h, kind) {
+    const pts = [[0, 0], [r * 0.78, 0], [r * 0.82, 0.02], [r * 0.97, h * 0.75], [r, h * 0.97], [r * 0.99, h], [r * 0.93, h], [r * 0.9, h * 0.94], [0.001, h * 0.94]]
+      .map(([a, b]) => new THREE.Vector2(a, b));
+    const m = new THREE.Mesh(new THREE.LatheGeometry(pts, 40), POTS[kind]); m.position.set(x, 0, z); m.castShadow = true; m.receiveShadow = true; scene.add(m);
+    const soil = new THREE.Mesh(new THREE.CircleGeometry(r * 0.9, 32), soilMat); soil.rotation.x = -Math.PI / 2; soil.position.set(x, h * 0.9, z); scene.add(soil);
+    return h * 0.9;
+  }
+  const tint = new THREE.Color();
+  // figueira-lira: tronco fino com galhos e folhas largas
+  function fig(x, z, s) {
+    const top = pot(x, z, 0.24 * s, 0.42 * s, "concrete");
+    const H = 1.35 * s, n = 46;
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.018 * s, 0.03 * s, H, 8), barkMat); trunk.position.set(x, top + H / 2, z); trunk.castShadow = true; scene.add(trunk);
+    const leaves = new THREE.InstancedMesh(FIG_LEAF, figMat, n); leaves.castShadow = true;
+    const d = new THREE.Object3D();
+    for (let i = 0; i < n; i++) {
+      const t = 0.35 + 0.65 * (i / n), ang = i * 2.4 + prnd() * 0.5;          // espiral (ângulo de ouro)
+      const reach = (0.04 + (0.16 + 0.12 * prnd()) * Math.sin(Math.PI * Math.min(1, t * 1.1))) * s;   // copa mais larga no meio
+      d.position.set(x + Math.cos(ang) * reach, top + t * H, z + Math.sin(ang) * reach);
+      d.rotation.set(0, 0, 0); d.rotateY(-ang + Math.PI / 2); d.rotateX(0.55 + prnd() * 0.65);   // folha aponta para fora e para cima d.rotateZ((prnd() - 0.5) * 0.6);
+      const sc = s * (0.75 + 0.5 * prnd()) * (t > 0.9 ? 0.7 : 1); d.scale.set(sc, sc, sc); d.updateMatrix();
+      leaves.setMatrixAt(i, d.matrix); leaves.setColorAt(i, tint.setHSL(0.33 + (prnd() - 0.5) * 0.04, 0.5, 0.55 + prnd() * 0.25));
+    }
+    scene.add(leaves);
+  }
+  // espada-de-são-jorge: lâminas eretas saindo da terra
+  function snake(x, z, s) {
+    const top = pot(x, z, 0.17 * s, 0.32 * s, "ceramic");
+    const n = 13, blades = new THREE.InstancedMesh(BLADE, bladeMat, n); blades.castShadow = true;
+    const d = new THREE.Object3D();
+    for (let i = 0; i < n; i++) {
+      const ang = prnd() * Math.PI * 2, rr = prnd() * 0.1 * s;
+      d.position.set(x + Math.cos(ang) * rr, top - 0.01, z + Math.sin(ang) * rr);
+      d.rotation.set(0, 0, 0); d.rotateY(prnd() * Math.PI * 2); d.rotateX(-(0.05 + prnd() * 0.22));
+      const hh = s * (0.45 + prnd() * 0.45); d.scale.set(s, hh, s); d.updateMatrix();
+      blades.setMatrixAt(i, d.matrix); blades.setColorAt(i, tint.setHSL(0.33, 0.25, 0.75 + prnd() * 0.25));
+    }
+    scene.add(blades);
+  }
+  fig(-W / 2 + 0.6, D / 2 - 0.6, 1.15); fig(W / 2 - 0.55, -D / 2 + 0.6, 1); snake(-1.8, -D / 2 + 0.45, 1); snake(1.8, -D / 2 + 0.45, 1);
 
   // ---------- luzes ----------
   scene.add(new THREE.AmbientLight(0xffffff, 0.07));
