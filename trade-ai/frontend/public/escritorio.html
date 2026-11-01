@@ -1113,7 +1113,7 @@
   const controls = new THREE.OrbitControls(camera, canvas);
   controls.enableDamping = true;
   controls.dampingFactor = 0.08;
-  controls.minDistance = 3;
+  controls.minDistance = 0.6;
   controls.maxDistance = 34;
   controls.minPolarAngle = 0.05;           // quase de cima
   controls.maxPolarAngle = Math.PI / 2.15; // nunca abaixo do piso
@@ -1291,10 +1291,131 @@
   monitor(0.86, -0.18, -0.42, 23, "EUR/USD · M5");
   const glow = new THREE.PointLight(0x7dd3a8, 1.3, 3.2, 2); glow.position.set(DX, DH + 0.5, DZ + 0.15); scene.add(glow);
 
-  // teclado, mouse, caneca
-  box(0.48, 0.02, 0.16, mat(0x1c1c1c), DX - 0.05, DH + 0.035, DZ + 0.22);
-  box(0.07, 0.025, 0.11, mat(0x1c1c1c), DX + 0.33, DH + 0.037, DZ + 0.24);
-  cyl(0.045, 0.04, 0.1, M.mug, DX + 0.9, DH + 0.075, DZ + 0.25);
+  // ---------- teclado, mouse e caneca ----------
+  const TOP = DH + 0.025; // superfície do tampo
+  const animators = [];
+
+  // caixa com cantos arredondados (perfil extrudado)
+  function rounded(w, d, h, r, m) {
+    const sh = new THREE.Shape();
+    const x = -w / 2, y = -d / 2;
+    sh.moveTo(x + r, y); sh.lineTo(x + w - r, y); sh.quadraticCurveTo(x + w, y, x + w, y + r);
+    sh.lineTo(x + w, y + d - r); sh.quadraticCurveTo(x + w, y + d, x + w - r, y + d);
+    sh.lineTo(x + r, y + d); sh.quadraticCurveTo(x, y + d, x, y + d - r);
+    sh.lineTo(x, y + r); sh.quadraticCurveTo(x, y, x + r, y);
+    const g = new THREE.ExtrudeGeometry(sh, { depth: h, bevelEnabled: true, bevelThickness: h * 0.25, bevelSize: r * 0.35, bevelSegments: 3, steps: 1 });
+    g.rotateX(-Math.PI / 2);
+    const mesh = new THREE.Mesh(g, m);
+    mesh.castShadow = true; mesh.receiveShadow = true;
+    return mesh;
+  }
+
+  // mousepad (desk mat) sob teclado e mouse
+  const pad = rounded(0.86, 0.32, 0.003, 0.02, mat(0x090909, { roughness: 1 }));
+  pad.position.set(DX + 0.08, TOP, DZ + 0.24); scene.add(pad);
+  const padEdge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(0.86, 0.32)), new THREE.LineBasicMaterial({ color: 0x22c55e, transparent: true, opacity: 0.5 }));
+  padEdge.rotation.x = -Math.PI / 2; padEdge.position.set(DX + 0.08, TOP + 0.0045, DZ + 0.24); scene.add(padEdge);
+
+  // teclado: gabinete inclinado + teclas individuais
+  const kb = new THREE.Group();
+  const kbCase = rounded(0.44, 0.15, 0.012, 0.012, mat(0x161616, { roughness: 0.45, metalness: 0.4 }));
+  kb.add(kbCase);
+  const glowStrip = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.13), new THREE.MeshBasicMaterial({ color: 0x22c55e, transparent: true, opacity: 0.18 }));
+  glowStrip.rotation.x = -Math.PI / 2; glowStrip.position.y = -0.001; kb.add(glowStrip);
+  const keyGeo = new THREE.BoxGeometry(1, 1, 1);
+  const keyMat = mat(0x222222, { roughness: 0.55 });
+  const U = 0.0245, GAP = 0.0035, KH = 0.007;
+  // fileiras do teclado em unidades de tecla (1 = tecla comum)
+  const rows = [
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2],
+    [1.5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1.5],
+    [1.75, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2.25],
+    [2.25, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2.75],
+    [1.25, 1.25, 1.25, 6.25, 1.25, 1.25, 1.25, 1.25],
+  ];
+  const keyCount = rows.reduce((n, r) => n + r.length, 0);
+  const keys = new THREE.InstancedMesh(keyGeo, keyMat, keyCount);
+  keys.castShadow = true;
+  const dummy = new THREE.Object3D();
+  let k = 0;
+  const totalW = 15 * U;
+  rows.forEach((row, ri) => {
+    let xu = 0;
+    row.forEach((wu) => {
+      const w = wu * U - GAP;
+      dummy.position.set(-totalW / 2 + (xu + wu / 2) * U, 0.014 + KH / 2, -0.052 + ri * U);
+      dummy.scale.set(w, KH, U - GAP);
+      dummy.updateMatrix();
+      keys.setMatrixAt(k++, dummy.matrix);
+      xu += wu;
+    });
+  });
+  kb.add(keys);
+  // Enter e Esc com destaque verde e vermelho
+  const accentKey = (x, z, w, m) => { const a = new THREE.Mesh(keyGeo, m); a.scale.set(w, KH + 0.0005, U - GAP); a.position.set(x, 0.014 + KH / 2 + 0.0002, z); kb.add(a); };
+  accentKey(-totalW / 2 + 0.5 * U, -0.052, U - GAP, mat(0x7f1d1d, { roughness: 0.5 }));
+  accentKey(-totalW / 2 + (12.75 + 1.125) * U, -0.052 + 2 * U, 2.25 * U - GAP, mat(0x14532d, { roughness: 0.5 }));
+  kb.rotation.x = 0.07; // inclinação para o usuário
+  kb.position.set(DX - 0.06, TOP + 0.004, DZ + 0.24);
+  scene.add(kb);
+
+  // mouse: casco anatômico, botões separados e roda
+  const mouse = new THREE.Group();
+  const shell = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 24, 0, Math.PI * 2, 0, Math.PI / 2), mat(0x1a1a1a, { roughness: 0.35, metalness: 0.2 }));
+  shell.scale.set(0.031, 0.019, 0.052); shell.castShadow = true; mouse.add(shell);
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.003, 32), mat(0x0a0a0a));
+  base.scale.set(0.031, 1, 0.052); base.position.y = 0.0015; mouse.add(base);
+  const split = new THREE.Mesh(new THREE.BoxGeometry(0.0012, 0.004, 0.03), mat(0x050505));
+  split.position.set(0, 0.0175, -0.026); split.rotation.x = 0.35; mouse.add(split);
+  const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.0055, 0.004, 20), mat(0x22c55e, { emissive: 0x22c55e, emissiveIntensity: 0.6, roughness: 0.4 }));
+  wheel.rotation.z = Math.PI / 2; wheel.position.set(0, 0.0185, -0.024); mouse.add(wheel);
+  mouse.rotation.y = -0.18;
+  mouse.position.set(DX + 0.34, TOP + 0.004, DZ + 0.25);
+  scene.add(mouse);
+
+  // caneca: cerâmica oca (perfil girado), alça, café com espuma e vapor
+  const mug = new THREE.Group();
+  const R = 0.04, MH = 0.095, T = 0.004;
+  const prof = [
+    [0, 0], [R - 0.006, 0], [R - 0.001, 0.003], [R, 0.01], [R + 0.001, MH - 0.004], [R, MH], // parede externa
+    [R - T, MH], [R - T - 0.0005, 0.012], [R - T - 0.004, 0.008], [0, 0.008],                // parede interna e fundo
+  ].map(([x, y]) => new THREE.Vector2(x, y));
+  const ceramic = new THREE.MeshStandardMaterial({ color: 0xf2efe9, roughness: 0.28, metalness: 0, side: THREE.DoubleSide });
+  const body = new THREE.Mesh(new THREE.LatheGeometry(prof, 48), ceramic);
+  body.castShadow = true; body.receiveShadow = true; mug.add(body);
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.0012, R + 0.0012, 0.012, 48, 1, true), mat(0x16a34a, { roughness: 0.4 }));
+  band.position.y = 0.03; mug.add(band); // faixa verde
+  const handle = new THREE.Mesh(new THREE.TorusGeometry(0.024, 0.0055, 16, 32, Math.PI * 1.15), ceramic);
+  handle.rotation.z = -Math.PI * 0.575; handle.position.set(R + 0.004, MH * 0.52, 0); handle.castShadow = true; mug.add(handle);
+  const coffee = new THREE.Mesh(new THREE.CircleGeometry(R - T - 0.0006, 40), new THREE.MeshStandardMaterial({ color: 0x2b1408, roughness: 0.15 }));
+  coffee.rotation.x = -Math.PI / 2; coffee.position.y = MH - 0.014; mug.add(coffee);
+  const crema = new THREE.Mesh(new THREE.RingGeometry(R - T - 0.006, R - T - 0.0006, 40), new THREE.MeshStandardMaterial({ color: 0x8a5a32, roughness: 0.6 }));
+  crema.rotation.x = -Math.PI / 2; crema.position.y = MH - 0.0138; mug.add(crema);
+  mug.rotation.y = -0.35;
+  mug.position.set(DX + 0.88, TOP, DZ + 0.22);
+  scene.add(mug);
+
+  // vapor: alguns planos com gradiente suave subindo e sumindo
+  const steamCv = document.createElement("canvas"); steamCv.width = steamCv.height = 64;
+  const sgx = steamCv.getContext("2d");
+  const rg = sgx.createRadialGradient(32, 32, 2, 32, 32, 30); rg.addColorStop(0, "rgba(255,255,255,0.55)"); rg.addColorStop(1, "rgba(255,255,255,0)");
+  sgx.fillStyle = rg; sgx.fillRect(0, 0, 64, 64);
+  const steamTex = new THREE.CanvasTexture(steamCv);
+  const puffs = [];
+  for (let i = 0; i < 6; i++) {
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: steamTex, transparent: true, depthWrite: false, opacity: 0 }));
+    sp.userData.phase = i / 6;
+    scene.add(sp); puffs.push(sp);
+  }
+  const mugTop = new THREE.Vector3(DX + 0.88, TOP + MH, DZ + 0.22);
+  animators.push((t) => {
+    puffs.forEach((sp) => {
+      const p = (t * 0.25 + sp.userData.phase) % 1;
+      sp.position.set(mugTop.x + Math.sin(t * 1.3 + sp.userData.phase * 6) * 0.012 * p, mugTop.y + p * 0.16, mugTop.z + Math.cos(t + sp.userData.phase * 5) * 0.008 * p);
+      const sc = 0.03 + p * 0.06; sp.scale.set(sc, sc, sc);
+      sp.material.opacity = Math.sin(p * Math.PI) * 0.35;
+    });
+  });
 
   // cadeira
   const CZ = DZ + 1.05;
@@ -1353,7 +1474,7 @@
   const VIEWS = {
     wide: { pos: [9.5, 9.5, 11], target: [0, 0.6, 0] },
     top: { pos: [0.01, 18, 0.01], target: [0, 0, 0] },
-    desk: { pos: [1.5, 2.3, 1.7], target: [0, 1.0, -0.75] },
+    desk: { pos: [1.15, 1.55, 0.95], target: [0.15, 0.82, -0.45] },
   };
   // em tela estreita, câmera mais longe para caber a sala inteira
   const narrow = () => window.innerWidth < 600;
@@ -1398,6 +1519,7 @@
     if (acc > 1.6 && !reduce) { acc = 0; screens.forEach((s) => s.step()); tv.step(); }
     const t = clock.elapsedTime;
     leds.forEach((m, i) => { m.emissiveIntensity = 0.4 + 1.2 * (0.5 + 0.5 * Math.sin(t * 3 + i * 1.7)); });
+    if (!reduce) animators.forEach((f) => f(t, dt));
     controls.update();
     renderer.render(scene, camera);
     requestAnimationFrame(frame);
