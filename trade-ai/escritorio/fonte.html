@@ -32,7 +32,7 @@
   .news a[aria-disabled="true"] { pointer-events: none; opacity: .4; }
   .news button { flex: 0 0 auto; color: var(--ink); background: #1a1a1a; }
   .news .note { margin-top: 12px; font-size: 11.5px; color: #63636b; }
-  @media (max-width: 560px) { .hint { display: none; } .bar { display: grid; grid-template-columns: 1fr 1fr; width: calc(100vw - 32px); box-sizing: border-box; } .bar button { justify-content: center; padding: 11px 8px; font-size: 12.5px; } .bar #spin { grid-column: 1 / -1; } }
+  @media (max-width: 560px) { .hint { display: none; } .bar { display: grid; grid-template-columns: 1fr 1fr; width: calc(100vw - 32px); box-sizing: border-box; } .bar button { justify-content: center; padding: 11px 8px; font-size: 12.5px; } }
 </style>
 </head>
 <body>
@@ -50,7 +50,8 @@
   <button id="spin" class="on" type="button">⟳ Girar 360°</button>
   <button id="top" type="button">Visão de cima</button>
   <button id="desk" type="button">Ver a mesa</button>
-  <button id="tvbtn" type="button">Ver os telões</button>
+  <button id="tela1" type="button">Tela 1</button>
+  <button id="tela2" type="button">Tela 2</button>
   <button id="reset" type="button">Visão ampla</button>
 </nav>
 
@@ -253,10 +254,15 @@
       g.fillStyle = "#a1a1aa"; g.font = "600 22px Inter, sans-serif"; g.fillText("MERCADO AO VIVO", 222, 60);
       const live = state.ok === true;
       g.fillStyle = live ? "#22c55e" : state.ok === false ? "#ef4444" : "#63636b";
-      g.beginPath(); g.arc(w - 250, 52, 8, 0, Math.PI * 2); g.fill();
-      g.font = "700 20px Inter, sans-serif"; g.fillText(live ? "AO VIVO" : state.ok === false ? "SEM CONEXÃO" : "CONECTANDO", w - 232, 59);
-      g.fillStyle = "#f4f4f5"; g.font = "700 24px monospace";
-      g.fillText(new Date().toLocaleTimeString("pt-BR"), w - 140, 60);
+      // status alinhado à direita, sempre antes do relógio (não sobrepõe)
+      const clock = new Date().toLocaleTimeString("pt-BR");
+      g.font = "700 24px monospace"; const cw = g.measureText(clock).width;
+      const label = live ? "AO VIVO" : state.ok === false ? "SEM CONEXÃO" : "CONECTANDO";
+      g.font = "700 20px Inter, sans-serif"; const lw = g.measureText(label).width;
+      const lx = w - 40 - cw - 24 - lw;
+      g.beginPath(); g.arc(lx - 18, 52, 8, 0, Math.PI * 2); g.fill();
+      g.fillText(label, lx, 59);
+      g.fillStyle = "#f4f4f5"; g.font = "700 24px monospace"; g.fillText(clock, w - 40 - cw, 60);
       g.fillStyle = "#1c1c1c"; g.fillRect(40, 84, w - 80, 2);
 
       if (state.ok === false) {
@@ -704,9 +710,9 @@
     if (t.news) openNews(t.news); else { setSpin(false); go(t.screen); }
   });
   canvas.addEventListener("pointermove", (e) => { if (e.pointerType === "mouse" && !e.buttons) canvas.style.cursor = newsAt(e) ? "pointer" : ""; });
-  // tela larga: os dois telões juntos; celular: um por vez, alternando a cada toque
-  let tvTurn = 0;
-  document.getElementById("tvbtn").onclick = () => { setSpin(false); go(narrow() ? (tvTurn++ % 2 ? "cal" : "news") : "tv"); };
+  // Tela 1 = telão da esquerda (calendário econômico); Tela 2 = telão da direita (cotações e notícias)
+  document.getElementById("tela1").onclick = () => { setSpin(false); go("cal"); };
+  document.getElementById("tela2").onclick = () => { setSpin(false); go("news"); };
   document.getElementById("reset").onclick = () => go("wide");
 
   function resize() {
