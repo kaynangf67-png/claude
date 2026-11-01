@@ -54,13 +54,35 @@
   .pc-assets button:hover { color: var(--ink); border-color: #3a3a3a; }
   .pc-assets button.on { border-color: var(--buy); color: var(--ink); background: #22c55e1a; }
   .pc-assets i { width: 6px; height: 6px; border-radius: 50%; background: #3f3f46; } .pc-assets i.up { background: var(--buy); }
-  .pc-chart { flex: 1; min-height: 0; background: #000; }
+  .pc-body { flex: 1; min-height: 0; display: flex; }
+  .pc-chart { flex: 1; min-width: 0; min-height: 0; background: #000; }
+  .ai { width: 300px; flex: 0 0 auto; border-left: 1px solid #1c1c1c; background: #050505; display: flex; flex-direction: column; min-height: 0; }
+  .ai-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 10px 12px 0; font-size: 11px; font-weight: 800; letter-spacing: .12em; color: #63636b; }
+  .ai-head small { letter-spacing: 0; font-weight: 600; text-align: right; }
+  .ai-go { margin: 10px 12px; appearance: none; border: 0; border-radius: 12px; padding: 12px; font: 800 14px/1 inherit; font-family: inherit; cursor: pointer; color: #03130a; background: linear-gradient(180deg, #34d36f, #16a34a); }
+  .ai-go:disabled { opacity: .45; cursor: default; }
+  .ai-out { flex: 1; min-height: 0; overflow-y: auto; padding: 0 12px 12px; font-size: 13px; line-height: 1.45; }
+  .ai-hint { color: #71717a; margin: 4px 0; }
+  .ai-err { color: #fca5a5; background: #ef44441a; border: 1px solid #ef444440; border-radius: 10px; padding: 10px; }
+  .ai-dec { border-radius: 14px; padding: 12px; text-align: center; }
+  .ai-dec b { display: block; font-size: 26px; letter-spacing: .04em; }
+  .ai-dec span { font-size: 12px; opacity: .8; }
+  .ai-dec.call { background: #22c55e1f; color: #4ade80; border: 1px solid #22c55e55; }
+  .ai-dec.put { background: #ef44441f; color: #f87171; border: 1px solid #ef444455; }
+  .ai-dec.wait { background: #ffffff0a; color: #d4d4d8; border: 1px solid #ffffff1a; }
+  .ai-bar { height: 6px; border-radius: 9px; background: #1f1f1f; margin: 10px 0 2px; overflow: hidden; } .ai-bar i { display: block; height: 100%; border-radius: 9px; }
+  .ai-grid { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; margin: 10px 0; font-size: 12.5px; }
+  .ai-grid dt { color: #8b8b93; } .ai-grid dd { margin: 0; text-align: right; font-weight: 700; font-family: ui-monospace, monospace; }
+  .ai h4 { margin: 10px 0 4px; font-size: 11px; letter-spacing: .1em; color: #63636b; }
+  .ai ul { margin: 0; padding-left: 16px; } .ai li { margin: 2px 0; }
+  .ai ul.pro li::marker { color: #22c55e; } .ai ul.con li::marker { color: #ef4444; }
+  .ai-foot { margin-top: 10px; font-size: 11px; color: #63636b; }
   .pc-chin { height: 34px; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 11px; font-weight: 800; letter-spacing: .2em; color: #52525b; }
   .pc-chin em { font-style: normal; color: #22c55e; }
   .pc-led { width: 5px; height: 5px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e; }
   .pc-neck { width: 70px; height: 34px; background: linear-gradient(90deg, #111, #2a2a2a, #111); }
   .pc-foot { width: 240px; height: 10px; border-radius: 6px 6px 3px 3px; background: linear-gradient(180deg, #2a2a2a, #111); }
-  @media (max-width: 560px) { .pc { padding: 10px; } .pc-monitor { padding: 8px 8px 0; border-radius: 14px; } .pc-screen { height: 72vh; } .pc-neck, .pc-foot { display: none; } .pc-chin { height: 26px; } }
+  @media (max-width: 560px) { .pc { padding: 10px; } .pc-monitor { padding: 8px 8px 0; border-radius: 14px; } .pc-screen { height: 86vh; } .pc-body { flex-direction: column; } .pc-chart { flex: 0 0 38%; } .ai { width: auto; flex: 1; border-left: 0; border-top: 1px solid #1c1c1c; } .pc-neck, .pc-foot { display: none; } .pc-chin { height: 26px; } }
   @media (max-width: 560px) { .hint { display: none; } .bar { display: grid; grid-template-columns: 1fr 1fr; width: calc(100vw - 32px); box-sizing: border-box; } .bar button { justify-content: center; padding: 11px 8px; font-size: 12.5px; } }
 </style>
 </head>
@@ -112,7 +134,14 @@
         </div>
         <div class="pc-assets" id="pc-assets"></div>
       </div>
-      <div class="pc-chart" id="pc-chart"></div>
+      <div class="pc-body">
+        <div class="pc-chart" id="pc-chart"></div>
+        <aside class="ai" aria-live="polite">
+          <div class="ai-head"><span>IA · ENTRADA M5</span><small id="ai-src"></small></div>
+          <button id="ai-go" class="ai-go" type="button">Pedir entrada à IA</button>
+          <div id="ai-out" class="ai-out"><p class="ai-hint">Escolha o mercado e peça a leitura. A IA usa as velas reais de 5 minutos, indicadores (EMA, RSI, ATR) e o calendário de notícias.</p></div>
+        </aside>
+      </div>
     </div>
     <div class="pc-chin"><span>TRADE <em>AI</em></span><i class="pc-led"></i></div>
   </div>
@@ -881,18 +910,80 @@
       b.onclick = () => pickAsset(x.id); list.appendChild(b);
     });
   }
+  // ---------- IA: entrada sugerida ----------
+  const aiOut = document.getElementById("ai-out"), aiGo = document.getElementById("ai-go");
+  let aiTimer = null, aiCool = 0;
+  const hhmm = (t) => new Date(t * 1000).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+  const num = (v) => (v === null || v === undefined ? "—" : Number(v).toLocaleString("pt-BR", { maximumSignificantDigits: 6 }));
+  function aiReset() {
+    clearInterval(aiTimer); aiOut.innerHTML = "";
+    aiOut.append(el("p", "ai-hint", "Escolha o mercado e peça a leitura. A IA usa as velas reais de 5 minutos, indicadores (EMA, RSI, ATR) e o calendário de notícias."));
+    document.getElementById("ai-src").textContent = "";
+  }
+  function aiShow(sig) {
+    clearInterval(aiTimer); aiOut.innerHTML = "";
+    document.getElementById("ai-src").textContent = sig.delayed ? "dados com atraso" : "tempo real";
+    const kind = sig.decision === "CALL" ? "call" : sig.decision === "PUT" ? "put" : "wait";
+    const box = el("div", "ai-dec " + kind);
+    box.append(el("b", "", sig.decision === "CALL" ? "▲ CALL" : sig.decision === "PUT" ? "▼ PUT" : "NÃO OPERAR"));
+    box.append(el("span", "", sig.decision === "NAO_OPERAR" ? (sig.blocked_by || "Sem setup claro agora") : `${sig.label} · ${sig.decision === "CALL" ? "compra (alta)" : "venda (baixa)"} na abertura da vela`));
+    aiOut.append(box);
+    if (sig.decision !== "NAO_OPERAR") {
+      const bar = el("div", "ai-bar"), fill = el("i"); fill.style.width = sig.strength + "%";
+      fill.style.background = sig.strength >= 75 ? "#22c55e" : "#f59e0b"; bar.append(fill); aiOut.append(bar);
+      aiOut.append(el("div", "ai-hint", `Força do sinal: ${sig.strength}/100 (clareza do setup, não chance de acerto)`));
+      const dl = el("dl", "ai-grid");
+      const row = (k, v) => { dl.append(el("dt", "", k)); const d = el("dd", "", v); dl.append(d); return d; };
+      const cd = row("Entrada", hhmm(sig.entry_at));
+      row("Expiração", `${hhmm(sig.expiry_at)} (${sig.expiry_candles} vela${sig.expiry_candles > 1 ? "s" : ""})`);
+      row("Preço da análise", num(sig.price));
+      row("Invalida se chegar em", num(sig.invalidation_price));
+      row("Alvo de referência", num(sig.target_price));
+      aiOut.append(dl);
+      const tick = () => {
+        const left = sig.entry_at - Math.floor(Date.now() / 1000);
+        if (left > 0) cd.textContent = `${hhmm(sig.entry_at)} (em ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")})`;
+        else { cd.textContent = `${hhmm(sig.entry_at)} (passou)`; clearInterval(aiTimer); }
+      };
+      tick(); aiTimer = setInterval(tick, 1000);
+    }
+    if (sig.reasons_for.length) { aiOut.append(el("h4", "", "A FAVOR")); const ul = el("ul", "pro"); sig.reasons_for.forEach((r) => ul.append(el("li", "", r))); aiOut.append(ul); }
+    if (sig.reasons_against.length) { aiOut.append(el("h4", "", "CONTRA")); const ul = el("ul", "con"); sig.reasons_against.forEach((r) => ul.append(el("li", "", r))); aiOut.append(ul); }
+    aiOut.append(el("div", "ai-foot", `Fonte: ${sig.source}. Gerado às ${hhmm(sig.at)}. Em binárias não há stop nem take: vale o preço na expiração. Sinal de IA não é garantia.`));
+  }
+  aiGo.onclick = async () => {
+    if (Date.now() < aiCool) return;
+    const asset = picks[pcIdx];
+    aiGo.disabled = true; aiGo.textContent = "Analisando…"; aiCool = Date.now() + 20000;
+    aiOut.innerHTML = ""; aiOut.append(el("p", "ai-hint", "Buscando velas, conferindo notícias e consultando a IA…"));
+    try {
+      const r = await fetch("/api/signal", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ asset }) });
+      const d = await r.json().catch(() => ({ error: `Erro ${r.status}` }));
+      if (asset !== picks[pcIdx]) return;            // trocou de mercado no meio
+      if (!r.ok) throw new Error(d.error || `Erro ${r.status}`);
+      aiShow(d);
+    } catch (e) {
+      aiOut.innerHTML = ""; aiOut.append(el("div", "ai-err", e.message === "Failed to fetch" ? "Sem conexão com o servidor do Trade AI. Abra pela página publicada." : e.message));
+    } finally {
+      aiGo.textContent = "Pedir entrada à IA";
+      setTimeout(() => { aiGo.disabled = false; }, Math.max(0, aiCool - Date.now()));
+    }
+  };
+
   function pickAsset(id) {
     if (picks[pcIdx] === id) return;
+    aiReset();
     picks[pcIdx] = id; screens[pcIdx].setTitle(mtitle(id));
     try { localStorage.setItem(STORE, JSON.stringify(picks)); } catch {}
     renderPc(); mountChart(findAsset(id));
   }
   function openPc(i) {
-    pcIdx = i; pcGroup = findAsset(picks[i]).group; setSpin(false);
+    pcIdx = i; pcGroup = findAsset(picks[i]).group; setSpin(false); aiReset();
     renderPc(); mountChart(findAsset(picks[i])); pc.classList.add("open");
     document.getElementById("pc-close").focus();
   }
-  function closePc() { if (!pc.classList.contains("open")) return; pc.classList.remove("open"); pcChart.innerHTML = ""; }
+  function closePc() { if (!pc.classList.contains("open")) return; pc.classList.remove("open"); pcChart.innerHTML = ""; clearInterval(aiTimer); }
   document.querySelectorAll("#pc-groups button").forEach((b) => (b.onclick = () => { pcGroup = b.dataset.g; renderPc(); }));
   document.getElementById("pc-close").onclick = closePc;
   pc.addEventListener("click", (e) => { if (e.target === pc) closePc(); });
