@@ -28,7 +28,12 @@ describe("calendário econômico", () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(rows))));
     const ok = await handleCalendar();
     expect(ok.headers.get("cache-control")).toMatch(/s-maxage=1800/);
-    expect((await ok.json()).events).toHaveLength(3);
+    expect((await ok.json()).events).toHaveLength(3); // as duas semanas trazem os mesmos eventos: sem repetição
+
+    const next = [{ title: "CPI m/m", country: "USD", date: "2026-11-12T08:30:00-05:00", impact: "High", forecast: "0.3%", previous: "0.2%" }];
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => (String(url).includes("nextweek") ? new Response(JSON.stringify(next)) : new Response("x", { status: 429 }))));
+    const onlyNext = await (await handleCalendar()).json();
+    expect(onlyNext.events.map((e: { title: string }) => e.title)).toEqual(["CPI m/m"]); // uma semana fora não derruba a outra
 
     vi.stubGlobal("fetch", vi.fn(async () => new Response("limite", { status: 429 })));
     const bad = await handleCalendar();

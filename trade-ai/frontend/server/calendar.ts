@@ -3,7 +3,11 @@
  * O feed é atualizado poucas vezes por hora e pede poucas consultas: por isso a resposta fica 30 min em cache.
  */
 
-const CALENDAR_URL = "https://nfs.faireconomy.media/ff_calendar_thisweek.json";
+// A semana da fonte vai de domingo a sábado e às vezes só vira no meio do domingo: buscamos também a próxima.
+const CALENDAR_URLS = [
+  "https://nfs.faireconomy.media/ff_calendar_thisweek.json",
+  "https://nfs.faireconomy.media/ff_calendar_nextweek.json",
+];
 
 export interface CalEvent {
   at: number;        // horário em segundos (epoch)
@@ -34,10 +38,22 @@ export function parseCalendar(rows: unknown): CalEvent[] {
   }).sort((a, b) => a.at - b.at || b.impact - a.impact);
 }
 
-export async function fetchCalendar(): Promise<CalEvent[]> {
-  const res = await fetch(CALENDAR_URL, { headers: { "user-agent": "Mozilla/5.0 (TradeAI painel)" } });
+async function fetchWeek(url: string): Promise<CalEvent[]> {
+  const res = await fetch(url, { headers: { "user-agent": "Mozilla/5.0 (TradeAI painel)" } });
   if (!res.ok) throw new Error(`Calendário ${res.status}`);
   return parseCalendar(await res.json());
+}
+
+/** Junta esta semana e a próxima, sem repetir evento. Só falha se as duas fontes falharem. */
+export async function fetchCalendar(): Promise<CalEvent[]> {
+  const weeks = await Promise.allSettled(CALENDAR_URLS.map(fetchWeek));
+  const ok = weeks.flatMap((w) => (w.status === "fulfilled" ? [w.value] : []));
+  if (!ok.length) throw (weeks[0] as PromiseRejectedResult).reason;
+  const seen = new Set<string>();
+  return ok.flat().filter((e) => {
+    const k = `${e.at}|${e.country}|${e.title}`;
+    return seen.has(k) ? false : (seen.add(k), true);
+  }).sort((a, b) => a.at - b.at || b.impact - a.impact);
 }
 
 export async function handleCalendar(): Promise<Response> {

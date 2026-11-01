@@ -1409,6 +1409,12 @@
       if (state.ok === false || (state.ok && !state.events.length)) {
         g.fillStyle = "#a1a1aa"; g.font = "600 28px Inter, sans-serif";
         g.fillText(state.ok === false ? "Calendário indisponível no momento." : "Sem eventos nesta semana.", 40, 200);
+      }
+      if (state.ok && state.events.length && !state.events.some((e) => e.at >= now - 3600)) {
+        g.fillStyle = "#a1a1aa"; g.font = "600 28px Inter, sans-serif";
+        g.fillText("A agenda da nova semana ainda não foi publicada pela fonte.", 40, 200);
+        g.font = "500 20px Inter, sans-serif"; g.fillStyle = "#63636b";
+        g.fillText("Costuma sair ao longo do domingo. O telão atualiza sozinho.", 40, 238);
         if (state.ok === false) { g.font = "500 20px Inter, sans-serif"; g.fillStyle = "#63636b"; g.fillText("Os dados vêm pelo site do Trade AI. Abra pela página publicada.", 40, 238); }
       }
       // próximos eventos (mostra também os da última hora, apagados)
