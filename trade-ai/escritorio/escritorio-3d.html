@@ -46,6 +46,23 @@
   .pc-top button.pc-open { width: auto; padding: 0 12px; font: 800 12.5px/1 inherit; font-family: inherit; color: #03130a; background: linear-gradient(180deg, #34d36f, #16a34a); }
   .pc-top button.pc-open:hover { background: linear-gradient(180deg, #4ade80, #22c55e); }
   .pc-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 9; background: #0b0b0b; border: 1px solid #2a2a2a; color: var(--ink); font-size: 13px; padding: 10px 14px; border-radius: 12px; box-shadow: 0 10px 30px #000a; max-width: calc(100vw - 40px); }
+  .bk { position: fixed; inset: 0; z-index: 8; display: none; place-items: center; padding: 16px; background: #000b; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+  .bk.open { display: grid; }
+  .bk-card { width: min(500px, 100%); box-sizing: border-box; background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 20px; padding: 22px; }
+  .bk-card .tag { font-size: 11px; font-weight: 800; letter-spacing: .12em; color: #63636b; }
+  .bk-card h2 { margin: 8px 0 12px; font-size: 20px; }
+  .bk-steps { margin: 0; padding-left: 20px; font-size: 13.5px; color: var(--mute); line-height: 1.5; }
+  .bk-steps li { margin-bottom: 14px; } .bk-steps b { color: var(--ink); }
+  .bk-steps button, .bk-steps input { display: block; margin-top: 8px; width: 100%; box-sizing: border-box; font: 700 14px/1.2 inherit; font-family: inherit; border-radius: 12px; }
+  .bk-main { appearance: none; border: 0; padding: 12px; cursor: pointer; color: #03130a; background: linear-gradient(180deg, #34d36f, #16a34a); }
+  .bk-steps input { padding: 11px 12px; background: #050505; color: var(--ink); border: 1px solid #2a2a2a; font-weight: 500; }
+  .bk-steps input:focus { outline: 2px solid var(--buy); outline-offset: 1px; }
+  .bk-err { color: #fca5a5; font-size: 12.5px; margin: -4px 0 10px; }
+  .bk-card .row { display: flex; gap: 8px; }
+  .bk-card .row button { flex: 1; appearance: none; border: 0; border-radius: 12px; padding: 13px; font: 800 14px/1 inherit; font-family: inherit; cursor: pointer; color: var(--ink); background: #1a1a1a; }
+  .bk-card .row .bk-ok { color: #03130a; background: linear-gradient(180deg, #34d36f, #16a34a); }
+  .pc-login { font-size: 11px; font-weight: 800; padding: 4px 8px; border-radius: 99px; white-space: nowrap; cursor: pointer; border: 0; font-family: inherit; }
+  .pc-login.in { color: #4ade80; background: #22c55e1a; } .pc-login.out { color: #f59e0b; background: #f59e0b1a; }
   .ai-broker { margin-top: 10px; width: 100%; appearance: none; border: 1px solid #22c55e66; background: #22c55e14; color: #4ade80; border-radius: 12px; padding: 11px; font: 800 13px/1.2 inherit; font-family: inherit; cursor: pointer; }
   .ai-broker:hover { background: #22c55e24; }
   .pc-top button { appearance: none; border: 0; background: #1a1a1a; color: var(--ink); width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: 14px; }
@@ -137,7 +154,8 @@
           <span>Corretora</span>
           <select id="broker" aria-label="Sua corretora"></select>
         </label>
-        <button id="broker-open" class="pc-open" type="button">Abrir ↗</button>
+        <button id="broker-login" class="pc-login out" type="button" title="Login na corretora">Sem login</button>
+        <button id="broker-open" class="pc-open" type="button">Entrar</button>
         <button id="pc-close" type="button" aria-label="Fechar">✕</button>
       </div>
       <div class="pc-pick">
@@ -158,6 +176,21 @@
     <div class="pc-chin"><span>TRADE <em>AI</em></span><i class="pc-led"></i></div>
   </div>
   <div class="pc-neck"></div><div class="pc-foot"></div>
+</div>
+
+<div class="bk" id="bk" role="dialog" aria-modal="true" aria-labelledby="bk-title">
+  <div class="bk-card">
+    <div class="tag">CORRETORA</div>
+    <h2 id="bk-title">Entrar na corretora</h2>
+    <ol class="bk-steps">
+      <li><b>Faça login no site oficial.</b> A página da corretora abre numa nova aba. O Trade AI nunca pede nem guarda sua senha.
+        <button id="bk-login" class="bk-main" type="button">Fazer login ↗</button></li>
+      <li><b>Cole o link da tela de operar</b> (opcional). Depois de entrar, copie o endereço da barra do navegador e cole aqui; o botão "Abrir" vai direto para ele.
+        <input id="bk-url" type="url" inputmode="url" placeholder="https://..." autocomplete="off" spellcheck="false"></li>
+    </ol>
+    <div class="bk-err" id="bk-err" hidden></div>
+    <div class="row"><button id="bk-done" class="bk-ok" type="button">Já fiz login</button><button id="bk-cancel" type="button">Cancelar</button></div>
+  </div>
 </div>
 
 <script>/**
@@ -1921,7 +1954,7 @@
   const closeNews = () => newsBox.classList.remove("open");
   document.getElementById("news-close").onclick = closeNews;
   newsBox.addEventListener("click", (e) => { if (e.target === newsBox) closeNews(); });
-  addEventListener("keydown", (e) => { if (e.key === "Escape") { closeNews(); closePc(); } });
+  addEventListener("keydown", (e) => { if (e.key === "Escape") { if (bk.classList.contains("open")) return bk.classList.remove("open"); closeNews(); closePc(); } });
 
   // ---------- tela de computador: gráfico real (TradingView, M5) com escolha de mercado ----------
   const ASSETS = [
@@ -1983,7 +2016,16 @@
   let broker = { id: "iq", name: "IQ Option", url: "https://iqoption.com/" };
   try { const b = JSON.parse(localStorage.getItem(BKEY)); if (b && /^https:\/\//.test(b.url) && b.name) broker = b; } catch {}
   const brokerSel = document.getElementById("broker");
+  const saveBroker = () => { try { localStorage.setItem(BKEY, JSON.stringify(broker)); } catch {} };
+  function renderLogin() {
+    const chip = document.getElementById("broker-login"), btn = document.getElementById("broker-open");
+    chip.textContent = broker.logged ? "Login feito" : "Sem login"; chip.className = "pc-login " + (broker.logged ? "in" : "out");
+    chip.title = broker.logged ? "Clique para sair (esquecer o login neste site)" : "Clique para fazer login";
+    btn.textContent = broker.logged ? "Abrir ↗" : "Entrar";
+    document.querySelectorAll(".ai-broker").forEach((b) => (b.textContent = broker.logged ? `Abrir ${b.dataset.label} na ${broker.name} ↗` : `Entrar na ${broker.name} para operar`));
+  }
   function renderBrokers() {
+    renderLogin();
     brokerSel.innerHTML = "";
     const custom = !BROKERS.some(([id]) => id === broker.id);
     BROKERS.forEach(([id, name]) => brokerSel.append(new Option(name, id, false, id === broker.id)));
@@ -2001,18 +2043,47 @@
     } else if (brokerSel.value !== "custom") {
       const [id, name, url] = BROKERS.find(([b]) => b === brokerSel.value); broker = { id, name, url };
     }
-    try { localStorage.setItem(BKEY, JSON.stringify(broker)); } catch {}
-    renderBrokers();
-    document.querySelectorAll(".ai-broker").forEach((b) => (b.textContent = `Abrir ${b.dataset.label} na ${broker.name} ↗`));
+    saveBroker(); renderBrokers();
   };
   let toastT = null;
   function toast(msg) {
     let t = document.querySelector(".pc-toast"); if (!t) { t = el("div", "pc-toast"); document.body.append(t); }
     t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (t.hidden = true), 5000);
   }
+  // login: acontece no site oficial da corretora; aqui só guardamos que foi feito e, se o usuário quiser, o link da tela de operar
+  const bk = document.getElementById("bk"), bkUrl = document.getElementById("bk-url"), bkErr = document.getElementById("bk-err");
+  let bkThen = null;
+  function askLogin(then) {
+    bkThen = then || null;
+    document.getElementById("bk-title").textContent = `Entrar na ${broker.name}`;
+    document.getElementById("bk-login").textContent = `Fazer login na ${broker.name} ↗`;
+    bkUrl.value = broker.tradeUrl || ""; bkErr.hidden = true; bk.classList.add("open");
+  }
+  const closeLogin = () => bk.classList.remove("open");
+  document.getElementById("bk-login").onclick = () => window.open(broker.url, "_blank", "noopener");
+  document.getElementById("bk-cancel").onclick = closeLogin;
+  bk.addEventListener("click", (e) => { if (e.target === bk) closeLogin(); });
+  document.getElementById("bk-done").onclick = () => {
+    const u = bkUrl.value.trim();
+    if (u && !/^https:\/\/[^\s]+$/.test(u)) { bkErr.textContent = "O link precisa começar com https://"; bkErr.hidden = false; return; }
+    if (u) {
+      // o link precisa ser do mesmo site da corretora escolhida (evita cair num site falso)
+      const host = (x) => { try { return new URL(x).hostname.replace(/^www\./, ""); } catch { return ""; } };
+      const want = host(broker.url), got = host(u);
+      if (!got || !(got === want || got.endsWith("." + want))) { bkErr.textContent = `Esse link não é da ${broker.name} (${want}). Confira o endereço.`; bkErr.hidden = false; return; }
+    }
+    broker.logged = true; broker.tradeUrl = u || undefined; saveBroker(); renderLogin(); closeLogin();
+    toast(`Pronto. O botão "Abrir" agora leva para a ${broker.name}${u ? " direto na tela de operar" : ""}.`);
+    const then = bkThen; bkThen = null; if (then) then();
+  };
+  document.getElementById("broker-login").onclick = () => {
+    if (!broker.logged) return askLogin();
+    broker.logged = false; broker.tradeUrl = undefined; saveBroker(); renderLogin(); toast(`Login da ${broker.name} esquecido neste site. Para sair da conta, saia também no site da corretora.`);
+  };
   async function openBroker(extra) {
+    if (!broker.logged) return askLogin(() => openBroker(extra));
     const a = findAsset(picks[pcIdx]);
-    window.open(broker.url, "_blank", "noopener");
+    window.open(broker.tradeUrl || broker.url, "_blank", "noopener");
     let copied = false;
     try { await navigator.clipboard.writeText(a.label); copied = true; } catch {}
     toast(`${broker.name} aberta numa nova aba. ${copied ? `"${a.label}" foi copiado: cole na busca de ativos da corretora.` : `Procure por ${a.label} na lista de ativos.`}${extra ? " " + extra : ""}`);
@@ -2056,9 +2127,9 @@
         else { cd.textContent = `${hhmm(sig.entry_at)} (passou)`; clearInterval(aiTimer); }
       };
       tick(); aiTimer = setInterval(tick, 1000);
-      const go = el("button", "ai-broker", `Abrir ${sig.label} na ${broker.name} ↗`); go.type = "button"; go.dataset.label = sig.label;
+      const go = el("button", "ai-broker"); go.type = "button"; go.dataset.label = sig.label;
       go.onclick = () => openBroker(`Entrada ${sig.decision} às ${hhmm(sig.entry_at)}, expiração ${sig.expiry_candles * 5} min. A ordem é você quem dá.`);
-      aiOut.append(go);
+      aiOut.append(go); renderLogin();
     }
     if (sig.reasons_for.length) { aiOut.append(el("h4", "", "A FAVOR")); const ul = el("ul", "pro"); sig.reasons_for.forEach((r) => ul.append(el("li", "", r))); aiOut.append(ul); }
     if (sig.reasons_against.length) { aiOut.append(el("h4", "", "CONTRA")); const ul = el("ul", "con"); sig.reasons_against.forEach((r) => ul.append(el("li", "", r))); aiOut.append(ul); }
