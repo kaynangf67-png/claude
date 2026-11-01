@@ -1187,9 +1187,9 @@
   box(W, 0.03, 0.03, M.red, 0, 0.04, D / 2 - 0.03, false);
 
   // tapete
-  const rug = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 3.6), mat(0x0a0a0a, { roughness: 1 }));
+  const rug = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 3.6), mat(0x5c0f0f, { roughness: 1 }));
   rug.rotation.x = -Math.PI / 2; rug.position.set(0, 0.004, 0.2); rug.receiveShadow = true; scene.add(rug);
-  const rugEdge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(5.2, 3.6)), new THREE.LineBasicMaterial({ color: 0x22c55e, transparent: true, opacity: 0.35 }));
+  const rugEdge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(5.2, 3.6)), new THREE.LineBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.6 }));
   rugEdge.rotation.x = -Math.PI / 2; rugEdge.position.set(0, 0.006, 0.2); scene.add(rugEdge);
 
   // ---------- texturas de tela (gráfico de velas) ----------
@@ -1245,6 +1245,92 @@
     const t = new THREE.CanvasTexture(cv); t.encoding = THREE.sRGBEncoding; return t;
   }
 
+  // ---------- painel ao vivo ----------
+  function liveBoard() {
+    const w = 1280, h = 720;
+    const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+    const g = cv.getContext("2d");
+    const tex = new THREE.CanvasTexture(cv); tex.encoding = THREE.sRGBEncoding; tex.anisotropy = 4;
+    const state = { quotes: [], news: [], ok: null, at: 0, prev: {} };
+    const fmt = (v) => v >= 1000 ? v.toLocaleString("pt-BR", { maximumFractionDigits: 0 }) : v.toLocaleString("pt-BR", { maximumFractionDigits: v >= 1 ? 2 : 4 });
+    const ago = (t) => { const m = Math.max(0, Math.round((Date.now() / 1000 - t) / 60)); return m < 60 ? `há ${m} min` : `há ${Math.floor(m / 60)} h`; };
+    function clip(text, max) {
+      if (g.measureText(text).width <= max) return text;
+      while (text.length && g.measureText(text + "…").width > max) text = text.slice(0, -1);
+      return text + "…";
+    }
+    async function load() {
+      try {
+        const r = await fetch("/api/feed", { cache: "no-store" });
+        if (!r.ok) throw new Error(String(r.status));
+        const d = await r.json();
+        state.quotes.forEach((q) => (state.prev[q.symbol] = q.price));
+        state.quotes = d.quotes; state.news = d.news; state.at = d.at; state.ok = d.quotes.length > 0 || d.news.length > 0;
+      } catch { state.ok = false; }
+    }
+    load(); setInterval(load, 15000);
+    let scroll = 0;
+    function draw(dt) {
+      g.fillStyle = "#020202"; g.fillRect(0, 0, w, h);
+      // cabeçalho
+      g.fillStyle = "#f4f4f5"; g.font = "800 34px Inter, sans-serif"; g.fillText("TRADE", 40, 62);
+      g.fillStyle = "#22c55e"; g.fillText("A", 162, 62); g.fillStyle = "#ef4444"; g.fillText("I", 187, 62);
+      g.fillStyle = "#a1a1aa"; g.font = "600 22px Inter, sans-serif"; g.fillText("MERCADO AO VIVO", 222, 60);
+      const live = state.ok === true;
+      g.fillStyle = live ? "#22c55e" : state.ok === false ? "#ef4444" : "#63636b";
+      g.beginPath(); g.arc(w - 250, 52, 8, 0, Math.PI * 2); g.fill();
+      g.font = "700 20px Inter, sans-serif"; g.fillText(live ? "AO VIVO" : state.ok === false ? "SEM CONEXÃO" : "CONECTANDO", w - 232, 59);
+      g.fillStyle = "#f4f4f5"; g.font = "700 24px monospace";
+      g.fillText(new Date().toLocaleTimeString("pt-BR"), w - 140, 60);
+      g.fillStyle = "#1c1c1c"; g.fillRect(40, 84, w - 80, 2);
+
+      if (state.ok === false) {
+        g.fillStyle = "#a1a1aa"; g.font = "600 30px Inter, sans-serif";
+        g.fillText("Sem conexão com os dados ao vivo.", 40, 200);
+        g.font = "500 22px Inter, sans-serif"; g.fillStyle = "#63636b";
+        g.fillText("O painel busca cotações e notícias pelo site do Trade AI. Abra pela página publicada.", 40, 240);
+      }
+      // cotações (coluna esquerda)
+      g.font = "700 18px Inter, sans-serif"; g.fillStyle = "#63636b"; g.fillText("CRIPTO · BINANCE · 24H", 40, 124);
+      state.quotes.forEach((q, i) => {
+        const y = 170 + i * 70;
+        g.fillStyle = "#0b0b0b"; g.fillRect(40, y - 40, 460, 60);
+        g.fillStyle = "#f4f4f5"; g.font = "800 28px Inter, sans-serif"; g.fillText(q.symbol, 58, y);
+        const up = q.change >= 0;
+        const prev = state.prev[q.symbol];
+        g.fillStyle = prev && prev !== q.price ? (q.price > prev ? "#4ade80" : "#f87171") : "#f4f4f5";
+        g.font = "700 28px monospace"; g.textAlign = "right"; g.fillText("$ " + fmt(q.price), 360, y);
+        g.fillStyle = up ? "#22c55e" : "#ef4444"; g.font = "800 24px monospace";
+        g.fillText((up ? "▲ " : "▼ ") + Math.abs(q.change).toFixed(2) + "%", 488, y); g.textAlign = "left";
+      });
+      // notícias (coluna direita)
+      g.font = "700 18px Inter, sans-serif"; g.fillStyle = "#63636b"; g.fillText("ÚLTIMAS NOTÍCIAS · MERCADO FINANCEIRO", 540, 124);
+      state.news.slice(0, 6).forEach((n, i) => {
+        const y = 168 + i * 72;
+        g.fillStyle = i === 0 ? "#22c55e" : "#2a2a2a"; g.fillRect(540, y - 26, 5, 52);
+        g.fillStyle = "#f4f4f5"; g.font = "700 24px Inter, sans-serif"; g.fillText(clip(n.title, w - 600), 560, y);
+        g.fillStyle = "#a1a1aa"; g.font = "500 18px Inter, sans-serif"; g.fillText(`${n.source} · ${ago(n.at)}`, 560, y + 24);
+      });
+      // faixa de manchetes correndo
+      g.fillStyle = "#0a0a0a"; g.fillRect(0, h - 64, w, 64);
+      g.fillStyle = "#ef4444"; g.fillRect(0, h - 64, 150, 64);
+      g.fillStyle = "#fff"; g.font = "900 22px Inter, sans-serif"; g.fillText("URGENTE", 24, h - 24);
+      if (state.news.length) {
+        const text = state.news.map((n) => `${n.title}  (${n.source})`).join("     •     ") + "     •     ";
+        g.font = "600 24px Inter, sans-serif";
+        const tw = g.measureText(text).width;
+        scroll = (scroll + dt * 90) % tw;
+        g.save(); g.beginPath(); g.rect(160, h - 64, w - 160, 64); g.clip();
+        g.fillStyle = "#f4f4f5";
+        for (let x = 170 - scroll; x < w; x += tw) g.fillText(text, x, h - 24);
+        g.restore();
+      }
+      tex.needsUpdate = true;
+    }
+    draw(0);
+    return { tex, draw };
+  }
+
   // ---------- janela e telão ----------
   const win = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 1.9), new THREE.MeshBasicMaterial({ map: cityTexture() }));
   win.position.set(-2.4, 2.1, -D / 2 + 0.02); scene.add(win);
@@ -1252,10 +1338,11 @@
   box(4.4, 0.08, 0.08, M.metal, -2.4, 1.12, -D / 2 + 0.05, false);
   box(0.06, 1.95, 0.06, M.metal, -2.4, 2.1, -D / 2 + 0.05, false);
 
-  const tv = chartTexture(7, 768, 400, "TRADE AI · MERCADO AO VIVO");
-  const tvMesh = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.7), new THREE.MeshBasicMaterial({ map: tv.tex }));
-  tvMesh.position.set(-W / 2 + 0.03, 2.05, 0.3); tvMesh.rotation.y = Math.PI / 2; scene.add(tvMesh);
-  box(0.05, 1.8, 3.3, M.black, -W / 2 + 0.01, 2.05, 0.3, false);
+  // telão: cotações de cripto e notícias ao vivo (via /api/feed do próprio site)
+  const tv = liveBoard();
+  const tvMesh = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.8), new THREE.MeshBasicMaterial({ map: tv.tex }));
+  tvMesh.position.set(-W / 2 + 0.07, 2.05, 0.3); tvMesh.rotation.y = Math.PI / 2; scene.add(tvMesh);
+  box(0.06, 1.9, 3.3, M.black, -W / 2 + 0.03, 2.05, 0.3, false); // moldura atrás da tela
 
   // letreiro na parede do fundo
   const signCv = document.createElement("canvas"); signCv.width = 1024; signCv.height = 200;
@@ -1506,6 +1593,7 @@
 
   const clock = new THREE.Clock();
   let acc = 0;
+  let tvAcc = 0;
   function frame() {
     const dt = clock.getDelta();
     if (tween) {
@@ -1516,7 +1604,8 @@
       if (tween.t >= 1) tween = null;
     }
     acc += dt;
-    if (acc > 1.6 && !reduce) { acc = 0; screens.forEach((s) => s.step()); tv.step(); }
+    if (acc > 1.6 && !reduce) { acc = 0; screens.forEach((s) => s.step()); }
+    tvAcc += dt; if (tvAcc > 1 / 30) { tv.draw(tvAcc); tvAcc = 0; }
     const t = clock.elapsedTime;
     leds.forEach((m, i) => { m.emissiveIntensity = 0.4 + 1.2 * (0.5 + 0.5 * Math.sin(t * 3 + i * 1.7)); });
     if (!reduce) animators.forEach((f) => f(t, dt));
