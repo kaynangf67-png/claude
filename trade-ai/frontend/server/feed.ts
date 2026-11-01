@@ -11,7 +11,7 @@ const NEWS_URL =
   "&hl=pt-BR&gl=BR&ceid=BR:pt-419";
 
 export interface Quote { symbol: string; price: number; change: number }
-export interface Headline { title: string; source: string; at: number }
+export interface Headline { title: string; source: string; at: number; link: string }
 
 export async function fetchQuotes(): Promise<Quote[]> {
   const symbols = encodeURIComponent(JSON.stringify(PAIRS.map(([p]) => p)));
@@ -37,7 +37,9 @@ export function parseNews(xml: string, limit = 12): Headline[] {
     const source = tag("source");
     let title = tag("title");
     if (source && title.endsWith(` - ${source}`)) title = title.slice(0, -(source.length + 3));
-    return { title, source, at: Math.floor(Date.parse(tag("pubDate")) / 1000) || 0 };
+    const link = tag("link");
+    // só links https: o painel abre esse endereço numa nova aba
+    return { title, source, at: Math.floor(Date.parse(tag("pubDate")) / 1000) || 0, link: /^https:\/\//.test(link) ? link : "" };
   }).filter((h) => h.title);
   out.sort((a, b) => b.at - a.at);
   return out.slice(0, limit);

@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { handleFeed, parseNews } from "./feed";
 
 const rss = `<?xml version="1.0"?><rss><channel>
-<item><title>Ibovespa fecha em alta com bancos - InfoMoney</title><pubDate>Sat, 31 Oct 2026 20:00:00 GMT</pubDate><source url="x">InfoMoney</source></item>
-<item><title><![CDATA[Bitcoin passa de US$ 77 mil &amp; altcoins sobem - Valor]]></title><pubDate>Sat, 31 Oct 2026 22:00:00 GMT</pubDate><source url="y">Valor</source></item>
+<item><title>Ibovespa fecha em alta com bancos - InfoMoney</title><link>javascript:alert(1)</link><pubDate>Sat, 31 Oct 2026 20:00:00 GMT</pubDate><source url="x">InfoMoney</source></item>
+<item><title><![CDATA[Bitcoin passa de US$ 77 mil &amp; altcoins sobem - Valor]]></title><link>https://news.google.com/rss/articles/abc?oc=5</link><pubDate>Sat, 31 Oct 2026 22:00:00 GMT</pubDate><source url="y">Valor</source></item>
 </channel></rss>`;
 
 afterEach(() => vi.unstubAllGlobals());
@@ -11,8 +11,9 @@ afterEach(() => vi.unstubAllGlobals());
 describe("notícias", () => {
   it("tira a fonte do título, decodifica e ordena da mais nova", () => {
     const n = parseNews(rss);
-    expect(n[0]).toEqual({ title: "Bitcoin passa de US$ 77 mil & altcoins sobem", source: "Valor", at: Date.UTC(2026, 9, 31, 22) / 1000 });
+    expect(n[0]).toEqual({ title: "Bitcoin passa de US$ 77 mil & altcoins sobem", source: "Valor", at: Date.UTC(2026, 9, 31, 22) / 1000, link: "https://news.google.com/rss/articles/abc?oc=5" });
     expect(n[1].title).toBe("Ibovespa fecha em alta com bancos");
+    expect(n[1].link).toBe(""); // link que não é https é descartado
   });
 });
 
