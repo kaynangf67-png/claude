@@ -41,13 +41,6 @@
   .pc-top b { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .pc-state { font-size: 11.5px; font-weight: 800; padding: 4px 9px; border-radius: 99px; white-space: nowrap; }
   .pc-state.on { color: #22c55e; background: #22c55e1f; } .pc-state.off { color: #f59e0b; background: #f59e0b1f; }
-  .pc-broker { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #8b8b93; }
-  .pc-broker select { appearance: none; font: 700 12.5px/1 inherit; font-family: inherit; color: var(--ink); background: #1a1a1a url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23a1a1aa' fill='none' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 9px center; border: 1px solid #2a2a2a; border-radius: 8px; padding: 7px 26px 7px 10px; cursor: pointer; max-width: 150px; }
-  .pc-top button.pc-open { width: auto; padding: 0 12px; font: 800 12.5px/1 inherit; font-family: inherit; color: #03130a; background: linear-gradient(180deg, #34d36f, #16a34a); }
-  .pc-top button.pc-open:hover { background: linear-gradient(180deg, #4ade80, #22c55e); }
-  .pc-toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 9; background: #0b0b0b; border: 1px solid #2a2a2a; color: var(--ink); font-size: 13px; padding: 10px 14px; border-radius: 12px; box-shadow: 0 10px 30px #000a; max-width: calc(100vw - 40px); }
-  .ai-broker { margin-top: 10px; width: 100%; appearance: none; border: 1px solid #22c55e66; background: #22c55e14; color: #4ade80; border-radius: 12px; padding: 11px; font: 800 13px/1.2 inherit; font-family: inherit; cursor: pointer; }
-  .ai-broker:hover { background: #22c55e24; }
   .pc-top button { appearance: none; border: 0; background: #1a1a1a; color: var(--ink); width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: 14px; }
   .pc-top button:hover { background: #262626; }
   .pc-pick { padding: 10px 12px; border-bottom: 1px solid #1c1c1c; display: flex; flex-direction: column; gap: 8px; }
@@ -89,7 +82,7 @@
   .pc-led { width: 5px; height: 5px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e; }
   .pc-neck { width: 70px; height: 34px; background: linear-gradient(90deg, #111, #2a2a2a, #111); }
   .pc-foot { width: 240px; height: 10px; border-radius: 6px 6px 3px 3px; background: linear-gradient(180deg, #2a2a2a, #111); }
-  @media (max-width: 560px) { .pc { padding: 10px; } .pc-monitor { padding: 8px 8px 0; border-radius: 14px; } .pc-screen { height: 86vh; } .pc-body { flex-direction: column; } .pc-chart { flex: 0 0 38%; } .ai { width: auto; flex: 1; border-left: 0; border-top: 1px solid #1c1c1c; } .pc-neck, .pc-foot { display: none; } .pc-top { flex-wrap: wrap; } .pc-dots, .pc-broker span { display: none; } .pc-top b { flex: 1 1 100%; order: -1; } .pc-chin { height: 26px; } }
+  @media (max-width: 560px) { .pc { padding: 10px; } .pc-monitor { padding: 8px 8px 0; border-radius: 14px; } .pc-screen { height: 86vh; } .pc-body { flex-direction: column; } .pc-chart { flex: 0 0 38%; } .ai { width: auto; flex: 1; border-left: 0; border-top: 1px solid #1c1c1c; } .pc-neck, .pc-foot { display: none; } .pc-top { flex-wrap: wrap; } .pc-dots { display: none; } .pc-top b { flex: 1 1 100%; order: -1; } .pc-chin { height: 26px; } }
   @media (max-width: 560px) { .hint { display: none; } .bar { display: grid; grid-template-columns: 1fr 1fr; width: calc(100vw - 32px); box-sizing: border-box; } .bar button { justify-content: center; padding: 11px 8px; font-size: 12.5px; } }
 </style>
 </head>
@@ -133,11 +126,6 @@
         <span class="pc-dots"><i></i><i></i><i></i></span>
         <b id="pc-title">Monitor</b>
         <span class="pc-state" id="pc-state"></span>
-        <label class="pc-broker" title="Sua corretora">
-          <span>Corretora</span>
-          <select id="broker" aria-label="Sua corretora"></select>
-        </label>
-        <button id="broker-open" class="pc-open" type="button">Abrir ↗</button>
         <button id="pc-close" type="button" aria-label="Fechar">✕</button>
       </div>
       <div class="pc-pick">
@@ -1973,52 +1961,6 @@
       b.onclick = () => pickAsset(x.id); list.appendChild(b);
     });
   }
-  // ---------- corretora do usuário: abre a plataforma numa nova aba, com o ativo copiado ----------
-  // Não há integração de ordens: as corretoras de binárias não oferecem API pública para isso.
-  const BROKERS = [
-    ["iq", "IQ Option", "https://iqoption.com/"], ["quotex", "Quotex", "https://qxbroker.com/"], ["pocket", "Pocket Option", "https://pocketoption.com/"],
-    ["binomo", "Binomo", "https://binomo.com/"], ["olymp", "Olymp Trade", "https://olymptrade.com/"],
-  ];
-  const BKEY = "tradeai-corretora";
-  let broker = { id: "iq", name: "IQ Option", url: "https://iqoption.com/" };
-  try { const b = JSON.parse(localStorage.getItem(BKEY)); if (b && /^https:\/\//.test(b.url) && b.name) broker = b; } catch {}
-  const brokerSel = document.getElementById("broker");
-  function renderBrokers() {
-    brokerSel.innerHTML = "";
-    const custom = !BROKERS.some(([id]) => id === broker.id);
-    BROKERS.forEach(([id, name]) => brokerSel.append(new Option(name, id, false, id === broker.id)));
-    if (custom) brokerSel.append(new Option(broker.name, "custom", false, true));
-    brokerSel.append(new Option("Outra… (colar link)", "other"));
-  }
-  renderBrokers();
-  brokerSel.onchange = () => {
-    if (brokerSel.value === "other") {
-      const url = (prompt("Cole o link da sua corretora (começando com https://):") || "").trim();
-      if (/^https:\/\/[^\s]+$/.test(url)) {
-        let name = url; try { name = new URL(url).hostname.replace(/^www\./, ""); } catch {}
-        broker = { id: "custom:" + url, name, url };
-      } else if (url) toast("Link inválido. Ele precisa começar com https://");
-    } else if (brokerSel.value !== "custom") {
-      const [id, name, url] = BROKERS.find(([b]) => b === brokerSel.value); broker = { id, name, url };
-    }
-    try { localStorage.setItem(BKEY, JSON.stringify(broker)); } catch {}
-    renderBrokers();
-    document.querySelectorAll(".ai-broker").forEach((b) => (b.textContent = `Abrir ${b.dataset.label} na ${broker.name} ↗`));
-  };
-  let toastT = null;
-  function toast(msg) {
-    let t = document.querySelector(".pc-toast"); if (!t) { t = el("div", "pc-toast"); document.body.append(t); }
-    t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (t.hidden = true), 5000);
-  }
-  async function openBroker(extra) {
-    const a = findAsset(picks[pcIdx]);
-    window.open(broker.url, "_blank", "noopener");
-    let copied = false;
-    try { await navigator.clipboard.writeText(a.label); copied = true; } catch {}
-    toast(`${broker.name} aberta numa nova aba. ${copied ? `"${a.label}" foi copiado: cole na busca de ativos da corretora.` : `Procure por ${a.label} na lista de ativos.`}${extra ? " " + extra : ""}`);
-  }
-  document.getElementById("broker-open").onclick = () => openBroker();
-
   // ---------- IA: entrada sugerida ----------
   const aiOut = document.getElementById("ai-out"), aiGo = document.getElementById("ai-go");
   let aiTimer = null, aiCool = 0;
@@ -2056,9 +1998,6 @@
         else { cd.textContent = `${hhmm(sig.entry_at)} (passou)`; clearInterval(aiTimer); }
       };
       tick(); aiTimer = setInterval(tick, 1000);
-      const go = el("button", "ai-broker", `Abrir ${sig.label} na ${broker.name} ↗`); go.type = "button"; go.dataset.label = sig.label;
-      go.onclick = () => openBroker(`Entrada ${sig.decision} às ${hhmm(sig.entry_at)}, expiração ${sig.expiry_candles * 5} min. A ordem é você quem dá.`);
-      aiOut.append(go);
     }
     if (sig.reasons_for.length) { aiOut.append(el("h4", "", "A FAVOR")); const ul = el("ul", "pro"); sig.reasons_for.forEach((r) => ul.append(el("li", "", r))); aiOut.append(ul); }
     if (sig.reasons_against.length) { aiOut.append(el("h4", "", "CONTRA")); const ul = el("ul", "con"); sig.reasons_against.forEach((r) => ul.append(el("li", "", r))); aiOut.append(ul); }
