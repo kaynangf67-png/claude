@@ -50,7 +50,7 @@
   <button id="spin" class="on" type="button">⟳ Girar 360°</button>
   <button id="top" type="button">Visão de cima</button>
   <button id="desk" type="button">Ver a mesa</button>
-  <button id="tvbtn" type="button">Ver o telão</button>
+  <button id="tvbtn" type="button">Ver os telões</button>
   <button id="reset" type="button">Visão ampla</button>
 </nav>
 
@@ -313,6 +313,94 @@
     return { tex, draw, hit };
   }
 
+
+  // ---------- telão do calendário econômico (via /api/calendar do próprio site) ----------
+  function calendarBoard() {
+    const w = 1280, h = 720;
+    const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+    const g = cv.getContext("2d");
+    const tex = new THREE.CanvasTexture(cv); tex.encoding = THREE.sRGBEncoding; tex.anisotropy = 4;
+    const state = { events: [], ok: null };
+    const TZ = "America/Sao_Paulo";
+    const hm = (t) => new Date(t * 1000).toLocaleTimeString("pt-BR", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
+    const dayKey = (t) => new Date(t * 1000).toLocaleDateString("pt-BR", { timeZone: TZ });
+    const dayLabel = (t) => new Date(t * 1000).toLocaleDateString("pt-BR", { timeZone: TZ, weekday: "short", day: "2-digit", month: "2-digit" }).replace(".", "");
+    function clip(text, max) {
+      if (g.measureText(text).width <= max) return text;
+      while (text.length && g.measureText(text + "…").width > max) text = text.slice(0, -1);
+      return text + "…";
+    }
+    async function load() {
+      try {
+        const r = await fetch("/api/calendar");
+        if (!r.ok) throw new Error(String(r.status));
+        state.events = (await r.json()).events; state.ok = true;
+      } catch { state.ok = false; }
+    }
+    load(); setInterval(load, 10 * 60 * 1000);
+    const STAR = { 3: "#ef4444", 2: "#f59e0b", 1: "#a1a1aa" };
+    function draw() {
+      const now = Date.now() / 1000;
+      g.fillStyle = "#020202"; g.fillRect(0, 0, w, h);
+      g.fillStyle = "#f4f4f5"; g.font = "800 34px Inter, sans-serif"; g.fillText("CALENDÁRIO ECONÔMICO", 40, 62);
+      const tw = g.measureText("CALENDÁRIO ECONÔMICO").width;
+      g.fillStyle = "#a1a1aa"; g.font = "600 20px Inter, sans-serif"; g.fillText("HORÁRIO DE BRASÍLIA", 40 + tw + 24, 60);
+      g.fillStyle = state.ok ? "#22c55e" : state.ok === false ? "#ef4444" : "#63636b";
+      g.beginPath(); g.arc(w - 172, 52, 8, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "#f4f4f5"; g.font = "700 24px monospace";
+      g.fillText(new Date().toLocaleTimeString("pt-BR", { timeZone: TZ }), w - 150, 60);
+      g.fillStyle = "#1c1c1c"; g.fillRect(40, 84, w - 80, 2);
+
+      g.font = "700 16px Inter, sans-serif"; g.fillStyle = "#63636b";
+      g.fillText("HORA", 40, 120); g.fillText("MOEDA", 190, 120); g.fillText("IMPACTO", 290, 120); g.fillText("EVENTO", 430, 120);
+      g.textAlign = "right"; g.fillText("PREVISÃO", 1110, 120); g.fillText("ANTERIOR", 1240, 120); g.textAlign = "left";
+
+      if (state.ok === false || (state.ok && !state.events.length)) {
+        g.fillStyle = "#a1a1aa"; g.font = "600 28px Inter, sans-serif";
+        g.fillText(state.ok === false ? "Calendário indisponível no momento." : "Sem eventos nesta semana.", 40, 200);
+        if (state.ok === false) { g.font = "500 20px Inter, sans-serif"; g.fillStyle = "#63636b"; g.fillText("Os dados vêm pelo site do Trade AI. Abra pela página publicada.", 40, 238); }
+      }
+      // próximos eventos (mostra também os da última hora, apagados)
+      const list = state.events.filter((e) => e.at >= now - 3600).slice(0, 9);
+      const next = list.find((e) => e.at >= now);
+      const today = dayKey(now);
+      list.forEach((e, i) => {
+        const y = 166 + i * 58, past = e.at < now;
+        g.fillStyle = e === next ? "#0d1a12" : i % 2 ? "#070707" : "#0b0b0b"; g.fillRect(40, y - 30, w - 80, 54);
+        if (e === next) { g.fillStyle = "#22c55e"; g.fillRect(40, y - 30, 5, 54); }
+        g.globalAlpha = past ? 0.4 : 1;
+        g.fillStyle = "#f4f4f5"; g.font = "700 24px monospace"; g.fillText(hm(e.at), 56, y + (dayKey(e.at) === today ? 0 : -6));
+        if (dayKey(e.at) !== today) { g.fillStyle = "#a1a1aa"; g.font = "600 14px Inter, sans-serif"; g.fillText(dayLabel(e.at), 56, y + 16); }
+        g.fillStyle = "#e4e4e7"; g.font = "800 22px Inter, sans-serif"; g.fillText(e.country, 190, y);
+        if (e.impact) {
+          g.font = "26px sans-serif";
+          for (let k = 0; k < 3; k++) { g.fillStyle = k < e.impact ? STAR[e.impact] : "#262626"; g.fillText("★", 290 + k * 32, y + 2); }
+        } else { g.fillStyle = "#63636b"; g.font = "700 16px Inter, sans-serif"; g.fillText("FERIADO", 292, y); }
+        g.fillStyle = "#f4f4f5"; g.font = "700 22px Inter, sans-serif";
+        g.fillText(clip(e.title, e === next ? 470 : 540), 430, y);
+        if (e === next) {
+          const m = Math.round((e.at - now) / 60);
+          g.fillStyle = "#4ade80"; g.font = "700 18px Inter, sans-serif"; g.textAlign = "right";
+          g.fillText(m < 60 ? `em ${m} min` : m < 1440 ? `em ${Math.floor(m / 60)} h ${m % 60} min` : `em ${Math.floor(m / 1440)} d`, 975, y); g.textAlign = "left";
+        }
+        g.fillStyle = "#e4e4e7"; g.font = "600 22px monospace"; g.textAlign = "right";
+        g.fillText(e.forecast || "—", 1110, y); g.fillStyle = "#a1a1aa"; g.fillText(e.previous || "—", 1240, y); g.textAlign = "left";
+        g.globalAlpha = 1;
+      });
+      // legenda
+      g.fillStyle = "#0a0a0a"; g.fillRect(0, h - 52, w, 52);
+      let lx = 40;
+      for (const [stars, color, label] of [["★★★", "#ef4444", "alto"], ["★★", "#f59e0b", "médio"], ["★", "#a1a1aa", "baixo"]]) {
+        g.font = "20px sans-serif"; g.fillStyle = color; g.fillText(stars, lx, h - 19); lx += g.measureText(stars).width + 8;
+        g.font = "600 16px Inter, sans-serif"; g.fillStyle = "#a1a1aa"; g.fillText(label, lx, h - 20); lx += g.measureText(label).width + 26;
+      }
+      g.fillStyle = "#63636b"; g.textAlign = "right"; g.fillText("Fonte: Forex Factory · evento de alto impacto mexe forte com o preço", w - 40, h - 20); g.textAlign = "left";
+      tex.needsUpdate = true;
+    }
+    draw();
+    return { tex, draw };
+  }
+
   // ---------- janela e telão ----------
   const win = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 1.9), new THREE.MeshBasicMaterial({ map: cityTexture() }));
   win.position.set(-2.4, 2.1, -D / 2 + 0.02); scene.add(win);
@@ -323,8 +411,14 @@
   // telão: cotações de cripto e notícias ao vivo (via /api/feed do próprio site)
   const tv = liveBoard();
   const tvMesh = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.8), new THREE.MeshBasicMaterial({ map: tv.tex }));
-  tvMesh.position.set(-W / 2 + 0.07, 2.05, 0.3); tvMesh.rotation.y = Math.PI / 2; scene.add(tvMesh);
-  box(0.06, 1.9, 3.3, M.black, -W / 2 + 0.03, 2.05, 0.3, false); // moldura atrás da tela
+  tvMesh.position.set(-W / 2 + 0.07, 2.05, -1.75); tvMesh.rotation.y = Math.PI / 2; scene.add(tvMesh);
+  box(0.06, 1.9, 3.3, M.black, -W / 2 + 0.03, 2.05, -1.75, false); // moldura atrás da tela
+
+  // telão ao lado: calendário econômico
+  const cal = calendarBoard();
+  const calMesh = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.8), new THREE.MeshBasicMaterial({ map: cal.tex }));
+  calMesh.position.set(-W / 2 + 0.07, 2.05, 1.75); calMesh.rotation.y = Math.PI / 2; scene.add(calMesh);
+  box(0.06, 1.9, 3.3, M.black, -W / 2 + 0.03, 2.05, 1.75, false);
 
   // letreiro na parede do fundo
   const signCv = document.createElement("canvas"); signCv.width = 1024; signCv.height = 200;
@@ -550,17 +644,18 @@
   if (narrow()) { VIEWS.wide.pos = [13, 15, 16]; VIEWS.top.pos = [0.01, 26, 0.01]; VIEWS.desk.pos = [2.0, 2.8, 2.6]; }
   camera.position.set(...VIEWS.wide.pos);
   let tween = null;
-  // telão de frente: distância calculada para a tela (3,2 × 1,8 m) caber inteira na janela atual
-  function tvView() {
+  // de frente para a parede dos telões: distância calculada para a área (largura × 1,8 m) caber na janela atual
+  function wallView(z, width) {
     const half = THREE.MathUtils.degToRad(camera.fov / 2);
     const fitH = (1.8 / 2) / Math.tan(half);
-    const fitW = (3.2 / 2) / (Math.tan(half) * camera.aspect);
+    const fitW = (width / 2) / (Math.tan(half) * camera.aspect);
     const d = Math.min(Math.max(fitH, fitW) * 1.12, W - 0.6);
-    const x = tvMesh.position.x, y = tvMesh.position.y, z = tvMesh.position.z;
+    const x = tvMesh.position.x, y = tvMesh.position.y;
     return { pos: [x + d, y + 0.04, z], target: [x, y, z] };
   }
   function go(name) {
-    const v = name === "tv" ? tvView() : VIEWS[name];
+    const v = name === "tv" ? wallView(0, 6.8) : name === "news" ? wallView(tvMesh.position.z, 3.2)
+      : name === "cal" ? wallView(calMesh.position.z, 3.2) : VIEWS[name];
     tween = { t: 0, from: camera.position.clone(), to: new THREE.Vector3(...v.pos), tf: controls.target.clone(), tt: new THREE.Vector3(...v.target) };
   }
   const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -576,8 +671,11 @@
     const r = canvas.getBoundingClientRect();
     ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
     ray.setFromCamera(ndc, camera);
-    const hitTv = ray.intersectObject(tvMesh)[0];
-    return hitTv && hitTv.uv ? tv.hit(hitTv.uv.x, hitTv.uv.y) : null;
+    const hitTv = ray.intersectObjects([tvMesh, calMesh])[0];
+    if (!hitTv) return null;
+    if (hitTv.object === calMesh) return { screen: "cal" };
+    const n = hitTv.uv ? tv.hit(hitTv.uv.x, hitTv.uv.y) : null;
+    return n ? { screen: "news", news: n } : { screen: "news" };
   }
   const newsBox = document.getElementById("news"), newsLink = document.getElementById("news-link");
   function openNews(n) {
@@ -595,10 +693,14 @@
   canvas.addEventListener("pointerdown", (e) => { down = { x: e.clientX, y: e.clientY }; });
   canvas.addEventListener("pointerup", (e) => {
     if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) return;
-    const n = newsAt(e); if (n) openNews(n);
+    const t = newsAt(e); if (!t) return;
+    // manchete abre a notícia; qualquer outro ponto de um telão leva a câmera para a frente dele
+    if (t.news) openNews(t.news); else { setSpin(false); go(t.screen); }
   });
   canvas.addEventListener("pointermove", (e) => { if (e.pointerType === "mouse" && !e.buttons) canvas.style.cursor = newsAt(e) ? "pointer" : ""; });
-  document.getElementById("tvbtn").onclick = () => { setSpin(false); go("tv"); };
+  // tela larga: os dois telões juntos; celular: um por vez, alternando a cada toque
+  let tvTurn = 0;
+  document.getElementById("tvbtn").onclick = () => { setSpin(false); go(narrow() ? (tvTurn++ % 2 ? "cal" : "news") : "tv"); };
   document.getElementById("reset").onclick = () => go("wide");
 
   function resize() {
@@ -613,7 +715,7 @@
 
   const clock = new THREE.Clock();
   let acc = 0;
-  let tvAcc = 0;
+  let tvAcc = 0, calAcc = 0;
   function frame() {
     const dt = clock.getDelta();
     if (tween) {
@@ -626,6 +728,7 @@
     acc += dt;
     if (acc > 1.6 && !reduce) { acc = 0; screens.forEach((s) => s.step()); }
     tvAcc += dt; if (tvAcc > 1 / 30) { tv.draw(tvAcc); tvAcc = 0; }
+    calAcc += dt; if (calAcc > 1) { cal.draw(); calAcc = 0; }
     const t = clock.elapsedTime;
     leds.forEach((m, i) => { m.emissiveIntensity = 0.4 + 1.2 * (0.5 + 0.5 * Math.sin(t * 3 + i * 1.7)); });
     if (!reduce) animators.forEach((f) => f(t, dt));
