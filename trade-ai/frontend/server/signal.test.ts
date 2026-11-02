@@ -66,14 +66,14 @@ describe("API /api/signal", () => {
     expect((await handleSignal(req("XYZ"), deps)).status).toBe(400);
   });
 
-  it("CALL com entrada na próxima vela e expiração em 2 velas", async () => {
+  it("sem rompimento nem rejeição em zona de H1 → NÃO OPERAR sem chamar a IA", async () => {
     vi.stubGlobal("fetch", binance(klines()));
-    const s = await (await handleSignal(req("BTCUSD"), deps)).json();
-    expect(s.decision).toBe("CALL");
-    expect(s.entry_at).toBe(Date.UTC(2026, 10, 3, 14, 35) / 1000);
-    expect(s.expiry_at).toBe(Date.UTC(2026, 10, 3, 14, 45) / 1000);
-    expect(s.delayed).toBe(false);
-    expect(s.price).toBeCloseTo(111.9, 5); // fechamento da última vela FECHADA (a em formação fica de fora)
+    const ask = vi.fn(async () => good);
+    const s = await (await handleSignal(req("BTCUSD"), { ...deps, ask })).json();
+    expect(s.decision).toBe("NAO_OPERAR");
+    expect(s.setup).toBeNull();
+    expect(ask).not.toHaveBeenCalled();
+    expect(s.price).toBeCloseTo(111.9, 5); // fechamento da última vela FECHADA
   });
 
   it("mercado parado (última vela antiga) → NÃO OPERAR sem chamar a IA", async () => {

@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { fetchCalendar, type CalEvent } from "./calendar.js";
 import { PLAYBOOK } from "./playbook.js";
+import { h1Zones, setupFromZones, zonesText, type Zones } from "./zones.js";
 
 /**
  * Entrada sugerida pela IA para um ativo, a partir das velas M5 reais (não de print).
@@ -60,14 +61,15 @@ export function parseYahoo(body: unknown): Candle[] {
   return out;
 }
 
-export async function fetchCandles(src: Source): Promise<Candle[]> {
+export async function fetchCandles(src: Source, tf: "5m" | "1h" = "5m"): Promise<Candle[]> {
   const headers = { "user-agent": "Mozilla/5.0 (TradeAI sinal)" };
   if (src.kind === "binance") {
-    const res = await fetch(`https://data-api.binance.vision/api/v3/klines?symbol=${src.symbol}&interval=5m&limit=150`, { headers });
+    const res = await fetch(`https://data-api.binance.vision/api/v3/klines?symbol=${src.symbol}&interval=${tf}&limit=${tf === "1h" ? 200 : 150}`, { headers });
     if (!res.ok) throw new Error(`Binance ${res.status}`);
     return parseBinance(await res.json());
   }
-  const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(src.symbol)}?interval=5m&range=2d`, { headers });
+  const range = tf === "1h" ? "1mo" : "2d";
+  const res = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(src.symbol)}?interval=${tf}&range=${range}`, { headers });
   if (!res.ok) throw new Error(`Yahoo ${res.status}`);
   return parseYahoo(await res.json());
 }
@@ -251,7 +253,12 @@ export async function handleSignal(request: Request, deps: { ask?: Ask; now?: ()
   });
 
   let candles: Candle[];
-  try { candles = closedCandles(await fetchCandles(asset.source), now); }
+  let h1: Candle[];
+  try {
+    candles = closedCandles(await fetchCandles(asset.source), now);
+    // a vela de 1 hora em formação não entra nas zonas
+    h1 = (await fetchCandles(asset.source, "1h")).filter((k) => k.t + 3600 <= now);
+  }
   catch (e) { return json({ error: `Não consegui buscar as velas: ${(e as Error).message}` }, 502); }
   if (candles.length < 30) return json(noTrade(candles.at(-1)?.c ?? 0, "Poucas velas disponíveis agora (mercado fechado ou fonte sem dados)."));
   const last = candles[candles.length - 1];
@@ -267,9 +274,16 @@ export async function handleSignal(request: Request, deps: { ask?: Ask; now?: ()
   if (!deps.ask && !process.env.ANTHROPIC_API_KEY)
     return json({ error: "IA desativada: configure ANTHROPIC_API_KEY na Vercel (Settings → Environment Variables) e publique de novo." }, 503);
 
+  // zonas de H1 e setup de M5: se não houver setup, nem chama a IA
+  const zones: Zones = h1Zones(h1, last.c);
+  const setup = setupFromZones(candles, zones);
+  if (!setup) {
+    return json({ ...noTrade(last.c, "Sem rompimento nem rejeição em zona forte de H1 agora."), zones, setup: null, price: last.c });
+  }
   const ind = indicators(candles);
   let reading: AiReading;
-  try { reading = await (deps.ask ?? askClaude)(buildPrompt(asset.label, candles, ind)); }
+  const prompt = buildPrompt(asset.label, candles, ind) + `\n${zonesText(zones)}\nSetup candidato pelas regras de H1: ${setup.dir} (${setup.kind} na zona ${Number(setup.zone.toPrecision(6))}, stop ${Number(setup.stop.toPrecision(6))}, alvo ${setup.target === null ? "sem zona" : Number(setup.target.toPrecision(6))}). Confirme ou descarte com base nas velas. Se a leitura não confirmar, responda NAO_OPERAR.`;
+  try { reading = await (deps.ask ?? askClaude)(prompt); }
   catch (err) {
     if (err instanceof SignalError) return json({ error: err.message }, err.status);
     if (err instanceof Anthropic.RateLimitError) return json({ error: "Limite de uso da IA atingido. Tente em instantes." }, 429);
@@ -281,7 +295,10 @@ export async function handleSignal(request: Request, deps: { ask?: Ask; now?: ()
     if (err instanceof SyntaxError) return json({ error: "Resposta da IA em formato inesperado." }, 502);
     throw err;
   }
-  const { reading: r, blocked } = applySignalGuards(reading, ind.price);
+  let { reading: r, blocked } = applySignalGuards(reading, ind.price);
+  // a IA não pode inverter o setup das regras de H1
+  if (r.decision !== "NAO_OPERAR" && r.decision !== setup.dir) { r = { ...r, decision: "NAO_OPERAR" }; blocked = "A leitura da IA contraria o setup de H1."; }
+  if (r.decision !== "NAO_OPERAR") { r = { ...r, invalidation_price: setup.stop, target_price: setup.target }; }
   // entrada na abertura da próxima vela; se faltar menos de 30 s, pula para a seguinte
   let entry = Math.ceil(now / M5) * M5;
   if (entry - now < 30) entry += M5;
@@ -293,5 +310,5 @@ export async function handleSignal(request: Request, deps: { ask?: Ask; now?: ()
     reasons_for: r.reasons_for, reasons_against: blocked ? [blocked, ...r.reasons_against] : r.reasons_against,
     summary: r.summary, blocked_by: blocked,
   };
-  return json(signal);
+  return json({ ...signal, zones, setup });
 }
