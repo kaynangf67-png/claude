@@ -99,19 +99,35 @@ describe("regiões, liquidez, FVG e padrões", () => {
   });
 });
 
-describe("risco e retorno", () => {
-  it("stop pela estrutura com margem de ATR e alvo na região contrária", () => {
-    const regions = [{ low: 1.1060, high: 1.1065, role: "resistencia" as const, strength: "forte" as const, reactions: 3, origin: "H1" as const, distance: 0.006, distancePips: 60, intensity: 80 }];
-    const r = computeRisk("BUY", 1.1000, { invalidation: 1.0990, regions, extraTargets: [], atr: 0.0004, pip: 0.0001 });
+describe("risco e retorno (operação curta)", () => {
+  const reg = (low: number, high: number, role: "suporte" | "resistencia") => ({ low, high, role, strength: "forte" as const, reactions: 3, origin: "H1" as const, distance: 0.003, distancePips: 30, intensity: 80 });
+  const base = { regions: [] as ReturnType<typeof reg>[], extraTargets: [] as number[], atr: 0.0004, pip: 0.0001 };
+  it("stop pela estrutura com margem de ATR, alvo em região de H1 alcançável e tempo máximo", () => {
+    const r = computeRisk("BUY", 1.1000, { ...base, invalidation: 1.0990, regions: [reg(1.1030, 1.1035, "resistencia")] });
     expect(r.sl).toBeCloseTo(1.0988, 5);
-    expect(r.tps[0]).toBe(1.106);
-    expect(r.rr[0]).toBeCloseTo(0.006 / 0.0012, 3);
+    expect(r.tps[0]).toBe(1.103);
+    expect(r.rr[0]).toBeCloseTo(0.003 / 0.0012, 3);
+    expect(r.ok).toBe(true);
+    expect(r.maxHoldMin).toBe(60);
+  });
+  it("topo recente do M5 serve de alvo curto quando tem espaço de pelo menos 1,5R", () => {
+    const r = computeRisk("BUY", 1.1000, { ...base, invalidation: 1.0990, extraTargets: [1.1010, 1.1022, 1.1050] });
+    expect(r.tps[0]).toBe(1.1022); // 1.1010 tem só 0,83R e é pulado; 1.1022 tem 1,83R
+    expect(r.tps[1]).toBe(1.105);
     expect(r.ok).toBe(true);
   });
-  it("alvo perto demais ou inexistente reprova", () => {
-    const near = [{ low: 1.1010, high: 1.1012, role: "resistencia" as const, strength: "forte" as const, reactions: 3, origin: "H1" as const, distance: 0.001, distancePips: 10, intensity: 80 }];
-    expect(computeRisk("BUY", 1.1, { invalidation: 1.099, regions: near, extraTargets: [], atr: 0.0004, pip: 0.0001 }).ok).toBe(false);
-    expect(computeRisk("SELL", 1.1, { invalidation: 1.101, regions: [], extraTargets: [], atr: 0.0004, pip: 0.0001 }).ok).toBe(false);
+  it("região de H1 no caminho com menos de 1,5R reprova; alvo longe demais para operação curta reprova", () => {
+    expect(computeRisk("BUY", 1.1, { ...base, invalidation: 1.099, regions: [reg(1.1010, 1.1012, "resistencia")] }).ok).toBe(false);
+    const far = computeRisk("BUY", 1.1, { ...base, invalidation: 1.099, regions: [reg(1.1060, 1.1065, "resistencia")] });
+    expect(far.ok).toBe(false);
+    expect(far.notes.join(" ")).toMatch(/longe demais para operação curta/);
+  });
+  it("sem alvo estrutural reprova; venda é simétrica", () => {
+    expect(computeRisk("SELL", 1.1, { ...base, invalidation: 1.101 }).ok).toBe(false);
+    const s = computeRisk("SELL", 1.1, { ...base, invalidation: 1.101, regions: [reg(1.0965, 1.097, "suporte")] });
+    expect(s.sl).toBeGreaterThan(1.1);
+    expect(s.tps[0]).toBe(1.097);
+    expect(s.ok).toBe(true);
   });
 });
 
@@ -172,6 +188,8 @@ describe("motor: cenários completos", () => {
     expect(t.tps[0]!).toBeGreaterThan(t.entry);
     expect(t.rr[0]!).toBeGreaterThanOrEqual(1.5);
     expect(t.riskPips).toBeGreaterThan(0);
+    expect(t.maxHoldMin).toBe(60);              // operação curta
+    expect(t.targetAtr!).toBeLessThanOrEqual(8); // alvo alcançável em poucas velas
     expect(r.invalidation).toMatch(/abaixo/);
     expect(r.favor.length).toBeGreaterThan(0);
   });
@@ -183,7 +201,7 @@ describe("motor: cenários completos", () => {
     expect(r.invalidation).toMatch(/acima/);
   });
   it("cenário bom sem gatilho vira 'aguardando confirmação' e não ativa a entrada", () => {
-    const r = run(noisy(17, 2380));
+    const r = run(noisy(22, 2360));
     expect(r.state).toBe("aguardando_confirmacao");
     expect(r.decision).toBe("NO_TRADE");
     expect(r.trade).toBeNull();

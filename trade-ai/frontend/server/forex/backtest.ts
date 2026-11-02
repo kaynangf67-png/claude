@@ -16,7 +16,7 @@ export interface BtResult {
 }
 
 export function runBacktest(m5: Candle[], h1: Candle[], o: BtOptions): BtResult {
-  const spread = o.spreadPips ?? 1.0, slip = o.slipPips ?? 0.2, stride = o.stride ?? 3, maxHold = o.maxHold ?? 96;
+  const spread = o.spreadPips ?? 1.0, slip = o.slipPips ?? 0.2, stride = o.stride ?? 3, maxHold = o.maxHold ?? 12; // operação curta: no máximo 12 velas de M5 (1 hora)
   const t0 = Date.now(), budget = o.budgetMs ?? 40_000;
   const trades: BtTrade[] = [];
   let analyzed = 0, truncated = false;

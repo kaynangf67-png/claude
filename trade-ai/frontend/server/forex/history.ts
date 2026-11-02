@@ -9,7 +9,7 @@ export interface SavedSignal {
 export type Outcome = "aberto" | "tp1" | "stop" | "ambiguo" | "expirado";
 export interface Resolved extends SavedSignal { status: Outcome; r: number | null; closedAt: number | null }
 
-const MAX_HOLD_S = 24 * 3600;
+const MAX_HOLD_S = 3600; // operação curta: expira em 1 hora
 
 export function resolveSignal(sig: SavedSignal, candles: Candle[]): Resolved {
   const buy = sig.dir === "BUY", risk = Math.abs(sig.entry - sig.sl), tp1 = sig.tps[0];

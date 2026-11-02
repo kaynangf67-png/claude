@@ -1,11 +1,18 @@
 import type { Dir, Region } from "./types.js";
 
-/** RiskRewardCalculator: stop pela estrutura (com margem de ATR) e alvos pelas próximas regiões reais. */
+/**
+ * RiskRewardCalculator para OPERAÇÃO CURTA (minutos a no máximo ~1 hora).
+ * Stop pela estrutura (com margem de ATR). Alvos: topos/fundos recentes do M5 e bordas das regiões de H1.
+ * Uma região de H1 no caminho com menos de 1,5R de espaço reprova a operação; o alvo precisa ser alcançável (até 8 ATR do M5).
+ */
+export const MAX_HOLD_MIN = 60;
+export const MAX_TARGET_ATR = 8;
+
 export interface Risk {
   ok: boolean; notes: string[];
   entry: number; sl: number; tps: (number | null)[];
   riskDist: number; riskPips: number; atrPips: number; rr: (number | null)[];
-  invalidation: number;
+  invalidation: number; maxHoldMin: number; targetAtr: number | null;
 }
 
 export function computeRisk(dir: Dir, entry: number, o: { invalidation: number; regions: Region[]; extraTargets: number[]; atr: number; pip: number }): Risk {
@@ -16,17 +23,29 @@ export function computeRisk(dir: Dir, entry: number, o: { invalidation: number; 
   if (dist < 1.0 * o.atr) { dist = 1.0 * o.atr; sl = buy ? entry - dist : entry + dist; notes.push("Stop ampliado para pelo menos 1 ATR do M5 (evitar stop apertado)."); }
   let ok = true;
   if (dist > 4 * o.atr) { ok = false; notes.push("Stop muito distante (mais de 4 ATR do M5): a invalidação estrutural está longe."); }
-  // alvos: borda mais próxima de cada região contrária, mais pivôs de M15 na direção
-  const cands = [
-    ...o.regions.filter((r) => (buy ? r.role === "resistencia" && r.low > entry : r.role === "suporte" && r.high < entry)).map((r) => (buy ? r.low : r.high)),
-    ...o.extraTargets.filter((p) => (buy ? p > entry : p < entry)),
-  ].sort((a, b) => (buy ? a - b : b - a));
-  const tps: number[] = [];
-  for (const p of cands) if (!tps.length || Math.abs(p - tps[tps.length - 1]) >= 0.3 * o.atr) tps.push(p);
-  const t = [tps[0] ?? null, tps[1] ?? null, tps[2] ?? null];
+
+  type T = { price: number; region: boolean };
+  const ahead = (p: number) => (buy ? p > entry : p < entry);
+  const regionTargets: T[] = o.regions.filter((r) => (buy ? r.role === "resistencia" : r.role === "suporte")).map((r) => ({ price: buy ? r.low : r.high, region: true })).filter((t) => ahead(t.price));
+  const swingTargets: T[] = o.extraTargets.filter(ahead).map((price) => ({ price, region: false }));
+  const sorted = [...regionTargets, ...swingTargets].sort((a, b) => (buy ? a.price - b.price : b.price - a.price));
+  const list: T[] = [];
+  for (const t of sorted) {
+    const last = list.at(-1);
+    if (!last || Math.abs(t.price - last.price) >= 0.3 * o.atr) list.push(t);
+    else if (t.region && !last.region) list[list.length - 1] = t; // região vale mais que um topo solto no mesmo ponto
+  }
+
+  let tp1: T | null = null, idx = -1;
+  for (let i = 0; i < list.length; i++) {
+    const d = Math.abs(list[i].price - entry);
+    if (d >= 1.5 * dist) { tp1 = list[i]; idx = i; break; }
+    if (list[i].region) { ok = false; notes.push(`Região de H1 muito perto no caminho: só ${(d / dist).toFixed(2)}R de espaço (mínimo 1,5R).`); break; }
+  }
+  if (!tp1 && ok) { ok = false; notes.push("Sem alvo estrutural com pelo menos 1,5R de espaço."); }
+  const t = [tp1?.price ?? null, idx >= 0 ? list[idx + 1]?.price ?? null : null, idx >= 0 ? list[idx + 2]?.price ?? null : null];
   const rr = t.map((p) => (p === null ? null : Math.abs(p - entry) / dist));
-  if (t[0] === null) { ok = false; notes.push("Não há região estrutural contrária para servir de alvo."); }
-  else if (Math.abs(t[0] - entry) > 10 * o.atr) { notes.push(`Alvo distante: TP1 está a ${(Math.abs(t[0] - entry) / o.pip).toFixed(0)} pips (cerca de ${(Math.abs(t[0] - entry) / o.atr).toFixed(0)} ATR do M5). Para operação rápida pode levar horas; o R:R alto vem da distância, não da qualidade do setup.`); }
-  if (t[0] !== null && (rr[0] ?? 0) < 1.5) { ok = false; notes.push(`Primeira região contrária muito perto: relação risco/retorno ${(rr[0] ?? 0).toFixed(2)} (mínimo 1,5).`); }
-  return { ok, notes, entry, sl, tps: t, riskDist: dist, riskPips: dist / o.pip, atrPips: o.atr / o.pip, rr, invalidation: o.invalidation };
+  const targetAtr = t[0] === null ? null : Math.abs(t[0] - entry) / o.atr;
+  if (ok && targetAtr !== null && targetAtr > MAX_TARGET_ATR) { ok = false; notes.push(`Alvo longe demais para operação curta: ${(Math.abs(t[0]! - entry) / o.pip).toFixed(0)} pips (${targetAtr.toFixed(1)} ATR do M5; máximo ${MAX_TARGET_ATR}).`); }
+  return { ok, notes, entry, sl, tps: t, riskDist: dist, riskPips: dist / o.pip, atrPips: o.atr / o.pip, rr, invalidation: o.invalidation, maxHoldMin: MAX_HOLD_MIN, targetAtr };
 }

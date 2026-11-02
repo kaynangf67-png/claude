@@ -32,7 +32,7 @@ export function toView(a: ForexAnalysis, pip: number) {
     sweep: x.sweep ? { dir: x.sweep.dir, level: f(x.sweep.level) } : null,
     fvgs: x.fvgs.slice(-3).map((g) => ({ dir: g.dir, low: f(g.low), high: f(g.high), status: g.status })),
   });
-  const trade = a.trade && { dir: a.trade.dir, entry: f(a.trade.entry), sl: f(a.trade.sl), tps: a.trade.tps.map((p) => (p === null ? null : f(p))), rr: a.trade.rr.map((r) => (r === null ? null : Math.round(r * 100) / 100)), riskPips: Math.round(a.trade.riskPips * 10) / 10, atrPips: Math.round(a.trade.atrPips * 10) / 10, notes: a.trade.notes };
+  const trade = a.trade && { dir: a.trade.dir, entry: f(a.trade.entry), sl: f(a.trade.sl), tps: a.trade.tps.map((p) => (p === null ? null : f(p))), rr: a.trade.rr.map((r) => (r === null ? null : Math.round(r * 100) / 100)), maxHoldMin: a.trade.maxHoldMin, targetAtr: a.trade.targetAtr === null ? null : Math.round(a.trade.targetAtr * 10) / 10, riskPips: Math.round(a.trade.riskPips * 10) / 10, atrPips: Math.round(a.trade.atrPips * 10) / 10, notes: a.trade.notes };
   return {
     symbol: a.symbol, label: a.label, at: a.at, atBrt: brt(a.at), price: f(a.price), pip,
     decision: a.decision, state: a.state, watch: a.watch, chosen: a.chosen,

@@ -93,8 +93,9 @@ export function analyze(inp: EngineInput): ForexAnalysis {
     const trig = entryTrigger(m1Ok ? inp.candles.M1! : m5, dir, m1Ok ? "M1" : "M5", m1Ok && a1 ? a1.atr : a.M5.atr);
     const invalidation = s.invalidation ?? (dir === "BUY" ? Math.min(...m5.slice(-10).map((k) => k.l)) : Math.max(...m5.slice(-10).map((k) => k.h)));
     const entry = m1Ok ? inp.candles.M1![inp.candles.M1!.length - 1].c : price;
-    // alvos: somente regiões de H1
-    const risk = computeRisk(dir, entry, { invalidation, regions, extraTargets: [], atr: a.M5.atr, pip });
+    // alvos: bordas das regiões de H1 e topos/fundos recentes do M5 (operação curta)
+    const swings = a.M5.pivots.filter((p) => p.type === (dir === "BUY" ? "high" : "low")).slice(-8).map((p) => p.price);
+    const risk = computeRisk(dir, entry, { invalidation, regions, extraTargets: swings, atr: a.M5.atr, pip });
     // movimento já percorrido
     const start = s.region ? (dir === "BUY" ? s.region.high : s.region.low) : invalidation;
     const tp1 = risk.tps[0];

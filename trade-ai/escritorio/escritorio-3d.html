@@ -2087,7 +2087,7 @@
 
     if (d.trade && confirmed) {
       const t = d.trade, box2 = el("div", "fx-trade" + (t.dir === "SELL" ? " sell" : ""));
-      box2.append(el("h4", "", "OPERAÇÃO · " + DIR[t.dir]), kv([["Entrada", f(t.entry)], ["Stop Loss", f(t.sl)], ["Take Profit 1", `${f(t.tps[0])}  (R:R ${num2(t.rr[0])})`], ["Take Profit 2", t.tps[1] ? `${f(t.tps[1])}  (R:R ${num2(t.rr[1])})` : "—"], ["Take Profit 3", t.tps[2] ? `${f(t.tps[2])}  (R:R ${num2(t.rr[2])})` : "—"], ["Risco", `${t.riskPips} pips (ATR ${t.atrPips})`], ["Pontuação", `${d.score.total}/100`]]));
+      box2.append(el("h4", "", "OPERAÇÃO · " + DIR[t.dir]), kv([["Entrada", f(t.entry)], ["Stop Loss", f(t.sl)], ["Take Profit 1", `${f(t.tps[0])}  (R:R ${num2(t.rr[0])})`], ["Take Profit 2", t.tps[1] ? `${f(t.tps[1])}  (R:R ${num2(t.rr[1])})` : "—"], ["Take Profit 3", t.tps[2] ? `${f(t.tps[2])}  (R:R ${num2(t.rr[2])})` : "—"], ["Risco", `${t.riskPips} pips (ATR ${t.atrPips})`], ["Alvo 1", `${t.targetAtr} ATR do M5`], ["Duração prevista", `até ${t.maxHoldMin} min (operação curta)`], ["Pontuação", `${d.score.total}/100`]]));
       if (t.notes.length) box2.append(ul(t.notes, "fx-list"));
       aiOut.append(box2);
     }
