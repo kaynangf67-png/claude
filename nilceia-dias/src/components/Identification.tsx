@@ -1,71 +1,65 @@
-import { WhatsAppLink } from './ui';
+import { CalendarHeart, Droplets, Sparkles, type LucideIcon } from 'lucide-react';
 import type { Intent } from '../config/site';
+import { WhatsAppLink } from './ui';
 
-const PATHS: { letter: string; title: string; text: string; cta: string; intent: Intent }[] = [
+const PATHS: { icon: LucideIcon; title: string; text: string; cta: string; intent: Intent; id: string }[] = [
   {
-    letter: 'A',
+    icon: Sparkles,
     title: 'Quero me sentir ainda mais bonita',
-    text: 'Para mulheres que procuram renovar o visual, cuidar dos cabelos e valorizar sua beleza.',
+    text: 'Para renovar o visual, cuidar dos cabelos e valorizar sua beleza.',
     cta: 'Quero renovar meu visual',
     intent: 'hair',
+    id: 'a',
   },
   {
-    letter: 'B',
+    icon: Droplets,
     title: 'Quero recuperar o aspecto dos meus fios',
-    text: 'Para quem deseja entender as necessidades dos cabelos e conhecer possibilidades de cuidado.',
+    text: 'Para entender o que seus cabelos precisam e conhecer possibilidades de cuidado.',
     cta: 'Quero cuidar dos meus fios',
     intent: 'treatments',
+    id: 'b',
   },
   {
-    letter: 'C',
+    icon: CalendarHeart,
     title: 'Estou me preparando para um momento especial',
     text: 'Para noivas e mulheres que procuram uma produção especial.',
     cta: 'Tenho uma data especial',
     intent: 'brides',
+    id: 'c',
   },
 ];
 
+/** Três cards de vidro sobrepostos à base do hero: a visitante escolhe o próprio caminho. */
 export function Identification() {
   return (
-    <section aria-labelledby="identificacao-titulo" className="py-20 sm:py-28 lg:py-32">
-      <div className="wrap">
-        <div className="grid gap-6 lg:grid-cols-12 lg:gap-12">
-          <h2 id="identificacao-titulo" className="h-section reveal lg:col-span-7">
-            Cada mulher tem sua beleza. <em className="accent">Cada cabelo tem sua história.</em>
-          </h2>
-          <p className="lead reveal max-w-md lg:col-span-4 lg:col-start-9 lg:self-end">
-            Não existe uma única forma de cuidar da beleza. Existem objetivos, momentos e necessidades diferentes. Por isso, cada
-            atendimento merece atenção aos detalhes e uma escolha adequada ao que você procura.
-          </p>
-        </div>
-
-        <ol className="mt-14 grid border-t border-onyx/80 sm:mt-20 lg:grid-cols-3">
-          {PATHS.map((p, i) => (
-            <li
-              key={p.letter}
-              className={`reveal flex flex-col border-b border-line py-9 lg:border-b-0 lg:px-10 lg:py-12 ${
-                i === 0 ? 'lg:pl-0' : 'lg:border-l'
-              } ${i === 2 ? 'lg:pr-0' : ''}`}
-              style={{ transitionDelay: `${i * 90}ms` }}
+    <section aria-labelledby="identificacao-titulo" className="relative z-10 -mt-20 pb-6 sm:-mt-24">
+      <h2 id="identificacao-titulo" className="sr-only">
+        O que você procura?
+      </h2>
+      <ol className="wrap grid gap-4 md:grid-cols-3 md:gap-5">
+        {PATHS.map(({ icon: Icon, ...p }, i) => (
+          <li
+            key={p.id}
+            className={`glass card-shadow reveal flex flex-col items-center rounded-3xl px-6 pt-7 pb-6 text-center ${i === 1 ? 'md:-translate-y-3' : ''}`}
+            style={{ transitionDelay: `${i * 90}ms` }}
+          >
+            <span className="flex size-14 items-center justify-center rounded-full bg-paper text-gold-ink shadow-[0_6px_16px_-8px_rgb(26_26_26/0.35)]">
+              <Icon aria-hidden="true" strokeWidth={1.4} className="size-6" />
+            </span>
+            <h3 className="mt-5 text-[1.15rem] leading-snug tracking-[-0.01em] text-onyx">{p.title}</h3>
+            <p className="mt-2 max-w-[18rem] text-[0.92rem] leading-relaxed text-muted">{p.text}</p>
+            <WhatsAppLink
+              intent={p.intent}
+              source="identification"
+              ctaId={`identificacao-${p.id}`}
+              className="link-arrow mt-3"
+              icon={false}
             >
-              <span aria-hidden="true" className="display text-[2.8rem] leading-none text-gold">
-                {p.letter}
-              </span>
-              <h3 className="mt-5 text-[0.82rem] leading-relaxed font-semibold tracking-[0.16em] uppercase">{p.title}</h3>
-              <p className="mt-3 max-w-sm text-muted">{p.text}</p>
-              <WhatsAppLink
-                intent={p.intent}
-                source="identification"
-                ctaId={`identificacao-${p.letter.toLowerCase()}`}
-                className="link-arrow mt-6 self-start"
-                icon={false}
-              >
-                {p.cta} →
-              </WhatsAppLink>
-            </li>
-          ))}
-        </ol>
-      </div>
+              {p.cta} →
+            </WhatsAppLink>
+          </li>
+        ))}
+      </ol>
     </section>
   );
 }

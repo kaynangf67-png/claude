@@ -1,7 +1,6 @@
 import { Fragment, useEffect } from 'react';
 import { pages, type SectionKey } from './config/pages';
 import { About } from './components/About';
-import { Authority } from './components/Authority';
 import { Brides } from './components/Brides';
 import { ConsentBanner } from './components/ConsentBanner';
 import { FAQ } from './components/FAQ';
@@ -29,7 +28,6 @@ export default function App({ pageKey }: { pageKey: string }) {
   }, []);
 
   const render: Record<SectionKey, () => React.ReactNode> = {
-    authority: () => <Authority />,
     identification: () => <Identification />,
     services: () => <Services heroPhoto={page.hero.photo} hasBrides={page.sections.includes('brides')} />,
     brides: () => <Brides />,

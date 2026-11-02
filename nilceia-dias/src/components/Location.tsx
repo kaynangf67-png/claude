@@ -64,7 +64,7 @@ export function Location({ intent }: { intent: Intent }) {
         </div>
 
         <div className="reveal lg:col-span-7">
-          <div className="relative aspect-[4/3] w-full overflow-hidden border border-line bg-champagne/60 lg:aspect-auto lg:h-full lg:min-h-[28rem]">
+          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-3xl bg-champagne/60 lg:aspect-auto lg:h-full lg:min-h-[28rem]">
             {showMap ? (
               <iframe
                 title={`Mapa: ${a.street}, ${a.neighborhood}, ${a.city} — ${a.state}`}

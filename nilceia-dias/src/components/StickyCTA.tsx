@@ -32,7 +32,7 @@ export function StickyCTA({ intent }: { intent: Intent }) {
   return (
     <>
       <div
-        className={`safe-bottom fixed inset-x-0 bottom-0 z-30 border-t border-line bg-paper/95 px-3 pt-3 backdrop-blur-md transition-transform duration-300 md:hidden ${
+        className={`safe-bottom card-shadow fixed inset-x-0 bottom-0 z-30 rounded-t-3xl border-t border-line bg-paper/95 px-3 pt-3 backdrop-blur-md transition-transform duration-300 md:hidden ${
           visible ? 'translate-y-0' : 'pointer-events-none translate-y-full'
         }`}
         inert={!visible}

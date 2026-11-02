@@ -13,12 +13,12 @@ export function About({ intent }: { intent: Intent }) {
               height={nilceiaPhoto.height}
               alt="Nilcéia Dias, cabeleireira e fundadora da Nilcéia Dias Hair & Company"
               loading="lazy"
-              className="arch reveal aspect-[4/5] w-full object-cover"
+              className="reveal aspect-[4/5] w-full rounded-[2rem] object-cover"
             />
           ) : (
             // Sem foto real ainda: composição tipográfica, sem imagem de banco.
-            <div aria-hidden={!facts.years.show} className="reveal relative flex aspect-[4/5] max-h-[30rem] w-full flex-col items-center justify-center border border-line bg-champagne/50">
-              <span className="absolute inset-4 border border-gold/40" aria-hidden="true" />
+            <div aria-hidden={!facts.years.show} className="reveal relative flex aspect-[4/5] max-h-[30rem] w-full flex-col items-center justify-center rounded-[2rem] bg-champagne/60">
+              <span className="absolute inset-4 rounded-[1.5rem] border border-gold/40" aria-hidden="true" />
               {facts.years.show ? (
                 <>
                   <span className="display text-[7rem] leading-[0.85] sm:text-[8.5rem]">{facts.years.value}</span>

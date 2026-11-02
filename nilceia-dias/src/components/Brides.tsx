@@ -12,7 +12,7 @@ const POINTS = [
 
 export function Brides() {
   const ref = useViewEvent<HTMLElement>('view_brides_section');
-  const p = photos.tranca;
+  const p = photos.noiva;
 
   return (
     <section ref={ref} id="noivas" aria-labelledby="noivas-titulo" className="on-dark relative overflow-hidden bg-onyx text-champagne">
@@ -21,17 +21,16 @@ export function Brides() {
           <div className="relative mx-auto max-w-[28rem] lg:sticky lg:top-28">
             <img
               src={p.src}
-              srcSet={p.srcSet}
-              sizes="(min-width: 1024px) 440px, 88vw"
+                            sizes="(min-width: 1024px) 440px, 88vw"
               width={p.width}
               height={p.height}
               alt={p.alt}
               loading="lazy"
               decoding="async"
-              className="arch reveal aspect-[3/4] w-full object-cover"
+              className="reveal aspect-[3/4] w-full rounded-[2rem] object-cover"
             />
             {facts.brides.show && (
-              <div className="absolute right-0 -bottom-6 bg-paper px-6 py-5 text-onyx sm:-right-6">
+              <div className="card-shadow absolute right-4 -bottom-6 rounded-2xl bg-paper px-6 py-5 text-onyx sm:-right-6">
                 <p className="display text-[2.2rem] leading-none">{facts.brides.value}</p>
                 <p className="mt-1 text-[0.62rem] font-semibold tracking-[0.2em] text-muted uppercase">{facts.brides.label}</p>
               </div>

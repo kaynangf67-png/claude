@@ -96,7 +96,7 @@ export function Gallery() {
                     setOpen(i);
                     track('view_gallery_photo', { category: p.category ?? 'geral' });
                   }}
-                  className="group block h-full w-full overflow-hidden bg-sand"
+                  className="group block h-full w-full overflow-hidden rounded-2xl bg-sand"
                   aria-label={`Ampliar foto: ${p.alt}`}
                 >
                   <img
@@ -113,7 +113,7 @@ export function Gallery() {
             ))}
           </ul>
         ) : (
-          <div className="reveal mt-12 grid gap-6 border border-line p-7 sm:p-10 lg:grid-cols-12 lg:items-center">
+          <div className="reveal mt-12 grid gap-6 rounded-3xl bg-champagne/55 p-7 sm:p-10 lg:grid-cols-12 lg:items-center">
             <p className="display text-[1.3rem] leading-snug lg:col-span-8 sm:text-[1.55rem]">
               Os trabalhos reais da Nilcéia, de produções de noivas a cortes e penteados, ficam reunidos no Instagram do salão.
             </p>

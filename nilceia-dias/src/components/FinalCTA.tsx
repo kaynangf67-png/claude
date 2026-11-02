@@ -1,14 +1,10 @@
 import { brand, type Intent } from '../config/site';
 import { track } from '../lib/analytics';
-import { photos } from '../lib/photos';
 import { Ornament, WhatsAppLink } from './ui';
 
 export function FinalCTA({ intent }: { intent: Intent }) {
-  const bg = photos.ondas;
   return (
     <section aria-labelledby="final-titulo" className="on-dark relative isolate overflow-hidden bg-onyx text-champagne">
-      <img src={bg.src} width={bg.width} height={bg.height} alt="" loading="lazy" decoding="async" className="absolute inset-0 -z-10 h-full w-full object-cover opacity-30" />
-      <div aria-hidden="true" className="absolute inset-0 -z-10 bg-onyx/70" />
       <div className="wrap flex flex-col items-center py-24 text-center sm:py-32">
         <Ornament />
         <h2 id="final-titulo" className="h-section reveal mt-8 max-w-[20ch] text-paper">

@@ -38,7 +38,7 @@ export function ConsentBanner() {
   const hasMarketing = Boolean(trackingIds.gtm || trackingIds.metaPixel);
 
   return (
-    <div role="dialog" aria-modal="false" aria-labelledby="cookies-titulo" className="fixed inset-x-3 bottom-3 z-50 border border-line bg-paper p-5 shadow-[0_20px_50px_-20px_rgb(26_26_26/0.45)] sm:inset-x-auto sm:right-6 sm:bottom-6 sm:max-w-md sm:p-6">
+    <div role="dialog" aria-modal="false" aria-labelledby="cookies-titulo" className="fixed inset-x-3 bottom-3 z-50 rounded-3xl border border-line bg-paper p-5 shadow-[0_20px_50px_-20px_rgb(26_26_26/0.45)] sm:inset-x-auto sm:right-6 sm:bottom-6 sm:max-w-md sm:p-6">
       <h2 id="cookies-titulo" className="display text-[1.2rem] leading-tight">Sua privacidade</h2>
       <p className="mt-2 text-sm text-muted">
         Usamos cookies para medir o desempenho do site e dos anúncios. Nenhum dado de contato é compartilhado. Você pode escolher o que

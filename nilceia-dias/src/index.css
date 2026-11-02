@@ -69,7 +69,7 @@
 }
 
 @utility btn {
-  @apply inline-flex min-h-12 items-center justify-center gap-3 px-5 text-[0.74rem] font-semibold tracking-[0.1em] sm:px-6 sm:text-[0.8rem] sm:tracking-[0.12em] uppercase transition-[background-color,color,border-color,transform] duration-300 ease-out select-none;
+  @apply inline-flex min-h-12 items-center justify-center gap-3 rounded-full px-6 text-[0.74rem] font-semibold tracking-[0.1em] sm:px-6 sm:text-[0.8rem] sm:tracking-[0.12em] uppercase transition-[background-color,color,border-color,transform] duration-300 ease-out select-none;
   &:active {
     transform: translateY(1px);
   }
@@ -91,7 +91,23 @@
     @apply h-px w-7 bg-gold;
   }
   .h-hero {
-    @apply display text-[2.3rem] leading-[1.05] sm:text-[3.2rem] lg:text-[4.3rem];
+    @apply display text-[2.4rem] leading-[1.05] sm:text-[3.4rem] lg:text-[4.6rem];
+  }
+  /* Vidro fosco (cards sobre o hero e menu), como no modelo de referência. */
+  .glass {
+    background: rgb(255 255 255 / 0.78);
+    -webkit-backdrop-filter: blur(18px) saturate(1.2);
+    backdrop-filter: blur(18px) saturate(1.2);
+    border: 1px solid rgb(255 255 255 / 0.6);
+  }
+  .glass-dark {
+    background: rgb(26 26 26 / 0.28);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    border: 1px solid rgb(255 255 255 / 0.22);
+  }
+  .card-shadow {
+    box-shadow: 0 1px 2px rgb(26 26 26 / 0.04), 0 18px 40px -18px rgb(26 26 26 / 0.28);
   }
   .h-section {
     @apply display text-[1.9rem] leading-[1.1] sm:text-[2.5rem] lg:text-[2.95rem];
@@ -128,6 +144,9 @@
   }
   .btn-ghost {
     @apply btn border border-onyx/25 text-onyx hover:border-onyx hover:bg-onyx hover:text-paper;
+  }
+  .btn-light {
+    @apply btn bg-paper text-onyx hover:bg-champagne;
   }
   .on-dark .btn-ghost {
     @apply border-champagne/30 text-champagne hover:border-champagne hover:bg-champagne hover:text-onyx;

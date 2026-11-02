@@ -19,7 +19,7 @@ export function Proof() {
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => track('click_reviews_source', { cta_source: 'proof' })}
-            className="group block border-t border-onyx pt-8"
+            className="card-shadow group block rounded-3xl bg-paper p-7 sm:p-9"
           >
             <div className="flex items-end gap-5">
               <span className="display text-[4.4rem] leading-[0.85] sm:text-[5.6rem]">{brand.casamentos.rating}</span>

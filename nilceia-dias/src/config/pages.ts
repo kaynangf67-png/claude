@@ -11,7 +11,6 @@ import type { Intent } from './site';
 import type { PhotoKey } from '../lib/photos';
 
 export type SectionKey =
-  | 'authority'
   | 'identification'
   | 'services'
   | 'brides'
@@ -46,7 +45,6 @@ export interface PageConfig {
 }
 
 const base: SectionKey[] = [
-  'authority',
   'identification',
   'services',
   'brides',
@@ -67,14 +65,14 @@ export const pages: Record<string, PageConfig> = {
     description:
       'Cabelos, tratamentos capilares, maquiagem e produção de noivas em Parque Residencial Laranjeiras, Serra — ES. Agende pelo WhatsApp.',
     hero: {
-      eyebrow: 'Nilcéia Dias · Hair & Company',
+      eyebrow: 'Hair & Company · Serra — ES',
       headline: 'Beleza que revela o melhor de você.',
       accent: 'o melhor de você.',
       sub: 'Experiência, cuidado e atenção aos detalhes para transformar sua relação com a beleza, dos cuidados com os cabelos à produção de noivas.',
       cta: 'Quero agendar meu atendimento',
       intent: 'schedule',
       secondary: { label: 'Conhecer os serviços', href: '#servicos' },
-      photo: 'noiva',
+      photo: 'fios',
     },
     sections: base,
     primaryIntent: 'schedule',
@@ -93,9 +91,9 @@ export const pages: Record<string, PageConfig> = {
       cta: 'Quero conversar sobre minha data',
       intent: 'brides',
       secondary: { label: 'Como funciona', href: '#como-funciona' },
-      photo: 'noiva',
+      photo: 'fios',
     },
-    sections: ['authority', 'brides', 'proof', 'gallery', 'about', 'steps', 'faq', 'location', 'final'],
+    sections: ['brides', 'proof', 'gallery', 'about', 'steps', 'faq', 'location', 'final'],
     primaryIntent: 'brides',
   },
   tratamentos: {
@@ -114,7 +112,7 @@ export const pages: Record<string, PageConfig> = {
       secondary: { label: 'Como funciona', href: '#como-funciona' },
       photo: 'fios',
     },
-    sections: ['authority', 'identification', 'steps', 'services', 'about', 'proof', 'faq', 'location', 'final'],
+    sections: ['identification', 'steps', 'services', 'about', 'proof', 'faq', 'location', 'final'],
     primaryIntent: 'treatments',
   },
   cabelos: {
@@ -131,9 +129,9 @@ export const pages: Record<string, PageConfig> = {
       cta: 'Consultar serviços de cabelo',
       intent: 'hair',
       secondary: { label: 'Ver serviços', href: '#servicos' },
-      photo: 'cabelos',
+      photo: 'fios',
     },
-    sections: ['authority', 'services', 'gallery', 'about', 'proof', 'steps', 'faq', 'location', 'final'],
+    sections: ['identification', 'services', 'gallery', 'about', 'proof', 'steps', 'faq', 'location', 'final'],
     primaryIntent: 'hair',
   },
   privacidade: {
@@ -148,7 +146,7 @@ export const pages: Record<string, PageConfig> = {
       cta: '',
       intent: 'general',
       secondary: { label: '', href: '' },
-      photo: 'noiva',
+      photo: 'fios',
     },
     sections: [],
     primaryIntent: 'general',
