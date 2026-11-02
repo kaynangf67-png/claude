@@ -1,0 +1,1 @@
+export const backtestNote = "Backtest passo a passo sem olhar o futuro, com spread e slippage descontados em R. Sem M1 no histórico longo (gatilho pelo M5) e sem calendário de notícias histórico. Taxa de acerto aqui é medida, não prevista.";

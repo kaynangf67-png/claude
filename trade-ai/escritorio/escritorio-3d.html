@@ -77,6 +77,28 @@
   .ai ul { margin: 0; padding-left: 16px; } .ai li { margin: 2px 0; }
   .ai ul.pro li::marker { color: #22c55e; } .ai ul.con li::marker { color: #ef4444; }
   .ai-foot { margin-top: 10px; font-size: 11px; color: #63636b; }
+  .ai.wide { width: 440px; }
+  .ai-tools { display: flex; gap: 6px; padding: 0 12px 8px; } .ai-tools[hidden] { display: none; }
+  .ai-tools button { flex: 1; appearance: none; border: 1px solid #262626; background: #0b0b0b; color: var(--mute); border-radius: 9px; padding: 7px; font: 700 12px/1 inherit; font-family: inherit; cursor: pointer; }
+  .ai-tools button:hover { color: var(--ink); border-color: #3a3a3a; }
+  .ai-dec.wait2 { background: #f59e0b1a; color: #fbbf24; border: 1px solid #f59e0b55; }
+  .fx-sub { margin-top: 6px; font-size: 12px; font-weight: 600; opacity: .9; text-align: left; line-height: 1.4; }
+  .fx-top { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; color: #71717a; margin-bottom: 8px; }
+  .fx-warn { color: #fca5a5; background: #ef44441a; border: 1px solid #ef444440; border-radius: 10px; padding: 9px; margin: 8px 0; font-size: 12px; }
+  .fx-note { color: #a1a1aa; background: #ffffff08; border-radius: 10px; padding: 9px; margin: 8px 0; font-size: 12px; }
+  .fx-chips { display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap; }
+  .fx-chip { flex: 1 1 90px; border-radius: 10px; padding: 7px 9px; font-size: 11px; background: #ffffff0a; border: 1px solid #ffffff12; }
+  .fx-chip b { display: block; font-size: 13px; margin-top: 2px; }
+  .fx-chip.up b { color: #4ade80; } .fx-chip.down b { color: #f87171; } .fx-chip.flat b { color: #a1a1aa; }
+  .fx-kv { display: grid; grid-template-columns: 1fr auto; gap: 3px 10px; margin: 6px 0; font-size: 12.5px; } .fx-kv dt { color: #8b8b93; } .fx-kv dd { margin: 0; text-align: right; font-weight: 700; font-family: ui-monospace, monospace; }
+  .fx-sec { margin-top: 12px; } .fx-sec > h4 { margin: 0 0 4px; }
+  .fx-trade { border: 1px solid #22c55e55; background: #22c55e0f; border-radius: 12px; padding: 10px; margin-top: 10px; } .fx-trade.sell { border-color: #ef444455; background: #ef44440f; }
+  .fx-list { margin: 0; padding: 0; list-style: none; font-size: 12px; } .fx-list li { padding: 3px 0; border-bottom: 1px solid #ffffff08; display: flex; gap: 6px; }
+  .fx-dot { width: 8px; height: 8px; border-radius: 50%; background: #3f3f46; flex: 0 0 auto; margin-top: 4px; } .fx-dot.ok { background: #22c55e; } .fx-dot.bad { background: #ef4444; } .fx-dot.warn { background: #f59e0b; } .fx-dot.dim { background: #3f3f46; }
+  .ai details { margin-top: 10px; } .ai summary { cursor: pointer; font-size: 11px; font-weight: 800; letter-spacing: .1em; color: #63636b; }
+  .fx-narr { margin-top: 10px; padding: 10px; border-radius: 10px; border: 1px dashed #ffffff22; font-size: 12.5px; color: #d4d4d8; } .fx-narr small { display: block; margin-bottom: 4px; color: #71717a; font-size: 10.5px; letter-spacing: .08em; }
+  .fx-btn { margin-top: 8px; width: 100%; appearance: none; border: 1px solid #ffffff22; background: #111; color: var(--ink); border-radius: 10px; padding: 9px; font: 700 12px/1 inherit; font-family: inherit; cursor: pointer; }
+  @media (max-width: 560px) { .ai.wide { width: auto; } }
   .pc-chin { height: 34px; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 11px; font-weight: 800; letter-spacing: .2em; color: #52525b; }
   .pc-chin em { font-style: normal; color: #22c55e; }
   .pc-led { width: 5px; height: 5px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e; }
@@ -139,6 +161,7 @@
         <aside class="ai" aria-live="polite">
           <div class="ai-head"><span>IA · ENTRADA M5</span><small id="ai-src"></small></div>
           <button id="ai-go" class="ai-go" type="button">Pedir entrada à IA</button>
+          <div class="ai-tools" id="ai-tools" hidden><button id="ai-hist" type="button">Histórico</button><button id="ai-bt" type="button">Backtest</button></div>
           <div id="ai-out" class="ai-out"><p class="ai-hint">Escolha o mercado e peça a leitura. A IA usa as velas reais de 5 minutos, indicadores (EMA, RSI, ATR) e o calendário de notícias.</p></div>
         </aside>
       </div>
@@ -2006,6 +2029,7 @@
   aiGo.onclick = async () => {
     if (Date.now() < aiCool) return;
     const asset = picks[pcIdx];
+    if (isForex(asset)) return runForex(asset);
     aiGo.disabled = true; aiGo.textContent = "Analisando…"; aiCool = Date.now() + 20000;
     aiOut.innerHTML = ""; aiOut.append(el("p", "ai-hint", "Buscando velas, conferindo notícias e consultando a IA…"));
     try {
@@ -2022,15 +2046,164 @@
     }
   };
 
+
+  // ---------- ANÁLISE TÉCNICA FOREX (motor multitemporal no servidor: /api/forex) ----------
+  const isForex = (id) => findAsset(id).group === "Forex";
+  const HKEY = "tradeai-forex-historico";
+  let hist = [];
+  try { const h = JSON.parse(localStorage.getItem(HKEY)); if (Array.isArray(h)) hist = h; } catch {}
+  const saveHist = () => { try { localStorage.setItem(HKEY, JSON.stringify(hist.slice(-200))); } catch {} };
+  const aiBox = document.querySelector(".ai"), aiTools = document.getElementById("ai-tools");
+  function syncForex() { const f = isForex(picks[pcIdx]); aiBox.classList.toggle("wide", f); aiTools.hidden = !f; document.querySelector(".ai-head span").textContent = f ? "ANÁLISE TÉCNICA FOREX" : "IA · ENTRADA M5"; }
+  const DIR = { BUY: "COMPRA", SELL: "VENDA" };
+  const when = (t) => new Date(t * 1000).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const pct = (v) => (v === null || v === undefined ? "—" : (v * 100).toFixed(1) + "%");
+  const num2 = (v) => (v === null || v === undefined ? "—" : Number(v).toFixed(2));
+  const sec = (title, ...kids) => { const d = el("div", "fx-sec"); d.append(el("h4", "", title), ...kids); return d; };
+  const ul = (items, cls) => { const u = el("ul", cls || ""); items.forEach((t) => u.append(el("li", "", t))); return u; };
+  const trendChip = (name, t) => { const c = el("div", "fx-chip " + (t === "alta" ? "up" : t === "baixa" ? "down" : "flat"), name); c.append(el("b", "", t === "alta" ? "▲ Alta" : t === "baixa" ? "▼ Baixa" : "■ Lateral")); return c; };
+  const kv = (rows) => { const dl = el("dl", "fx-kv"); rows.forEach(([k, v]) => { dl.append(el("dt", "", k)); dl.append(el("dd", "", v)); }); return dl; };
+
+  function renderForex(d) {
+    clearInterval(aiTimer); aiOut.innerHTML = "";
+    const f = (v) => (v === null || v === undefined ? "—" : Number(v).toFixed(d.symbol.includes("JPY") ? 3 : 5));
+    document.getElementById("ai-src").textContent = "Yahoo · pode atrasar";
+    aiOut.append(el("div", "fx-top")); aiOut.lastChild.append(el("span", "", `${d.label} · M5 · ${d.atBrt} (Brasília)`), el("span", "", `Preço ${f(d.price)}`));
+    const confirmed = d.state === "entrada_confirmada", waiting = d.state === "aguardando_confirmacao";
+    const kind = confirmed ? (d.decision === "BUY" ? "call" : "put") : waiting ? "wait2" : "wait";
+    const box = el("div", "ai-dec " + kind);
+    box.append(el("b", "", confirmed ? (d.decision === "BUY" ? "▲ COMPRA" : "▼ VENDA") : waiting ? `AGUARDANDO ${DIR[d.watch.dir]}` : "NÃO OPERAR"));
+    box.append(el("span", "", confirmed ? `Entrada confirmada · ${d.chosen.name}` : waiting ? `Cenário de ${DIR[d.watch.dir].toLowerCase()} em formação · ${d.chosen.name}` : d.data.ok ? "Sem oportunidade clara agora" : "Bloqueado: dados com problema"));
+    if (!confirmed && d.missing && d.missing.length) box.append(el("div", "fx-sub", "Falta: " + d.missing.slice(0, 2).join(" · ")));
+    aiOut.append(box);
+    if (!d.data.ok) aiOut.append(el("div", "fx-warn", "Dados bloqueados: " + d.data.issues.join(" | ")));
+    if (d.score) {
+      const bar = el("div", "ai-bar"), fill = el("i"); fill.style.width = d.score.total + "%"; fill.style.background = d.score.total >= 75 ? "#22c55e" : d.score.total >= 50 ? "#f59e0b" : "#71717a"; bar.append(fill);
+      aiOut.append(bar, el("div", "ai-hint", `Confluência ${d.score.total}/100 · ${d.score.label}. É soma de confluência técnica, não probabilidade de acerto.`));
+    }
+    const chips = el("div", "fx-chips");
+    chips.append(trendChip("Tendência H1", d.trends.H1), trendChip("Tendência M15", d.trends.M15), trendChip("Tendência M5", d.trends.M5));
+    aiOut.append(chips, kv([["Contexto", d.context], ["Estrutura M5", `${d.tfs.M5.bos ? "BOS " + DIR[d.tfs.M5.bos] : "sem BOS"} · ${d.tfs.M5.choch ? "CHoCH " + DIR[d.tfs.M5.choch] : "sem CHoCH"}`], ["Último topo / fundo M15", `${f(d.tfs.M15.lastHigh)} / ${f(d.tfs.M15.lastLow)}`], ["RSI 14 · ATR 14 (M5)", `${d.tfs.M5.rsi ?? "—"} · ${d.tfs.M5.atrPips} pips`], ["EMAs M5", d.tfs.M5.ema.stack === "alta" ? "alinhadas p/ alta" : d.tfs.M5.ema.stack === "baixa" ? "alinhadas p/ baixa" : "sem alinhamento"]]));
+
+    if (d.trade && confirmed) {
+      const t = d.trade, box2 = el("div", "fx-trade" + (t.dir === "SELL" ? " sell" : ""));
+      box2.append(el("h4", "", "OPERAÇÃO · " + DIR[t.dir]), kv([["Entrada", f(t.entry)], ["Stop Loss", f(t.sl)], ["Take Profit 1", `${f(t.tps[0])}  (R:R ${num2(t.rr[0])})`], ["Take Profit 2", t.tps[1] ? `${f(t.tps[1])}  (R:R ${num2(t.rr[1])})` : "—"], ["Take Profit 3", t.tps[2] ? `${f(t.tps[2])}  (R:R ${num2(t.rr[2])})` : "—"], ["Risco", `${t.riskPips} pips (ATR ${t.atrPips})`], ["Pontuação", `${d.score.total}/100`]]));
+      if (t.notes.length) box2.append(ul(t.notes, "fx-list"));
+      aiOut.append(box2);
+    }
+    if (d.watch) aiOut.append(sec("PRÓXIMA OPORTUNIDADE", el("div", "fx-note", `${waiting ? "AGUARDANDO " + DIR[d.watch.dir] : "Em observação (" + DIR[d.watch.dir].toLowerCase() + ")"}. ${d.watch.condition} Só vale como entrada depois que o gatilho for confirmado; reanalise com dados novos.`)));
+    if (d.trigger) aiOut.append(sec("GATILHO DE ENTRADA", el("div", "fx-note", d.trigger.detail)));
+
+    const rl = el("ul", "fx-list");
+    d.regions.forEach((r) => { const li = el("li"); li.append(el("span", "fx-dot " + (r.role === "suporte" ? "ok" : "bad")), el("span", "", `${r.role === "suporte" ? "Suporte" : "Resistência"} ${r.strength} ${f(r.low)}–${f(r.high)} · ${r.reactions} reações · ${r.origin} · ${r.distancePips} pips`)); rl.append(li); });
+    d.liquidity.forEach((l) => { const li = el("li"); li.append(el("span", "fx-dot warn"), el("span", "", `Liquidez ${l.side}: ${l.kind} em ${f(l.price)}`)); rl.append(li); });
+    if (!rl.children.length) rl.append(el("li", "", "Nenhuma região com reações repetidas perto do preço."));
+    aiOut.append(sec("REGIÕES IDENTIFICADAS", rl));
+
+    const sl = el("ul", "fx-list");
+    d.strategies.forEach((s) => { const li = el("li"); const cls = s.status === "pronta" || s.status === "confluencia" ? "ok" : s.status === "em_formacao" ? "warn" : "dim"; const label = { pronta: "pronta", em_formacao: "em formação", ausente: "ausente", confluencia: "confluência", confluencia_ausente: "sem confluência" }[s.status]; li.append(el("span", "fx-dot " + cls), el("span", "", `${s.id}. ${s.name} — ${label}${s.dir ? " (" + DIR[s.dir].toLowerCase() + ")" : ""}${s.detail[0] ? ": " + s.detail[0] : ""}`)); sl.append(li); });
+    aiOut.append(sec("ESTRATÉGIAS", sl));
+
+    const fd = el("details"); fd.append(el("summary", "", `FILTROS OBRIGATÓRIOS (${d.filters.filter((x) => x.status === "ok").length}/${d.filters.length} ok)`));
+    const fl = el("ul", "fx-list");
+    d.filters.forEach((x) => { const li = el("li"); li.append(el("span", "fx-dot " + (x.status === "ok" ? "ok" : x.status === "falha" ? "bad" : "warn")), el("span", "", `${x.id}. ${x.name}: ${x.note}`)); fl.append(li); });
+    fd.append(fl); aiOut.append(fd);
+
+    if (d.favor.length) aiOut.append(sec("FATORES A FAVOR", ul(d.favor, "pro")));
+    if (d.contra.length) aiOut.append(sec("FATORES CONTRA", ul(d.contra, "con")));
+    if (d.invalidation && d.invalidation !== "—") aiOut.append(sec("INVALIDAÇÃO", el("div", "fx-note", d.invalidation)));
+    aiOut.append(sec("CONTEXTO DOS ÚLTIMOS 30 MIN", el("div", "fx-note", d.context30)));
+    if (d.narrative) { const n = el("div", "fx-narr"); n.append(el("small", "", "EXPLICAÇÃO DA IA (não altera a decisão)"), el("div", "", d.narrative.resumo)); aiOut.append(n); }
+    else if (d.narrativeError) aiOut.append(el("div", "fx-note", "A explicação da IA falhou: " + d.narrativeError + ". A análise acima é do motor e continua válida."));
+    if (!d.m1Used) aiOut.append(el("div", "fx-note", "M1 indisponível agora: o gatilho foi avaliado no M5."));
+    if (d.filters.some((x) => x.status === "nao_verificado")) aiOut.append(el("div", "fx-note", "Filtro de notícias NÃO verificado (calendário indisponível)."));
+    aiOut.append(el("div", "ai-foot", d.sourceNote + " Análise técnica não é recomendação nem garantia de resultado."));
+
+    // histórico: registra toda análise; só as que têm operação entram no cálculo de desempenho
+    hist.push({ id: d.symbol + "-" + d.at, symbol: d.symbol, label: d.label, at: d.at, tf: "M5", decision: d.decision, state: d.state, dir: confirmed ? d.trade.dir : null,
+      strategy: d.chosen ? d.chosen.name : "—", entry: d.trade ? d.trade.entry : null, sl: d.trade ? d.trade.sl : null, tps: d.trade ? d.trade.tps : [null, null, null], score: d.score ? d.score.total : null,
+      reasons: d.favor.slice(0, 4), against: d.contra.slice(0, 3), missing: (d.missing || []).slice(0, 3), pip: d.pip, status: confirmed ? "aberto" : "sem entrada", r: null });
+    saveHist();
+  }
+
+  async function runForex(asset) {
+    aiGo.disabled = true; aiGo.textContent = "Analisando…"; aiCool = Date.now() + 15000;
+    aiOut.innerHTML = ""; aiOut.append(el("p", "ai-hint", "Buscando velas de H1, M15, M5 e M1, calculando estrutura, regiões e filtros…"));
+    try {
+      const r = await fetch("/api/forex", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ asset }) });
+      const d = await r.json().catch(() => ({ error: `Erro ${r.status}` }));
+      if (asset !== picks[pcIdx]) return;
+      if (!r.ok) throw new Error(d.error || `Erro ${r.status}`);
+      renderForex(d);
+    } catch (e) {
+      aiOut.innerHTML = ""; aiOut.append(el("div", "ai-err", e.message === "Failed to fetch" ? "Sem conexão com o servidor do Trade AI. Abra pela página publicada." : e.message));
+    } finally { aiGo.textContent = "Pedir entrada à IA"; setTimeout(() => { aiGo.disabled = false; }, Math.max(0, aiCool - Date.now())); }
+  }
+
+  function statBlock(title, s) {
+    const wrap = el("div", "fx-sec"); wrap.append(el("h4", "", title));
+    wrap.append(kv([["Sinais resolvidos", `${s.n} (ganhos: ${s.wins} · perdas: ${s.losses})`], ["Taxa de acerto", `${pct(s.winRate)}${s.ci ? ` (IC95% ${pct(s.ci[0])}–${pct(s.ci[1])})` : ""}`], ["Taxa de erro", pct(s.lossRate)], ["Resultado (R)", num2(s.sumR)], ["Expectativa por sinal (R)", num2(s.expectancy)], ["Profit Factor", s.profitFactor === null ? "—" : num2(s.profitFactor)], ["Drawdown máx. (R)", num2(s.maxDrawdownR)]]));
+    const grp = (name, arr) => { if (!arr.length) return; wrap.append(el("div", "ai-hint", name + ": " + arr.map((g) => `${g.key} (${g.n}, ${pct(g.winRate)}, ${num2(g.sumR)}R)`).join(" · "))); };
+    grp("Por estratégia", s.byStrategy); grp("Por ativo", s.bySymbol); grp("Por tempo gráfico", s.byTf); grp("Por pontuação", s.byScore);
+    wrap.append(el("div", "ai-foot", s.note));
+    return wrap;
+  }
+
+  function renderHistory(stats) {
+    aiOut.innerHTML = "";
+    aiOut.append(el("div", "fx-top")); aiOut.lastChild.append(el("span", "", `Histórico (${hist.length} análises)`), el("span", "", "salvo neste navegador"));
+    const trades = hist.filter((h) => h.dir);
+    const upd = el("button", "fx-btn", `Atualizar resultados (${trades.length} sinais)`); upd.type = "button";
+    upd.onclick = async () => {
+      upd.disabled = true; upd.textContent = "Conferindo velas reais…";
+      try {
+        const r = await fetch("/api/forex-resolve", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ signals: trades }) });
+        const j = await r.json(); if (!r.ok) throw new Error(j.error || r.status);
+        j.resolved.forEach((x) => { const h = hist.find((y) => y.id === x.id); if (h) { h.status = x.status; h.r = x.r; } });
+        saveHist(); renderHistory(j.stats);
+      } catch (e) { upd.disabled = false; upd.textContent = "Falhou: " + e.message; }
+    };
+    aiOut.append(upd);
+    if (stats) aiOut.append(statBlock("DESEMPENHO", stats));
+    const l = el("ul", "fx-list");
+    [...hist].reverse().slice(0, 40).forEach((h) => {
+      const li = el("li"); const res = h.dir ? ({ aberto: "aberto", tp1: "ganho", stop: "stop", ambiguo: "stop (ambíguo)", expirado: "expirou" }[h.status] || h.status) + (h.r !== null && h.r !== undefined ? ` ${num2(h.r)}R` : "") : "sem entrada";
+      li.append(el("span", "fx-dot " + (h.status === "tp1" ? "ok" : h.status === "stop" || h.status === "ambiguo" ? "bad" : h.dir ? "warn" : "dim")), el("span", "", `${when(h.at)} · ${h.label} · ${h.dir ? DIR[h.dir] : h.state === "aguardando_confirmacao" ? "aguardando" : "não operar"} · ${h.strategy} · ${h.score ?? "—"} pts · ${res}`));
+      l.append(li);
+    });
+    if (!hist.length) l.append(el("li", "", "Nenhuma análise registrada ainda. Peça uma entrada para um par de Forex."));
+    aiOut.append(sec("ANÁLISES E SINAIS", l));
+    const clr = el("button", "fx-btn", "Limpar histórico"); clr.type = "button";
+    clr.onclick = () => { if (confirm("Apagar todo o histórico deste navegador?")) { hist = []; saveHist(); renderHistory(); } };
+    aiOut.append(clr);
+  }
+  document.getElementById("ai-hist").onclick = () => renderHistory();
+
+  document.getElementById("ai-bt").onclick = async () => {
+    const asset = picks[pcIdx], btn = document.getElementById("ai-bt");
+    btn.disabled = true; aiOut.innerHTML = ""; aiOut.append(el("p", "ai-hint", "Rodando o backtest passo a passo (sem olhar o futuro) com as velas do último mês. Pode levar até 1 minuto…"));
+    try {
+      const r = await fetch("/api/forex-backtest?symbol=" + asset); const j = await r.json();
+      if (!r.ok) throw new Error(j.error || r.status);
+      aiOut.innerHTML = "";
+      aiOut.append(el("div", "fx-top")); aiOut.lastChild.append(el("span", "", `Backtest ${j.label} · ${j.period.days} dias`), el("span", "", `${j.period.from} → ${j.period.to}`));
+      aiOut.append(el("div", "fx-note", j.verdict));
+      aiOut.append(kv([["Operações simuladas", String(j.trades)], ["Custos por operação", `${j.costsPips} pips (spread + slippage)`], ["Passos analisados", `${j.analyzed}${j.truncated ? " (parcial: tempo esgotado)" : ""}`]]));
+      aiOut.append(statBlock("DESENVOLVIMENTO (primeiros 60%)", j.development), statBlock("VALIDAÇÃO (últimos 40%)", j.validation));
+      aiOut.append(el("div", "ai-foot", j.note));
+    } catch (e) { aiOut.innerHTML = ""; aiOut.append(el("div", "ai-err", e.message === "Failed to fetch" ? "Sem conexão com o servidor do Trade AI." : "Backtest falhou: " + e.message)); }
+    finally { btn.disabled = false; }
+  };
+
   function pickAsset(id) {
     if (picks[pcIdx] === id) return;
     aiReset();
-    picks[pcIdx] = id; screens[pcIdx].setTitle(mtitle(id));
+    picks[pcIdx] = id; syncForex(); screens[pcIdx].setTitle(mtitle(id));
     try { localStorage.setItem(STORE, JSON.stringify(picks)); } catch {}
     renderPc(); mountChart(findAsset(id));
   }
   function openPc(i) {
-    pcIdx = i; pcGroup = findAsset(picks[i]).group; setSpin(false); aiReset();
+    pcIdx = i; pcGroup = findAsset(picks[i]).group; setSpin(false); aiReset(); syncForex();
     renderPc(); mountChart(findAsset(picks[i])); pc.classList.add("open");
     document.getElementById("pc-close").focus();
   }

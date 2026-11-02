@@ -8,6 +8,15 @@
     },
     "api/signal.ts": {
       "maxDuration": 60
+    },
+    "api/forex.ts": {
+      "maxDuration": 60
+    },
+    "api/forex-resolve.ts": {
+      "maxDuration": 60
+    },
+    "api/forex-backtest.ts": {
+      "maxDuration": 60
     }
   }
 }
