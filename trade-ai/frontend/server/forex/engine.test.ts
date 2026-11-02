@@ -119,7 +119,7 @@ function input(m5: Candle[], over: Partial<EngineInput> = {}): EngineInput {
   const now = m5.at(-1)!.t + 300;
   return {
     symbol: "EURUSD", label: "EUR/USD", pip: 0.0001, currencies: ["EUR", "USD"], now,
-    candles: { H1: aggregate(m5, 12), M15: aggregate(m5, 3), M5: m5, M1: null }, events: [], skipFreshness: false, ...over,
+    candles: { H1: aggregate(m5, 12), M5: m5, M1: null }, events: [], skipFreshness: false, ...over,
   };
 }
 
@@ -159,8 +159,8 @@ describe("motor", () => {
 
 describe("motor: cenários completos", () => {
   const run = (m5: Candle[]) => analyze(input(m5));
-  it("compra confirmada: BOS e reteste, gatilho, filtros, pontuação e risco coerentes", () => {
-    const r = run(noisy(11, 2360));
+  it("compra confirmada: varredura de liquidez + gatilho, gatilho, filtros, pontuação e risco coerentes", () => {
+    const r = run(noisy(15, 2360));
     expect(r.decision).toBe("BUY");
     expect(r.state).toBe("entrada_confirmada");
     expect(r.trigger?.confirmed).toBe(true);
@@ -176,19 +176,21 @@ describe("motor: cenários completos", () => {
     expect(r.favor.length).toBeGreaterThan(0);
   });
   it("o espelho do mesmo mercado gera venda, não compra", () => {
-    const r = run(noisy(11, 2360, true));
-    expect(r.decision).not.toBe("BUY");
-    if (r.decision === "SELL") { expect(r.trade!.sl).toBeGreaterThan(r.trade!.entry); expect(r.trade!.tps[0]!).toBeLessThan(r.trade!.entry); }
+    const r = run(noisy(15, 2360, true));
+    expect(r.decision).toBe("SELL");
+    expect(r.trade!.sl).toBeGreaterThan(r.trade!.entry);
+    expect(r.trade!.tps[0]!).toBeLessThan(r.trade!.entry);
+    expect(r.invalidation).toMatch(/acima/);
   });
   it("cenário bom sem gatilho vira 'aguardando confirmação' e não ativa a entrada", () => {
-    const r = run(noisy(19, 2360));
+    const r = run(noisy(17, 2380));
     expect(r.state).toBe("aguardando_confirmacao");
     expect(r.decision).toBe("NO_TRADE");
     expect(r.trade).toBeNull();
     expect(r.watch?.condition).toMatch(/Aguardar gatilho/);
   });
   it("sem M1 o gatilho vem do M5 e isso é informado", () => {
-    const r = run(noisy(11, 2360));
+    const r = run(noisy(15, 2360));
     expect(r.trigger?.source).toBe("M5");
     expect(r.filters.find((f) => f.id === 10)?.note).toMatch(/M1 indisponível/);
   });

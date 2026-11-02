@@ -4,15 +4,15 @@ import { computeStats, resolveSignal, type SavedSignal } from "./history.js";
 import { aggregate, noisy } from "./testkit.js";
 
 const opts = { pip: 0.0001, label: "EUR/USD", symbol: "EURUSD", currencies: ["EUR", "USD"], budgetMs: 120_000 };
-const run = (n: number) => { const m5 = noisy(7, n); return runBacktest(m5, aggregate(m5, 3), aggregate(m5, 12), opts); };
+const run = (n: number) => { const m5 = noisy(7, n); return runBacktest(m5, aggregate(m5, 12), opts); };
 
 describe("backtest", () => {
   it("não enxerga o futuro: cortar o fim da série não muda os sinais anteriores", () => {
     let compared = 0;
     for (let seed = 1; seed <= 8; seed++) {
       const full = noisy(seed, 4000), cut = full.slice(0, 2800);
-      const a = runBacktest(full, aggregate(full, 3), aggregate(full, 12), opts);
-      const b = runBacktest(cut, aggregate(cut, 3), aggregate(cut, 12), opts);
+      const a = runBacktest(full, aggregate(full, 12), opts);
+      const b = runBacktest(cut, aggregate(cut, 12), opts);
       for (const t of b.list.filter((x) => (x.closedAt ?? 0) < cut.at(-1)!.t - 3600)) {
         const same = a.list.find((x) => x.at === t.at && x.dir === t.dir);
         expect(same, `sinal de ${seed} em ${t.at} sumiu na série completa`).toBeDefined();

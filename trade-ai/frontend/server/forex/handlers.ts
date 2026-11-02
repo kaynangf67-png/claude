@@ -38,7 +38,7 @@ export function toView(a: ForexAnalysis, pip: number) {
     decision: a.decision, state: a.state, watch: a.watch, chosen: a.chosen,
     data: { ok: a.data.ok, issues: a.data.issues, lastCandles: Object.fromEntries(Object.entries(a.data.quality).map(([k, q]) => [k, q?.lastClosedAt ? brt(q.lastClosedAt) : null])) },
     trends: a.trends, context: a.context, context30: a.context30,
-    tfs: { H1: tf(a.tfs.H1), M15: tf(a.tfs.M15), M5: tf(a.tfs.M5), M1: a.tfs.M1 ? tf(a.tfs.M1) : null },
+    tfs: { H1: tf(a.tfs.H1), M5: tf(a.tfs.M5), M1: a.tfs.M1 ? tf(a.tfs.M1) : null },
     regions: a.regions.slice(0, 8).map((r) => ({ role: r.role, strength: r.strength, low: f(r.low), high: f(r.high), reactions: r.reactions, origin: r.origin, distancePips: Math.round(r.distancePips * 10) / 10, intensity: r.intensity })),
     liquidity: a.liquidity.slice(0, 6).map((l) => ({ ...l, price: f(l.price) })),
     strategies: a.strategies, trigger: a.trigger, trade, filters: a.filters, score: a.score,
@@ -55,17 +55,17 @@ export async function handleForexAnalyze(request: Request, deps: Deps = {}): Pro
   if (!FOREX_YAHOO[id]) return json({ error: "Par de Forex desconhecido" }, 400);
   const now = Math.floor((deps.now ?? Date.now)() / 1000);
   const get = deps.series ?? fetchSeries;
-  const tfs: TF[] = ["H1", "M15", "M5", "M1"];
+  const tfs: TF[] = ["H1", "M5", "M1"]; // H1 só para suporte/resistência; M5 e M1 para o movimento atual
   const res = await Promise.allSettled(tfs.map((t) => get(id, t)));
-  const [h1, m15, m5, m1] = res;
-  for (const [i, r] of [h1, m15, m5].entries()) if (r.status === "rejected") return json({ error: `Não consegui buscar as velas ${tfs[i]}: ${(r.reason as Error).message}` }, 502);
+  const [h1, m5, m1] = res;
+  for (const [i, r] of [h1, m5].entries()) if (r.status === "rejected") return json({ error: `Não consegui buscar as velas ${tfs[i === 0 ? 0 : 1]}: ${(r.reason as Error).message}` }, 502);
   const closed = (r: PromiseSettledResult<RawSeries>, tf: TF) => (r.status === "fulfilled" ? closedOnly(r.value.candles, tf, now) : null);
   let events: NewsEvent[] | null = null;
   try { events = await (deps.calendar ?? fetchCalendar)(); } catch { events = null; }
   const pip = pipSize(id);
   const analysis = analyze({
     symbol: id, label: FOREX_LABEL(id), pip, currencies: currenciesOf(id), now, events,
-    candles: { H1: closed(h1, "H1")!, M15: closed(m15, "M15")!, M5: closed(m5, "M5")!, M1: closed(m1, "M1") },
+    candles: { H1: closed(h1, "H1")!, M5: closed(m5, "M5")!, M1: closed(m1, "M1") },
   });
   const view = toView(analysis, pip);
   let narrative = null as Awaited<ReturnType<typeof narrate>> | null, narrativeError: string | null = null;
@@ -102,12 +102,12 @@ export async function handleForexBacktest(request: Request, deps: Deps = {}): Pr
   const id = (url.searchParams.get("symbol") ?? "EURUSD").toUpperCase();
   if (!FOREX_YAHOO[id]) return json({ error: "Par de Forex desconhecido" }, 400);
   const get = deps.series ?? fetchSeries;
-  const [h1, m15, m5] = await Promise.allSettled([get(id, "H1"), get(id, "M15"), get(id, "M5")]);
-  for (const [i, r] of [h1, m15, m5].entries()) if (r.status === "rejected") return json({ error: `Não consegui buscar as velas ${["H1", "M15", "M5"][i]}: ${(r.reason as Error).message}` }, 502);
+  const [h1, m5] = await Promise.allSettled([get(id, "H1"), get(id, "M5")]);
+  for (const [i, r] of [h1, m5].entries()) if (r.status === "rejected") return json({ error: `Não consegui buscar as velas ${["H1", "M5"][i]}: ${(r.reason as Error).message}` }, 502);
   const now = Math.floor((deps.now ?? Date.now)() / 1000);
   const ok = (r: PromiseSettledResult<RawSeries>, tf: TF) => closedOnly((r as PromiseFulfilledResult<RawSeries>).value.candles, tf, now);
   const c5 = ok(m5, "M5");
-  const result = runBacktest(c5, ok(m15, "M15"), ok(h1, "H1"), {
+  const result = runBacktest(c5, ok(h1, "H1"), {
     pip: pipSize(id), label: FOREX_LABEL(id), symbol: id, currencies: currenciesOf(id),
     spreadPips: Number(url.searchParams.get("spread") ?? 1.0), slipPips: Number(url.searchParams.get("slip") ?? 0.2), stride: Number(url.searchParams.get("stride") ?? 3),
   });

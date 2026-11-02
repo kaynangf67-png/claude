@@ -15,21 +15,20 @@ export interface BtResult {
   list: BtTrade[];
 }
 
-export function runBacktest(m5: Candle[], m15: Candle[], h1: Candle[], o: BtOptions): BtResult {
+export function runBacktest(m5: Candle[], h1: Candle[], o: BtOptions): BtResult {
   const spread = o.spreadPips ?? 1.0, slip = o.slipPips ?? 0.2, stride = o.stride ?? 3, maxHold = o.maxHold ?? 96;
   const t0 = Date.now(), budget = o.budgetMs ?? 40_000;
   const trades: BtTrade[] = [];
   let analyzed = 0, truncated = false;
-  let i = 400, p15 = 0, p1 = 0;
+  let i = 400, p1 = 0;
   for (; i < m5.length - 2; i += stride) {
     if (Date.now() - t0 > budget) { truncated = true; break; }
     const now = m5[i].t + 300;
-    while (p15 < m15.length && m15[p15].t + 900 <= now) p15++;
     while (p1 < h1.length && h1[p1].t + 3600 <= now) p1++;
-    if (p15 < 130 || p1 < 90) continue;
+    if (p1 < 90) continue;
     const a: ForexAnalysis = analyze({
       symbol: o.symbol, label: o.label, pip: o.pip, currencies: o.currencies, now, events: null, skipFreshness: true,
-      candles: { H1: h1.slice(Math.max(0, p1 - 400), p1), M15: m15.slice(Math.max(0, p15 - 400), p15), M5: m5.slice(Math.max(0, i - 399), i + 1), M1: null },
+      candles: { H1: h1.slice(Math.max(0, p1 - 400), p1), M5: m5.slice(Math.max(0, i - 399), i + 1), M1: null },
     });
     analyzed++;
     if (a.decision === "NO_TRADE" || !a.trade || !a.chosen) continue;

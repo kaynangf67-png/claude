@@ -3,12 +3,12 @@ import { handleForexAnalyze, handleForexBacktest, handleForexResolve, type Deps 
 import { aggregate, noisy } from "./testkit.js";
 import type { TF } from "./types.js";
 
-const m5 = noisy(11, 2360);
+const m5 = noisy(15, 2360);
 const now = (m5.at(-1)!.t + 300) * 1000;
 const fakeSeries = (override: Partial<Record<TF, "falha">> = {}): Deps["series"] => async (_id, tf) => {
   if (override[tf] === "falha") throw new Error(`falha ${tf}`);
   if (tf === "M1") throw new Error("sem M1");
-  const c = tf === "M5" ? m5 : tf === "M15" ? aggregate(m5, 3) : aggregate(m5, 12);
+  const c = tf === "M5" ? m5 : aggregate(m5, 12);
   return { candles: c, duplicates: 0, invalid: 0 };
 };
 const post = (body: unknown) => new Request("http://x/api/forex", { method: "POST", body: JSON.stringify(body) });
@@ -30,7 +30,7 @@ describe("/api/forex", () => {
   it("sem cenário a IA nem é chamada; calendário fora do ar vira 'não verificado'", async () => {
     const narrate = vi.fn();
     const flat = noisy(3, 2360);
-    const series: Deps["series"] = async (_id, tf) => { if (tf === "M1") throw new Error("x"); return { candles: tf === "M5" ? flat : tf === "M15" ? aggregate(flat, 3) : aggregate(flat, 12), duplicates: 0, invalid: 0 }; };
+    const series: Deps["series"] = async (_id, tf) => { if (tf === "M1") throw new Error("x"); return { candles: tf === "M5" ? flat : aggregate(flat, 12), duplicates: 0, invalid: 0 }; };
     const j = await (await handleForexAnalyze(post({ asset: "GBPUSD" }), { series, calendar: async () => { throw new Error("off"); }, narrate: narrate as never, now: () => (flat.at(-1)!.t + 300) * 1000 })).json();
     expect(j.decision).toBe("NO_TRADE");
     expect(narrate).not.toHaveBeenCalled();

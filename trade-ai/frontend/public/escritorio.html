@@ -2082,8 +2082,8 @@
       aiOut.append(bar, el("div", "ai-hint", `Confluência ${d.score.total}/100 · ${d.score.label}. É soma de confluência técnica, não probabilidade de acerto.`));
     }
     const chips = el("div", "fx-chips");
-    chips.append(trendChip("Tendência H1", d.trends.H1), trendChip("Tendência M15", d.trends.M15), trendChip("Tendência M5", d.trends.M5));
-    aiOut.append(chips, kv([["Contexto", d.context], ["Estrutura M5", `${d.tfs.M5.bos ? "BOS " + DIR[d.tfs.M5.bos] : "sem BOS"} · ${d.tfs.M5.choch ? "CHoCH " + DIR[d.tfs.M5.choch] : "sem CHoCH"}`], ["Último topo / fundo M15", `${f(d.tfs.M15.lastHigh)} / ${f(d.tfs.M15.lastLow)}`], ["RSI 14 · ATR 14 (M5)", `${d.tfs.M5.rsi ?? "—"} · ${d.tfs.M5.atrPips} pips`], ["EMAs M5", d.tfs.M5.ema.stack === "alta" ? "alinhadas p/ alta" : d.tfs.M5.ema.stack === "baixa" ? "alinhadas p/ baixa" : "sem alinhamento"]]));
+    chips.append(trendChip("Movimento M5", d.trends.M5), d.trends.M1 ? trendChip("Movimento M1", d.trends.M1) : (() => { const c = el("div", "fx-chip flat", "Movimento M1"); c.append(el("b", "", "indisponível")); return c; })());
+    aiOut.append(chips, kv([["Contexto", d.context], ["Estrutura M5", `${d.tfs.M5.bos ? "BOS " + DIR[d.tfs.M5.bos] : "sem BOS"} · ${d.tfs.M5.choch ? "CHoCH " + DIR[d.tfs.M5.choch] : "sem CHoCH"}`], ["Último topo / fundo M5", `${f(d.tfs.M5.lastHigh)} / ${f(d.tfs.M5.lastLow)}`], ["RSI 14 · ATR 14 (M5)", `${d.tfs.M5.rsi ?? "—"} · ${d.tfs.M5.atrPips} pips`], ["EMAs M5", d.tfs.M5.ema.stack === "alta" ? "alinhadas p/ alta" : d.tfs.M5.ema.stack === "baixa" ? "alinhadas p/ baixa" : "sem alinhamento"]]));
 
     if (d.trade && confirmed) {
       const t = d.trade, box2 = el("div", "fx-trade" + (t.dir === "SELL" ? " sell" : ""));
@@ -2098,7 +2098,7 @@
     d.regions.forEach((r) => { const li = el("li"); li.append(el("span", "fx-dot " + (r.role === "suporte" ? "ok" : "bad")), el("span", "", `${r.role === "suporte" ? "Suporte" : "Resistência"} ${r.strength} ${f(r.low)}–${f(r.high)} · ${r.reactions} reações · ${r.origin} · ${r.distancePips} pips`)); rl.append(li); });
     d.liquidity.forEach((l) => { const li = el("li"); li.append(el("span", "fx-dot warn"), el("span", "", `Liquidez ${l.side}: ${l.kind} em ${f(l.price)}`)); rl.append(li); });
     if (!rl.children.length) rl.append(el("li", "", "Nenhuma região com reações repetidas perto do preço."));
-    aiOut.append(sec("REGIÕES IDENTIFICADAS", rl));
+    aiOut.append(sec("REGIÕES DO H1 (SUPORTE E RESISTÊNCIA)", rl));
 
     const sl = el("ul", "fx-list");
     d.strategies.forEach((s) => { const li = el("li"); const cls = s.status === "pronta" || s.status === "confluencia" ? "ok" : s.status === "em_formacao" ? "warn" : "dim"; const label = { pronta: "pronta", em_formacao: "em formação", ausente: "ausente", confluencia: "confluência", confluencia_ausente: "sem confluência" }[s.status]; li.append(el("span", "fx-dot " + cls), el("span", "", `${s.id}. ${s.name} — ${label}${s.dir ? " (" + DIR[s.dir].toLowerCase() + ")" : ""}${s.detail[0] ? ": " + s.detail[0] : ""}`)); sl.append(li); });
