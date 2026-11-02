@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { fetchCalendar, type CalEvent } from "./calendar.js";
+import { PLAYBOOK } from "./playbook.js";
 
 /**
  * Entrada sugerida pela IA para um ativo, a partir das velas M5 reais (não de print).
@@ -147,6 +148,8 @@ const SCHEMA = {
 
 const SYSTEM_PROMPT = `Você é um analista técnico de gráfico de 5 minutos (M5) para opções binárias.
 Recebe as últimas velas FECHADAS de um ativo e indicadores calculados no servidor. Responda só com o JSON pedido, em português do Brasil.
+Referência de estratégias (hipóteses, não validadas):
+${PLAYBOOK}
 Regras:
 - Decida CALL (alta), PUT (baixa) ou NAO_OPERAR para a PRÓXIMA vela de 5 minutos.
 - Use somente os dados recebidos. Não invente preço, notícia ou indicador.
