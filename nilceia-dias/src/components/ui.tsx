@@ -61,7 +61,7 @@ export function Wordmark({ dark = false, compact = false }: { dark?: boolean; co
       <span className={`font-display ${compact ? 'text-[1.2rem]' : 'text-[1.4rem]'} tracking-[-0.01em] ${dark ? 'text-champagne' : 'text-onyx'}`}>
         Nilcéia Dias
       </span>
-      <span className={`mt-1 text-[0.56rem] font-semibold tracking-[0.42em] uppercase ${dark ? 'text-gold' : 'text-gold-ink'}`}>
+      <span className={`mt-1 text-[0.72rem] font-semibold tracking-[0.3em] uppercase ${dark ? 'text-gold' : 'text-gold-ink'}`}>
         Hair &amp; Company
       </span>
     </span>

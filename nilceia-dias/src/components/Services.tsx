@@ -21,7 +21,7 @@ function ServiceCard({ s, heroPhoto, hasBrides }: { s: ServiceCategory; heroPhot
   const toBrides = s.id === 'noivas' && hasBrides;
 
   return (
-    <article ref={ref} id={`servico-${s.id}`} className="reveal group flex flex-col">
+    <article ref={ref} id={`servico-${s.id}`} className="group flex w-[80vw] max-w-[19rem] shrink-0 snap-start flex-col sm:w-auto sm:max-w-none">
       <div className="overflow-hidden rounded-2xl bg-sand">
         <img
           src={photo.src}
@@ -35,7 +35,7 @@ function ServiceCard({ s, heroPhoto, hasBrides }: { s: ServiceCategory; heroPhot
           className="aspect-[4/3] w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]"
         />
       </div>
-      <p className="mt-5 text-[0.66rem] font-semibold tracking-[0.22em] text-gold-ink uppercase">{s.name}</p>
+      <p className="mt-5 text-[0.72rem] font-semibold tracking-[0.22em] text-gold-ink uppercase">{s.name}</p>
       <h3 className="mt-2 text-[1.25rem] leading-snug tracking-[-0.015em]">{s.headline}</h3>
       <p className="mt-2 text-[0.94rem] leading-relaxed text-muted">{s.description}</p>
       {s.items.length > 0 && (
@@ -54,7 +54,7 @@ function ServiceCard({ s, heroPhoto, hasBrides }: { s: ServiceCategory; heroPhot
           </a>
         ) : (
           <WhatsAppLink intent={s.intent} source={SOURCE[s.id]} category={s.id} ctaId={`servico-${s.id}`} className="link-arrow" icon={false}>
-            {s.cta} →
+            {s.cta} →
           </WhatsAppLink>
         )}
       </div>
@@ -66,7 +66,7 @@ export function Services({ heroPhoto, hasBrides }: { heroPhoto: PhotoKey; hasBri
   const enabled = services.filter((s) => s.enabled);
 
   return (
-    <section id="servicos" aria-labelledby="servicos-titulo" className="py-20 sm:py-28">
+    <section id="servicos" aria-labelledby="servicos-titulo" className="py-16 sm:py-28">
       <div className="wrap">
         <div className="mx-auto max-w-2xl text-center">
           <p className="eyebrow justify-center before:hidden">Serviços</p>
@@ -78,7 +78,11 @@ export function Services({ heroPhoto, hasBrides }: { heroPhoto: PhotoKey; hasBri
           </p>
         </div>
 
-        <div className="mt-14 grid gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Celular: carrossel de deslizar (economiza ~1.800 px de rolagem). Tablet/desktop: grade. */}
+        <p className="mt-10 flex items-center justify-end gap-2 text-[0.75rem] tracking-[0.08em] text-muted uppercase sm:hidden" aria-hidden="true">
+          Deslize para ver todos <span className="text-base leading-none">→</span>
+        </p>
+        <div className="no-scrollbar -mx-5 mt-3 flex snap-x snap-mandatory scroll-px-5 gap-4 overflow-x-auto px-5 pb-2 sm:mx-0 sm:mt-14 sm:grid sm:grid-cols-2 sm:gap-x-6 sm:gap-y-12 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-4">
           {enabled.map((s) => (
             <ServiceCard key={s.id} s={s} heroPhoto={heroPhoto} hasBrides={hasBrides} />
           ))}

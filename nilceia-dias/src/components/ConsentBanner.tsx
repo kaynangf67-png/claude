@@ -48,18 +48,18 @@ export function ConsentBanner() {
       {custom && (
         <fieldset className="mt-4 space-y-1 border-t border-line pt-3">
           <legend className="sr-only">Categorias de cookies</legend>
-          <label className="flex min-h-11 items-center justify-between gap-4 text-sm">
+          <label className="flex min-h-12 items-center justify-between gap-4 text-sm">
             <span>Essenciais (sempre ativos)</span>
             <input type="checkbox" checked disabled className="size-5 accent-onyx" />
           </label>
           {hasAnalytics && (
-            <label className="flex min-h-11 items-center justify-between gap-4 text-sm">
+            <label className="flex min-h-12 items-center justify-between gap-4 text-sm">
               <span>Medição de audiência (Google Analytics)</span>
               <input type="checkbox" checked={analytics} onChange={(e) => setAnalytics(e.target.checked)} className="size-5 accent-onyx" />
             </label>
           )}
           {hasMarketing && (
-            <label className="flex min-h-11 items-center justify-between gap-4 text-sm">
+            <label className="flex min-h-12 items-center justify-between gap-4 text-sm">
               <span>Marketing (Meta / Google Ads)</span>
               <input type="checkbox" checked={marketing} onChange={(e) => setMarketing(e.target.checked)} className="size-5 accent-onyx" />
             </label>
@@ -69,18 +69,18 @@ export function ConsentBanner() {
 
       <div className="mt-4 grid grid-cols-2 gap-2">
         {custom ? (
-          <button type="button" className="btn-primary col-span-2 !min-h-11" onClick={() => save(analytics, marketing)}>
+          <button type="button" className="btn-primary col-span-2 !min-h-12" onClick={() => save(analytics, marketing)}>
             Salvar escolhas
           </button>
         ) : (
           <>
-            <button type="button" className="btn-ghost !min-h-11 !px-3" onClick={() => save(false, false)}>
+            <button type="button" className="btn-ghost !min-h-12 !px-3" onClick={() => save(false, false)}>
               Recusar
             </button>
-            <button type="button" className="btn-primary !min-h-11 !px-3" onClick={() => save(true, true)}>
+            <button type="button" className="btn-primary !min-h-12 !px-3" onClick={() => save(true, true)}>
               Aceitar
             </button>
-            <button type="button" className="col-span-2 min-h-11 text-xs tracking-[0.14em] text-muted uppercase underline-offset-4 hover:underline" onClick={() => setCustom(true)}>
+            <button type="button" className="col-span-2 min-h-12 text-xs tracking-[0.14em] text-muted uppercase underline-offset-4 hover:underline" onClick={() => setCustom(true)}>
               Personalizar
             </button>
           </>

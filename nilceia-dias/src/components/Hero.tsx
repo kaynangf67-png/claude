@@ -35,7 +35,7 @@ export function Hero({ page }: { page: PageConfig }) {
       <div aria-hidden="true" className="absolute inset-0 -z-10 bg-[linear-gradient(180deg,rgb(26_26_26/0.55)_0%,rgb(26_26_26/0.62)_55%,rgb(26_26_26/0.85)_100%)]" />
 
       <div className="wrap flex flex-col items-center text-center">
-        <p className="inline-flex items-center gap-2 text-[0.68rem] font-semibold tracking-[0.24em] text-gold uppercase">
+        <p className="inline-flex items-center gap-2 text-[0.72rem] font-semibold tracking-[0.12em] whitespace-nowrap text-gold uppercase sm:tracking-[0.24em]">
           <MapPin aria-hidden="true" strokeWidth={1.5} className="size-3.5" />
           {hero.eyebrow}
         </p>
@@ -54,7 +54,7 @@ export function Hero({ page }: { page: PageConfig }) {
           </a>
         </div>
 
-        <dl className="mt-10 grid w-full max-w-md grid-cols-3 gap-2 text-[0.6rem] leading-tight tracking-[0.12em] text-paper/80 uppercase sm:flex sm:w-auto sm:max-w-none sm:gap-x-9 sm:text-[0.72rem] sm:tracking-[0.14em]">
+        <dl className="mt-10 grid w-full max-w-md grid-cols-3 gap-2 text-[0.72rem] leading-tight tracking-[0.06em] text-paper/80 uppercase sm:flex sm:w-auto sm:max-w-none sm:gap-x-9 sm:text-[0.72rem] sm:tracking-[0.14em]">
           {proofs.map((f) => (
             <div key={f.label} className="flex flex-col items-center gap-1 sm:flex-row sm:items-baseline sm:gap-2">
               <dt className="sr-only">{f.label}</dt>

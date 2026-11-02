@@ -36,26 +36,26 @@ export function Identification() {
       <h2 id="identificacao-titulo" className="sr-only">
         O que você procura?
       </h2>
-      <ol className="wrap grid gap-4 md:grid-cols-3 md:gap-5">
+      <ol className="wrap grid gap-3 md:grid-cols-3 md:gap-5">
         {PATHS.map(({ icon: Icon, ...p }, i) => (
           <li
             key={p.id}
-            className={`glass card-shadow reveal flex flex-col items-center rounded-3xl px-6 pt-7 pb-6 text-center ${i === 1 ? 'md:-translate-y-3' : ''}`}
+            className={`glass card-shadow reveal grid grid-cols-[auto_1fr] gap-x-4 rounded-3xl px-5 pt-5 pb-3 text-left md:flex md:flex-col md:items-center md:px-6 md:pt-7 md:pb-6 md:text-center ${i === 1 ? 'md:-translate-y-3' : ''}`}
             style={{ transitionDelay: `${i * 90}ms` }}
           >
-            <span className="flex size-14 items-center justify-center rounded-full bg-paper text-gold-ink shadow-[0_6px_16px_-8px_rgb(26_26_26/0.35)]">
-              <Icon aria-hidden="true" strokeWidth={1.4} className="size-6" />
+            <span className="row-span-3 flex size-11 items-center justify-center rounded-full bg-paper md:size-14 text-gold-ink shadow-[0_6px_16px_-8px_rgb(26_26_26/0.35)]">
+              <Icon aria-hidden="true" strokeWidth={1.4} className="size-5 md:size-6" />
             </span>
-            <h3 className="mt-5 text-[1.15rem] leading-snug tracking-[-0.01em] text-onyx">{p.title}</h3>
-            <p className="mt-2 max-w-[18rem] text-[0.92rem] leading-relaxed text-muted">{p.text}</p>
+            <h3 className="text-[1.05rem] leading-snug md:mt-5 md:text-[1.15rem] tracking-[-0.01em] text-onyx">{p.title}</h3>
+            <p className="mt-1 text-[0.9rem] leading-relaxed text-muted md:mt-2 md:max-w-[18rem] md:text-[0.92rem]">{p.text}</p>
             <WhatsAppLink
               intent={p.intent}
               source="identification"
               ctaId={`identificacao-${p.id}`}
-              className="link-arrow mt-3"
+              className="link-arrow self-start md:mt-3 md:self-auto"
               icon={false}
             >
-              {p.cta} →
+              {p.cta} →
             </WhatsAppLink>
           </li>
         ))}

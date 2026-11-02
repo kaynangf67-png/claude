@@ -38,12 +38,12 @@ export function StickyCTA({ intent }: { intent: Intent }) {
         inert={!visible}
       >
         <div className="flex gap-2">
-          <WhatsAppLink intent={intent} source="sticky" className="btn-primary flex-1 !px-4" ctaId="barra-mobile">
-            Agendar pelo WhatsApp
+          <WhatsAppLink intent={intent} source="sticky" className="btn-primary flex-1 !px-3 whitespace-nowrap" ctaId="barra-mobile">
+            Agendar no WhatsApp
           </WhatsAppLink>
-          <DirectionsLink source="sticky" className="btn-ghost !px-4">
+          <DirectionsLink source="sticky" className="btn-ghost !px-4 whitespace-nowrap max-[419px]:!w-12 max-[419px]:!px-0">
             <Navigation aria-hidden="true" strokeWidth={1.5} className="size-4" />
-            <span>Como chegar</span>
+            <span className="max-[419px]:sr-only">Como chegar</span>
           </DirectionsLink>
         </div>
       </div>

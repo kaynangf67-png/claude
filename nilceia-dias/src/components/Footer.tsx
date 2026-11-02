@@ -16,10 +16,10 @@ export function Footer({ intent }: { intent: Intent }) {
         </div>
 
         <div className="lg:col-span-3">
-          <h2 className="text-[0.66rem] font-semibold tracking-[0.24em] text-gold uppercase">Contato</h2>
+          <h2 className="text-[0.72rem] font-semibold tracking-[0.24em] text-gold uppercase">Contato</h2>
           <ul className="mt-4 space-y-1 text-sm">
             <li>
-              <WhatsAppLink intent={intent} source="footer" icon={false} className="inline-flex min-h-11 items-center hover:text-paper">
+              <WhatsAppLink intent={intent} source="footer" icon={false} className="inline-flex min-h-12 items-center hover:text-paper">
                 WhatsApp {brand.phoneDisplay}
               </WhatsAppLink>
             </li>
@@ -29,13 +29,13 @@ export function Footer({ intent }: { intent: Intent }) {
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => track('click_instagram', { cta_source: 'footer' })}
-                className="inline-flex min-h-11 items-center gap-2 hover:text-paper"
+                className="inline-flex min-h-12 items-center gap-2 hover:text-paper"
               >
                 <InstagramIcon className="size-4" /> @{brand.instagramHandle}
               </a>
             </li>
             <li>
-              <a href={brand.casamentos.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center hover:text-paper">
+              <a href={brand.casamentos.url} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-12 items-center hover:text-paper">
                 Casamentos.com.br ↗
               </a>
             </li>
@@ -43,7 +43,7 @@ export function Footer({ intent }: { intent: Intent }) {
         </div>
 
         <div className="lg:col-span-3">
-          <h2 className="text-[0.66rem] font-semibold tracking-[0.24em] text-gold uppercase">Endereço</h2>
+          <h2 className="text-[0.72rem] font-semibold tracking-[0.24em] text-gold uppercase">Endereço</h2>
           <address className="mt-4 text-sm leading-relaxed not-italic">
             {a.street}
             <br />
@@ -51,13 +51,13 @@ export function Footer({ intent }: { intent: Intent }) {
             <br />
             {a.city} — {a.state}, {a.postalCode}
           </address>
-          <DirectionsLink source="footer" className="mt-2 inline-flex min-h-11 items-center text-sm text-gold underline-offset-4 hover:underline">
+          <DirectionsLink source="footer" className="mt-2 inline-flex min-h-12 items-center text-sm text-gold underline-offset-4 hover:underline">
             Como chegar →
           </DirectionsLink>
         </div>
 
         <nav aria-label="Páginas" className="lg:col-span-2">
-          <h2 className="text-[0.66rem] font-semibold tracking-[0.24em] text-gold uppercase">Páginas</h2>
+          <h2 className="text-[0.72rem] font-semibold tracking-[0.24em] text-gold uppercase">Páginas</h2>
           <ul className="mt-4 space-y-1 text-sm">
             {[
               ['Início', '/'],
@@ -66,7 +66,7 @@ export function Footer({ intent }: { intent: Intent }) {
               ['Tratamentos', '/tratamentos-capilares/'],
             ].map(([l, h]) => (
               <li key={h}>
-                <a href={h} className="inline-flex min-h-11 items-center hover:text-paper">
+                <a href={h} className="inline-flex min-h-12 items-center hover:text-paper">
                   {l}
                 </a>
               </li>
@@ -78,11 +78,11 @@ export function Footer({ intent }: { intent: Intent }) {
         <div className="wrap flex flex-col gap-2 py-6 text-xs text-muted-dark sm:flex-row sm:items-center sm:justify-between">
           <p>© {year} {brand.name}. Todos os direitos reservados.</p>
           <p className="flex flex-wrap gap-x-5">
-            <a href="/privacidade/" className="inline-flex min-h-11 items-center hover:text-champagne">
+            <a href="/privacidade/" className="inline-flex min-h-12 items-center hover:text-champagne">
               Política de privacidade
             </a>
             {hasTracking && (
-              <button type="button" onClick={openConsentPanel} className="inline-flex min-h-11 items-center hover:text-champagne">
+              <button type="button" onClick={openConsentPanel} className="inline-flex min-h-12 items-center hover:text-champagne">
                 Preferências de cookies
               </button>
             )}

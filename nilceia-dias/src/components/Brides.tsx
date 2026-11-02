@@ -32,7 +32,7 @@ export function Brides() {
             {facts.brides.show && (
               <div className="card-shadow absolute right-4 -bottom-6 rounded-2xl bg-paper px-6 py-5 text-onyx sm:-right-6">
                 <p className="display text-[2.2rem] leading-none">{facts.brides.value}</p>
-                <p className="mt-1 text-[0.62rem] font-semibold tracking-[0.2em] text-muted uppercase">{facts.brides.label}</p>
+                <p className="mt-1 text-[0.72rem] font-semibold tracking-[0.2em] text-muted uppercase">{facts.brides.label}</p>
               </div>
             )}
           </div>

@@ -22,7 +22,7 @@ export function About({ intent }: { intent: Intent }) {
               {facts.years.show ? (
                 <>
                   <span className="display text-[7rem] leading-[0.85] sm:text-[8.5rem]">{facts.years.value}</span>
-                  <span className="mt-4 text-[0.7rem] font-semibold tracking-[0.3em] text-gold-ink uppercase">{facts.years.label}</span>
+                  <span className="mt-4 text-[0.75rem] font-semibold tracking-[0.3em] text-gold-ink uppercase">{facts.years.label}</span>
                 </>
               ) : (
                 <span className="display text-[3.4rem]">ND</span>

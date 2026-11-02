@@ -28,7 +28,7 @@ export function FAQ() {
               <div className="pb-7">
                 <p className="max-w-2xl text-muted">{f.answer}</p>
                 <WhatsAppLink intent={f.intent} source="faq" ctaId={`faq-${i + 1}`} icon={false} className="link-arrow mt-3">
-                  Perguntar pelo WhatsApp →
+                  Perguntar pelo WhatsApp →
                 </WhatsAppLink>
               </div>
             </details>
