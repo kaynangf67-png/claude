@@ -41,6 +41,7 @@ export function toView(a: ForexAnalysis, pip: number) {
     tfs: { H1: tf(a.tfs.H1), M5: tf(a.tfs.M5), M1: a.tfs.M1 ? tf(a.tfs.M1) : null },
     regions: a.regions.slice(0, 8).map((r) => ({ role: r.role, strength: r.strength, low: f(r.low), high: f(r.high), reactions: r.reactions, origin: r.origin, distancePips: Math.round(r.distancePips * 10) / 10, intensity: r.intensity })),
     liquidity: a.liquidity.slice(0, 6).map((l) => ({ ...l, price: f(l.price) })),
+    closest: a.closest && { ...a.closest, stop: a.closest.stop === null ? null : f(a.closest.stop), targetRegion: a.closest.targetRegion && { low: f(a.closest.targetRegion.low), high: f(a.closest.targetRegion.high) } },
     strategies: a.strategies, trigger: a.trigger, trade, filters: a.filters, score: a.score,
     favor: a.favor, contra: a.contra, invalidation: a.invalidation, missing: a.missing,
     sourceNote: "Velas do Yahoo Finance (gratuito, pode atrasar). O gráfico exibido é do TradingView/FXCM e os preços podem divergir em alguns pips.",

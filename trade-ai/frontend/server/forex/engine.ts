@@ -34,6 +34,8 @@ export interface ForexAnalysis {
   context: "consolidação" | "tendência" | "transição";
   strategies: { id: number; name: string; dir: Dir | null; status: "pronta" | "em_formacao" | "ausente" | "confluencia" | "confluencia_ausente"; detail: string[]; needs: string[] }[];
   chosen: { id: number; name: string; dir: Dir } | null;
+  /** Cenário mais próximo de se completar (não é entrada ativa): o que já foi cumprido e o que falta. */
+  closest: { name: string; dir: Dir; done: string[]; missing: string[]; stop: number | null; targetRegion: { low: number; high: number } | null } | null;
   trigger: Trigger | null;
   trade: (Risk & { dir: Dir }) | null;
   filters: Filter[];
@@ -111,9 +113,22 @@ export function analyze(inp: EngineInput): ForexAnalysis {
   cands.sort((x, y) => Number(y.pass) - Number(x.pass) || y.score.total - x.score.total);
   const best = cands[0] ?? null;
 
+  // só mostra cenário coerente com o movimento atual do M5 (reversões 2 e 4 podem ser contra, pois partem de uma região)
+  const partial = all.filter((x) => x.met >= 2 && x.met < x.total && (x.id === 2 || x.id === 4 || moves(ctx, x.dir))).sort((x, y) => y.met / y.total - x.met / x.total)[0];
+  const nearAny = regions.find((r) => r.distance <= 15 * a.M5.atr);
+
+  const regionAhead = (d: Dir) => regions.filter((r) => r.role === (d === "BUY" ? "resistencia" : "suporte")).sort((x, y) => x.distance - y.distance)[0] ?? null;
+  const mkClosest = (s2: StrategyResult, extra: string[]): ForexAnalysis["closest"] => {
+    const reg = regionAhead(s2.dir);
+    return { name: s2.name, dir: s2.dir, done: s2.favor, missing: [...s2.needs, ...extra], stop: s2.invalidation, targetRegion: reg ? { low: reg.low, high: reg.high } : null };
+  };
+  const closest: ForexAnalysis["closest"] = best
+    ? mkClosest(best.s, [...best.filters.filter((x) => x.id !== 4 && x.status === "falha").map((x) => `${x.name}: ${x.note}`), ...(best.trig.confirmed ? [] : [best.trig.detail]), ...(best.score.total < 75 ? [`Pontuação de confluência ${best.score.total} (mínimo 75 para liberar a entrada)`] : [])])
+    : partial ? mkClosest(partial, []) : null;
+
   // estratégias para exibição
   const strategies: ForexAnalysis["strategies"] = [];
-  for (const id of [1, 2, 3, 4, 5]) {
+  for (const id of [1, 2, 3, 4, 5, 9]) {
     const rs = all.filter((x) => x.id === id).sort((x, y) => Number(y.ready) - Number(x.ready) || y.met / y.total - x.met / x.total);
     const r = rs[0];
     strategies.push({ id, name: r.name, dir: r.ready || r.met > 0 ? r.dir : null, status: r.ready ? "pronta" : r.met > 0 ? "em_formacao" : "ausente", detail: r.favor, needs: r.needs });
@@ -130,7 +145,7 @@ export function analyze(inp: EngineInput): ForexAnalysis {
     trends: { M5: a.M5.trend, M1: a1 ? a1.trend : null },
     tfs: { ...a, M1: a1 }, regions,
     liquidity: [...a.H1.liquidity, ...a.M5.liquidity].map((l) => ({ price: l.price, kind: l.kind, side: l.side })),
-    context, strategies, context30: context30(m5, pip),
+    context, strategies, context30: context30(m5, pip), closest,
   };
   const noData = !baseOk;
   const missingBase = noData ? ["Dados atualizados e completos (bloqueio por qualidade dos dados)."] : [];
@@ -163,9 +178,6 @@ export function analyze(inp: EngineInput): ForexAnalysis {
       missing: nonTrigger.map((x) => `${x.name}: ${x.note}`).concat(best.score.total < 75 ? [`Pontuação ${best.score.total} (mínimo 75).`] : []) };
   }
   // nenhuma estratégia pronta: procura o cenário mais próximo para "próxima oportunidade"
-  // só mostra cenário coerente com o movimento atual do M5 (reversões 2 e 4 podem ser contra, pois partem de uma região)
-  const partial = all.filter((x) => x.met >= 2 && x.met < x.total && (x.id === 2 || x.id === 4 || moves(ctx, x.dir))).sort((x, y) => y.met / y.total - x.met / x.total)[0];
-  const nearAny = regions.find((r) => r.distance <= 15 * a.M5.atr);
   const filters = dataOnlyFilters(issues, inp.events, inp.currencies, now).map((f) => f);
   let watch: ForexAnalysis["watch"] = null;
   if (partial && nearAny) watch = { dir: partial.dir, condition: `Faltam: ${partial.needs.join("; ")}.` };
@@ -202,7 +214,7 @@ function buildFilters(x: FArgs): Filter[] {
   f.push({ id: 1, name: "Tendência (M5)", status: hasMove ? "ok" : "falha", note: `M5 ${a.M5.trend}, EMAs ${a.M5.ema.stack === "misto" ? "sem alinhamento" : "alinhadas p/ " + a.M5.ema.stack}${a.M1 ? `; M1 ${a.M1.trend}` : "; M1 indisponível"}.` });
   const reg = x.s.region ?? nearRegionAny(x.ctx, x.dir);
   f.push({ id: 2, name: "Localização", status: reg || Math.abs(x.ctx.price - a.M5.ema.e20) <= 0.8 * a.M5.atr ? "ok" : "falha", note: reg ? `Preço em/perto de ${reg.role} ${reg.strength} (${reg.origin}, ${reg.reactions} reações).` : "Preço longe de região relevante e da EMA 20." });
-  const structOk = a.M5.struct.bos === x.dir || a.M5.struct.choch === x.dir || (x.dir === "BUY" ? a.M5.struct.higherLows : a.M5.struct.lowerHighs) || x.s.id === 3;
+  const structOk = a.M5.struct.bos === x.dir || a.M5.struct.choch === x.dir || (x.dir === "BUY" ? a.M5.struct.higherLows : a.M5.struct.lowerHighs) || x.s.id === 3 || x.s.id === 9;
   f.push({ id: 3, name: "Estrutura", status: structOk ? "ok" : "falha", note: structOk ? "Há topos/fundos, BOS ou CHoCH a favor." : "Sem topos/fundos, BOS ou CHoCH a favor." });
   f.push({ id: 4, name: "Candle / gatilho", status: x.trig.confirmed ? "ok" : "falha", note: x.trig.detail });
   const against5 = a.M5.trend === o || a.M5.ema.stack === o, against1 = !!a.M1 && a.M1.trend === o;
@@ -214,7 +226,7 @@ function buildFilters(x: FArgs): Filter[] {
   const exh = x.exhausted ? ` Preço já percorreu ${Math.round(x.traveled * 100)}% do caminho até o alvo.` : "";
   f.push({ id: 7, name: "Risco e retorno", status: x.risk.ok && !x.exhausted ? "ok" : "falha", note: (x.risk.ok ? `R:R ao TP1 de ${(x.risk.rr[0] ?? 0).toFixed(2)}.` : x.risk.notes.join(" ")) + exh });
   const mid = x.context === "consolidação";
-  f.push({ id: 8, name: "Contexto", status: mid && x.s.id === 1 ? "falha" : "ok", note: `Mercado em ${x.context}.` });
+  f.push({ id: 8, name: "Contexto", status: mid && (x.s.id === 1 || x.s.id === 9) ? "falha" : "ok", note: `Mercado em ${x.context}.` });
   f.push(newsFilter(x.events, x.currencies, x.now));
   f.push({ id: 10, name: "Qualidade dos dados", status: x.baseOk ? "ok" : "falha", note: x.baseOk ? `Velas atualizadas e completas${x.m1Ok ? "" : "; M1 indisponível, gatilho confirmado pelo M5"}.` : x.issues.join(" | ") });
   return f.sort((p, q) => p.id - q.id);
@@ -232,7 +244,7 @@ function scoreIt(dir: Dir, s: StrategyResult, ctx: Ctx, trig: Trigger, risk: Ris
   put("Tendência e estrutura", (a.M5.trend === w ? 10 : 0) + (a.M5.ema.stack === w ? 6 : 0) + (a.M1 ? (a.M1.trend === w ? 4 : 0) : (a.M5.struct.bos === dir ? 4 : 0)), 20);
   const reg = s.region ?? nearRegionAny(ctx, dir);
   put("Suporte e resistência", reg ? (reg.strength === "forte" ? 12 : 7) + (reg.origin === "H1" ? 3 : 0) : 0, 15);
-  const bos = a.M5.struct.bos === dir ? 15 : a.M5.struct.choch === dir ? 11 : s.id === 3 ? 12 : s.id === 5 ? 10 : 0;
+  const bos = a.M5.struct.bos === dir ? 15 : a.M5.struct.choch === dir ? 11 : s.id === 3 ? 12 : s.id === 5 || s.id === 9 ? 10 : 0;
   put("BOS, CHoCH ou rompimento", bos, 15);
   put("Gatilho de candle", trig.confirmed ? (trig.source === "M1" ? 15 : 11) : conf.patterns.some((p) => p.weight >= 0.7) ? 5 : 0, 15);
   const m5ok = a.M5.trend === w || a.M5.ema.stack === w, m1ok = !!a.M1 && (a.M1.trend === w || a.M1.ema.stack === w);

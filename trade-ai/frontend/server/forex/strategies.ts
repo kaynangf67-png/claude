@@ -1,3 +1,4 @@
+import { avgBody } from "./candles.js";
 import type { TFAnalysis } from "./mtf.js";
 import type { Candle, Dir, Fvg, Pattern, Region, Trend } from "./types.js";
 import { opposite } from "./types.js";
@@ -137,8 +138,31 @@ export function trendLines(ctx: Ctx, dir: Dir): StrategyResult {
   ], { invalidation: inv });
 }
 
+/** 9. Impulso a favor da estrutura/LTA: entra na força quando há topos e fundos na direção, velas fortes e espaço até a região de H1. */
+export function impulse(ctx: Ctx, dir: Dir): StrategyResult {
+  const buy = dir === "BUY", a = ctx.a, atr = a.M5.atr, w = want(dir), st = a.M5.struct;
+  const structOk = buy ? st.higherHighs && st.higherLows : st.lowerHighs && st.lowerLows;
+  const line = buy ? a.M5.lines.lta : a.M5.lines.ltb;
+  const lineOk = (!!line && !line.broken) || a.M5.ema.stack === w;
+  const avg = avgBody(ctx.m5);
+  const strong = ctx.m5.slice(-4).filter((k) => (buy ? k.c > k.o : k.c < k.o) && Math.abs(k.c - k.o) >= 0.5 * avg).length;
+  const e20 = a.M5.ema.e20;
+  const sideOk = buy ? ctx.price >= e20 : ctx.price <= e20;
+  const notStretched = Math.abs(ctx.price - e20) <= 4 * atr;
+  const ahead = ctx.regions.filter((r) => r.role === (buy ? "resistencia" : "suporte")).sort((x, y) => x.distance - y.distance)[0];
+  const room = !ahead || ahead.distance >= 1.5 * atr;
+  const swing = buy ? st.lastLow : st.lastHigh;
+  return mk(9, "Impulso a favor da estrutura", dir, [
+    { ok: !!structOk, yes: `Topos e fundos ${buy ? "ascendentes" : "descendentes"} no M5`, no: `Topos e fundos ${buy ? "ascendentes" : "descendentes"} no M5` },
+    { ok: lineOk, yes: `${buy ? "LTA" : "LTB"} válida ou EMAs alinhadas a favor`, no: `${buy ? "LTA" : "LTB"} válida ou EMAs alinhadas a favor` },
+    { ok: strong >= 3, yes: `${strong} das 4 últimas velas fortes a favor`, no: "3 das 4 últimas velas fortes a favor (corpo relevante)" },
+    { ok: sideOk && notStretched, yes: `Preço ${buy ? "acima" : "abaixo"} da EMA 20 e não esticado`, no: `Preço ${buy ? "acima" : "abaixo"} da EMA 20 e a até 4 ATR dela`, against: "Movimento esticado em relação à EMA 20" },
+    { ok: room, yes: ahead ? `Espaço de ${(ahead.distance / atr).toFixed(1)} ATR até a região de H1` : "Sem região de H1 no caminho", no: "Espaço de pelo menos 1,5 ATR até a próxima região de H1", against: "Região de H1 colada no preço" },
+  ], { region: nearRegion(ctx, dir, 6), invalidation: swing ? swing.price : null });
+}
+
 export function runDirectional(ctx: Ctx, dir: Dir): StrategyResult[] {
-  return [continuity(ctx, dir), reversal(ctx, dir), bosRetest(ctx, dir), liquiditySweep(ctx, dir), trendLines(ctx, dir)];
+  return [continuity(ctx, dir), reversal(ctx, dir), bosRetest(ctx, dir), liquiditySweep(ctx, dir), trendLines(ctx, dir), impulse(ctx, dir)];
 }
 
 /** 6, 7 e 8: confluências. */

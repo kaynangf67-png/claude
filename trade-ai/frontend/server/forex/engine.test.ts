@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import { assessQuality, cleanCandles, closedOnly } from "./candles.js";
 import { analyze, type EngineInput } from "./engine.js";
 import { findFvgs } from "./fvg.js";
+import { analyzeTF } from "./mtf.js";
+import { impulse, type Ctx } from "./strategies.js";
 import { atr, ema, rsiSeries } from "./indicators.js";
 import { detectSweep } from "./liquidity.js";
-import { buildRegions } from "./levels.js";
+import { buildRegions, mergeRegions } from "./levels.js";
 import { detectPatterns } from "./patterns.js";
 import { computeRisk } from "./risk.js";
 import { analyzeStructure, findPivots, trendlines } from "./structure.js";
@@ -206,10 +208,42 @@ describe("motor: cenários completos", () => {
     expect(r.decision).toBe("NO_TRADE");
     expect(r.trade).toBeNull();
     expect(r.watch?.condition).toMatch(/Aguardar gatilho/);
+    expect(r.closest).not.toBeNull();                       // mostra o que já foi cumprido e o que falta
+    expect(r.closest!.done.length).toBeGreaterThan(0);
+    expect(r.closest!.missing.join(" ")).toMatch(/gatilho|Pontuação/i);
   });
   it("sem M1 o gatilho vem do M5 e isso é informado", () => {
     const r = run(noisy(15, 2360));
     expect(r.trigger?.source).toBe("M5");
     expect(r.filters.find((f) => f.id === 10)?.note).toMatch(/M1 indisponível/);
+  });
+});
+
+describe("estratégia 9: impulso a favor da estrutura", () => {
+  const ctxOf = (m5: Candle[]): Ctx => {
+    const a = { H1: analyzeTF(aggregate(m5, 12), "H1"), M5: analyzeTF(m5, "M5"), M1: null };
+    const price = a.M5.lastClose;
+    return { price, pip: 0.0001, a, regions: mergeRegions([buildRegions(aggregate(m5, 12), "H1", price, a.H1.atr, 0.0001)], price, 0.0001), m5, patterns: detectPatterns(m5, { atr: a.M5.atr, inRegion: true }) };
+  };
+  const withImpulse = (step: number, sign = 1) => {
+    const m5 = [...series(900, (i) => 1.1 + sign * (i * 0.00002 + 0.0004 * Math.sin(i / 10)), { wick: 0.00005 })];
+    for (let k = 1; k <= 4; k++) { const last = m5[m5.length - 1], c = last.c + sign * step; m5.push({ t: last.t + 300, o: last.c, h: Math.max(last.c, c) + 0.00004, l: Math.min(last.c, c) - 0.00004, c }); }
+    return m5;
+  };
+  it("compra: topos e fundos ascendentes + 4 velas fortes + espaço = pronta; venda é o espelho", () => {
+    const up = impulse(ctxOf(withImpulse(0.00012)), "BUY");
+    expect(up.ready).toBe(true);
+    expect(up.invalidation).not.toBeNull();
+    expect(up.invalidation!).toBeLessThan(ctxOf(withImpulse(0.00012)).price); // stop no último fundo da estrutura
+    const down = impulse(ctxOf(withImpulse(0.00012, -1)), "SELL");
+    expect(down.ready).toBe(true);
+    expect(down.invalidation!).toBeGreaterThan(ctxOf(withImpulse(0.00012, -1)).price);
+  });
+  it("não dispara em mercado lateral, na direção contrária nem com o preço já esticado", () => {
+    expect(impulse(ctxOf(series(900, (i) => 1.1 + 0.0003 * Math.sin(i / 7), { wick: 0.00005 })), "BUY").ready).toBe(false);
+    expect(impulse(ctxOf(withImpulse(0.00012)), "SELL").ready).toBe(false);
+    const over = impulse(ctxOf(withImpulse(0.00018)), "BUY");
+    expect(over.ready).toBe(false);
+    expect(over.needs.join(" ")).toMatch(/EMA 20/);
   });
 });

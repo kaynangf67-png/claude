@@ -1041,6 +1041,15 @@
       aiOut.append(box2);
     }
     if (d.watch) aiOut.append(sec("PRÓXIMA OPORTUNIDADE", el("div", "fx-note", `${waiting ? "AGUARDANDO " + DIR[d.watch.dir] : "Em observação (" + DIR[d.watch.dir].toLowerCase() + ")"}. ${d.watch.condition} Só vale como entrada depois que o gatilho for confirmado; reanalise com dados novos.`)));
+    if (d.closest && !confirmed) {
+      const c = d.closest, b = el("div", "fx-note");
+      const fx = (v) => f(v);
+      const rows = c.done.map((x) => "✓ " + x).concat(c.missing.map((x) => "✗ " + x));
+      if (c.stop != null) rows.push("Stop de referência: " + fx(c.stop));
+      if (c.targetRegion) rows.push("Região H1 a observar: " + fx(c.targetRegion.low) + " – " + fx(c.targetRegion.high));
+      b.append(el("div", "", c.name + " · " + DIR[c.dir] + " (cenário NÃO ativo — não é entrada)"), ul(rows, "fx-list"));
+      aiOut.append(sec("CENÁRIO MAIS PRÓXIMO", b));
+    }
     if (d.trigger) aiOut.append(sec("GATILHO DE ENTRADA", el("div", "fx-note", d.trigger.detail)));
 
     const rl = el("ul", "fx-list");
