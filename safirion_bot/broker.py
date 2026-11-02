@@ -23,10 +23,23 @@ class SafirionBot:
 
     async def start(self, headless: bool = False):
         self._pw      = await async_playwright().start()
-        self._browser = await self._pw.chromium.launch(
-            headless=headless,
-            args=["--no-sandbox", "--disable-blink-features=AutomationControlled"],
-        )
+        import shutil, os
+        # detecta binário disponível no ambiente
+        candidates = [
+            "/opt/pw-browsers/chromium-1243/chrome-linux64/chrome",
+            "/opt/pw-browsers/chromium/chrome-linux/chrome",
+            shutil.which("chromium") or "",
+            shutil.which("google-chrome") or "",
+        ]
+        exe = next((p for p in candidates if p and os.path.isfile(p)), None)
+        launch_opts: dict = {
+            "headless": headless,
+            "args": ["--no-sandbox", "--disable-dev-shm-usage",
+                     "--disable-blink-features=AutomationControlled"],
+        }
+        if exe:
+            launch_opts["executable_path"] = exe
+        self._browser = await self._pw.chromium.launch(**launch_opts)
         ctx = await self._browser.new_context(
             viewport={"width": 1280, "height": 800},
             user_agent=(
