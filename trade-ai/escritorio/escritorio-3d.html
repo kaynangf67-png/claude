@@ -1783,6 +1783,99 @@
     cyl(0.03, 0.03, 0.04, M.black, DX + Math.cos(a) * 0.29, 0.03, CZ + Math.sin(a) * 0.29);
   }
 
+  // ---------- boneco do agente (estilo Mario, em bloquinhos): mostra o estado REAL do agente na nuvem ----------
+  const man = new THREE.Group(); man.position.set(DX, 0, CZ - 0.14); scene.add(man);
+  const CM = {
+    skin: mat(0xf2b88c, { roughness: 0.9 }), hair: mat(0x0a0a0a, { roughness: 0.85 }), suit: mat(0x101010, { roughness: 0.6 }), shirt: mat(0xf4f4f5, { roughness: 0.8 }),
+    tie: mat(0x16a34a, { roughness: 0.7 }), shoe: mat(0x040404, { roughness: 0.4 }), eye: mat(0x050505, { roughness: 0.5 }), white: mat(0xffffff, { roughness: 0.5 }),
+  };
+  const part = (parent, w, h, d, m, x, y, z) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.castShadow = true; b.receiveShadow = true; parent.add(b); return b; };
+  // pernas (sentado)
+  [-0.09, 0.09].forEach((x) => { part(man, 0.12, 0.12, 0.34, CM.suit, x, 0.6, -0.12); part(man, 0.11, 0.4, 0.11, CM.suit, x, 0.34, -0.3); part(man, 0.12, 0.07, 0.2, CM.shoe, x, 0.1, -0.34); });
+  // tronco
+  const torso = new THREE.Group(); torso.position.set(0, 0.56, 0); man.add(torso);
+  part(torso, 0.34, 0.36, 0.2, CM.suit, 0, 0.18, 0);
+  part(torso, 0.1, 0.3, 0.012, CM.shirt, 0, 0.2, -0.104);
+  part(torso, 0.045, 0.22, 0.014, CM.tie, 0, 0.17, -0.112);
+  part(torso, 0.05, 0.32, 0.014, CM.suit, -0.075, 0.19, -0.108); part(torso, 0.05, 0.32, 0.014, CM.suit, 0.075, 0.19, -0.108);
+  // cabeça: grande, como nos bonecos de videogame
+  const head = new THREE.Group(); head.position.set(0, 0.38, 0); torso.add(head);
+  part(head, 0.27, 0.27, 0.27, CM.skin, 0, 0.15, 0);
+  part(head, 0.29, 0.07, 0.29, CM.hair, 0, 0.3, 0);          // cabelo preto (topo)
+  part(head, 0.29, 0.22, 0.07, CM.hair, 0, 0.2, 0.125);       // cabelo (nuca)
+  part(head, 0.03, 0.12, 0.2, CM.hair, -0.14, 0.2, 0.02); part(head, 0.03, 0.12, 0.2, CM.hair, 0.14, 0.2, 0.02); // laterais
+  part(head, 0.03, 0.07, 0.04, CM.skin, -0.15, 0.13, 0); part(head, 0.03, 0.07, 0.04, CM.skin, 0.15, 0.13, 0);   // orelhas
+  const eyeL = part(head, 0.035, 0.06, 0.012, CM.eye, -0.055, 0.18, -0.138), eyeR = part(head, 0.035, 0.06, 0.012, CM.eye, 0.055, 0.18, -0.138);
+  part(head, 0.075, 0.065, 0.05, CM.skin, 0, 0.115, -0.15);    // nariz grande
+  part(head, 0.18, 0.032, 0.03, CM.hair, 0, 0.07, -0.14);      // bigode
+  // braços: pivô no ombro, apontam para frente (teclado)
+  const arm = (x) => { const g = new THREE.Group(); g.position.set(x, 0.3, -0.02); torso.add(g); part(g, 0.1, 0.1, 0.5, CM.suit, 0, 0, -0.25); part(g, 0.09, 0.09, 0.09, CM.skin, 0, 0, -0.54); return g; };
+  const armL = arm(-0.22), armR = arm(0.22);
+  // balão de texto (canvas)
+  const bubbleCv = document.createElement("canvas"); bubbleCv.width = 384; bubbleCv.height = 96;
+  const bubbleTex = new THREE.CanvasTexture(bubbleCv);
+  const bubble = new THREE.Sprite(new THREE.SpriteMaterial({ map: bubbleTex, transparent: true, depthTest: false }));
+  bubble.scale.set(1.0, 0.25, 1); bubble.position.set(0, 1.78, 0); bubble.renderOrder = 10; man.add(bubble);
+  let bubbleText = "";
+  function setBubble(text, color) {
+    if (text === bubbleText) return; bubbleText = text;
+    const g = bubbleCv.getContext("2d"); g.clearRect(0, 0, 384, 96);
+    g.fillStyle = "#0b0b0bee"; g.strokeStyle = color; g.lineWidth = 4; g.beginPath(); g.roundRect(6, 6, 372, 84, 22); g.fill(); g.stroke();
+    g.fillStyle = color; g.font = "700 34px Inter, system-ui, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(text, 192, 50);
+    bubbleTex.needsUpdate = true; bubble.visible = !!text;
+  }
+  const POSES = {
+    offline:     { show: false },
+    monitorando: { lean: 0.05, hp: 0.05, scan: 1, type: 1, al: -0.16, ar: -0.16, bub: "Monitorando o mercado", col: "#4ade80" },
+    formacao:    { lean: 0.22, hp: 0.08, scan: 0, type: 0.4, al: -0.16, ar: -0.16, bub: "Setup em formação…", col: "#fbbf24" },
+    confirmada:  { lean: 0.1, hp: 0, scan: 0, type: 0, al: -0.16, ar: 1.25, wave: 1, bub: "Entrada confirmada!", col: "#4ade80" },
+    travado:     { lean: 0.18, hp: 0.55, scan: 0, type: 0, al: 0, ar: 0, alY: -1.35, arY: 1.35, bub: "Dia encerrado (LOSS)", col: "#f87171" },
+    meta:        { lean: -0.05, hp: -0.15, scan: 0, type: 0, al: 2.5, ar: 2.5, jump: 1, bub: "Meta 2x0 alcançada!", col: "#4ade80" },
+    dormindo:    { lean: 0.55, hp: 0.75, scan: 0, type: 0, al: -1.3, ar: -1.3, sleep: 1, bub: "Zzz… fora de operação", col: "#a1a1aa" },
+  };
+  const cur = { lean: 0, hp: 0, al: -0.16, ar: -0.16, alY: 0, arY: 0, y: 0 };
+  let pose = POSES.dormindo, poseName = "dormindo";
+  man.visible = false; bubble.visible = false;
+  function setAgentVisual(name) {
+    if (!POSES[name] || name === poseName) return;
+    poseName = name; pose = POSES[name]; man.visible = pose.show !== false;
+    if (pose.show === false) { setBubble("", "#fff"); return; }
+    setBubble(pose.bub, pose.col);
+    const closed = !!pose.sleep || name === "travado"; eyeL.scale.y = eyeR.scale.y = closed ? 0.2 : 1;
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) applyPose(0, 1);
+  }
+  const ease = (a, b, k) => a + (b - a) * k;
+  function applyPose(t, k) {
+    if (pose.show === false) return;
+    cur.lean = ease(cur.lean, pose.lean, k); cur.hp = ease(cur.hp, pose.hp, k);
+    const ty = pose.type ? Math.sin(t * 9) * 0.05 * pose.type : 0;
+    cur.al = ease(cur.al, pose.al + ty, k * 2); cur.ar = ease(cur.ar, pose.ar + (pose.wave ? Math.sin(t * 7) * 0.25 : -ty), k * 2);
+    cur.alY = ease(cur.alY, pose.alY || 0, k); cur.arY = ease(cur.arY, pose.arY || 0, k);
+    cur.y = ease(cur.y, pose.jump ? Math.abs(Math.sin(t * 5)) * 0.14 : 0, k * 2);
+    torso.rotation.x = cur.lean; head.rotation.x = cur.hp; head.rotation.y = pose.scan ? Math.sin(t * 0.6) * 0.28 : 0;
+    armL.rotation.x = cur.al; armR.rotation.x = cur.ar; armL.rotation.y = cur.alY; armR.rotation.y = cur.arY;
+    man.position.y = cur.y; bubble.position.y = 1.78 + (pose.sleep ? Math.sin(t * 1.5) * 0.04 : 0);
+    bubble.material.opacity = poseName === "confirmada" ? 0.65 + 0.35 * Math.abs(Math.sin(t * 4)) : 1;
+  }
+  animators.push((t, dt) => applyPose(t, Math.min(1, dt * 6)));
+  /** Estado do agente (API) → pose. Sem agente online, a cadeira fica vazia. */
+  function visualFromStatus(st) {
+    if (!st || !st.online) return "offline";
+    const s = st.panel.state, radar = st.radar || [];
+    if (s === "TARGET_REACHED") return "meta";
+    if (s === "DAILY_LOCKED") return "travado";
+    if (st.config.paused || !st.marketOpen || s === "WAIT_NEXT_DAY") return "dormindo";
+    if (st.trades.some((x) => x.status === "OPEN") || radar.some((r) => r.cls === "CONFIRMADA")) return "confirmada";
+    if (radar.some((r) => r.cls === "FORMACAO")) return "formacao";
+    return "monitorando";
+  }
+  const previewPose = new URLSearchParams(location.search).get("agente");
+  if (previewPose && POSES[previewPose]) setAgentVisual(previewPose);   // ?agente=meta (pré-visualização dos estados)
+  else {
+    const poll = async () => { try { const r = await fetch("/api/agent?action=status"); setAgentVisual(r.ok ? visualFromStatus(await r.json()) : "offline"); } catch { setAgentVisual("offline"); } };
+    poll(); setInterval(poll, 60000);
+  }
+
   // ---------- outros móveis ----------
   // servidor com luzes
   box(0.7, 2.0, 0.6, mat(0x0a0a0a, { metalness: 0.4, roughness: 0.4 }), -W / 2 + 0.5, 1.0, -D / 2 + 0.45);
