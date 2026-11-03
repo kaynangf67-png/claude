@@ -78,7 +78,7 @@
   .ai ul.pro li::marker { color: #22c55e; } .ai ul.con li::marker { color: #ef4444; }
   .ai-foot { margin-top: 10px; font-size: 11px; color: #63636b; }
   .ai.wide { width: 440px; }
-  .ai-tools { display: flex; gap: 6px; padding: 0 12px 8px; } .ai-tools[hidden] { display: none; }
+  .ai-tools { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px 8px; } .ai-tools button { flex: 1 1 22%; } .ai-tools[hidden] { display: none; }
   .ai-tools button { flex: 1; appearance: none; border: 1px solid #262626; background: #0b0b0b; color: var(--mute); border-radius: 9px; padding: 7px; font: 700 12px/1 inherit; font-family: inherit; cursor: pointer; }
   .ai-tools button:hover { color: var(--ink); border-color: #3a3a3a; }
   .ai-dec.wait2 { background: #f59e0b1a; color: #fbbf24; border: 1px solid #f59e0b55; }
@@ -111,6 +111,14 @@
   .fx-field input, .fx-field select, .fx-fields select, .fx-fields input { background: #0b0b0b; color: var(--ink); border: 1px solid #262626; border-radius: 8px; padding: 7px; font: 600 12px/1 inherit; font-family: inherit; width: 100%; box-sizing: border-box; }
   .fx-checks { display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 4px 0; } .fx-chk { display: flex; align-items: center; gap: 5px; font-size: 12px; cursor: pointer; }
   .fx-mini { appearance: none; border: 1px solid #ffffff22; background: #111; color: #a1a1aa; border-radius: 7px; padding: 3px 7px; font: 700 10.5px/1 inherit; font-family: inherit; cursor: pointer; margin-left: auto; flex: 0 0 auto; }
+
+  .ag-strip { margin: 0 12px 8px; padding: 8px 10px; border-radius: 10px; border: 1px solid #ffffff1a; background: #ffffff06; font-size: 11px; line-height: 1.5; } .ag-strip[hidden] { display: none; }
+  .ag-strip b { font-family: ui-monospace, monospace; } .ag-strip .ag-ban { margin-top: 4px; font-weight: 800; font-size: 11.5px; }
+  .ag-strip.locked { border-color: #ef444466; background: #ef44440f; } .ag-strip.locked .ag-ban { color: #f87171; } .ag-strip.target { border-color: #22c55e66; background: #22c55e0f; } .ag-strip.target .ag-ban { color: #4ade80; }
+  .ag-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; } .ag-pill { font-size: 10.5px; font-weight: 800; letter-spacing: .05em; border-radius: 99px; padding: 3px 9px; border: 1px solid #ffffff22; }
+  .ag-pill.on { color: #4ade80; border-color: #22c55e66; background: #22c55e14; } .ag-pill.off { color: #f87171; border-color: #ef444466; background: #ef444414; } .ag-pill.warn { color: #fbbf24; border-color: #f59e0b66; background: #f59e0b12; }
+  .ag-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0; } .ag-cell { border: 1px solid #ffffff12; background: #ffffff08; border-radius: 10px; padding: 7px 9px; font-size: 11px; color: #8b8b93; } .ag-cell b { display: block; font-size: 14px; color: var(--ink); font-family: ui-monospace, monospace; margin-top: 2px; }
+  .ag-rules { margin: 8px 0; padding: 9px; border: 1px solid #ffffff1a; border-radius: 10px; font-size: 12px; line-height: 1.6; font-weight: 700; letter-spacing: .02em; }
   .fx-btn { margin-top: 8px; width: 100%; appearance: none; border: 1px solid #ffffff22; background: #111; color: var(--ink); border-radius: 10px; padding: 9px; font: 700 12px/1 inherit; font-family: inherit; cursor: pointer; }
   @media (max-width: 560px) { .ai.wide { width: auto; } }
   .pc-chin { height: 34px; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 11px; font-weight: 800; letter-spacing: .2em; color: #52525b; }
@@ -175,7 +183,8 @@
         <aside class="ai" aria-live="polite">
           <div class="ai-head"><span>IA · ENTRADA M5</span><small id="ai-src"></small></div>
           <button id="ai-go" class="ai-go" type="button">Pedir entrada à IA</button>
-          <div class="ai-tools" id="ai-tools" hidden><button id="ai-prof" type="button">Perfil</button><button id="ai-scan" type="button">Varrer</button><button id="ai-hist" type="button">Histórico</button><button id="ai-bt" type="button">Backtest</button></div>
+          <div class="ai-tools" id="ai-tools" hidden><button id="ai-prof" type="button">Perfil</button><button id="ai-scan" type="button">Varrer</button><button id="ai-agent" type="button">Agente</button><button id="ai-hist" type="button">Histórico</button><button id="ai-bt" type="button">Backtest</button></div>
+          <div class="ag-strip" id="ag-strip" hidden></div>
           <div id="ai-out" class="ai-out"><p class="ai-hint">Escolha o mercado e peça a leitura. A IA usa as velas reais de 5 minutos, indicadores (EMA, RSI, ATR) e o calendário de notícias.</p></div>
         </aside>
       </div>
@@ -1017,7 +1026,7 @@
   try { const h = JSON.parse(localStorage.getItem(HKEY)); if (Array.isArray(h)) hist = h; } catch {}
   const saveHist = () => { try { localStorage.setItem(HKEY, JSON.stringify(hist.slice(-200))); } catch {} };
   const aiBox = document.querySelector(".ai"), aiTools = document.getElementById("ai-tools");
-  function syncForex() { const f = isForex(picks[pcIdx]); aiBox.classList.toggle("wide", f); aiTools.hidden = !f; document.querySelector(".ai-head span").textContent = f ? "ANÁLISE TÉCNICA FOREX" : "IA · ENTRADA M5"; }
+  function syncForex() { const f = isForex(picks[pcIdx]); aiBox.classList.toggle("wide", f); aiTools.hidden = !f; if (f) startStrip(); else { clearInterval(stripTimer); stripEl.hidden = true; } document.querySelector(".ai-head span").textContent = f ? "ANÁLISE TÉCNICA FOREX" : "IA · ENTRADA M5"; }
   const DIR = { BUY: "COMPRA", SELL: "VENDA" };
   const when = (t) => new Date(t * 1000).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
   const pct = (v) => (v === null || v === undefined ? "—" : (v * 100).toFixed(1) + "%");
@@ -1076,6 +1085,113 @@
     aiOut.append(save, reset, msg);
   }
   document.getElementById("ai-prof").onclick = () => renderProfile();
+
+  // ---------- TRADE AGENT: painel do agente autônomo (o estado vem do servidor; esta tela só mostra e envia comandos) ----------
+  const TKEY = "tradeai-agent-token";
+  const stripEl = document.getElementById("ag-strip");
+  const hmBrt = (t) => new Date(t * 1000).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+  const minToTime = (m) => String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
+  const timeToMin = (v) => { const [h, m] = String(v).split(":").map(Number); return (h || 0) * 60 + (m || 0); };
+  async function agentApi(action, opts) {
+    const r = await fetch("/api/agent?action=" + action, opts); const j = await r.json().catch(() => ({ error: "Erro " + r.status }));
+    if (!r.ok) { const e = new Error(j.error || "Erro " + r.status); e.status = r.status; throw e; } return j;
+  }
+  const adminToken = () => { let t = ""; try { t = sessionStorage.getItem(TKEY) || ""; } catch {} if (!t) { t = prompt("Token de administração do agente (AGENT_ADMIN_TOKEN). Fica só nesta aba e nunca é gravado no navegador:") || ""; try { if (t) sessionStorage.setItem(TKEY, t); } catch {} } return t; };
+  async function agentControl(body) {
+    const t = adminToken(); if (!t) throw new Error("Token não informado.");
+    try { return await agentApi("control", { method: "POST", headers: { "content-type": "application/json", authorization: "Bearer " + t }, body: JSON.stringify(body) }); }
+    catch (e) { if (e.status === 401) { try { sessionStorage.removeItem(TKEY); } catch {} } throw e; }
+  }
+  /** Faixa permanente com a meta do dia (vem do backend; atualizar a página nunca reinicia nada). */
+  function renderStrip(st) {
+    if (!st) { stripEl.hidden = true; return; }
+    const p = st.panel; stripEl.hidden = false; stripEl.className = "ag-strip" + (p.state === "DAILY_LOCKED" ? " locked" : p.state === "TARGET_REACHED" ? " target" : "");
+    stripEl.innerHTML = "";
+    stripEl.append(el("div", "", ""));
+    stripEl.firstChild.innerHTML = `<b>${p.goal}</b> · ${p.risk} · <b>${p.wins}</b> · <b>${p.losses}</b> · <b>${p.ops}</b> · ESTADO ATUAL: <b>${p.state}</b>`;
+    if (p.banner) stripEl.append(el("div", "ag-ban", p.banner));
+  }
+  let stripTimer = null;
+  async function refreshStrip() { try { renderStrip(await agentApi("status")); } catch { stripEl.hidden = true; } }
+  function startStrip() { clearInterval(stripTimer); refreshStrip(); stripTimer = setInterval(refreshStrip, 60000); }
+
+  async function renderAgent() {
+    clearInterval(aiTimer); aiOut.innerHTML = ""; aiOut.append(el("p", "ai-hint", "Consultando o agente na nuvem…"));
+    let st;
+    try { st = await agentApi("status"); }
+    catch (e) {
+      aiOut.innerHTML = ""; aiOut.append(el("div", "fx-top")); aiOut.lastChild.append(el("span", "", "TRADE AGENT"), el("span", "", "OFFLINE"));
+      aiOut.append(el("div", "fx-warn", e.status === 503 ? e.message : "Não consegui falar com o agente: " + e.message));
+      aiOut.append(sec("O QUE FALTA", ul(["Banco de dados PostgreSQL (variável DATABASE_URL na Vercel).", "Agendador chamando /api/agent?action=tick a cada 5 min (GitHub Actions) ou o worker persistente.", "Telegram: TELEGRAM_BOT_TOKEN e TELEGRAM_CHAT_ID (opcional para o painel, necessário para os alertas).", "Passo a passo completo em docs/TRADE-AGENT.md."], "fx-list"))); return;
+    }
+    renderStrip(st);
+    const p = st.panel, hb = st.heartbeat;
+    aiOut.innerHTML = "";
+    aiOut.append(el("div", "fx-top")); aiOut.lastChild.append(el("span", "", "TRADE AGENT"), el("span", "", "atualizado " + hmBrt(st.serverTime) + " (Brasília)"));
+    const head = el("div", "ag-head");
+    head.append(el("span", "ag-pill " + (st.online ? "on" : "off"), st.online ? "ONLINE" : "OFFLINE"), el("span", "ag-pill " + (st.marketOpen ? "on" : "warn"), st.marketOpen ? "MERCADO ABERTO" : "MERCADO FECHADO"), el("span", "ag-pill " + (st.config.paused ? "warn" : "on"), st.config.paused ? "PAUSADO" : "MONITORANDO"), el("span", "ag-pill warn", "EXECUÇÃO REAL: " + st.execution));
+    aiOut.append(head, el("div", "ai-hint", st.reason + " Modo: " + st.mode + " — só analisa, alerta e simula; nenhuma ordem é enviada."));
+    const rules = el("div", "ag-rules" ); rules.innerHTML = [p.goal, p.risk, p.wins, p.losses, p.ops, "ESTADO ATUAL: " + p.state].join("<br>");
+    aiOut.append(sec("GERENCIAMENTO 2X0 (FIXO)", rules));
+    if (p.banner) aiOut.append(el("div", p.state === "TARGET_REACHED" ? "fx-note" : "fx-warn", p.banner));
+    else if (p.reason) aiOut.append(el("div", "ai-hint", "Entradas: " + p.reason));
+    aiOut.append(kv([["Resultado do dia (simulado)", `${num2(p.resultR)}R = R$ ${num2(p.resultBrl)}`], ["Meta perfeita 2x0", p.perfect2x0 ? "ALCANÇADA" : p.wins + p.losses ? (p.losses ? "comprometida (houve loss)" : "em andamento") : "em andamento"]]));
+    const ctrl = el("div", "ag-grid");
+    const pause = el("button", "fx-btn", st.config.paused ? "▶ Retomar monitoramento" : "⏸ Pausar monitoramento"); pause.type = "button";
+    pause.onclick = async () => { pause.disabled = true; try { await agentControl({ op: st.config.paused ? "resume" : "pause" }); renderAgent(); } catch (e) { pause.disabled = false; pause.textContent = "Falhou: " + e.message; } };
+    const cfgBtn = el("button", "fx-btn", "⚙ Configurações"); cfgBtn.type = "button"; cfgBtn.onclick = () => renderAgentConfig(st);
+    ctrl.append(pause, cfgBtn); aiOut.append(ctrl);
+    aiOut.append(sec("SAÚDE E DADOS", kv([["Última execução", hb ? hmBrt(hb.at) + ` (${Math.round((st.serverTime - hb.at) / 60)} min atrás)` : "nunca"], ["Última atualização dos dados", hb && hb.lastDataAt ? hmBrt(hb.lastDataAt) + ` (${Math.round((st.serverTime - hb.lastDataAt) / 60)} min atrás)` : "—"], ["Pares ok / com falha", hb ? `${hb.pairsOk} / ${hb.pairsFailed}` : "—"], ["Falhas seguidas", hb ? String(hb.consecutiveFailures) : "—"], ["Fonte dos dados", "Yahoo Finance (gratuito, pode atrasar)"]])));
+    aiOut.append(sec(`PARES MONITORADOS (${st.config.enabledPairs.length})`, el("div", "fx-note", st.config.enabledPairs.map((x) => x.slice(0, 3) + "/" + x.slice(3)).join(" · "))));
+    const nl = el("ul", "fx-list"); st.news.forEach((n) => { const li = el("li"); li.append(el("span", "fx-dot " + (n.impact === "ALTO" ? "bad" : "warn")), el("span", "", `${hmBrt(n.at)} ${n.currency} ${n.title} [${n.impact}] · esp. ${n.forecast ?? "—"} · ant. ${n.previous ?? "—"}${n.actual ? " · res. " + n.actual : ""} · pares: ${n.pairs.join(", ") || "—"}`)); nl.append(li); });
+    if (!st.news.length) nl.append(el("li", "", st.newsVerified ? "Sem notícias de médio/alto impacto nas próximas 24 h." : "Notícias NÃO verificadas (calendário indisponível)."));
+    aiOut.append(sec("NOTÍCIAS PRÓXIMAS", nl));
+    const rl3 = el("ul", "fx-list"); st.radar.forEach((r) => { const li = el("li"); li.append(el("span", "fx-dot " + (r.cls === "CONFIRMADA" ? "ok" : "warn")), el("span", "", `${r.label} · ${r.dir ? DIR[r.dir] : ""} · ${r.cls === "CONFIRMADA" ? "confirmada" : "em formação"} · ${r.strategy ?? ""}`)); rl3.append(li); });
+    if (!st.radar.length) rl3.append(el("li", "", "Nenhum setup em formação agora."));
+    aiOut.append(sec("OPORTUNIDADES (RADAR)", rl3));
+    const tl = el("ul", "fx-list"); st.trades.forEach((t) => { const li = el("li"); li.append(el("span", "fx-dot " + (t.status === "WIN" ? "ok" : t.status === "LOSS" ? "bad" : "warn")), el("span", "", `${hmBrt(t.openedAt)} ${t.label} ${DIR[t.dir]} · ${t.strategy} · entrada ${t.entry.toFixed(t.symbol.includes("JPY") ? 3 : 5)} · stop ${t.sl.toFixed(t.symbol.includes("JPY") ? 3 : 5)} · ${t.status}${t.r !== undefined ? ` ${num2(t.r)}R (R$ ${num2(t.brl)})` : ""} · SIMULADA`)); tl.append(li); });
+    if (!st.trades.length) tl.append(el("li", "", "Nenhuma operação hoje."));
+    aiOut.append(sec("SINAIS DO DIA", tl));
+    const al = el("ul", "fx-list"); st.alerts.forEach((a) => { const li = el("li"); li.append(el("span", "fx-dot " + (a.sent ? "ok" : "dim")), el("span", "", `${hmBrt(a.at)} · ${a.title}${a.sent ? "" : " · não enviado" + (a.error ? " (" + a.error + ")" : "")}`)); al.append(li); });
+    if (!st.alerts.length) al.append(el("li", "", "Nenhum alerta ainda."));
+    aiOut.append(sec("HISTÓRICO DE ALERTAS", al));
+    const rf = el("button", "fx-btn", "Atualizar agora"); rf.type = "button"; rf.onclick = renderAgent; aiOut.append(rf);
+    aiTimer = setInterval(() => { if (aiOut.querySelector(".ag-rules")) renderAgent(); }, 60000);
+  }
+  function renderAgentConfig(st) {
+    clearInterval(aiTimer); aiOut.innerHTML = ""; const c = JSON.parse(JSON.stringify(st.config));
+    aiOut.append(el("div", "fx-top")); aiOut.lastChild.append(el("span", "", "TRADE AGENT · Configurações"), el("span", "", "salvo no servidor"));
+    aiOut.append(el("div", "ai-hint", "Risco por operação (R$ 5,00), máximo de 2 operações, meta de 2 vitórias e limite de 1 derrota são FIXOS no código e não aparecem aqui."));
+    const toggle = (arr, v, on) => { const i = arr.indexOf(v); if (on && i < 0) arr.push(v); if (!on && i >= 0) arr.splice(i, 1); };
+    const checks = (items, sel) => { const w = el("div", "fx-checks"); items.forEach(([v, t]) => { const l = el("label", "fx-chk"), i = el("input"); i.type = "checkbox"; i.checked = sel.includes(v); i.onchange = () => toggle(sel, v, i.checked); l.append(i, el("span", "", t)); w.append(l); }); return w; };
+    const field = (label, node) => { const w = el("label", "fx-field"); w.append(el("span", "", label), node); return w; };
+    const inp = (type, v, step) => { const i = el("input"); i.type = type; if (step) i.step = step; i.value = v; return i; };
+    const sel = (opts, v) => { const x = el("select"); opts.forEach(([a, b]) => { const o = el("option", "", b); o.value = a; x.append(o); }); x.value = v; return x; };
+    aiOut.append(sec("PARES", checks(FX_PAIRS, c.enabledPairs), el("div", "ai-hint", "Marque ou desmarque para adicionar ou remover pares do monitoramento.")));
+    aiOut.append(sec("ESTRATÉGIAS", checks(STRATS, c.strategies)));
+    const ini = inp("time", minToTime(c.window.startMin)), fim = inp("time", minToTime(c.window.endMin));
+    const f1 = el("div", "fx-fields"); f1.append(field("Início (Brasília)", ini), field("Fim (Brasília)", fim)); aiOut.append(sec("HORÁRIO OPERACIONAL", f1));
+    const nb = inp("number", c.news.beforeMin, "1"), na = inp("number", c.news.afterMin, "1");
+    const f2 = el("div", "fx-fields"); f2.append(field("Bloquear X min antes", nb), field("Aguardar X min depois", na)); aiOut.append(sec("BLOQUEIO POR NOTÍCIA DE ALTO IMPACTO", f2));
+    const style = sel(Object.keys(STYLES).map((k) => [k, k[0].toUpperCase() + k.slice(1)]), c.style), cost = inp("number", c.costPips, "0.1"), dist = inp("number", c.distantAtr, "1");
+    const f3 = el("div", "fx-fields"); f3.append(field("Perfil técnico", style), field("Custo simulado (pips)", cost), field("Radar: distância (ATR)", dist)); aiOut.append(sec("MOTOR", f3));
+    const nf = { forming: c.notify.forming, distant: c.notify.distant };
+    aiOut.append(sec("ALERTAS NO TELEGRAM", (() => { const w = el("div", "fx-checks"); [["forming", "Setups em formação"], ["distant", "Pares próximos de região (mais ruído)"]].forEach(([k, t]) => { const l = el("label", "fx-chk"), i = el("input"); i.type = "checkbox"; i.checked = nf[k]; i.onchange = () => (nf[k] = i.checked); l.append(i, el("span", "", t)); w.append(l); }); return w; })(), el("div", "ai-hint", "Entradas confirmadas, resultados, notícias, meta, stop diário e relatórios sempre são enviados.")));
+    const msg = el("div", "fx-note"); msg.hidden = true;
+    const save = el("button", "fx-btn", "Salvar configurações"); save.type = "button";
+    save.onclick = async () => {
+      if (!c.enabledPairs.length || !c.strategies.length) { msg.hidden = false; msg.textContent = "Marque ao menos um par e uma estratégia."; return; }
+      save.disabled = true;
+      try {
+        await agentControl({ op: "config", config: { enabledPairs: c.enabledPairs, strategies: c.strategies, window: { startMin: timeToMin(ini.value), endMin: timeToMin(fim.value) }, news: { beforeMin: +nb.value, afterMin: +na.value, blockMedium: c.news.blockMedium }, style: style.value, costPips: +cost.value, distantAtr: +dist.value, notify: nf } });
+        renderAgent();
+      } catch (e) { save.disabled = false; msg.hidden = false; msg.textContent = "Falhou: " + e.message; }
+    };
+    const back = el("button", "fx-btn", "Voltar"); back.type = "button"; back.onclick = renderAgent;
+    aiOut.append(save, back, msg);
+  }
+  document.getElementById("ai-agent").onclick = () => renderAgent();
+
 
   // ---------- Pattern History, sinais abertos e registro de TODAS as análises ----------
   function patternStats() {
