@@ -79,6 +79,9 @@ create index if not exists agent_alerts_at on agent_alerts (at desc);
 create table if not exists agent_scans (id bigserial primary key, day text not null, at bigint not null, data jsonb not null);
 create index if not exists agent_scans_day on agent_scans (day);
 create table if not exists agent_lease (name text primary key, until_at bigint not null);
+-- Supabase expõe o schema public pela API REST: sem RLS qualquer um com a chave pública leria estas tabelas. Sem políticas = ninguém, exceto a conexão direta do servidor.
+alter table agent_kv enable row level security; alter table agent_days enable row level security; alter table agent_trades enable row level security;
+alter table agent_alerts enable row level security; alter table agent_scans enable row level security; alter table agent_lease enable row level security;
 `;
 
 const SCAN_RETENTION_DAYS = 21;
@@ -121,13 +124,25 @@ export class PgStore implements Store {
   /** `DATABASE_URL` de qualquer Postgres (Neon, Supabase, Railway...). Em funções serverless, prefira a URL com pooler. */
   constructor(url: string, opts: { max?: number; schema?: string } = {}) {
     if (opts.schema !== undefined && !/^[a-z][a-z0-9_]{0,40}$/.test(opts.schema)) throw new Error("Nome de schema inválido.");
-    this.schema = opts.schema;
+    this.schema = opts.schema; this.url = url; this.opts = opts;
     const local = /localhost|127\.0\.0\.1/.test(url);
     this.pool = new pg.Pool({ connectionString: url, max: opts.max ?? 2, idleTimeoutMillis: 10_000, connectionTimeoutMillis: 8_000, ssl: local ? undefined : { rejectUnauthorized: false } });
     if (this.schema) this.pool.on("connect", (c) => { void c.query(`set search_path to "${this.schema}"`); });
   }
+  /** Projetos novos do Supabase usam o pooler "aws-1-…" e os antigos "aws-0-…". Se a primeira opção não responder, tenta a outra. */
+  private async ensureReachable(url: string, opts: { max?: number; schema?: string }) {
+    try { await this.pool.query("select 1"); return; } catch (e) {
+      const alt = url.replace(/\/\/([^@]+)@aws-0-/, "//$1@aws-1-");
+      if (alt === url) throw e;
+      await this.pool.end().catch(() => {});
+      const next = new PgStore(alt, opts); this.pool = next.pool;
+      await this.pool.query("select 1");
+    }
+  }
+  private url: string; private opts: { max?: number; schema?: string };
   /** Cria o schema (se pedido) e as tabelas. Idempotente. */
   async migrate() {
+    await this.ensureReachable(this.url, this.opts);
     if (this.schema) { const c = await this.pool.connect(); try { await c.query(`create schema if not exists "${this.schema}"; set search_path to "${this.schema}"`); await c.query(SCHEMA); } finally { c.release(); } return; }
     await this.pool.query(SCHEMA);
   }
