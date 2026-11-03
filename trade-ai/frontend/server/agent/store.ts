@@ -8,7 +8,7 @@ import type { DayState } from "./risk2x0.js";
 export interface AgentConfig {
   enabledPairs: string[];
   strategies: number[];
-  style: "conservador" | "equilibrado" | "agressivo";
+  style: "conservador" | "equilibrado" | "agressivo" | "livre";
   entryTf: "M1" | "M5";
   /** Horário operacional em minutos desde 00:00, fuso America/Sao_Paulo. */
   window: { startMin: number; endMin: number };

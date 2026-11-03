@@ -8,10 +8,10 @@ import type { Dir, Region, Trend } from "./types.js";
  * a linha diz isso em vez de inventar preço ou confirmação.
  */
 export interface ThesisLine { label: string; text: string }
-export interface Thesis { scenario: string; status: "confirmada" | "condicional" | "sem_setup"; lines: ThesisLine[] }
+export interface Thesis { scenario: string; status: "confirmada" | "antecipada" | "condicional" | "sem_setup"; lines: ThesisLine[] }
 
 export interface ThesisInput {
-  symbol: string; dir: Dir | null; state: "entrada_confirmada" | "aguardando_confirmacao" | "sem_operacao";
+  symbol: string; dir: Dir | null; state: "entrada_confirmada" | "entrada_antecipada" | "aguardando_confirmacao" | "sem_operacao";
   a: { H1: TFAnalysis; M15: TFAnalysis | null; M5: TFAnalysis; M1: TFAnalysis | null };
   regions: Region[]; strategyName: string | null; strategyId: number | null; fvgAligned: boolean;
   trigger: Trigger | null; plan: Plan | null; invalidation: string; missing: string[]; price: number;
@@ -50,7 +50,7 @@ export function buildThesis(x: ThesisInput): Thesis {
   const extras = [m1sweep || m5sweep ? "Liquidity Sweep" : null, x.fvgAligned ? "FVG" : null, ln && x.strategyId !== 5 ? (buy ? "LTA" : "LTB") : null].filter(Boolean);
   lines.push({ label: "ESTRATÉGIA", text: (x.strategyName ?? "—") + (extras.length ? " + " + extras.join(" + ") : "") });
   lines.push({ label: "GATILHO", text: tg ? (tg.confirmed ? tg.detail : `${tg.detail}${tg.level !== null ? ` Libera com fechamento de vela ${tg.source} ${buy ? "acima" : "abaixo"} de ${f(tg.level, sym)}.` : ""}`) : "Sem gatilho avaliado." });
-  const p = x.plan, tag = p && p.status === "condicional" ? " (condicional: só vale se o gatilho confirmar)" : "";
+  const p = x.plan, tag = p && p.status === "condicional" ? " (condicional: só vale se o gatilho confirmar)" : p && p.status === "antecipado" ? " (ANTECIPADA: sem todos os filtros confirmados)" : "";
   if (p) {
     lines.push({ label: "ENTRADA", text: `${f(p.entry, sym)}${tag}: fechamento da vela do gatilho.` });
     lines.push({ label: "STOP", text: `${f(p.sl, sym)} — ${buy ? "abaixo" : "acima"} do ponto de invalidação estrutural, com margem de 0,5 ATR.` });
@@ -59,5 +59,5 @@ export function buildThesis(x: ThesisInput): Thesis {
     lines.push({ label: "TAKE 2", text: tp(1) ?? "sem segundo alvo estrutural." });
   } else lines.push({ label: "ENTRADA / STOP / TAKES", text: `Não calculados: ${x.missing[0] ?? "o risco/retorno não passou nos critérios do perfil"}.` });
   lines.push({ label: "INVALIDAÇÃO", text: x.invalidation });
-  return { scenario: buy ? "COMPRA" : "VENDA", status: x.state === "entrada_confirmada" ? "confirmada" : "condicional", lines };
+  return { scenario: buy ? "COMPRA" : "VENDA", status: x.state === "entrada_confirmada" ? "confirmada" : x.state === "entrada_antecipada" ? "antecipada" : "condicional", lines };
 }

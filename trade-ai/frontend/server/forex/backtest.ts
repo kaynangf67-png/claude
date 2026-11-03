@@ -1,3 +1,4 @@
+import type { Profile } from "./profile.js";
 import { analyze, type ForexAnalysis } from "./engine.js";
 import { computeStats, type Resolved, type Stats } from "./history.js";
 import type { Candle, Dir } from "./types.js";
@@ -6,7 +7,7 @@ import type { Candle, Dir } from "./types.js";
  * Backtest passo a passo: em cada vela M5 só existem velas FECHADAS até aquele momento (sem look-ahead, sem repintar).
  * Sem M1 na história longa: o gatilho usa o M5. Custos: spread + slippage em pips, descontados em R.
  */
-export interface BtOptions { pip: number; label: string; symbol: string; currencies: string[]; spreadPips?: number; slipPips?: number; stride?: number; maxHold?: number; budgetMs?: number }
+export interface BtOptions { pip: number; label: string; symbol: string; currencies: string[]; spreadPips?: number; slipPips?: number; stride?: number; maxHold?: number; budgetMs?: number; profile?: Profile }
 export interface BtTrade extends Resolved { rGross: number; strategyId: number }
 export interface BtResult {
   steps: number; analyzed: number; truncated: boolean; trades: number;
@@ -28,7 +29,7 @@ export function runBacktest(m5: Candle[], h1: Candle[], o: BtOptions): BtResult 
     if (p1 < 90) continue;
     const a: ForexAnalysis = analyze({
       symbol: o.symbol, label: o.label, pip: o.pip, currencies: o.currencies, now, events: null, skipFreshness: true,
-      candles: { H1: h1.slice(Math.max(0, p1 - 400), p1), M5: m5.slice(Math.max(0, i - 399), i + 1), M1: null },
+      candles: { H1: h1.slice(Math.max(0, p1 - 400), p1), M5: m5.slice(Math.max(0, i - 399), i + 1), M1: null }, profile: o.profile,
     });
     analyzed++;
     if (a.decision === "NO_TRADE" || !a.trade || !a.chosen) continue;

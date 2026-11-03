@@ -24,12 +24,12 @@ export function classifyOpportunity(a: ForexAnalysis, pip: number, distantAtr: n
   const base = { symbol: a.symbol, label: a.label, dir: null, strategy: null, strategyId: null, region: null, invalidation: null } as const;
   if (!a.data.ok) return { ...base, cls: null, setupId: null, quality: 0, why: "Dados com problema: sem classificação." };
   const st = a.setup;
-  if (st && a.chosen && (a.state === "entrada_confirmada" || a.state === "aguardando_confirmacao")) {
-    const cls: RadarClass = a.state === "entrada_confirmada" ? "CONFIRMADA" : "FORMACAO";
+  if (st && a.chosen && (a.state === "entrada_confirmada" || a.state === "entrada_antecipada" || a.state === "aguardando_confirmacao")) {
+    const cls: RadarClass = a.state === "aguardando_confirmacao" ? "FORMACAO" : "CONFIRMADA";
     return {
       cls, setupId: `${a.symbol}|${st.strategyId}|${st.dir}|${regionBucket(st.region, pip, st.invalidation)}`, quality: a.score?.total ?? 0, symbol: a.symbol, label: a.label,
       dir: st.dir, strategy: a.chosen.name, strategyId: st.strategyId, region: st.region, invalidation: st.invalidation,
-      why: cls === "CONFIRMADA" ? "Gatilho confirmado e todos os filtros obrigatórios aprovados." : (a.missing[0] ?? "Falta confirmação do gatilho."),
+      why: a.state === "entrada_antecipada" ? "ENTRADA ANTECIPADA (modo Livre): sem todos os filtros confirmados." : cls === "CONFIRMADA" ? "Gatilho confirmado e todos os filtros obrigatórios aprovados." : (a.missing[0] ?? "Falta confirmação do gatilho."),
     };
   }
   // A: o preço se aproxima de uma região forte do H1 (ainda sem setup)

@@ -41,7 +41,7 @@ export function sanitizeConfig(raw: unknown, cur: AgentConfig): AgentConfig {
     ...cur,
     enabledPairs: pairs.length ? pairs : cur.enabledPairs,
     strategies: strategies.length ? strategies.sort((a, b) => a - b) : cur.strategies,
-    style: r.style === "conservador" || r.style === "equilibrado" || r.style === "agressivo" ? r.style : cur.style,
+    style: r.style === "conservador" || r.style === "equilibrado" || r.style === "agressivo" || r.style === "livre" ? r.style : cur.style,
     entryTf: r.entryTf === "M5" ? "M5" : r.entryTf === "M1" ? "M1" : cur.entryTf,
     window: end > start ? { startMin: start, endMin: end } : cur.window,
     news: { beforeMin: Math.round(num(n.beforeMin, 0, 120, cur.news.beforeMin ?? DEFAULT_NEWS_CONFIG.beforeMin)), afterMin: Math.round(num(n.afterMin, 0, 120, cur.news.afterMin ?? DEFAULT_NEWS_CONFIG.afterMin)), blockMedium: typeof n.blockMedium === "boolean" ? n.blockMedium : cur.news.blockMedium },

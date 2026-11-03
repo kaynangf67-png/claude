@@ -14,7 +14,7 @@ export interface Annotation {
   /** segmento / início no tempo */ t1?: number; t2?: number; p1?: number; p2?: number;
   dir?: Dir;
 }
-export interface Plan { status: "confirmado" | "condicional"; dir: Dir; entry: number; sl: number; tps: (number | null)[]; rr: (number | null)[]; entryZone: { low: number; high: number } | null }
+export interface Plan { status: "confirmado" | "antecipado" | "condicional"; dir: Dir; entry: number; sl: number; tps: (number | null)[]; rr: (number | null)[]; entryZone: { low: number; high: number } | null }
 
 const KEEP_M5 = 400;
 
@@ -36,7 +36,7 @@ export function buildAnnotations(o: { m5: Candle[]; m5a: TFAnalysis; regions: Re
   for (const g of a.fvgs.slice(-3)) { const k = c[Math.max(0, g.index - 2)]; if (k) out.push({ kind: "fvg", label: `FVG ${g.dir === "BUY" ? "comprador" : "vendedor"} (${g.status})`, low: g.low, high: g.high, t1: k.t, t2: last.t, dir: g.dir }); }
   const p = o.plan;
   if (p) {
-    const tag = p.status === "confirmado" ? "" : " (condicional)";
+    const tag = p.status === "confirmado" ? "" : p.status === "antecipado" ? " (antecipada)" : " (condicional)";
     if (p.entryZone) out.push({ kind: "entrada", label: `Região de entrada${tag}`, low: p.entryZone.low, high: p.entryZone.high, dir: p.dir });
     out.push({ kind: "entrada", label: `Entrada ${p.dir === "BUY" ? "compra" : "venda"}${tag}`, price: p.entry, dir: p.dir });
     out.push({ kind: "stop", label: `Stop Loss${tag}`, price: p.sl, dir: p.dir });

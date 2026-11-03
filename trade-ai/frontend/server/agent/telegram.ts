@@ -39,13 +39,13 @@ export function confirmedMsg(a: ForexAnalysis, now: number): string {
   const t = a.trade!, s = a.symbol, f = (v: number | null) => (v === null ? "—" : fmtPrice(v, s));
   const rr = (i: number) => (t.rr[i] == null ? "" : ` (1:${t.rr[i]!.toFixed(2)})`);
   return [
-    `TRADE AGENT | SETUP CONFIRMADO`, ``, `${a.label} | ${side(t.dir)}`, ``,
+    a.state === "entrada_antecipada" ? `TRADE AGENT | ENTRADA ANTECIPADA (modo Livre — sem todos os filtros)` : `TRADE AGENT | SETUP CONFIRMADO`, ``, `${a.label} | ${side(t.dir)}`, ``,
     `Estratégia: ${a.chosen!.name}`, `Temporalidade: M5 · Confirmação: ${a.trigger?.source ?? "M5"}`,
     `Tendência H1: ${a.tfs.H1.trend} · M15: ${a.tfs.M15?.trend ?? "indisponível"} · M5: ${a.tfs.M5.trend}`,
     `Gatilho: ${a.trigger?.detail ?? "—"}`, ``,
     `Entrada: ${f(t.entry)}`, `Stop: ${f(t.sl)}`, `Take 1: ${f(t.tps[0])}${rr(0)}`, `Take 2: ${f(t.tps[1])}${rr(1)}`, `Risco/retorno (alvo 1): 1:${(t.rr[0] ?? 0).toFixed(2)}`,
     `Confluência: ${a.score?.total ?? "—"}/100 (soma de evidências técnicas, não probabilidade)`, ``,
-    `Notícias: ${a.filters.find((x) => x.id === 9)?.note ?? "não verificadas"}`, `Invalidação: ${a.invalidation}`, `STATUS: CONFIRMADO · operação SIMULADA (risco R$ ${RISK_BRL.toFixed(2).replace(".", ",")}) — nenhuma ordem é enviada`,
+    `Notícias: ${a.filters.find((x) => x.id === 9)?.note ?? "não verificadas"}`, `Invalidação: ${a.invalidation}`, `STATUS: ${a.state === "entrada_antecipada" ? `ANTECIPADA — faltou: ${a.missing.slice(0, 3).join(" · ") || "—"}` : "CONFIRMADO"} · operação SIMULADA (risco R$ ${RISK_BRL.toFixed(2).replace(".", ",")}) — nenhuma ordem é enviada`,
     ``, `Oportunidade identificada às ${hm(a.at)}`, dataLine(a, now),
   ].join("\n");
 }

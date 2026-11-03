@@ -15,6 +15,8 @@ export type CState = "favoravel" | "neutro" | "contrario" | "nao_verificado" | "
 export interface Component { id: string; name: string; weight: number; score: number | null; state: CState; why: string }
 export interface ConfluenceResult {
   total: number; label: string; components: Component[];
+  /** Total antes do limite de 49 imposto por filtro reprovado (usado só pelo modo Livre). */
+  raw: number;
   /** Quando um filtro obrigatório (exceto o gatilho) falha, a pontuação é limitada a 49. */
   capped: string[]; parts: Record<string, { got: number; max: number }>;
 }
@@ -165,8 +167,9 @@ export function buildConfluence(x: ConfInput): ConfluenceResult {
   let total = Math.round(avail.reduce((t, c) => t + c.weight * (c.score as number), 0) / wsum);
   // filtros obrigatórios (menos o gatilho, que só define "aguardar") limitam a pontuação
   const capped = x.filters.filter((f) => f.status === "falha" && f.id !== 4).map((f) => f.name);
+  const raw = total;
   if (capped.length) total = Math.min(total, 49);
   const parts: ConfluenceResult["parts"] = {};
   for (const c of comps) parts[c.name] = { got: c.score === null ? 0 : Math.round((c.score * c.weight) / 100), max: c.weight };
-  return { total, label: capped.length ? `BLOQUEADO PELOS FILTROS: ${capped.join(", ")}` : scoreLabel(total), components: comps, capped, parts };
+  return { total, raw, label: capped.length ? `BLOQUEADO PELOS FILTROS: ${capped.join(", ")}` : scoreLabel(total), components: comps, capped, parts };
 }

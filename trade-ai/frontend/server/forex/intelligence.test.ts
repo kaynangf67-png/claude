@@ -231,3 +231,34 @@ describe("API com perfil e histórico", () => {
     expect(j.summary.simulated.n + j.summary.unresolved).toBe(1);
   });
 });
+
+describe("modo Livre: entrada antecipada sem todos os filtros", () => {
+  const livre = sanitizeProfile({ style: "livre" });
+  it("cenário que no modo normal só 'aguarda' vira ENTRADA ANTECIPADA, marcada e com o que faltou", () => {
+    expect(analyze(input(WAIT)).state).toBe("aguardando_confirmacao");
+    const r = analyze(input(WAIT, { profile: livre }));
+    expect(r.state).toBe("entrada_antecipada");
+    expect(["BUY", "SELL"]).toContain(r.decision);
+    expect(r.chosen!.name).toMatch(/\(antecipada\)$/);              // separa no histórico e nas estatísticas
+    expect(r.contra[0]).toMatch(/ANTECIPADA/);
+    expect(r.missing.length).toBeGreaterThan(0);                     // diz exatamente o que não foi confirmado
+    const t = r.trade!;
+    expect(t.tps[0]).not.toBeNull();
+    expect(t.rr[0]!).toBeGreaterThanOrEqual(1);
+    expect(r.plan!.status).toBe("antecipado");
+    expect(r.thesis.status).toBe("antecipada");
+    expect(r.annotations.find((x) => x.kind === "stop")!.label).toMatch(/antecipada/);
+  });
+  it("quando todos os filtros passam, continua sendo entrada CONFIRMADA (não rebaixa)", () => {
+    expect(analyze(input(BUY, { profile: livre })).state).toBe("entrada_confirmada");
+  });
+  it("travas que continuam valendo no modo Livre: notícia de alto impacto e dados atrasados", () => {
+    const news = analyze(input(WAIT, { profile: livre, events: [{ at: WAIT.at(-1)!.t + 900, title: "NFP", country: "USD", impact: 3 }] }));
+    expect(news.state).not.toBe("entrada_antecipada");
+    const stale = analyze(input(WAIT, { profile: livre, now: WAIT.at(-1)!.t + 300 + 6 * 3600 }));
+    expect(stale.decision).toBe("NO_TRADE");
+  });
+  it("o perfil aceita 'livre' e mantém R:R mínimo 1", () => {
+    expect([livre.style, livre.minRR]).toEqual(["livre", 1]);
+  });
+});

@@ -26,13 +26,14 @@ export interface EngineInput {
 
 export type FilterStatus = "ok" | "falha" | "atencao" | "nao_verificado";
 export interface Filter { id: number; name: string; status: FilterStatus; note: string }
-export interface Score { total: number; label: string; parts: Record<string, { got: number; max: number }>; components: Component[]; capped: string[] }
+export interface Score { total: number; raw?: number; label: string; parts: Record<string, { got: number; max: number }>; components: Component[]; capped: string[] }
 export interface Release { dir: Dir; scenario: string; conditions: { ok: boolean; text: string }[] }
 
 export interface ForexAnalysis {
   symbol: string; label: string; at: number; price: number;
   decision: "BUY" | "SELL" | "NO_TRADE";
-  state: "entrada_confirmada" | "aguardando_confirmacao" | "sem_operacao";
+  /** entrada_antecipada = modo Livre: entrada SEM todos os filtros confirmados (marcada como de risco maior). */
+  state: "entrada_confirmada" | "entrada_antecipada" | "aguardando_confirmacao" | "sem_operacao";
   watch: { dir: Dir; condition: string } | null;
   data: { ok: boolean; issues: string[]; quality: Partial<Record<TF, Quality>> };
   trends: { M5: string; M1: string | null };
@@ -106,7 +107,8 @@ export function analyze(inp: EngineInput): ForexAnalysis {
   const all = allRaw.filter((x) => profile.strategies.includes(x.id));
   type Cand = { s: StrategyResult; trig: Trigger; risk: Risk; score: Score; filters: Filter[]; pass: boolean; hardFail: string[] };
   const cands: Cand[] = [];
-  for (const s of all.filter((x) => x.ready)) {
+  // no modo Livre também entram estratégias parcialmente formadas (60% das condições ou mais)
+  for (const s of all.filter((x) => x.ready || (rules.relaxed && x.total > 0 && x.met / x.total >= 0.6))) {
     const dir = s.dir, conf = confluence(ctx, dir);
     // contra o movimento atual do M5: só reversão/varredura em região forte de H1 com CHoCH ou sweep
     const bothAgainst = a.M5.trend === wantTrend(opposite(dir)) || a.M5.ema.stack === wantTrend(opposite(dir));
@@ -176,7 +178,7 @@ export function analyze(inp: EngineInput): ForexAnalysis {
   const finish = (core: Core): ForexAnalysis => {
     const dir = core.chosen?.dir ?? null;
     const plan: Plan | null = best && best.risk.ok && core.state !== "sem_operacao"
-      ? { status: core.state === "entrada_confirmada" ? "confirmado" : "condicional", dir: best.s.dir, entry: best.risk.entry, sl: best.risk.sl, tps: best.risk.tps, rr: best.risk.rr,
+      ? { status: core.state === "entrada_confirmada" ? "confirmado" : core.state === "entrada_antecipada" ? "antecipado" : "condicional", dir: best.s.dir, entry: best.risk.entry, sl: best.risk.sl, tps: best.risk.tps, rr: best.risk.rr,
           entryZone: best.s.region ? { low: best.s.region.low, high: best.s.region.high } : null }
       : null;
     const fvgAligned = dir ? !!confluence(ctx, dir).fvg : false;
@@ -188,7 +190,7 @@ export function analyze(inp: EngineInput): ForexAnalysis {
     const setup: ForexAnalysis["setup"] = best ? { strategyId: best.s.id, dir: best.s.dir, region: best.s.region ? { low: best.s.region.low, high: best.s.region.high } : null, invalidation: best.risk.invalidation } : null;
     return { ...base, ...core, release, plan, thesis, profile, setup,
       annotations: noData ? [] : buildAnnotations({ m5: inp.candles.M5, m5a: a.M5, regions, plan }),
-      sizing: core.state === "entrada_confirmada" && core.trade ? positionSize(profile, symbol, price, core.trade.riskPips) : null };
+      sizing: (core.state === "entrada_confirmada" || core.state === "entrada_antecipada") && core.trade ? positionSize(profile, symbol, price, core.trade.riskPips) : null };
   };
 
   if (noData) {
@@ -206,6 +208,22 @@ export function analyze(inp: EngineInput): ForexAnalysis {
         trade: { ...best.risk, dir }, filters: f, score: best.score,
         favor: [...best.s.favor, ...(conf.emaAligned ? [conf.emaText] : []), ...(conf.fvg ? [conf.fvgText] : []), best.trig.detail], contra: best.s.against.concat(best.risk.notes, f.filter((x) => x.status === "atencao").map((x) => `${x.name}: ${x.note}`)),
         invalidation: invalidationText(dir, best.risk.invalidation, symbol), missing: [] });
+    }
+    // modo Livre: entrada antecipada com o melhor candidato que tenha stop e alvo, sem exigir todos os filtros
+    if (rules.relaxed) {
+      const hard = (c: (typeof cands)[number]) => c.filters.some((x) => (x.id === 10 || x.id === 9) && x.status === "falha");
+      const ok = cands.filter((c) => !hard(c) && c.risk.tps[0] !== null && (c.risk.rr[0] ?? 0) >= profile.minRR && (c.score.raw ?? c.score.total) >= minScore && c.risk.riskDist <= 4 * a.M5.atr)
+        .sort((x, y) => (y.score.raw ?? y.score.total) - (x.score.raw ?? x.score.total));
+      const e = ok[0];
+      if (e) {
+        const d2 = e.s.dir, fails = e.filters.filter((x) => x.status === "falha");
+        const missingTxt = fails.map((x) => `${x.name}: ${x.note}`).concat(e.s.ready ? [] : e.s.needs.map((n) => `Estratégia incompleta: ${n}`));
+        const trade = { ...e.risk, ok: true, dir: d2 };
+        return finish({ decision: d2, state: "entrada_antecipada", watch: null, chosen: { id: e.s.id, name: `${e.s.name} (antecipada)`, dir: d2 }, trigger: e.trig,
+          trade, filters: e.filters, score: { ...e.score, total: e.score.raw ?? e.score.total, label: `ENTRADA ANTECIPADA — ${fails.length} filtro(s) sem confirmação` },
+          favor: e.s.favor, contra: [`Entrada ANTECIPADA (modo Livre): não passou em todos os filtros. Risco de erro maior.`, ...missingTxt, ...e.risk.notes],
+          invalidation: invalidationText(d2, e.risk.invalidation, symbol), missing: missingTxt });
+      }
     }
     if (nonTrigger.length === 0 && best.score.total >= minScore - 10) {
       const lvl = best.trig.level;

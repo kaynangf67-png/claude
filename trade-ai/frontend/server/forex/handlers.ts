@@ -126,6 +126,7 @@ export async function handleForexBacktest(request: Request, deps: Deps = {}): Pr
   const c5 = ok(m5, "M5");
   const result = runBacktest(c5, ok(h1, "H1"), {
     pip: pipSize(id), label: FOREX_LABEL(id), symbol: id, currencies: currenciesOf(id),
+    profile: sanitizeProfile({ style: url.searchParams.get("style") ?? undefined }),
     spreadPips: Number(url.searchParams.get("spread") ?? 1.0), slipPips: Number(url.searchParams.get("slip") ?? 0.2), stride: Number(url.searchParams.get("stride") ?? 3),
   });
   const first = c5[0]?.t ?? 0, last = c5.at(-1)?.t ?? 0;

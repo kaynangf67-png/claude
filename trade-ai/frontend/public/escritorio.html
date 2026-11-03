@@ -118,6 +118,8 @@
   .ag-pill.on { color: #4ade80; border-color: #22c55e66; background: #22c55e14; } .ag-pill.off { color: #f87171; border-color: #ef444466; background: #ef444414; } .ag-pill.warn { color: #fbbf24; border-color: #f59e0b66; background: #f59e0b12; }
   .ag-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0; } .ag-cell { border: 1px solid #ffffff12; background: #ffffff08; border-radius: 10px; padding: 7px 9px; font-size: 11px; color: #8b8b93; } .ag-cell b { display: block; font-size: 14px; color: var(--ink); font-family: ui-monospace, monospace; margin-top: 2px; }
   .ag-rules { margin: 8px 0; padding: 9px; border: 1px solid #ffffff1a; border-radius: 10px; font-size: 12px; line-height: 1.6; font-weight: 700; letter-spacing: .02em; }
+  .ai-dec.early { box-shadow: inset 0 0 0 2px #f59e0b; } .ai-dec.early b { letter-spacing: .02em; }
+  #ai-live { display: block; margin: 6px 12px 8px auto; } #ai-live[hidden] { display: none; } #ai-live.on { color: #4ade80; border-color: #22c55e88; background: #22c55e14; }
   .fx-btn { margin-top: 8px; width: 100%; appearance: none; border: 1px solid #ffffff22; background: #111; color: var(--ink); border-radius: 10px; padding: 9px; font: 700 12px/1 inherit; font-family: inherit; cursor: pointer; }
   @media (max-width: 560px) { .ai.wide { width: auto; } }
   .pc-chin { height: 34px; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 11px; font-weight: 800; letter-spacing: .2em; color: #52525b; }
@@ -181,7 +183,7 @@
         <div class="pc-chart" id="pc-chart"></div>
         <aside class="ai" aria-live="polite">
           <div class="ai-head"><span>IA · ENTRADA M5</span><small id="ai-src"></small></div>
-          <button id="ai-go" class="ai-go" type="button">Pedir entrada à IA</button>
+          <button id="ai-go" class="ai-go" type="button">Pedir entrada à IA</button><button id="ai-live" class="fx-mini" type="button" hidden title="Reanalisa sozinho a cada minuto, com a vela de 1 minuto mais recente fechada">● Ao vivo: desligado</button>
           <div class="ai-tools" id="ai-tools" hidden><button id="ai-prof" type="button">Perfil</button><button id="ai-scan" type="button">Varrer</button><button id="ai-agent" type="button">Agente</button><button id="ai-hist" type="button">Histórico</button><button id="ai-bt" type="button">Backtest</button></div>
           <div class="ag-strip" id="ag-strip" hidden></div>
           <div id="ai-out" class="ai-out"><p class="ai-hint">Escolha o mercado e peça a leitura. A IA usa as velas reais de 5 minutos, indicadores (EMA, RSI, ATR) e o calendário de notícias.</p></div>
@@ -2119,7 +2121,7 @@
     clearInterval(aiTimer); aiOut.innerHTML = "";
     document.getElementById("ai-src").textContent = sig.delayed ? "dados com atraso" : "tempo real";
     const kind = sig.decision === "CALL" ? "call" : sig.decision === "PUT" ? "put" : "wait";
-    const box = el("div", "ai-dec " + kind);
+    const box = el("div", "ai-dec " + kind + (early ? " early" : ""));
     box.append(el("b", "", sig.decision === "CALL" ? "▲ CALL" : sig.decision === "PUT" ? "▼ PUT" : "NÃO OPERAR"));
     box.append(el("span", "", sig.decision === "NAO_OPERAR" ? (sig.blocked_by || "Sem setup claro agora") : `${sig.label} · ${sig.decision === "CALL" ? "compra (alta)" : "venda (baixa)"} na abertura da vela`));
     aiOut.append(box);
@@ -2174,7 +2176,7 @@
   try { const h = JSON.parse(localStorage.getItem(HKEY)); if (Array.isArray(h)) hist = h; } catch {}
   const saveHist = () => { try { localStorage.setItem(HKEY, JSON.stringify(hist.slice(-200))); } catch {} };
   const aiBox = document.querySelector(".ai"), aiTools = document.getElementById("ai-tools");
-  function syncForex() { const f = isForex(picks[pcIdx]); aiBox.classList.toggle("wide", f); aiTools.hidden = !f; if (f) startStrip(); else { clearInterval(stripTimer); stripEl.hidden = true; } document.querySelector(".ai-head span").textContent = f ? "ANÁLISE TÉCNICA FOREX" : "IA · ENTRADA M5"; }
+  function syncForex() { const f = isForex(picks[pcIdx]); aiBox.classList.toggle("wide", f); aiTools.hidden = !f; document.getElementById("ai-live").hidden = !f; if (!f && typeof setLive === "function") setLive(false); if (f) startStrip(); else { clearInterval(stripTimer); stripEl.hidden = true; } document.querySelector(".ai-head span").textContent = f ? "ANÁLISE TÉCNICA FOREX" : "IA · ENTRADA M5"; }
   const DIR = { BUY: "COMPRA", SELL: "VENDA" };
   const when = (t) => new Date(t * 1000).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
   const pct = (v) => (v === null || v === undefined ? "—" : (v * 100).toFixed(1) + "%");
@@ -2193,6 +2195,7 @@
     conservador: { minRR: 2, txt: "Confluência mínima 80, gatilho obrigatório no M1, bloqueia se o calendário de notícias não puder ser verificado." },
     equilibrado: { minRR: 1.5, txt: "Confluência mínima 75; se o M1 faltar, o gatilho é avaliado no M5." },
     agressivo: { minRR: 1.2, txt: "Confluência mínima 70 e R:R menor: mais sinais e, em geral, mais ruído." },
+    livre: { minRR: 1.0, txt: "Entradas ANTECIPADAS em tempo real: não exige todos os filtros nem o gatilho. Só bloqueia dados atrasados e notícia de alto impacto. Muito mais sinais e muito mais erros." },
   };
   const defProfile = () => ({ pairs: FX_PAIRS.map((p) => p[0]), entryTf: "M1", context: ["M15", "H1"], maxRiskPct: 1, minRR: 1.5, strategies: STRATS.map((x) => x[0]), style: "equilibrado", balance: null });
   let profile = defProfile();
@@ -2233,6 +2236,20 @@
     aiOut.append(save, reset, msg);
   }
   document.getElementById("ai-prof").onclick = () => renderProfile();
+
+  // ---------- AO VIVO: reanálise automática a cada minuto (só velas fechadas; sem martelar o servidor) ----------
+  const liveBtn = document.getElementById("ai-live");
+  let liveTimer = null;
+  function setLive(on) {
+    clearInterval(liveTimer); liveTimer = null;
+    liveBtn.classList.toggle("on", on); liveBtn.textContent = on ? "● Ao vivo: ligado (1 min)" : "● Ao vivo: desligado";
+    if (on) {
+      const tick = () => { const a = picks[pcIdx]; if (!isForex(a) || !pc.classList.contains("open")) return setLive(false); if (!aiGo.disabled) runForex(a); };
+      tick(); liveTimer = setInterval(tick, 60000);
+    }
+  }
+  liveBtn.onclick = () => setLive(!liveTimer);
+
 
   // ---------- TRADE AGENT: painel do agente autônomo (o estado vem do servidor; esta tela só mostra e envia comandos) ----------
   const TKEY = "tradeai-agent-token";
@@ -2440,13 +2457,14 @@
     document.getElementById("ai-src").textContent = "Yahoo · pode atrasar";
     aiOut.append(el("div", "fx-top")); aiOut.lastChild.append(el("span", "", `${d.label} · M5 · ${d.atBrt} (Brasília)`), el("span", "", `Preço ${f(d.price)}`));
     aiOut.append(el("div", "ai-hint", profileLine()));
-    const confirmed = d.state === "entrada_confirmada", waiting = d.state === "aguardando_confirmacao";
+    const early = d.state === "entrada_antecipada";
+    const confirmed = d.state === "entrada_confirmada" || early, waiting = d.state === "aguardando_confirmacao";
     const frozen = openSignal(d.symbol, d.at);
     const kind = confirmed ? (d.decision === "BUY" ? "call" : "put") : waiting ? "wait2" : "wait";
     const box = el("div", "ai-dec " + kind);
-    box.append(el("b", "", confirmed ? (d.decision === "BUY" ? "▲ COMPRA" : "▼ VENDA") : waiting ? `AGUARDANDO ${DIR[d.watch.dir]}` : "NÃO OPERAR"));
-    box.append(el("span", "", confirmed ? `Entrada confirmada · ${d.chosen.name}` : waiting ? `Cenário de ${DIR[d.watch.dir].toLowerCase()} em formação · ${d.chosen.name}` : d.data.ok ? "Sem oportunidade clara agora" : "Bloqueado: dados com problema"));
-    if (!confirmed && d.missing && d.missing.length) box.append(el("div", "fx-sub", "Falta: " + d.missing.slice(0, 2).join(" · ")));
+    box.append(el("b", "", confirmed ? (d.decision === "BUY" ? "▲ COMPRA" : "▼ VENDA") + (early ? " · ANTECIPADA" : "") : waiting ? `AGUARDANDO ${DIR[d.watch.dir]}` : "NÃO OPERAR"));
+    box.append(el("span", "", early ? `Sem todos os filtros confirmados · risco de erro maior · ${d.chosen.name}` : confirmed ? `Entrada confirmada · ${d.chosen.name}` : waiting ? `Cenário de ${DIR[d.watch.dir].toLowerCase()} em formação · ${d.chosen.name}` : d.data.ok ? "Sem oportunidade clara agora" : "Bloqueado: dados com problema"));
+    if ((!confirmed || early) && d.missing && d.missing.length) box.append(el("div", "fx-sub", (early ? "Não confirmado: " : "Falta: ") + d.missing.slice(0, 2).join(" · ")));
     aiOut.append(box);
     if (!d.data.ok) aiOut.append(el("div", "fx-warn", "Dados bloqueados: " + d.data.issues.join(" | ")));
     if (frozen) {
