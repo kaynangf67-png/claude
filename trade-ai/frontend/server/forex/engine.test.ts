@@ -203,14 +203,14 @@ describe("motor: cenários completos", () => {
     expect(r.invalidation).toMatch(/acima/);
   });
   it("cenário bom sem gatilho vira 'aguardando confirmação' e não ativa a entrada", () => {
-    const r = run(noisy(22, 2360));
+    const r = run(noisy(8, 2360));
     expect(r.state).toBe("aguardando_confirmacao");
     expect(r.decision).toBe("NO_TRADE");
     expect(r.trade).toBeNull();
     expect(r.watch?.condition).toMatch(/Aguardar gatilho/);
     expect(r.closest).not.toBeNull();                       // mostra o que já foi cumprido e o que falta
     expect(r.closest!.done.length).toBeGreaterThan(0);
-    expect(r.closest!.missing.join(" ")).toMatch(/gatilho|Pontuação/i);
+    expect(r.closest!.missing.join(" ")).toMatch(/gatilho|Confluência/i);
   });
   it("sem M1 o gatilho vem do M5 e isso é informado", () => {
     const r = run(noisy(15, 2360));

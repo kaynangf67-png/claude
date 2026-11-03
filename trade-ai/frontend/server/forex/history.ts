@@ -64,3 +64,47 @@ export function computeStats(all: Resolved[]): Stats {
     note: n < 30 ? "Amostra pequena (menos de 30 sinais resolvidos): não tire conclusões." : "Resultado passado não garante resultado futuro.",
   };
 }
+
+/** Item do histórico no navegador: toda análise é registrada, inclusive NO TRADE. `realR` só existe se o usuário informou um resultado real. */
+export interface HistItem extends Partial<Omit<SavedSignal, "dir" | "score">> {
+  id: string; symbol: string; label: string; at: number; tf: string; decision: string; state: string; dir: Dir | null; strategy: string;
+  score: number | null; missing?: string[]; realR?: number | null;
+}
+export interface HistorySummary {
+  analyses: { total: number; entries: number; waiting: number; noTrade: number };
+  /** Resultados conferidos automaticamente com as velas reais (simulação: não houve ordem de verdade). */
+  simulated: Stats;
+  /** Só o que o usuário registrou como resultado real. Vazio se nunca registrou. */
+  real: Stats | null;
+  unresolved: number;
+  noTradeBySymbol: { key: string; n: number }[];
+  noTradeReasons: { key: string; n: number }[];
+}
+
+const countBy = (xs: string[]) => {
+  const m = new Map<string, number>();
+  for (const x of xs) m.set(x, (m.get(x) ?? 0) + 1);
+  return [...m.entries()].map(([key, n]) => ({ key, n })).sort((a, b) => b.n - a.n);
+};
+
+/** Separa resultados simulados, reais e não resolvidos (grupos que não se sobrepõem) e conta as análises sem operação. */
+export function summarizeHistory(items: HistItem[], resolved: Resolved[]): HistorySummary {
+  const byId = new Map(resolved.map((r) => [r.id, r]));
+  const entries = items.filter((i) => i.dir);
+  const realItems = entries.filter((i) => typeof i.realR === "number" && Number.isFinite(i.realR));
+  const realIds = new Set(realItems.map((i) => i.id));
+  const real: Resolved[] = realItems.map((i) => {
+    const base = byId.get(i.id);
+    return { ...(base ?? (i as unknown as SavedSignal)), status: (i.realR as number) > 0 ? "tp1" : "stop", r: i.realR as number, closedAt: base?.closedAt ?? i.at } as Resolved;
+  });
+  const sim = resolved.filter((r) => !realIds.has(r.id) && r.status !== "aberto");
+  const noTrade = items.filter((i) => !i.dir);
+  return {
+    analyses: { total: items.length, entries: entries.length, waiting: items.filter((i) => !i.dir && i.state === "aguardando_confirmacao").length, noTrade: noTrade.length },
+    simulated: computeStats(sim),
+    real: real.length ? computeStats(real) : null,
+    unresolved: entries.filter((i) => !realIds.has(i.id) && (byId.get(i.id)?.status ?? "aberto") === "aberto").length,
+    noTradeBySymbol: countBy(noTrade.map((i) => i.label)),
+    noTradeReasons: countBy(noTrade.map((i) => (i.missing?.[0] ?? "sem setup válido").split(":")[0].slice(0, 60))).slice(0, 8),
+  };
+}

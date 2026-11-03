@@ -97,6 +97,19 @@
   .fx-dot { width: 8px; height: 8px; border-radius: 50%; background: #3f3f46; flex: 0 0 auto; margin-top: 4px; } .fx-dot.ok { background: #22c55e; } .fx-dot.bad { background: #ef4444; } .fx-dot.warn { background: #f59e0b; } .fx-dot.dim { background: #3f3f46; }
   .ai details { margin-top: 10px; } .ai summary { cursor: pointer; font-size: 11px; font-weight: 800; letter-spacing: .1em; color: #63636b; }
   .fx-narr { margin-top: 10px; padding: 10px; border-radius: 10px; border: 1px dashed #ffffff22; font-size: 12.5px; color: #d4d4d8; } .fx-narr small { display: block; margin-bottom: 4px; color: #71717a; font-size: 10.5px; letter-spacing: .08em; }
+  .fx-chart { margin: 10px 0 4px; } .fx-chart canvas { display: block; width: 100%; border-radius: 10px; border: 1px solid #ffffff14; background: #0b0b0b; }
+  .fx-legend { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 5px; font-size: 10.5px; color: #8b8b93; } .fx-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .fx-conf-head { display: flex; align-items: baseline; gap: 8px; } .fx-conf-head b { font-size: 30px; font-family: ui-monospace, monospace; } .fx-conf-head span { font-size: 12px; color: #a1a1aa; font-weight: 700; }
+  .fx-comp { padding: 7px 0; border-bottom: 1px solid #ffffff0a; font-size: 12px; } .fx-comp-top { display: flex; align-items: center; gap: 8px; } .fx-comp-top b { flex: 1; } .fx-comp-top small { color: #71717a; }
+  .fx-comp .ai-bar { margin: 5px 0 4px; height: 4px; } .fx-comp p { margin: 0; color: #a1a1aa; line-height: 1.4; }
+  .fx-st { font-size: 10px; font-weight: 800; letter-spacing: .04em; border-radius: 6px; padding: 2px 6px; border: 1px solid #ffffff22; color: #a1a1aa; }
+  .fx-st.favoravel { color: #4ade80; border-color: #22c55e66; background: #22c55e14; } .fx-st.contrario { color: #f87171; border-color: #ef444466; background: #ef444414; } .fx-st.neutro { color: #fbbf24; border-color: #f59e0b66; background: #f59e0b12; }
+  .fx-thesis { border: 1px solid #ffffff1a; background: #ffffff06; border-radius: 12px; padding: 10px; margin-top: 4px; } .fx-thesis h5 { margin: 0 0 6px; font-size: 13px; letter-spacing: .03em; }
+  .fx-th { display: flex; gap: 6px; padding: 3px 0; font-size: 12px; line-height: 1.4; } .fx-th b { flex: 0 0 82px; color: #8b8b93; font-size: 11px; letter-spacing: .04em; }
+  .fx-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 6px 0; } .fx-field { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: #8b8b93; }
+  .fx-field input, .fx-field select, .fx-fields select, .fx-fields input { background: #0b0b0b; color: var(--ink); border: 1px solid #262626; border-radius: 8px; padding: 7px; font: 600 12px/1 inherit; font-family: inherit; width: 100%; box-sizing: border-box; }
+  .fx-checks { display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 4px 0; } .fx-chk { display: flex; align-items: center; gap: 5px; font-size: 12px; cursor: pointer; }
+  .fx-mini { appearance: none; border: 1px solid #ffffff22; background: #111; color: #a1a1aa; border-radius: 7px; padding: 3px 7px; font: 700 10.5px/1 inherit; font-family: inherit; cursor: pointer; margin-left: auto; flex: 0 0 auto; }
   .fx-btn { margin-top: 8px; width: 100%; appearance: none; border: 1px solid #ffffff22; background: #111; color: var(--ink); border-radius: 10px; padding: 9px; font: 700 12px/1 inherit; font-family: inherit; cursor: pointer; }
   @media (max-width: 560px) { .ai.wide { width: auto; } }
   .pc-chin { height: 34px; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 11px; font-weight: 800; letter-spacing: .2em; color: #52525b; }
@@ -161,7 +174,7 @@
         <aside class="ai" aria-live="polite">
           <div class="ai-head"><span>IA · ENTRADA M5</span><small id="ai-src"></small></div>
           <button id="ai-go" class="ai-go" type="button">Pedir entrada à IA</button>
-          <div class="ai-tools" id="ai-tools" hidden><button id="ai-hist" type="button">Histórico</button><button id="ai-bt" type="button">Backtest</button></div>
+          <div class="ai-tools" id="ai-tools" hidden><button id="ai-prof" type="button">Perfil</button><button id="ai-scan" type="button">Varrer</button><button id="ai-hist" type="button">Histórico</button><button id="ai-bt" type="button">Backtest</button></div>
           <div id="ai-out" class="ai-out"><p class="ai-hint">Escolha o mercado e peça a leitura. A IA usa as velas reais de 5 minutos, indicadores (EMA, RSI, ATR) e o calendário de notícias.</p></div>
         </aside>
       </div>
@@ -2064,12 +2077,154 @@
   const trendChip = (name, t) => { const c = el("div", "fx-chip " + (t === "alta" ? "up" : t === "baixa" ? "down" : "flat"), name); c.append(el("b", "", t === "alta" ? "▲ Alta" : t === "baixa" ? "▼ Baixa" : "■ Lateral")); return c; };
   const kv = (rows) => { const dl = el("dl", "fx-kv"); rows.forEach(([k, v]) => { dl.append(el("dt", "", k)); dl.append(el("dd", "", v)); }); return dl; };
 
+
+  // ---------- TRADE PROFILE: critérios salvos que TODAS as análises usam ----------
+  const PKEY = "tradeai-forex-perfil";
+  const FX_PAIRS = ASSETS.filter((a) => a.group === "Forex").map((a) => [a.id, a.label]);
+  const STRATS = [[1, "Continuidade de tendência"], [2, "Reversão em suporte/resistência"], [3, "BOS e reteste"], [4, "Varredura de liquidez"], [5, "LTA e LTB"], [9, "Impulso a favor da estrutura"]];
+  const STYLES = {
+    conservador: { minRR: 2, txt: "Confluência mínima 80, gatilho obrigatório no M1, bloqueia se o calendário de notícias não puder ser verificado." },
+    equilibrado: { minRR: 1.5, txt: "Confluência mínima 75; se o M1 faltar, o gatilho é avaliado no M5." },
+    agressivo: { minRR: 1.2, txt: "Confluência mínima 70 e R:R menor: mais sinais e, em geral, mais ruído." },
+  };
+  const defProfile = () => ({ pairs: FX_PAIRS.map((p) => p[0]), entryTf: "M1", context: ["M15", "H1"], maxRiskPct: 1, minRR: 1.5, strategies: STRATS.map((x) => x[0]), style: "equilibrado", balance: null });
+  let profile = defProfile();
+  try { const p = JSON.parse(localStorage.getItem(PKEY)); if (p && typeof p === "object") profile = { ...profile, ...p }; } catch {}
+  const saveProfile = () => { try { localStorage.setItem(PKEY, JSON.stringify(profile)); } catch {} };
+  const profileLine = () => `Perfil ${profile.style} · R:R mín. ${profile.minRR} · risco ${profile.maxRiskPct}% · ${profile.pairs.length} pares · ${profile.strategies.length} estratégias · entrada no ${profile.entryTf}`;
+
+  function renderProfile() {
+    clearInterval(aiTimer); aiOut.innerHTML = "";
+    aiOut.append(el("div", "fx-top")); aiOut.lastChild.append(el("span", "", "Trade Profile"), el("span", "", "salvo neste navegador"));
+    const draft = JSON.parse(JSON.stringify(profile));
+    const toggle = (arr, v, on) => { const i = arr.indexOf(v); if (on && i < 0) arr.push(v); if (!on && i >= 0) arr.splice(i, 1); };
+    const checks = (items, selected) => { const w = el("div", "fx-checks"); items.forEach(([v, t]) => { const l = el("label", "fx-chk"), i = el("input"); i.type = "checkbox"; i.checked = selected.includes(v); i.onchange = () => toggle(selected, v, i.checked); l.append(i, el("span", "", t)); w.append(l); }); return w; };
+    const field = (label, node) => { const w = el("label", "fx-field"); w.append(el("span", "", label), node); return w; };
+    const numIn = (v, step) => { const i = el("input"); i.type = "number"; i.step = step; i.value = v ?? ""; return i; };
+    const opt = (sel, pairs) => { pairs.forEach(([v, t]) => { const o = el("option", "", t); o.value = v; sel.append(o); }); return sel; };
+    aiOut.append(sec("MERCADO E PARES MONITORADOS", el("div", "ai-hint", "Mercado: Forex. A análise só roda para os pares marcados."), checks(FX_PAIRS, draft.pairs)));
+    const main = el("input"); main.value = "M5 (movimento atual)"; main.disabled = true;
+    const entry = opt(el("select"), [["M1", "M1 (gatilho)"], ["M5", "M5 (sem M1)"]]); entry.value = draft.entryTf; entry.onchange = () => { draft.entryTf = entry.value; };
+    const tf = el("div", "fx-fields"); tf.append(field("Principal", main), field("Entrada", entry));
+    aiOut.append(sec("TEMPORALIDADES", tf, el("div", "ai-hint", "Contexto (entra no alinhamento de tendência):"), checks([["M15", "M15"], ["H1", "H1"]], draft.context), el("div", "ai-hint", "O H1 sempre define as regiões de suporte e resistência.")));
+    const risk = numIn(draft.maxRiskPct, "0.1"), rr = numIn(draft.minRR, "0.1"), bal = numIn(draft.balance, "100");
+    const style = opt(el("select"), Object.keys(STYLES).map((k) => [k, k[0].toUpperCase() + k.slice(1)])); style.value = draft.style;
+    const styleTxt = el("div", "ai-hint", STYLES[draft.style].txt);
+    style.onchange = () => { draft.style = style.value; styleTxt.textContent = STYLES[draft.style].txt; rr.value = STYLES[draft.style].minRR; };
+    const fl = el("div", "fx-fields"); fl.append(field("Risco máx. por operação (%)", risk), field("R:R mínimo", rr), field("Saldo em USD (opcional)", bal), field("Perfil", style));
+    aiOut.append(sec("RISCO E PERFIL", fl, styleTxt, el("div", "ai-hint", "O saldo só serve para calcular o lote (pares com USD). Nada é enviado a corretora.")));
+    aiOut.append(sec("ESTRATÉGIAS HABILITADAS", checks(STRATS, draft.strategies)));
+    const msg = el("div", "fx-note"); msg.hidden = true;
+    const save = el("button", "fx-btn", "Salvar perfil"); save.type = "button";
+    save.onclick = () => {
+      if (!draft.pairs.length || !draft.strategies.length) { msg.hidden = false; msg.textContent = "Marque ao menos um par e uma estratégia."; return; }
+      profile = { ...draft, maxRiskPct: Math.min(5, Math.max(0.1, +risk.value || 1)), minRR: Math.min(5, Math.max(1, +rr.value || 1.5)), balance: bal.value === "" ? null : Math.max(1, +bal.value || 0) || null };
+      saveProfile(); msg.hidden = false; msg.textContent = "Perfil salvo. " + profileLine() + ". As próximas análises já usam estes critérios.";
+    };
+    const reset = el("button", "fx-btn", "Restaurar padrão"); reset.type = "button";
+    reset.onclick = () => { profile = defProfile(); saveProfile(); renderProfile(); };
+    aiOut.append(save, reset, msg);
+  }
+  document.getElementById("ai-prof").onclick = () => renderProfile();
+
+  // ---------- Pattern History, sinais abertos e registro de TODAS as análises ----------
+  function patternStats() {
+    const m = new Map();
+    hist.filter((h) => h.dir && h.status !== "aberto" && (typeof h.realR === "number" || typeof h.r === "number")).forEach((h) => {
+      const k = h.strategy + "|" + h.symbol, x = m.get(k) || { strategy: h.strategy, symbol: h.symbol, n: 0, sumR: 0 };
+      x.n++; x.sumR += typeof h.realR === "number" ? h.realR : h.r; m.set(k, x);
+    });
+    return [...m.values()];
+  }
+  const openSignal = (sym, at) => hist.find((h) => h.symbol === sym && h.dir && h.status === "aberto" && at >= h.at && at - h.at < 3600);
+  /** Registra toda análise (inclusive NO TRADE). Um sinal confirmado repetido dentro de 1 h NÃO cria registro novo: o original fica congelado. */
+  function logAnalysis(d, frozen) {
+    const confirmed = d.state === "entrada_confirmada";
+    if (confirmed && frozen && frozen.dir === d.trade.dir) return;
+    hist.push({ id: d.symbol + "-" + d.at, symbol: d.symbol, label: d.label, at: d.at, tf: "M5", decision: d.decision, state: d.state, dir: confirmed ? d.trade.dir : null,
+      strategy: d.chosen ? d.chosen.name : "—", entry: d.trade ? d.trade.entry : null, sl: d.trade ? d.trade.sl : null, tps: d.trade ? d.trade.tps : [null, null, null], score: d.score ? d.score.total : null,
+      reasons: d.favor.slice(0, 4), against: d.contra.slice(0, 3), missing: (d.missing || []).slice(0, 3), pip: d.pip, status: confirmed ? "aberto" : "sem entrada", r: null, snap: confirmed ? d.trade : null, profile: profile.style });
+    saveHist();
+  }
+
+  // ---------- CHART ANNOTATION: candles M5 reais + marcações com os preços exatos do motor ----------
+  const ANN_COLOR = { entrada: "#60a5fa", stop: "#f87171", take: "#4ade80", suporte: "#22c55e", resistencia: "#ef4444", lta: "#34d399", ltb: "#fb7185", sweep: "#f59e0b", bos: "#a78bfa", choch: "#22d3ee", fvg: "#eab308" };
+  const ANN_NAME = { entrada: "Entrada", stop: "Stop", take: "Take", suporte: "Suporte", resistencia: "Resistência", lta: "LTA", ltb: "LTB", sweep: "Sweep", bos: "BOS", choch: "CHoCH", fvg: "FVG" };
+  function drawChart(d, frozen) {
+    const wrap = el("div", "fx-chart"), cv = el("canvas"), cs = d.chart.candles;
+    if (cs.length < 10) { wrap.append(el("div", "ai-hint", "Poucas velas para desenhar o gráfico.")); return wrap; }
+    const W = 440, H = 250, dpr = window.devicePixelRatio || 1; cv.width = W * dpr; cv.height = H * dpr; cv.style.aspectRatio = W + "/" + H;
+    const g = cv.getContext("2d"); g.scale(dpr, dpr);
+    const dg = d.symbol.includes("JPY") ? 3 : 5, L = 6, Rm = 74, T = 8, B = 16, pw = W - L - Rm, ph = H - T - B, step = pw / cs.length;
+    const anns = d.chart.annotations.filter((a) => !(frozen && (a.kind === "entrada" || a.kind === "stop" || a.kind === "take")));
+    // a escala usa entrada, stop, TP1 e TP2; um TP3 distante não pode achatar as velas (ele só é desenhado se couber)
+    const levels = anns.filter((a) => (a.kind === "entrada" || a.kind === "stop" || (a.kind === "take" && /Take [12]/.test(a.label))) && a.price != null).map((a) => a.price);
+    if (frozen) levels.push(frozen.entry, frozen.sl, ...(frozen.tps || []).slice(0, 2).filter((x) => x != null));
+    let lo = Math.min(...cs.map((c) => c.l), ...levels), hi = Math.max(...cs.map((c) => c.h), ...levels);
+    const pad = (hi - lo) * 0.06 || 1e-4; lo -= pad; hi += pad;
+    const Y = (p) => T + ((hi - p) / (hi - lo)) * ph;
+    const idx = (t) => { if (t <= cs[0].t) return 0; for (let i = 0; i < cs.length; i++) if (cs[i].t > t) return Math.max(0, i - 1); return cs.length - 1; };
+    const X = (t) => L + (idx(t) + 0.5) * step;
+    g.fillStyle = "#0b0b0b"; g.fillRect(0, 0, W, H);
+    g.font = "9px ui-monospace, monospace";
+    const zone = (a, fill) => { if (a.high < lo || a.low > hi) return; const y1 = Y(Math.min(a.high, hi)), y2 = Y(Math.max(a.low, lo)), x1 = a.t1 ? X(a.t1) : L, x2 = a.t2 ? X(a.t2) + step : L + pw; g.fillStyle = fill; g.fillRect(x1, y1, x2 - x1, Math.max(1.5, y2 - y1)); };
+    anns.forEach((a) => { if (a.low == null) return; if (a.kind === "suporte") zone(a, "#22c55e24"); else if (a.kind === "resistencia") zone(a, "#ef444424"); else if (a.kind === "fvg") zone(a, "#eab30830"); else if (a.kind === "entrada") zone(a, "#60a5fa30"); });
+    cs.forEach((c, i) => {
+      const x = L + (i + 0.5) * step, up = c.c >= c.o; g.strokeStyle = g.fillStyle = up ? "#22c55e" : "#ef4444"; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(x, Y(c.h)); g.lineTo(x, Y(c.l)); g.stroke();
+      const y1 = Y(Math.max(c.o, c.c)), y2 = Y(Math.min(c.o, c.c)); g.fillRect(x - Math.max(1, step * 0.32), y1, Math.max(2, step * 0.64), Math.max(1, y2 - y1));
+    });
+    const hline = (p, color, dash, label) => { if (p < lo || p > hi) return; const y = Y(p); g.strokeStyle = color; g.lineWidth = 1; g.setLineDash(dash); g.beginPath(); g.moveTo(L, y); g.lineTo(L + pw, y); g.stroke(); g.setLineDash([]); g.fillStyle = color; g.fillText(label + " " + Number(p).toFixed(dg), L + pw + 3, y + 3); };
+    const seg = (t1, p1, t2, p2, color, dash) => { g.strokeStyle = color; g.lineWidth = 1.2; g.setLineDash(dash); g.beginPath(); g.moveTo(X(t1), Y(p1)); g.lineTo(X(t2), Y(p2)); g.stroke(); g.setLineDash([]); };
+    anns.forEach((a) => {
+      const col = ANN_COLOR[a.kind];
+      if (a.kind === "lta" || a.kind === "ltb") seg(a.t1, a.p1, a.t2, a.p2, col, [5, 3]);
+      else if (a.kind === "bos" || a.kind === "choch") { if (a.price >= lo && a.price <= hi) { seg(a.t1, a.price, a.t2, a.price, col, [2, 2]); g.fillStyle = col; g.fillText(ANN_NAME[a.kind], X(a.t1), Y(a.price) - 3); } }
+      else if (a.kind === "sweep") { if (a.price >= lo && a.price <= hi) { const x = X(a.t1), y = Y(a.price); g.fillStyle = col; g.beginPath(); g.moveTo(x, y - 5); g.lineTo(x - 4, y + 3); g.lineTo(x + 4, y + 3); g.fill(); g.fillText("Sweep", x + 6, y + 3); } }
+      else if (a.kind === "entrada" && a.price != null) hline(a.price, col, [], "E");
+      else if (a.kind === "stop") hline(a.price, col, a.label.includes("condicional") ? [3, 3] : [], "SL");
+      else if (a.kind === "take") hline(a.price, col, a.label.includes("condicional") ? [3, 3] : [], "TP" + (a.label.match(/Take (\d)/) || [0, ""])[1]);
+    });
+    if (frozen) { hline(frozen.entry, ANN_COLOR.entrada, [1, 2], "E reg."); hline(frozen.sl, ANN_COLOR.stop, [1, 2], "SL reg."); (frozen.tps || []).forEach((tp, i) => { if (tp != null) hline(tp, ANN_COLOR.take, [1, 2], "TP" + (i + 1) + " reg."); }); }
+    g.fillStyle = "#71717a"; const tm = (t) => new Date(t * 1000).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+    [0, Math.floor(cs.length / 2), cs.length - 1].forEach((i, k) => g.fillText(tm(cs[i].t), Math.min(W - Rm - 28, L + i * step - (k === 2 ? 22 : 0)), H - 4));
+    wrap.append(cv);
+    const kinds = [...new Set(anns.map((a) => a.kind).concat(frozen ? ["entrada", "stop", "take"] : []))];
+    const lg = el("div", "fx-legend"); kinds.forEach((k) => { const sp = el("span"); const i = el("i"); i.style.background = ANN_COLOR[k]; sp.append(i, ANN_NAME[k]); lg.append(sp); });
+    wrap.append(lg, el("div", "ai-hint", `Últimas ${cs.length} velas fechadas do M5 (Yahoo). Marcações usam os preços calculados pelo motor${frozen ? "; as linhas “reg.” são do sinal já registrado e não mudam" : ""}.`));
+    return wrap;
+  }
+
+  const STATE_TXT = { favoravel: "A FAVOR", neutro: "NEUTRO", contrario: "CONTRA", nao_verificado: "NÃO VERIFICADO", sem_dados: "SEM DADOS" };
+  function confluenceView(sc) {
+    const w = el("div"), head = el("div", "fx-conf-head");
+    head.append(el("b", "", String(sc.total)), el("span", "", "/100 · " + sc.label)); w.append(head);
+    const bar = el("div", "ai-bar"), fill = el("i"); fill.style.width = sc.total + "%"; fill.style.background = sc.capped.length ? "#ef4444" : sc.total >= 75 ? "#22c55e" : sc.total >= 50 ? "#f59e0b" : "#71717a"; bar.append(fill); w.append(bar);
+    w.append(el("div", "ai-hint", "Confluência é a soma ponderada de evidências técnicas. Não é probabilidade de acerto e não foi calibrada com resultados. Componentes sem dado verificável ficam fora da média." + (sc.capped.length ? ` Pontuação limitada a 49 porque o filtro obrigatório falhou: ${sc.capped.join(", ")}.` : "")));
+    sc.components.forEach((c) => {
+      const row = el("div", "fx-comp"), top = el("div", "fx-comp-top");
+      top.append(el("b", "", c.name), el("small", "", `peso ${c.weight}`), el("b", "", c.score === null ? "—" : String(c.score)), el("span", "fx-st " + c.state, STATE_TXT[c.state]));
+      top.lastChild.previousSibling.style.flex = "0 0 auto";
+      const b = el("div", "ai-bar"), f2 = el("i"); f2.style.width = (c.score ?? 0) + "%"; f2.style.background = c.state === "favoravel" ? "#22c55e" : c.state === "contrario" ? "#ef4444" : c.state === "neutro" ? "#f59e0b" : "#3f3f46"; b.append(f2);
+      row.append(top, b, el("p", "", c.why)); w.append(row);
+    });
+    return w;
+  }
+  function thesisView(t) {
+    const b = el("div", "fx-thesis");
+    b.append(el("h5", "", `CENÁRIO: ${t.scenario}` + (t.status === "condicional" ? " · condicional (ainda não é entrada)" : t.status === "confirmada" ? " · entrada confirmada" : "")));
+    t.lines.forEach((l) => { const r = el("div", "fx-th"); r.append(el("b", "", l.label), el("span", "", l.text)); b.append(r); });
+    return b;
+  }
+
   function renderForex(d) {
     clearInterval(aiTimer); aiOut.innerHTML = "";
     const f = (v) => (v === null || v === undefined ? "—" : Number(v).toFixed(d.symbol.includes("JPY") ? 3 : 5));
     document.getElementById("ai-src").textContent = "Yahoo · pode atrasar";
     aiOut.append(el("div", "fx-top")); aiOut.lastChild.append(el("span", "", `${d.label} · M5 · ${d.atBrt} (Brasília)`), el("span", "", `Preço ${f(d.price)}`));
+    aiOut.append(el("div", "ai-hint", profileLine()));
     const confirmed = d.state === "entrada_confirmada", waiting = d.state === "aguardando_confirmacao";
+    const frozen = openSignal(d.symbol, d.at);
     const kind = confirmed ? (d.decision === "BUY" ? "call" : "put") : waiting ? "wait2" : "wait";
     const box = el("div", "ai-dec " + kind);
     box.append(el("b", "", confirmed ? (d.decision === "BUY" ? "▲ COMPRA" : "▼ VENDA") : waiting ? `AGUARDANDO ${DIR[d.watch.dir]}` : "NÃO OPERAR"));
@@ -2077,30 +2232,31 @@
     if (!confirmed && d.missing && d.missing.length) box.append(el("div", "fx-sub", "Falta: " + d.missing.slice(0, 2).join(" · ")));
     aiOut.append(box);
     if (!d.data.ok) aiOut.append(el("div", "fx-warn", "Dados bloqueados: " + d.data.issues.join(" | ")));
-    if (d.score) {
-      const bar = el("div", "ai-bar"), fill = el("i"); fill.style.width = d.score.total + "%"; fill.style.background = d.score.total >= 75 ? "#22c55e" : d.score.total >= 50 ? "#f59e0b" : "#71717a"; bar.append(fill);
-      aiOut.append(bar, el("div", "ai-hint", `Confluência ${d.score.total}/100 · ${d.score.label}. É soma de confluência técnica, não probabilidade de acerto.`));
+    if (frozen) {
+      const fz = el("div", "fx-note"); fz.append(el("div", "", `SINAL REGISTRADO ABERTO · ${DIR[frozen.dir]} às ${when(frozen.at)} · ${frozen.strategy}`), ul([`Entrada ${f(frozen.entry)} · Stop ${f(frozen.sl)} · Take 1 ${f(frozen.tps[0])}`, "Estes níveis foram congelados no momento do sinal e não mudam com as velas novas. Esta análise não cria outro registro do mesmo sinal."], "fx-list"));
+      aiOut.append(fz);
     }
+    aiOut.append(sec("GRÁFICO M5 COM MARCAÇÕES", drawChart(d, frozen)));
+    if (d.score) aiOut.append(sec("CONFLUENCE SCORE", confluenceView(d.score)));
+    else aiOut.append(sec("CONFLUENCE SCORE", el("div", "fx-note", "Sem cenário avaliável: nenhuma estratégia habilitada chegou ao ponto de pontuar.")));
+    if (!confirmed && d.release) {
+      const rl2 = el("ul", "fx-list");
+      d.release.conditions.forEach((c) => { const li = el("li"); li.append(el("span", "fx-dot " + (c.ok ? "ok" : "bad")), el("span", "", (c.ok ? "✓ " : "✗ ") + c.text)); rl2.append(li); });
+      aiOut.append(sec(`CONDIÇÕES PARA LIBERAR · ${d.release.scenario} (${DIR[d.release.dir].toLowerCase()})`, rl2, el("div", "ai-hint", "A operação só é liberada quando todas as condições estiverem ✓ e o gatilho confirmar. Cenário NÃO ativo: não é entrada.")));
+    }
+    aiOut.append(sec("TRADE THESIS", thesisView(d.thesis)));
     const chips = el("div", "fx-chips");
     chips.append(trendChip("Movimento M5", d.trends.M5), d.trends.M1 ? trendChip("Movimento M1", d.trends.M1) : (() => { const c = el("div", "fx-chip flat", "Movimento M1"); c.append(el("b", "", "indisponível")); return c; })());
     aiOut.append(chips, kv([["Contexto", d.context], ["Estrutura M5", `${d.tfs.M5.bos ? "BOS " + DIR[d.tfs.M5.bos] : "sem BOS"} · ${d.tfs.M5.choch ? "CHoCH " + DIR[d.tfs.M5.choch] : "sem CHoCH"}`], ["Último topo / fundo M5", `${f(d.tfs.M5.lastHigh)} / ${f(d.tfs.M5.lastLow)}`], ["RSI 14 · ATR 14 (M5)", `${d.tfs.M5.rsi ?? "—"} · ${d.tfs.M5.atrPips} pips`], ["EMAs M5", d.tfs.M5.ema.stack === "alta" ? "alinhadas p/ alta" : d.tfs.M5.ema.stack === "baixa" ? "alinhadas p/ baixa" : "sem alinhamento"]]));
 
     if (d.trade && confirmed) {
-      const t = d.trade, box2 = el("div", "fx-trade" + (t.dir === "SELL" ? " sell" : ""));
-      box2.append(el("h4", "", "OPERAÇÃO · " + DIR[t.dir]), kv([["Entrada", f(t.entry)], ["Stop Loss", f(t.sl)], ["Take Profit 1", `${f(t.tps[0])}  (R:R ${num2(t.rr[0])})`], ["Take Profit 2", t.tps[1] ? `${f(t.tps[1])}  (R:R ${num2(t.rr[1])})` : "—"], ["Take Profit 3", t.tps[2] ? `${f(t.tps[2])}  (R:R ${num2(t.rr[2])})` : "—"], ["Risco", `${t.riskPips} pips (ATR ${t.atrPips})`], ["Alvo 1", `${t.targetAtr} ATR do M5`], ["Duração prevista", `até ${t.maxHoldMin} min (operação curta)`], ["Pontuação", `${d.score.total}/100`]]));
+      const t = frozen && frozen.snap ? frozen.snap : d.trade, box2 = el("div", "fx-trade" + (t.dir === "SELL" ? " sell" : ""));
+      box2.append(el("h4", "", "OPERAÇÃO · " + DIR[t.dir]), kv([["Entrada", f(t.entry)], ["Stop Loss", f(t.sl)], ["Take Profit 1", `${f(t.tps[0])}  (R:R ${num2(t.rr[0])})`], ["Take Profit 2", t.tps[1] ? `${f(t.tps[1])}  (R:R ${num2(t.rr[1])})` : "—"], ["Take Profit 3", t.tps[2] ? `${f(t.tps[2])}  (R:R ${num2(t.rr[2])})` : "—"], ["Risco", `${t.riskPips} pips (ATR ${t.atrPips})`], ["Alvo 1", `${t.targetAtr} ATR do M5`], ["Duração prevista", `até ${t.maxHoldMin} min (operação curta)`], ["Confluência", `${d.score.total}/100 (não é probabilidade)`]]));
+      if (d.sizing && !frozen) box2.append(el("div", "ai-hint", d.sizing.note));
       if (t.notes.length) box2.append(ul(t.notes, "fx-list"));
       aiOut.append(box2);
     }
     if (d.watch) aiOut.append(sec("PRÓXIMA OPORTUNIDADE", el("div", "fx-note", `${waiting ? "AGUARDANDO " + DIR[d.watch.dir] : "Em observação (" + DIR[d.watch.dir].toLowerCase() + ")"}. ${d.watch.condition} Só vale como entrada depois que o gatilho for confirmado; reanalise com dados novos.`)));
-    if (d.closest && !confirmed) {
-      const c = d.closest, b = el("div", "fx-note");
-      const fx = (v) => f(v);
-      const rows = c.done.map((x) => "✓ " + x).concat(c.missing.map((x) => "✗ " + x));
-      if (c.stop != null) rows.push("Stop de referência: " + fx(c.stop));
-      if (c.targetRegion) rows.push("Região H1 a observar: " + fx(c.targetRegion.low) + " – " + fx(c.targetRegion.high));
-      b.append(el("div", "", c.name + " · " + DIR[c.dir] + " (cenário NÃO ativo — não é entrada)"), ul(rows, "fx-list"));
-      aiOut.append(sec("CENÁRIO MAIS PRÓXIMO", b));
-    }
     if (d.trigger) aiOut.append(sec("GATILHO DE ENTRADA", el("div", "fx-note", d.trigger.detail)));
 
     const rl = el("ul", "fx-list");
@@ -2110,7 +2266,7 @@
     aiOut.append(sec("REGIÕES DO H1 (SUPORTE E RESISTÊNCIA)", rl));
 
     const sl = el("ul", "fx-list");
-    d.strategies.forEach((s) => { const li = el("li"); const cls = s.status === "pronta" || s.status === "confluencia" ? "ok" : s.status === "em_formacao" ? "warn" : "dim"; const label = { pronta: "pronta", em_formacao: "em formação", ausente: "ausente", confluencia: "confluência", confluencia_ausente: "sem confluência" }[s.status]; li.append(el("span", "fx-dot " + cls), el("span", "", `${s.id}. ${s.name} — ${label}${s.dir ? " (" + DIR[s.dir].toLowerCase() + ")" : ""}${s.detail[0] ? ": " + s.detail[0] : ""}`)); sl.append(li); });
+    d.strategies.forEach((s) => { const li = el("li"); const cls = s.status === "pronta" || s.status === "confluencia" ? "ok" : s.status === "em_formacao" ? "warn" : "dim"; const label = { pronta: "pronta", em_formacao: "em formação", ausente: "ausente", confluencia: "confluência", confluencia_ausente: "sem confluência", desabilitada: "desabilitada no perfil" }[s.status]; li.append(el("span", "fx-dot " + cls), el("span", "", `${s.id}. ${s.name} — ${label}${s.dir ? " (" + DIR[s.dir].toLowerCase() + ")" : ""}${s.detail[0] ? ": " + s.detail[0] : ""}`)); sl.append(li); });
     aiOut.append(sec("ESTRATÉGIAS", sl));
 
     const fd = el("details"); fd.append(el("summary", "", `FILTROS OBRIGATÓRIOS (${d.filters.filter((x) => x.status === "ok").length}/${d.filters.length} ok)`));
@@ -2128,18 +2284,14 @@
     if (d.filters.some((x) => x.status === "nao_verificado")) aiOut.append(el("div", "fx-note", "Filtro de notícias NÃO verificado (calendário indisponível)."));
     aiOut.append(el("div", "ai-foot", d.sourceNote + " Análise técnica não é recomendação nem garantia de resultado."));
 
-    // histórico: registra toda análise; só as que têm operação entram no cálculo de desempenho
-    hist.push({ id: d.symbol + "-" + d.at, symbol: d.symbol, label: d.label, at: d.at, tf: "M5", decision: d.decision, state: d.state, dir: confirmed ? d.trade.dir : null,
-      strategy: d.chosen ? d.chosen.name : "—", entry: d.trade ? d.trade.entry : null, sl: d.trade ? d.trade.sl : null, tps: d.trade ? d.trade.tps : [null, null, null], score: d.score ? d.score.total : null,
-      reasons: d.favor.slice(0, 4), against: d.contra.slice(0, 3), missing: (d.missing || []).slice(0, 3), pip: d.pip, status: confirmed ? "aberto" : "sem entrada", r: null });
-    saveHist();
+    logAnalysis(d, frozen);
   }
 
   async function runForex(asset) {
     aiGo.disabled = true; aiGo.textContent = "Analisando…"; aiCool = Date.now() + 15000;
     aiOut.innerHTML = ""; aiOut.append(el("p", "ai-hint", "Buscando velas de H1, M15, M5 e M1, calculando estrutura, regiões e filtros…"));
     try {
-      const r = await fetch("/api/forex", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ asset }) });
+      const r = await fetch("/api/forex", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ asset, profile, history: patternStats() }) });
       const d = await r.json().catch(() => ({ error: `Erro ${r.status}` }));
       if (asset !== picks[pcIdx]) return;
       if (!r.ok) throw new Error(d.error || `Erro ${r.status}`);
@@ -2158,7 +2310,8 @@
     return wrap;
   }
 
-  function renderHistory(stats) {
+  const slim = (h) => { const { snap, ...rest } = h; return rest; };
+  function renderHistory(sum) {
     aiOut.innerHTML = "";
     aiOut.append(el("div", "fx-top")); aiOut.lastChild.append(el("span", "", `Histórico (${hist.length} análises)`), el("span", "", "salvo neste navegador"));
     const trades = hist.filter((h) => h.dir);
@@ -2166,18 +2319,27 @@
     upd.onclick = async () => {
       upd.disabled = true; upd.textContent = "Conferindo velas reais…";
       try {
-        const r = await fetch("/api/forex-resolve", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ signals: trades }) });
+        const r = await fetch("/api/forex-resolve", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ items: hist.slice(-300).map(slim) }) });
         const j = await r.json(); if (!r.ok) throw new Error(j.error || r.status);
         j.resolved.forEach((x) => { const h = hist.find((y) => y.id === x.id); if (h) { h.status = x.status; h.r = x.r; } });
-        saveHist(); renderHistory(j.stats);
+        saveHist(); renderHistory(j.summary);
       } catch (e) { upd.disabled = false; upd.textContent = "Falhou: " + e.message; }
     };
     aiOut.append(upd);
-    if (stats) aiOut.append(statBlock("DESEMPENHO", stats));
+    if (sum) {
+      const a2 = sum.analyses;
+      aiOut.append(sec("ANÁLISES REGISTRADAS (TODAS, INCLUSIVE NO TRADE)", kv([["Total", String(a2.total)], ["Com entrada confirmada", String(a2.entries)], ["Aguardando confirmação", String(a2.waiting)], ["Sem operação (NO TRADE)", String(a2.noTrade)]])));
+      aiOut.append(statBlock("SIMULADOS · conferidos com as velas reais (nenhuma ordem foi enviada)", sum.simulated));
+      if (sum.real) aiOut.append(statBlock("REAIS · resultados que você registrou", sum.real));
+      else aiOut.append(sec("REAIS", el("div", "fx-note", "Nenhum resultado real registrado. Em um sinal que você operou de verdade, use “Registrar real” e informe o resultado em R.")));
+      aiOut.append(sec("AINDA NÃO RESOLVIDOS", el("div", "fx-note", `${sum.unresolved} sinal(is) sem stop nem alvo atingidos até agora (ou dentro da 1 h de duração).`)));
+      if (sum.noTradeBySymbol.length) aiOut.append(sec("SEM OPERAÇÃO", el("div", "ai-hint", "Por par: " + sum.noTradeBySymbol.map((g) => `${g.key} (${g.n})`).join(" · ")), el("div", "ai-hint", "Motivos mais comuns: " + sum.noTradeReasons.map((g) => `${g.key} (${g.n})`).join(" · "))));
+    } else aiOut.append(el("div", "ai-hint", "Toque em “Atualizar resultados” para separar simulados, reais e não resolvidos e ver as estatísticas por estratégia, ativo e tempo gráfico."));
     const l = el("ul", "fx-list");
     [...hist].reverse().slice(0, 40).forEach((h) => {
-      const li = el("li"); const res = h.dir ? ({ aberto: "aberto", tp1: "ganho", stop: "stop", ambiguo: "stop (ambíguo)", expirado: "expirou" }[h.status] || h.status) + (h.r !== null && h.r !== undefined ? ` ${num2(h.r)}R` : "") : "sem entrada";
+      const li = el("li"); const res = h.dir ? (typeof h.realR === "number" ? `REAL ${num2(h.realR)}R` : ({ aberto: "aberto", tp1: "ganho (simulado)", stop: "stop (simulado)", ambiguo: "stop ambíguo (simulado)", expirou: "expirou", expirado: "expirou (simulado)" }[h.status] || h.status) + (h.r !== null && h.r !== undefined ? ` ${num2(h.r)}R` : "")) : "sem entrada";
       li.append(el("span", "fx-dot " + (h.status === "tp1" ? "ok" : h.status === "stop" || h.status === "ambiguo" ? "bad" : h.dir ? "warn" : "dim")), el("span", "", `${when(h.at)} · ${h.label} · ${h.dir ? DIR[h.dir] : h.state === "aguardando_confirmacao" ? "aguardando" : "não operar"} · ${h.strategy} · ${h.score ?? "—"} pts · ${res}`));
+      if (h.dir) { const b = el("button", "fx-mini", typeof h.realR === "number" ? "Editar real" : "Registrar real"); b.type = "button"; b.onclick = () => { const v = prompt("Resultado REAL desta operação em R (ex.: 1.5 ou -1). Deixe vazio para remover:", typeof h.realR === "number" ? h.realR : ""); if (v === null) return; const n = Number(String(v).replace(",", ".")); if (v.trim() === "") delete h.realR; else if (Number.isFinite(n)) h.realR = n; else return; saveHist(); renderHistory(sum); }; li.append(b); }
       l.append(li);
     });
     if (!hist.length) l.append(el("li", "", "Nenhuma análise registrada ainda. Peça uma entrada para um par de Forex."));
@@ -2187,6 +2349,31 @@
     aiOut.append(clr);
   }
   document.getElementById("ai-hist").onclick = () => renderHistory();
+  document.getElementById("ai-scan").onclick = async () => {
+    const btn = document.getElementById("ai-scan");
+    if (btn.disabled) return;
+    btn.disabled = true; clearInterval(aiTimer); aiOut.innerHTML = "";
+    aiOut.append(el("div", "fx-top")); aiOut.lastChild.append(el("span", "", "Varredura dos pares monitorados"), el("span", "", profile.style));
+    aiOut.append(el("div", "ai-hint", profileLine()));
+    const rows = el("ul", "fx-list"); aiOut.append(sec("RESULTADO POR PAR (clique para abrir)", rows));
+    const status = el("div", "ai-hint", ""); aiOut.append(status);
+    for (const [i, id] of profile.pairs.entries()) {
+      status.textContent = `Analisando ${id} (${i + 1}/${profile.pairs.length})…`;
+      const li = el("li"); rows.append(li);
+      try {
+        const r = await fetch("/api/forex", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ asset: id, explain: false, profile, history: patternStats() }) });
+        const d = await r.json(); if (!r.ok) throw new Error(d.error || r.status);
+        logAnalysis(d, openSignal(d.symbol, d.at));
+        const cls = d.state === "entrada_confirmada" ? (d.decision === "BUY" ? "ok" : "bad") : d.state === "aguardando_confirmacao" ? "warn" : "dim";
+        li.append(el("span", "fx-dot " + cls), el("span", "", `${d.label} · ${d.state === "entrada_confirmada" ? (d.decision === "BUY" ? "COMPRA" : "VENDA") : d.state === "aguardando_confirmacao" ? "AGUARDANDO " + DIR[d.watch.dir] : "NÃO OPERAR"} · confluência ${d.score ? d.score.total : "—"}${d.chosen ? " · " + d.chosen.name : ""}`));
+        li.style.cursor = "pointer"; li.onclick = () => { pickAsset(id); runForex(id); };
+      } catch (e) { li.append(el("span", "fx-dot bad"), el("span", "", `${id}: ${e.message}`)); }
+      await new Promise((ok) => setTimeout(ok, 250));
+    }
+    status.textContent = "Varredura concluída. Todas as análises foram registradas no histórico (inclusive as sem operação).";
+    btn.disabled = false;
+  };
+
 
   document.getElementById("ai-bt").onclick = async () => {
     const asset = picks[pcIdx], btn = document.getElementById("ai-bt");

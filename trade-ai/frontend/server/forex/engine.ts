@@ -1,4 +1,8 @@
+import { buildAnnotations, type Annotation, type Plan } from "./annotations.js";
 import { assessQuality, type Quality } from "./candles.js";
+import { buildConfluence, type Component, type PatternStat } from "./confluence.js";
+import { DEFAULT_PROFILE, positionSize, STYLE_RULES, type Profile, type Sizing } from "./profile.js";
+import { buildThesis, type Thesis } from "./thesis.js";
 import { buildRegions, mergeRegions } from "./levels.js";
 import { analyzeTF, type TFAnalysis } from "./mtf.js";
 import { detectPatterns } from "./patterns.js";
@@ -12,14 +16,17 @@ import { opposite, type Candle, type Dir, type Region, type TF } from "./types.j
 export interface NewsEvent { at: number; title: string; country: string; impact: number }
 export interface EngineInput {
   symbol: string; label: string; pip: number; currencies: string[]; now: number;
-  candles: { H1: Candle[]; M5: Candle[]; M1: Candle[] | null }; // só velas FECHADAS. H1 = só regiões; M5 e M1 = movimento atual
+  candles: { H1: Candle[]; M5: Candle[]; M1: Candle[] | null; M15?: Candle[] | null }; // só velas FECHADAS. H1 = regiões e contexto; M15 = contexto; M5 e M1 = movimento atual
+  profile?: Profile;                // critérios do Trade Profile (padrão: equilibrado)
+  history?: PatternStat[];          // resultados já resolvidos do usuário, para o componente Pattern History
   events: NewsEvent[] | null;       // null = calendário não verificado
   skipFreshness?: boolean;          // backtest
 }
 
 export type FilterStatus = "ok" | "falha" | "atencao" | "nao_verificado";
 export interface Filter { id: number; name: string; status: FilterStatus; note: string }
-export interface Score { total: number; label: string; parts: Record<string, { got: number; max: number }> }
+export interface Score { total: number; label: string; parts: Record<string, { got: number; max: number }>; components: Component[]; capped: string[] }
+export interface Release { dir: Dir; scenario: string; conditions: { ok: boolean; text: string }[] }
 
 export interface ForexAnalysis {
   symbol: string; label: string; at: number; price: number;
@@ -28,14 +35,17 @@ export interface ForexAnalysis {
   watch: { dir: Dir; condition: string } | null;
   data: { ok: boolean; issues: string[]; quality: Partial<Record<TF, Quality>> };
   trends: { M5: string; M1: string | null };
-  tfs: { H1: TFAnalysis; M5: TFAnalysis; M1: TFAnalysis | null };
+  tfs: { H1: TFAnalysis; M15: TFAnalysis | null; M5: TFAnalysis; M1: TFAnalysis | null };
   regions: Region[];
   liquidity: { price: number; kind: string; side: string }[];
   context: "consolidação" | "tendência" | "transição";
-  strategies: { id: number; name: string; dir: Dir | null; status: "pronta" | "em_formacao" | "ausente" | "confluencia" | "confluencia_ausente"; detail: string[]; needs: string[] }[];
+  strategies: { id: number; name: string; dir: Dir | null; status: "pronta" | "em_formacao" | "ausente" | "confluencia" | "confluencia_ausente" | "desabilitada"; detail: string[]; needs: string[] }[];
   chosen: { id: number; name: string; dir: Dir } | null;
   /** Cenário mais próximo de se completar (não é entrada ativa): o que já foi cumprido e o que falta. */
   closest: { name: string; dir: Dir; done: string[]; missing: string[]; stop: number | null; targetRegion: { low: number; high: number } | null } | null;
+  /** O que falta, em lista de verificação, para o cenário mais próximo virar entrada (só quando não há entrada confirmada). */
+  release: Release | null;
+  plan: Plan | null; thesis: Thesis; annotations: Annotation[]; sizing: Sizing | null; profile: Profile;
   trigger: Trigger | null;
   trade: (Risk & { dir: Dir }) | null;
   filters: Filter[];
@@ -44,7 +54,6 @@ export interface ForexAnalysis {
   context30: string;
 }
 
-const scoreLabel = (t: number) => t >= 85 ? "SETUP DE ALTA CONFLUÊNCIA" : t >= 75 ? "SETUP BOM — POSSÍVEL ENTRADA APÓS CONFIRMAÇÃO" : t >= 65 ? "CENÁRIO EM FORMAÇÃO — AGUARDAR CONFIRMAÇÃO" : t >= 50 ? "CENÁRIO FRACO — AGUARDAR" : "NÃO OPERAR";
 const wantTrend = (d: Dir) => (d === "BUY" ? "alta" : "baixa");
 
 function pips(v: number, pip: number) { return Math.round((v / pip) * 10) / 10; }
@@ -60,6 +69,9 @@ function context30(m5: Candle[], pip: number): string {
 
 export function analyze(inp: EngineInput): ForexAnalysis {
   const { symbol, pip, now } = inp;
+  const profile = inp.profile ?? DEFAULT_PROFILE, rules = STYLE_RULES[profile.style], history = inp.history ?? [];
+  const minScore = rules.minScore;
+  const f5 = (v: number) => v.toFixed(symbol.includes("JPY") ? 3 : 5);
   const quality: Partial<Record<TF, Quality>> = {
     H1: assessQuality(inp.candles.H1, "H1", now, !inp.skipFreshness),
     M5: assessQuality(inp.candles.M5, "M5", now, !inp.skipFreshness),
@@ -68,10 +80,13 @@ export function analyze(inp: EngineInput): ForexAnalysis {
   const issues = Object.values(quality).flatMap((q) => q?.issues ?? []);
   // sem M1 válido, o gatilho usa o M5 (isso não bloqueia, mas é informado)
   const m1Ok = !!inp.candles.M1 && !!quality.M1?.ok;
+  const useM1 = m1Ok && profile.entryTf === "M1"; // o perfil pode mandar avaliar o gatilho só no M5
   const baseOk = !!(quality.H1?.ok && quality.M5?.ok);
 
   const a1 = inp.candles.M1 && inp.candles.M1.length >= 30 ? analyzeTF(inp.candles.M1, "M1") : null;
+  const a15 = inp.candles.M15 && inp.candles.M15.length >= 60 ? analyzeTF(inp.candles.M15, "M15") : null;
   const a = { H1: analyzeTF(inp.candles.H1, "H1"), M5: analyzeTF(inp.candles.M5, "M5"), M1: a1 };
+  const aAll = { ...a, M15: a15 };
   const price = a.M5.lastClose;
   const regions = mergeRegions([buildRegions(inp.candles.H1, "H1", price, a.H1.atr, pip)], price, pip);
   const m5 = inp.candles.M5.slice(-400);
@@ -84,7 +99,8 @@ export function analyze(inp: EngineInput): ForexAnalysis {
   const context: ForexAnalysis["context"] = consolid ? "consolidação" : transicao ? "transição" : "tendência";
 
   // candidatos
-  const all: (StrategyResult)[] = [...runDirectional(ctx, "BUY"), ...runDirectional(ctx, "SELL")];
+  const allRaw: (StrategyResult)[] = [...runDirectional(ctx, "BUY"), ...runDirectional(ctx, "SELL")];
+  const all = allRaw.filter((x) => profile.strategies.includes(x.id));
   type Cand = { s: StrategyResult; trig: Trigger; risk: Risk; score: Score; filters: Filter[]; pass: boolean; hardFail: string[] };
   const cands: Cand[] = [];
   for (const s of all.filter((x) => x.ready)) {
@@ -92,22 +108,23 @@ export function analyze(inp: EngineInput): ForexAnalysis {
     // contra o movimento atual do M5: só reversão/varredura em região forte de H1 com CHoCH ou sweep
     const bothAgainst = a.M5.trend === wantTrend(opposite(dir)) || a.M5.ema.stack === wantTrend(opposite(dir));
     const justified = (s.id === 2 || s.id === 4) && (s.region?.strength === "forte" || s.id === 4) && (a.M5.struct.choch === dir || a.M5.sweep?.dir === dir);
-    const trig = entryTrigger(m1Ok ? inp.candles.M1! : m5, dir, m1Ok ? "M1" : "M5", m1Ok && a1 ? a1.atr : a.M5.atr);
+    let trig = entryTrigger(useM1 ? inp.candles.M1! : m5, dir, useM1 ? "M1" : "M5", useM1 && a1 ? a1.atr : a.M5.atr);
+    if (rules.requireM1 && !useM1) trig = { ...trig, confirmed: false, detail: `Perfil conservador exige gatilho no M1, e o M1 está indisponível. ${trig.detail}` };
     const invalidation = s.invalidation ?? (dir === "BUY" ? Math.min(...m5.slice(-10).map((k) => k.l)) : Math.max(...m5.slice(-10).map((k) => k.h)));
-    const entry = m1Ok ? inp.candles.M1![inp.candles.M1!.length - 1].c : price;
+    const entry = useM1 ? inp.candles.M1![inp.candles.M1!.length - 1].c : price;
     // alvos: bordas das regiões de H1 e topos/fundos recentes do M5 (operação curta)
     const swings = a.M5.pivots.filter((p) => p.type === (dir === "BUY" ? "high" : "low")).slice(-8).map((p) => p.price);
-    const risk = computeRisk(dir, entry, { invalidation, regions, extraTargets: swings, atr: a.M5.atr, pip });
+    const risk = computeRisk(dir, entry, { invalidation, regions, extraTargets: swings, atr: a.M5.atr, pip, minRR: profile.minRR });
     // movimento já percorrido
     const start = s.region ? (dir === "BUY" ? s.region.high : s.region.low) : invalidation;
     const tp1 = risk.tps[0];
     const traveled = tp1 !== null && tp1 !== undefined && Math.abs(tp1 - start) > 0 ? Math.abs(entry - start) / Math.abs(tp1 - start) : 0;
     const exhausted = traveled > 0.6;
 
-    const sc = scoreIt(dir, s, ctx, trig, risk, conf, regions);
-    const filters = buildFilters({ dir, s, a, ctx, trig, risk, exhausted, traveled, bothAgainst, justified, context, baseOk, issues, events: inp.events, currencies: inp.currencies, now, m1Ok });
+    const filters = buildFilters({ dir, s, a, ctx, trig, risk, exhausted, traveled, bothAgainst, justified, context, baseOk, issues, events: inp.events, currencies: inp.currencies, now, m1Ok, blockUnverifiedNews: rules.blockUnverifiedNews });
+    const sc = buildConfluence({ dir, price, pip, now, symbol, currencies: inp.currencies, a: aAll, regions, strategy: s, risk, filters, profile, history, fvgAligned: !!conf.fvg });
     const hard = filters.filter((f) => f.status === "falha" && f.id !== 4).map((f) => `${f.name}: ${f.note}`);
-    const pass = filters.every((f) => f.status !== "falha") && sc.total >= 75;
+    const pass = filters.every((f) => f.status !== "falha") && sc.total >= minScore;
     cands.push({ s, trig, risk, score: sc, filters, pass, hardFail: hard });
   }
   cands.sort((x, y) => Number(y.pass) - Number(x.pass) || y.score.total - x.score.total);
@@ -123,15 +140,16 @@ export function analyze(inp: EngineInput): ForexAnalysis {
     return { name: s2.name, dir: s2.dir, done: s2.favor, missing: [...s2.needs, ...extra], stop: s2.invalidation, targetRegion: reg ? { low: reg.low, high: reg.high } : null };
   };
   const closest: ForexAnalysis["closest"] = best
-    ? mkClosest(best.s, [...best.filters.filter((x) => x.id !== 4 && x.status === "falha").map((x) => `${x.name}: ${x.note}`), ...(best.trig.confirmed ? [] : [best.trig.detail]), ...(best.score.total < 75 ? [`Pontuação de confluência ${best.score.total} (mínimo 75 para liberar a entrada)`] : [])])
+    ? mkClosest(best.s, [...best.filters.filter((x) => x.id !== 4 && x.status === "falha").map((x) => `${x.name}: ${x.note}`), ...(best.trig.confirmed ? [] : [best.trig.level !== null && (useM1 || !rules.requireM1) ? `Gatilho ${best.trig.source}: fechar vela ${best.s.dir === "BUY" ? "acima" : "abaixo"} de ${f5(best.trig.level)} (rompimento da microestrutura) ou engolfo/rejeição a favor` : best.trig.detail]), ...(best.score.total < minScore ? [`Confluência ${best.score.total} (mínimo ${minScore} do perfil ${profile.style} para liberar a entrada)`] : [])])
     : partial ? mkClosest(partial, []) : null;
 
   // estratégias para exibição
   const strategies: ForexAnalysis["strategies"] = [];
   for (const id of [1, 2, 3, 4, 5, 9]) {
-    const rs = all.filter((x) => x.id === id).sort((x, y) => Number(y.ready) - Number(x.ready) || y.met / y.total - x.met / x.total);
+    const rs = allRaw.filter((x) => x.id === id).sort((x, y) => Number(y.ready) - Number(x.ready) || y.met / y.total - x.met / x.total);
     const r = rs[0];
-    strategies.push({ id, name: r.name, dir: r.ready || r.met > 0 ? r.dir : null, status: r.ready ? "pronta" : r.met > 0 ? "em_formacao" : "ausente", detail: r.favor, needs: r.needs });
+    const on = profile.strategies.includes(id);
+    strategies.push({ id, name: r.name, dir: on && (r.ready || r.met > 0) ? r.dir : null, status: !on ? "desabilitada" : r.ready ? "pronta" : r.met > 0 ? "em_formacao" : "ausente", detail: on ? r.favor : ["Desabilitada no Trade Profile."], needs: on ? r.needs : [] });
   }
   const dirForConf: Dir = best ? best.s.dir : a.M5.trend === "baixa" || (a.M5.trend !== "alta" && a.M5.ema.stack === "baixa") ? "SELL" : "BUY";
   const cf = confluence(ctx, dirForConf);
@@ -143,16 +161,35 @@ export function analyze(inp: EngineInput): ForexAnalysis {
     symbol, label: inp.label, at: now, price,
     data: { ok: baseOk, issues, quality },
     trends: { M5: a.M5.trend, M1: a1 ? a1.trend : null },
-    tfs: { ...a, M1: a1 }, regions,
+    tfs: { ...a, M15: a15, M1: a1 }, regions,
     liquidity: [...a.H1.liquidity, ...a.M5.liquidity].map((l) => ({ price: l.price, kind: l.kind, side: l.side })),
     context, strategies, context30: context30(m5, pip), closest,
   };
   const noData = !baseOk;
   const missingBase = noData ? ["Dados atualizados e completos (bloqueio por qualidade dos dados)."] : [];
 
+  type Core = Pick<ForexAnalysis, "decision" | "state" | "watch" | "chosen" | "trigger" | "trade" | "filters" | "score" | "favor" | "contra" | "invalidation" | "missing">;
+  /** Acrescenta tese, plano, anotações do gráfico, lista de liberação e tamanho de posição, sempre a partir dos mesmos números do motor. */
+  const finish = (core: Core): ForexAnalysis => {
+    const dir = core.chosen?.dir ?? null;
+    const plan: Plan | null = best && best.risk.ok && core.state !== "sem_operacao"
+      ? { status: core.state === "entrada_confirmada" ? "confirmado" : "condicional", dir: best.s.dir, entry: best.risk.entry, sl: best.risk.sl, tps: best.risk.tps, rr: best.risk.rr,
+          entryZone: best.s.region ? { low: best.s.region.low, high: best.s.region.high } : null }
+      : null;
+    const fvgAligned = dir ? !!confluence(ctx, dir).fvg : false;
+    const thesis = buildThesis({ symbol, dir, state: core.state, a: aAll, regions, strategyName: core.chosen?.name ?? null, strategyId: core.chosen?.id ?? null, fvgAligned,
+      trigger: core.trigger, plan, invalidation: core.invalidation, missing: core.missing, price });
+    const release: Release | null = core.state !== "entrada_confirmada" && closest
+      ? { dir: closest.dir, scenario: closest.name, conditions: [...closest.done.map((text) => ({ ok: true, text })), ...closest.missing.map((text) => ({ ok: false, text }))] }
+      : null;
+    return { ...base, ...core, release, plan, thesis, profile,
+      annotations: noData ? [] : buildAnnotations({ m5: inp.candles.M5, m5a: a.M5, regions, plan }),
+      sizing: core.state === "entrada_confirmada" && core.trade ? positionSize(profile, symbol, price, core.trade.riskPips) : null };
+  };
+
   if (noData) {
-    return { ...base, decision: "NO_TRADE", state: "sem_operacao", watch: null, chosen: null, trigger: null, trade: null, filters: dataOnlyFilters(issues, inp.events, inp.currencies, now), score: null,
-      favor: [], contra: issues, invalidation: "—", missing: missingBase };
+    return finish({ decision: "NO_TRADE", state: "sem_operacao", watch: null, chosen: null, trigger: null, trade: null, filters: dataOnlyFilters(issues, inp.events, inp.currencies, now, rules.blockUnverifiedNews), score: null,
+      favor: [], contra: issues, invalidation: "—", missing: missingBase });
   }
   if (best) {
     const dir = best.s.dir;
@@ -161,29 +198,29 @@ export function analyze(inp: EngineInput): ForexAnalysis {
     const nonTrigger = f.filter((x) => x.id !== 4 && x.status === "falha");
     if (best.pass && best.trig.confirmed) {
       const conf = confluence(ctx, dir);
-      return { ...base, decision: dir, state: "entrada_confirmada", watch: null, chosen: { id: best.s.id, name: best.s.name, dir }, trigger: best.trig,
+      return finish({ decision: dir, state: "entrada_confirmada", watch: null, chosen: { id: best.s.id, name: best.s.name, dir }, trigger: best.trig,
         trade: { ...best.risk, dir }, filters: f, score: best.score,
         favor: [...best.s.favor, ...(conf.emaAligned ? [conf.emaText] : []), ...(conf.fvg ? [conf.fvgText] : []), best.trig.detail], contra: best.s.against.concat(best.risk.notes, f.filter((x) => x.status === "atencao").map((x) => `${x.name}: ${x.note}`)),
-        invalidation: invalidationText(dir, best.risk.invalidation, symbol), missing: [] };
+        invalidation: invalidationText(dir, best.risk.invalidation, symbol), missing: [] });
     }
-    if (nonTrigger.length === 0 && best.score.total >= 65) {
-      const lvl = best.risk.entry;
-      return { ...base, decision: "NO_TRADE", state: "aguardando_confirmacao", watch: { dir, condition: `Aguardar gatilho de ${verb} no ${best.trig.source}: ${best.trig.kinds.length ? "falta fechar a favor" : "engolfo, rejeição ou rompimento de microestrutura"} ${dir === "BUY" ? "acima" : "abaixo"} de ${lvl.toFixed(5)}, depois reavaliar com dados novos.` },
+    if (nonTrigger.length === 0 && best.score.total >= minScore - 10) {
+      const lvl = best.trig.level;
+      return finish({ decision: "NO_TRADE", state: "aguardando_confirmacao", watch: { dir, condition: `Aguardar gatilho de ${verb} no ${best.trig.source}: fechamento de vela ${dir === "BUY" ? "acima" : "abaixo"} de ${lvl !== null ? f5(lvl) : f5(best.risk.entry)} (rompimento da microestrutura) ou engolfo/rejeição a favor, e então reavaliar com dados novos.` },
         chosen: { id: best.s.id, name: best.s.name, dir }, trigger: best.trig, trade: null, filters: f, score: best.score,
         favor: best.s.favor, contra: best.s.against.concat(["Gatilho de entrada ainda não confirmado."]), invalidation: invalidationText(dir, best.risk.invalidation, symbol),
-        missing: [best.trig.detail, ...(best.score.total < 75 ? [`Pontuação ${best.score.total} (mínimo 75 para liberar entrada).`] : [])] };
+        missing: [best.trig.detail, ...(best.score.total < minScore ? [`Confluência ${best.score.total} (mínimo ${minScore} do perfil ${profile.style}).`] : [])] });
     }
-    return { ...base, decision: "NO_TRADE", state: "sem_operacao", watch: null, chosen: { id: best.s.id, name: best.s.name, dir }, trigger: best.trig, trade: null, filters: f, score: best.score,
+    return finish({ decision: "NO_TRADE", state: "sem_operacao", watch: null, chosen: { id: best.s.id, name: best.s.name, dir }, trigger: best.trig, trade: null, filters: f, score: best.score,
       favor: best.s.favor, contra: [...best.s.against, ...nonTrigger.map((x) => `${x.name}: ${x.note}`)], invalidation: invalidationText(dir, best.risk.invalidation, symbol),
-      missing: nonTrigger.map((x) => `${x.name}: ${x.note}`).concat(best.score.total < 75 ? [`Pontuação ${best.score.total} (mínimo 75).`] : []) };
+      missing: nonTrigger.map((x) => `${x.name}: ${x.note}`).concat(best.score.total < minScore ? [`Confluência ${best.score.total} (mínimo ${minScore}).`] : []) });
   }
   // nenhuma estratégia pronta: procura o cenário mais próximo para "próxima oportunidade"
-  const filters = dataOnlyFilters(issues, inp.events, inp.currencies, now).map((f) => f);
+  const filters = dataOnlyFilters(issues, inp.events, inp.currencies, now, rules.blockUnverifiedNews);
   let watch: ForexAnalysis["watch"] = null;
   if (partial && nearAny) watch = { dir: partial.dir, condition: `Faltam: ${partial.needs.join("; ")}.` };
-  return { ...base, decision: "NO_TRADE", state: "sem_operacao", watch, chosen: null, trigger: null, trade: null, filters, score: null,
+  return finish({ decision: "NO_TRADE", state: "sem_operacao", watch, chosen: null, trigger: null, trade: null, filters, score: null,
     favor: partial ? partial.favor : [], contra: [context === "consolidação" ? "Mercado em consolidação sem direção." : "Nenhuma estratégia com as condições completas."],
-    invalidation: "—", missing: partial ? partial.needs : ["Setup em região relevante com rejeição e confirmação."] };
+    invalidation: "—", missing: partial ? partial.needs : ["Setup em região relevante com rejeição e confirmação."] });
 }
 
 function invalidationText(dir: Dir, level: number, symbol: string) {
@@ -191,20 +228,20 @@ function invalidationText(dir: Dir, level: number, symbol: string) {
   return dir === "BUY" ? `Fechamento do M5 abaixo de ${level.toFixed(f)} invalida a compra.` : `Fechamento do M5 acima de ${level.toFixed(f)} invalida a venda.`;
 }
 
-function newsFilter(events: NewsEvent[] | null, currencies: string[], now: number): Filter {
-  if (!events) return { id: 9, name: "Notícias", status: "nao_verificado", note: "Calendário econômico indisponível: filtro de notícias NÃO foi verificado." };
+function newsFilter(events: NewsEvent[] | null, currencies: string[], now: number, block = false): Filter {
+  if (!events) return { id: 9, name: "Notícias", status: block ? "falha" : "nao_verificado", note: block ? "Calendário econômico indisponível: o perfil conservador não opera sem verificar notícias." : "Calendário econômico indisponível: filtro de notícias NÃO foi verificado." };
   const hit = events.find((e) => e.impact === 3 && currencies.includes(e.country) && e.at >= now - 15 * 60 && e.at <= now + 30 * 60);
   return hit ? { id: 9, name: "Notícias", status: "falha", note: `Evento de alto impacto (${hit.country} ${hit.title}) próximo.` } : { id: 9, name: "Notícias", status: "ok", note: "Sem evento de alto impacto das moedas do par entre -15 e +30 minutos." };
 }
 
-function dataOnlyFilters(issues: string[], events: NewsEvent[] | null, currencies: string[], now: number): Filter[] {
+function dataOnlyFilters(issues: string[], events: NewsEvent[] | null, currencies: string[], now: number, block = false): Filter[] {
   return [
     { id: 10, name: "Qualidade dos dados", status: issues.length ? "falha" : "ok", note: issues.length ? issues.join(" | ") : "Velas atualizadas, completas e sem duplicatas." },
-    newsFilter(events, currencies, now),
+    newsFilter(events, currencies, now, block),
   ];
 }
 
-interface FArgs { dir: Dir; s: StrategyResult; a: { H1: TFAnalysis; M5: TFAnalysis; M1: TFAnalysis | null }; ctx: Ctx; trig: Trigger; risk: Risk; exhausted: boolean; traveled: number; bothAgainst: boolean; justified: boolean; context: ForexAnalysis["context"]; baseOk: boolean; issues: string[]; events: NewsEvent[] | null; currencies: string[]; now: number; m1Ok: boolean }
+interface FArgs { dir: Dir; s: StrategyResult; a: { H1: TFAnalysis; M5: TFAnalysis; M1: TFAnalysis | null }; ctx: Ctx; trig: Trigger; risk: Risk; exhausted: boolean; traveled: number; bothAgainst: boolean; justified: boolean; context: ForexAnalysis["context"]; baseOk: boolean; issues: string[]; events: NewsEvent[] | null; currencies: string[]; now: number; m1Ok: boolean; blockUnverifiedNews: boolean }
 
 function buildFilters(x: FArgs): Filter[] {
   const o = wantTrend(opposite(x.dir));
@@ -227,7 +264,7 @@ function buildFilters(x: FArgs): Filter[] {
   f.push({ id: 7, name: "Risco e retorno", status: x.risk.ok && !x.exhausted ? "ok" : "falha", note: (x.risk.ok ? `R:R ao TP1 de ${(x.risk.rr[0] ?? 0).toFixed(2)}.` : x.risk.notes.join(" ")) + exh });
   const mid = x.context === "consolidação";
   f.push({ id: 8, name: "Contexto", status: mid && (x.s.id === 1 || x.s.id === 9) ? "falha" : "ok", note: `Mercado em ${x.context}.` });
-  f.push(newsFilter(x.events, x.currencies, x.now));
+  f.push(newsFilter(x.events, x.currencies, x.now, x.blockUnverifiedNews));
   f.push({ id: 10, name: "Qualidade dos dados", status: x.baseOk ? "ok" : "falha", note: x.baseOk ? `Velas atualizadas e completas${x.m1Ok ? "" : "; M1 indisponível, gatilho confirmado pelo M5"}.` : x.issues.join(" | ") });
   return f.sort((p, q) => p.id - q.id);
 }
@@ -235,27 +272,4 @@ function buildFilters(x: FArgs): Filter[] {
 function nearRegionAny(ctx: Ctx, dir: Dir): Region | null {
   const role = dir === "BUY" ? "suporte" : "resistencia";
   return ctx.regions.find((r) => r.role === role && r.distance <= 6 * ctx.a.M5.atr) ?? null;
-}
-
-function scoreIt(dir: Dir, s: StrategyResult, ctx: Ctx, trig: Trigger, risk: Risk, conf: ReturnType<typeof confluence>, _regions: Region[]): Score {
-  const { a } = ctx, w = wantTrend(dir), o = wantTrend(opposite(dir));
-  const parts: Score["parts"] = {};
-  const put = (k: string, got: number, max: number) => { parts[k] = { got: Math.min(max, Math.round(got)), max }; };
-  put("Tendência e estrutura", (a.M5.trend === w ? 10 : 0) + (a.M5.ema.stack === w ? 6 : 0) + (a.M1 ? (a.M1.trend === w ? 4 : 0) : (a.M5.struct.bos === dir ? 4 : 0)), 20);
-  const reg = s.region ?? nearRegionAny(ctx, dir);
-  put("Suporte e resistência", reg ? (reg.strength === "forte" ? 12 : 7) + (reg.origin === "H1" ? 3 : 0) : 0, 15);
-  const bos = a.M5.struct.bos === dir ? 15 : a.M5.struct.choch === dir ? 11 : s.id === 3 ? 12 : s.id === 5 || s.id === 9 ? 10 : 0;
-  put("BOS, CHoCH ou rompimento", bos, 15);
-  put("Gatilho de candle", trig.confirmed ? (trig.source === "M1" ? 15 : 11) : conf.patterns.some((p) => p.weight >= 0.7) ? 5 : 0, 15);
-  const m5ok = a.M5.trend === w || a.M5.ema.stack === w, m1ok = !!a.M1 && (a.M1.trend === w || a.M1.ema.stack === w);
-  const contradict = a.M5.trend === o || a.M5.ema.stack === o || (!!a.M1 && a.M1.trend === o);
-  put("Alinhamento M5 e M1", contradict ? 0 : a.M1 ? (m5ok && m1ok ? 15 : m5ok || m1ok ? 8 : 0) : (a.M5.trend === w && a.M5.ema.stack === w ? 15 : m5ok ? 8 : 0), 15);
-  const sweep = a.M5.sweep?.dir === dir;
-  put("Liquidez e FVG", (sweep ? 6 : 0) + (conf.fvg ? 4 : 0), 10);
-  const rsiOk = a.M5.rsi === null ? 0 : dir === "BUY" ? (a.M5.rsi < 70 ? 1.5 : 0) : a.M5.rsi > 30 ? 1.5 : 0;
-  put("Indicadores e volatilidade", (conf.emaAligned ? 2 : 0) + rsiOk + (a.M5.atrRatio >= 0.45 && a.M5.atrRatio <= 2.2 ? 1.5 : 0), 5);
-  const rr = risk.rr[0] ?? 0;
-  put("Risco e retorno", rr >= 2 ? 5 : rr >= 1.5 ? 3 : 0, 5);
-  const total = Object.values(parts).reduce((s2, p) => s2 + p.got, 0);
-  return { total, label: scoreLabel(total), parts };
 }

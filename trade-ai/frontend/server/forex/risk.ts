@@ -15,7 +15,8 @@ export interface Risk {
   invalidation: number; maxHoldMin: number; targetAtr: number | null;
 }
 
-export function computeRisk(dir: Dir, entry: number, o: { invalidation: number; regions: Region[]; extraTargets: number[]; atr: number; pip: number }): Risk {
+export function computeRisk(dir: Dir, entry: number, o: { invalidation: number; regions: Region[]; extraTargets: number[]; atr: number; pip: number; minRR?: number }): Risk {
+  const minRR = o.minRR ?? 1.5;
   const notes: string[] = [];
   const buy = dir === "BUY";
   let sl = buy ? o.invalidation - 0.5 * o.atr : o.invalidation + 0.5 * o.atr;
@@ -39,10 +40,10 @@ export function computeRisk(dir: Dir, entry: number, o: { invalidation: number; 
   let tp1: T | null = null, idx = -1;
   for (let i = 0; i < list.length; i++) {
     const d = Math.abs(list[i].price - entry);
-    if (d >= 1.5 * dist) { tp1 = list[i]; idx = i; break; }
-    if (list[i].region) { ok = false; notes.push(`Região de H1 muito perto no caminho: só ${(d / dist).toFixed(2)}R de espaço (mínimo 1,5R).`); break; }
+    if (d >= minRR * dist) { tp1 = list[i]; idx = i; break; }
+    if (list[i].region) { ok = false; notes.push(`Região de H1 muito perto no caminho: só ${(d / dist).toFixed(2)}R de espaço (mínimo ${minRR}R).`); break; }
   }
-  if (!tp1 && ok) { ok = false; notes.push("Sem alvo estrutural com pelo menos 1,5R de espaço."); }
+  if (!tp1 && ok) { ok = false; notes.push(`Sem alvo estrutural com pelo menos ${minRR}R de espaço.`); }
   const t = [tp1?.price ?? null, idx >= 0 ? list[idx + 1]?.price ?? null : null, idx >= 0 ? list[idx + 2]?.price ?? null : null];
   const rr = t.map((p) => (p === null ? null : Math.abs(p - entry) / dist));
   const targetAtr = t[0] === null ? null : Math.abs(t[0] - entry) / o.atr;
