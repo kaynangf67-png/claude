@@ -296,25 +296,25 @@ describe("agente: radar, dedupe, resultado desconhecido, concorrência e falhas 
 const PG = process.env.TEST_DATABASE_URL;
 describe.skipIf(!PG)("persistência real: o bloqueio diário sobrevive a 'reiniciar o servidor'", () => {
   let s1: PgStore, s2: PgStore;
-  beforeAll(async () => { s1 = new PgStore(PG!); await s1.migrate(); await s1.pool.query("truncate agent_kv, agent_days, agent_trades, agent_alerts, agent_scans, agent_lease"); await s1.setConfig({ ...cfg }); });
+  beforeAll(async () => { s1 = new PgStore(PG!, { schema: "t_agent" }); await s1.migrate(); await s1.dropSchema(); await s1.migrate(); await s1.setConfig({ ...cfg }); });
   afterAll(async () => { await s1.close(); await s2?.close(); });
   it("entra, perde, 'reinicia' (nova conexão) e continua bloqueado até o dia seguinte", async () => {
     const h1 = harness(s1);
     await h1.tick(TUE, world(TUE, { EURUSD: "buy", GBPUSD: "none", USDJPY: "none" }));
     const t1 = (await s1.listTrades({ status: "OPEN" }))[0];
     const orig = world(TUE, { EURUSD: "buy" }).m5("EURUSD");
-    s2 = new PgStore(PG!); // "servidor reiniciado": nada em memória
+    s2 = new PgStore(PG!, { schema: "t_agent" }); // "servidor reiniciado": nada em memória
     const h2 = harness(s2), T1 = TUE + 900, w = world(T1, { GBPUSD: "buy", USDJPY: "buy" });
     const series = override(w, { EURUSD: [...orig, ...after(t1, TUE - 300, "LOSS")] });
     const r = await runTick({ store: s2, send: async (t) => { h2.sent.push(t); return { ok: true }; }, now: () => (T1 + 10) * 1000, series, calendar: async () => [] });
     expect(r.closed).toEqual(["EUR/USD LOSS"]);
-    const s3 = new PgStore(PG!); // outro reinício
+    const s3 = new PgStore(PG!, { schema: "t_agent" }); // outro reinício
     const wx = world(T1 + 600, { EURUSD: "buy", GBPUSD: "buy", USDJPY: "buy" });
     const rx = await runTick({ store: s3, send: async () => ({ ok: true }), now: () => (T1 + 610) * 1000, series: wx.series, calendar: async () => [] });
     expect([rx.action, rx.state, rx.opened, wx.calls.length]).toEqual(["locked", "DAILY_LOCKED", null, 0]);
     expect((await s3.latestDay())!.trades).toHaveLength(1);
     await s3.close();
-    const WED = at("2026-11-04T10:00:00-03:00"), s4 = new PgStore(PG!);
+    const WED = at("2026-11-04T10:00:00-03:00"), s4 = new PgStore(PG!, { schema: "t_agent" });
     const rw = await runTick({ store: s4, send: async () => ({ ok: true }), now: () => (WED + 10) * 1000, series: world(WED, { GBPUSD: "buy", EURUSD: "none", USDJPY: "none" }).series, calendar: async () => [] });
     expect(rw.opened).toBe("GBP/USD BUY");
     expect((await s4.listDays(5)).map((d) => d.date)).toEqual(["2026-11-04", "2026-11-03"]);

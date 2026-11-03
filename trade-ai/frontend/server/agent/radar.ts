@@ -14,9 +14,10 @@ const CLASS_RANK: Record<RadarClass, number> = { CONFIRMADA: 3, FORMACAO: 2, DIS
 export const rankKey = (o: Opportunity) => (o.cls ? CLASS_RANK[o.cls] * 1000 : 0) + o.quality;
 
 /** A região entra no id arredondada a 5 pips: pequenas mudanças do mesmo nível não geram um setup "novo". */
-export function regionBucket(r: { low: number; high: number } | null, pip: number): string {
-  if (!r) return "sem-regiao";
-  return String(Math.round((r.low + r.high) / 2 / (5 * pip)));
+export function regionBucket(r: { low: number; high: number } | null, pip: number, invalidation: number | null = null): string {
+  if (r) return String(Math.round((r.low + r.high) / 2 / (5 * pip)));
+  // estratégias sem região (ex.: varredura de liquidez) se identificam pelo nível estrutural de invalidação
+  return invalidation === null ? "sem-regiao" : `inv${Math.round(invalidation / (5 * pip))}`;
 }
 
 export function classifyOpportunity(a: ForexAnalysis, pip: number, distantAtr: number): Opportunity {
@@ -26,7 +27,7 @@ export function classifyOpportunity(a: ForexAnalysis, pip: number, distantAtr: n
   if (st && a.chosen && (a.state === "entrada_confirmada" || a.state === "aguardando_confirmacao")) {
     const cls: RadarClass = a.state === "entrada_confirmada" ? "CONFIRMADA" : "FORMACAO";
     return {
-      cls, setupId: `${a.symbol}|${st.strategyId}|${st.dir}|${regionBucket(st.region, pip)}`, quality: a.score?.total ?? 0, symbol: a.symbol, label: a.label,
+      cls, setupId: `${a.symbol}|${st.strategyId}|${st.dir}|${regionBucket(st.region, pip, st.invalidation)}`, quality: a.score?.total ?? 0, symbol: a.symbol, label: a.label,
       dir: st.dir, strategy: a.chosen.name, strategyId: st.strategyId, region: st.region, invalidation: st.invalidation,
       why: cls === "CONFIRMADA" ? "Gatilho confirmado e todos os filtros obrigatórios aprovados." : (a.missing[0] ?? "Falta confirmação do gatilho."),
     };

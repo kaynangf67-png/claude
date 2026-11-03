@@ -10,7 +10,7 @@ const al = (key: string): AlertRecord => ({ key, setupId: "s", cls: "CONFIRMADA"
 function contract(name: string, make: () => Store) {
   describe(`contrato do Store: ${name}`, () => {
     let s: Store;
-    beforeAll(async () => { s = make(); await s.migrate(); if (s instanceof PgStore) await s.pool.query("truncate agent_kv, agent_days, agent_trades, agent_alerts, agent_scans, agent_lease"); });
+    beforeAll(async () => { s = make(); await s.migrate(); if (s instanceof PgStore) await s.dropSchema(); await s.migrate(); });
     afterAll(async () => { await s.close(); });
     it("config: padrão, gravação e execução real sempre desligada", async () => {
       expect((await s.getConfig()).enabledPairs).toHaveLength(10);
@@ -64,7 +64,7 @@ function contract(name: string, make: () => Store) {
 }
 
 contract("memória", () => new MemoryStore());
-describe.skipIf(!PG)("PostgreSQL real", () => { contract("PostgreSQL", () => new PgStore(PG!)); });
+describe.skipIf(!PG)("PostgreSQL real", () => { contract("PostgreSQL", () => new PgStore(PG!, { schema: "t_store" })); });
 describe("ambiente", () => {
   it("sem DATABASE_URL o agente se recusa a rodar, com o motivo", () => { expect(() => storeFromEnv({})).toThrow(/DATABASE_URL/); });
 });

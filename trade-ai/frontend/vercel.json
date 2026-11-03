@@ -17,6 +17,9 @@
     },
     "api/forex-backtest.ts": {
       "maxDuration": 60
+    },
+    "api/agent.ts": {
+      "maxDuration": 60
     }
   }
 }

@@ -117,13 +117,22 @@ export class MemoryStore implements Store {
 
 // ---------------------------------------------------------------- PostgreSQL (produção)
 export class PgStore implements Store {
-  pool: pg.Pool;
+  pool: pg.Pool; schema?: string;
   /** `DATABASE_URL` de qualquer Postgres (Neon, Supabase, Railway...). Em funções serverless, prefira a URL com pooler. */
-  constructor(url: string, opts: { max?: number } = {}) {
+  constructor(url: string, opts: { max?: number; schema?: string } = {}) {
+    if (opts.schema !== undefined && !/^[a-z][a-z0-9_]{0,40}$/.test(opts.schema)) throw new Error("Nome de schema inválido.");
+    this.schema = opts.schema;
     const local = /localhost|127\.0\.0\.1/.test(url);
     this.pool = new pg.Pool({ connectionString: url, max: opts.max ?? 2, idleTimeoutMillis: 10_000, connectionTimeoutMillis: 8_000, ssl: local ? undefined : { rejectUnauthorized: false } });
+    if (this.schema) this.pool.on("connect", (c) => { void c.query(`set search_path to "${this.schema}"`); });
   }
-  async migrate() { await this.pool.query(SCHEMA); }
+  /** Cria o schema (se pedido) e as tabelas. Idempotente. */
+  async migrate() {
+    if (this.schema) { const c = await this.pool.connect(); try { await c.query(`create schema if not exists "${this.schema}"; set search_path to "${this.schema}"`); await c.query(SCHEMA); } finally { c.release(); } return; }
+    await this.pool.query(SCHEMA);
+  }
+  /** Só para testes: apaga o schema inteiro. */
+  async dropSchema() { if (this.schema) await this.pool.query(`drop schema if exists "${this.schema}" cascade`); }
   async getKv<T>(key: string) { const r = await this.pool.query("select value from agent_kv where key=$1", [key]); return (r.rows[0]?.value ?? null) as T | null; }
   async setKv(key: string, value: unknown) { await this.pool.query("insert into agent_kv(key,value) values($1,$2::jsonb) on conflict(key) do update set value=excluded.value, updated_at=now()", [key, JSON.stringify(value)]); }
   async getConfig() { return { ...DEFAULT_CONFIG, ...((await this.getKv<Partial<AgentConfig>>("config")) ?? {}), execution: DEFAULT_CONFIG.execution } as AgentConfig; }
