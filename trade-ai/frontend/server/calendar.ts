@@ -16,11 +16,13 @@ export interface CalEvent {
   impact: number;    // estrelas: 3 alto, 2 médio, 1 baixo, 0 feriado/sem impacto
   forecast: string;
   previous: string;
+  /** Resultado divulgado, quando a fonte entrega (o feed gratuito nem sempre entrega). */
+  actual?: string;
 }
 
 const IMPACT: Record<string, number> = { high: 3, medium: 2, low: 1 };
 
-interface RawEvent { title?: unknown; country?: unknown; date?: unknown; impact?: unknown; forecast?: unknown; previous?: unknown }
+interface RawEvent { title?: unknown; country?: unknown; date?: unknown; impact?: unknown; forecast?: unknown; previous?: unknown; actual?: unknown }
 
 const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 
@@ -34,6 +36,7 @@ export function parseCalendar(rows: unknown): CalEvent[] {
       at, title, country: str(r.country).toUpperCase(),
       impact: IMPACT[str(r.impact).toLowerCase()] ?? 0,
       forecast: str(r.forecast), previous: str(r.previous),
+      ...(str(r.actual) ? { actual: str(r.actual) } : {}),
     }];
   }).sort((a, b) => a.at - b.at || b.impact - a.impact);
 }

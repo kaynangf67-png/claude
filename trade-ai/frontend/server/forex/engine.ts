@@ -19,6 +19,7 @@ export interface EngineInput {
   candles: { H1: Candle[]; M5: Candle[]; M1: Candle[] | null; M15?: Candle[] | null }; // só velas FECHADAS. H1 = regiões e contexto; M15 = contexto; M5 e M1 = movimento atual
   profile?: Profile;                // critérios do Trade Profile (padrão: equilibrado)
   history?: PatternStat[];          // resultados já resolvidos do usuário, para o componente Pattern History
+  newsWindow?: { before: number; after: number }; // minutos de bloqueio ao redor de evento de alto impacto (padrão 15 antes e 30 depois)
   events: NewsEvent[] | null;       // null = calendário não verificado
   skipFreshness?: boolean;          // backtest
 }
@@ -45,6 +46,8 @@ export interface ForexAnalysis {
   closest: { name: string; dir: Dir; done: string[]; missing: string[]; stop: number | null; targetRegion: { low: number; high: number } | null } | null;
   /** O que falta, em lista de verificação, para o cenário mais próximo virar entrada (só quando não há entrada confirmada). */
   release: Release | null;
+  /** Setup em foco (para identificar o mesmo setup entre análises): estratégia, direção e região operacional. */
+  setup: { strategyId: number; dir: Dir; region: { low: number; high: number } | null; invalidation: number } | null;
   plan: Plan | null; thesis: Thesis; annotations: Annotation[]; sizing: Sizing | null; profile: Profile;
   trigger: Trigger | null;
   trade: (Risk & { dir: Dir }) | null;
@@ -121,7 +124,7 @@ export function analyze(inp: EngineInput): ForexAnalysis {
     const traveled = tp1 !== null && tp1 !== undefined && Math.abs(tp1 - start) > 0 ? Math.abs(entry - start) / Math.abs(tp1 - start) : 0;
     const exhausted = traveled > 0.6;
 
-    const filters = buildFilters({ dir, s, a, ctx, trig, risk, exhausted, traveled, bothAgainst, justified, context, baseOk, issues, events: inp.events, currencies: inp.currencies, now, m1Ok, blockUnverifiedNews: rules.blockUnverifiedNews });
+    const filters = buildFilters({ dir, s, a, ctx, trig, risk, exhausted, traveled, bothAgainst, justified, context, baseOk, issues, events: inp.events, currencies: inp.currencies, now, m1Ok, blockUnverifiedNews: rules.blockUnverifiedNews, newsWindow: inp.newsWindow });
     const sc = buildConfluence({ dir, price, pip, now, symbol, currencies: inp.currencies, a: aAll, regions, strategy: s, risk, filters, profile, history, fvgAligned: !!conf.fvg });
     const hard = filters.filter((f) => f.status === "falha" && f.id !== 4).map((f) => `${f.name}: ${f.note}`);
     const pass = filters.every((f) => f.status !== "falha") && sc.total >= minScore;
@@ -182,13 +185,14 @@ export function analyze(inp: EngineInput): ForexAnalysis {
     const release: Release | null = core.state !== "entrada_confirmada" && closest
       ? { dir: closest.dir, scenario: closest.name, conditions: [...closest.done.map((text) => ({ ok: true, text })), ...closest.missing.map((text) => ({ ok: false, text }))] }
       : null;
-    return { ...base, ...core, release, plan, thesis, profile,
+    const setup: ForexAnalysis["setup"] = best ? { strategyId: best.s.id, dir: best.s.dir, region: best.s.region ? { low: best.s.region.low, high: best.s.region.high } : null, invalidation: best.risk.invalidation } : null;
+    return { ...base, ...core, release, plan, thesis, profile, setup,
       annotations: noData ? [] : buildAnnotations({ m5: inp.candles.M5, m5a: a.M5, regions, plan }),
       sizing: core.state === "entrada_confirmada" && core.trade ? positionSize(profile, symbol, price, core.trade.riskPips) : null };
   };
 
   if (noData) {
-    return finish({ decision: "NO_TRADE", state: "sem_operacao", watch: null, chosen: null, trigger: null, trade: null, filters: dataOnlyFilters(issues, inp.events, inp.currencies, now, rules.blockUnverifiedNews), score: null,
+    return finish({ decision: "NO_TRADE", state: "sem_operacao", watch: null, chosen: null, trigger: null, trade: null, filters: dataOnlyFilters(issues, inp.events, inp.currencies, now, rules.blockUnverifiedNews, inp.newsWindow), score: null,
       favor: [], contra: issues, invalidation: "—", missing: missingBase });
   }
   if (best) {
@@ -215,7 +219,7 @@ export function analyze(inp: EngineInput): ForexAnalysis {
       missing: nonTrigger.map((x) => `${x.name}: ${x.note}`).concat(best.score.total < minScore ? [`Confluência ${best.score.total} (mínimo ${minScore}).`] : []) });
   }
   // nenhuma estratégia pronta: procura o cenário mais próximo para "próxima oportunidade"
-  const filters = dataOnlyFilters(issues, inp.events, inp.currencies, now, rules.blockUnverifiedNews);
+  const filters = dataOnlyFilters(issues, inp.events, inp.currencies, now, rules.blockUnverifiedNews, inp.newsWindow);
   let watch: ForexAnalysis["watch"] = null;
   if (partial && nearAny) watch = { dir: partial.dir, condition: `Faltam: ${partial.needs.join("; ")}.` };
   return finish({ decision: "NO_TRADE", state: "sem_operacao", watch, chosen: null, trigger: null, trade: null, filters, score: null,
@@ -228,20 +232,20 @@ function invalidationText(dir: Dir, level: number, symbol: string) {
   return dir === "BUY" ? `Fechamento do M5 abaixo de ${level.toFixed(f)} invalida a compra.` : `Fechamento do M5 acima de ${level.toFixed(f)} invalida a venda.`;
 }
 
-function newsFilter(events: NewsEvent[] | null, currencies: string[], now: number, block = false): Filter {
+function newsFilter(events: NewsEvent[] | null, currencies: string[], now: number, block = false, win = { before: 15, after: 30 }): Filter {
   if (!events) return { id: 9, name: "Notícias", status: block ? "falha" : "nao_verificado", note: block ? "Calendário econômico indisponível: o perfil conservador não opera sem verificar notícias." : "Calendário econômico indisponível: filtro de notícias NÃO foi verificado." };
-  const hit = events.find((e) => e.impact === 3 && currencies.includes(e.country) && e.at >= now - 15 * 60 && e.at <= now + 30 * 60);
-  return hit ? { id: 9, name: "Notícias", status: "falha", note: `Evento de alto impacto (${hit.country} ${hit.title}) próximo.` } : { id: 9, name: "Notícias", status: "ok", note: "Sem evento de alto impacto das moedas do par entre -15 e +30 minutos." };
+  const hit = events.find((e) => e.impact === 3 && currencies.includes(e.country) && e.at >= now - win.after * 60 && e.at <= now + win.before * 60);
+  return hit ? { id: 9, name: "Notícias", status: "falha", note: `Evento de alto impacto (${hit.country} ${hit.title}) próximo.` } : { id: 9, name: "Notícias", status: "ok", note: `Sem evento de alto impacto das moedas do par entre -${win.before} e +${win.after} minutos.` };
 }
 
-function dataOnlyFilters(issues: string[], events: NewsEvent[] | null, currencies: string[], now: number, block = false): Filter[] {
+function dataOnlyFilters(issues: string[], events: NewsEvent[] | null, currencies: string[], now: number, block = false, win?: { before: number; after: number }): Filter[] {
   return [
     { id: 10, name: "Qualidade dos dados", status: issues.length ? "falha" : "ok", note: issues.length ? issues.join(" | ") : "Velas atualizadas, completas e sem duplicatas." },
-    newsFilter(events, currencies, now, block),
+    newsFilter(events, currencies, now, block, win),
   ];
 }
 
-interface FArgs { dir: Dir; s: StrategyResult; a: { H1: TFAnalysis; M5: TFAnalysis; M1: TFAnalysis | null }; ctx: Ctx; trig: Trigger; risk: Risk; exhausted: boolean; traveled: number; bothAgainst: boolean; justified: boolean; context: ForexAnalysis["context"]; baseOk: boolean; issues: string[]; events: NewsEvent[] | null; currencies: string[]; now: number; m1Ok: boolean; blockUnverifiedNews: boolean }
+interface FArgs { dir: Dir; s: StrategyResult; a: { H1: TFAnalysis; M5: TFAnalysis; M1: TFAnalysis | null }; ctx: Ctx; trig: Trigger; risk: Risk; exhausted: boolean; traveled: number; bothAgainst: boolean; justified: boolean; context: ForexAnalysis["context"]; baseOk: boolean; issues: string[]; events: NewsEvent[] | null; currencies: string[]; now: number; m1Ok: boolean; blockUnverifiedNews: boolean; newsWindow?: { before: number; after: number } }
 
 function buildFilters(x: FArgs): Filter[] {
   const o = wantTrend(opposite(x.dir));
@@ -264,7 +268,7 @@ function buildFilters(x: FArgs): Filter[] {
   f.push({ id: 7, name: "Risco e retorno", status: x.risk.ok && !x.exhausted ? "ok" : "falha", note: (x.risk.ok ? `R:R ao TP1 de ${(x.risk.rr[0] ?? 0).toFixed(2)}.` : x.risk.notes.join(" ")) + exh });
   const mid = x.context === "consolidação";
   f.push({ id: 8, name: "Contexto", status: mid && (x.s.id === 1 || x.s.id === 9) ? "falha" : "ok", note: `Mercado em ${x.context}.` });
-  f.push(newsFilter(x.events, x.currencies, x.now, x.blockUnverifiedNews));
+  f.push(newsFilter(x.events, x.currencies, x.now, x.blockUnverifiedNews, x.newsWindow));
   f.push({ id: 10, name: "Qualidade dos dados", status: x.baseOk ? "ok" : "falha", note: x.baseOk ? `Velas atualizadas e completas${x.m1Ok ? "" : "; M1 indisponível, gatilho confirmado pelo M5"}.` : x.issues.join(" | ") });
   return f.sort((p, q) => p.id - q.id);
 }
