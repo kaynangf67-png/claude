@@ -26,5 +26,7 @@ jobs:
             -H "Authorization: Bearer $CRON_SECRET" \
             -H "x-vercel-protection-bypass: $VERCEL_BYPASS" \
             "$AGENT_URL/api/agent?action=tick")
-          cat resp.json; echo
-          [ "$code" = "200" ] || { echo "HTTP $code"; exit 1; }
+          # o repositório é público: o log mostra só o código HTTP e a ação, nunca o conteúdo da resposta
+          action=$(grep -o '"action":"[a-z]*"' resp.json | head -1 || true)
+          echo "HTTP $code ${action}"
+          [ "$code" = "200" ] || exit 1
