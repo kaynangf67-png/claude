@@ -116,6 +116,12 @@ describe("API do agente", () => {
     expect((await store.getConfig()).paused).toBe(true);
     await handleAgent(req("control", "POST", { op: "resume" }, "admin"), { store, env });
     expect((await store.getConfig()).paused).toBe(false);
+    const NOWMS = NOW * 1000;
+    expect((await (await handleAgent(req("control", "POST", { op: "start" }, "admin"), { store, env, now: () => NOWMS })).json()).config.armedDay).toBe("2026-11-03");
+    expect((await (await handleAgent(req("control", "POST", { op: "stop" }, "admin"), { store, env, now: () => NOWMS })).json()).config.armedDay).toBeNull();
+    await handleAgent(req("control", "POST", { op: "start" }, "admin"), { store, env, now: () => NOWMS });
+    const cfgSave = await (await handleAgent(req("control", "POST", { op: "config", config: { armedDay: "2099-01-01", style: "agressivo" } }, "admin"), { store, env, now: () => NOWMS })).json();
+    expect(cfgSave.config.armedDay).toBe("2026-11-03");        // o formulário de configuração nunca liga nem desliga o bot
     const c = await (await handleAgent(req("control", "POST", { op: "config", config: { execution: { enabled: true, broker: "x" }, riskBrl: 500, maxTrades: 99, enabledPairs: ["EURUSD", "XXX"], style: "agressivo", window: { startMin: 600, endMin: 500 } } }, "admin"), { store, env })).json();
     expect(c.config.execution).toEqual({ enabled: false, broker: null });
     expect(c.config.enabledPairs).toEqual(["EURUSD"]);
@@ -125,7 +131,7 @@ describe("API do agente", () => {
     expect((await handleAgent(req("control", "POST", { op: "x" }, "admin"), { store, env })).status).toBe(400);
   });
   it("tick autorizado roda uma varredura (sem dados = falha tratada, sem derrubar)", async () => {
-    const store = new MemoryStore(); await store.setConfig({ ...DEFAULT_CONFIG, enabledPairs: ["EURUSD"] });
+    const store = new MemoryStore(); await store.setConfig({ ...DEFAULT_CONFIG, enabledPairs: ["EURUSD"], armedDay: "2026-11-03" });
     const r = await handleAgent(req("tick", "POST", undefined, "cron"), { store, env, now: () => NOW * 1000, send: async () => ({ ok: true }), series: async () => { throw new Error("Yahoo fora"); }, calendar: async () => [] });
     expect(r.status).toBe(200);
     expect((await r.json()).failed).toBe(1);

@@ -184,7 +184,8 @@ export async function runTick(deps: TickDeps): Promise<TickResult> {
     hb = { marketOpen: open, paused: cfg.paused, lastDataAt: prevHb?.lastDataAt ?? null };
 
     // 3. notícias e relatórios (informativos; seguem mesmo com o dia travado)
-    if (open && operational && cfg.window.startMin <= brtMinutes(now) && brtMinutes(now) < cfg.window.endMin && !cfg.paused) {
+    const armed = cfg.armedDay === today;
+    if (open && operational && cfg.window.startMin <= brtMinutes(now) && brtMinutes(now) < cfg.window.endMin && !cfg.paused && armed) {
       const ups = upcoming(cal.events, now, cfg.enabledPairs, 24, 2);
       await tk.emit({ key: `${today}|ABERTURA`, setupId: "-", cls: "RELATORIO", title: "Relatório de abertura", text: openingMsg(day, ups, cfg.enabledPairs, now, cal.events !== null) });
       for (const e of cal.events ?? []) {
@@ -199,7 +200,7 @@ export async function runTick(deps: TickDeps): Promise<TickResult> {
         }
       }
     }
-    if (operational && day.date === today && brtMinutes(now) >= cfg.window.endMin) {
+    if (operational && day.date === today && brtMinutes(now) >= cfg.window.endMin && armed) {
       const scans = await store.listScans(today), trades = await store.listTrades({ day: today });
       const rep = buildDailyReport(day, trades, scans, await store.listAlerts(100), cfg.enabledPairs, now);
       if (await tk.emit({ key: `${today}|FECHAMENTO`, setupId: "-", cls: "RELATORIO", title: "Relatório de encerramento", text: rep.text })) await store.setKv(`report:${today}`, rep);
@@ -215,6 +216,7 @@ export async function runTick(deps: TickDeps): Promise<TickResult> {
     if (!open || !win || !operational) { await finish("idle", { note: !open ? "Mercado fechado." : !operational ? "Hoje não é dia operacional." : "Fora do horário operacional." }); return result; }
     if (!gate.ok || justClosed) { await finish("locked", { note: justClosed ? "Operação acabou de encerrar: nova busca só na próxima execução." : [tk.note, gate.reason].filter(Boolean).join(" ") }); return result; }
 
+    if (!armed) { await finish("idle", { note: "Bot DESLIGADO hoje: ligue o bot no painel para começar as análises e operações." }); return result; }
     // 4. varredura de todos os pares habilitados
     const history = patternStats(await store.listTrades({ limit: 500 }));
     const pairs = cfg.enabledPairs.filter((p) => p in FOREX_YAHOO);
@@ -303,7 +305,7 @@ export async function runTick(deps: TickDeps): Promise<TickResult> {
 
 // ---------------------------------------------------------------- estado para o painel
 export interface AgentStatus {
-  online: boolean; reason: string; heartbeat: Heartbeat | null; marketOpen: boolean; config: AgentConfig;
+  online: boolean; armed: boolean; reason: string; heartbeat: Heartbeat | null; marketOpen: boolean; config: AgentConfig;
   panel: ReturnType<typeof panel>; day: DayState; trades: JournalTrade[]; alerts: AlertRecord[]; radar: unknown[];
   news: ReturnType<typeof upcoming>; newsVerified: boolean; execution: "DESLIGADA"; mode: "ANALISTA AUTÔNOMO"; serverTime: number;
 }
@@ -312,11 +314,11 @@ export async function agentStatus(store: Store, nowMs = Date.now()): Promise<Age
   const hb = await store.getKv<Heartbeat>("heartbeat"), latest = await store.latestDay(), day = rollover(latest, now).day;
   const limit = Math.max(15, 3 * cfg.intervalMin) * 60;
   const online = !!hb && now - hb.at <= limit && hb.consecutiveFailures < 3;
-  const reason = !hb ? "Nenhuma execução registrada ainda: o agendador não chamou o agente." : now - hb.at > limit ? `Última execução há ${Math.round((now - hb.at) / 60)} min (limite ${limit / 60} min): agendador parado?` : hb.consecutiveFailures >= 3 ? `${hb.consecutiveFailures} execuções seguidas com falha: ${hb.lastError}` : cfg.paused ? "Online, monitoramento pausado." : "Online.";
+  const reason = !hb ? "Nenhuma execução registrada ainda: o agendador não chamou o agente." : now - hb.at > limit ? `Última execução há ${Math.round((now - hb.at) / 60)} min (limite ${limit / 60} min): agendador parado?` : hb.consecutiveFailures >= 3 ? `${hb.consecutiveFailures} execuções seguidas com falha: ${hb.lastError}` : cfg.paused ? "Online, monitoramento pausado." : cfg.armedDay !== brtDate(now) ? "Online, bot DESLIGADO hoje (ligue no painel para começar)." : "Online, bot LIGADO hoje.";
   const cache = await store.getKv<{ at: number; events: CalEvent[] }>("calendar:cache");
   const radar = Object.entries((await store.getKv<Record<string, unknown>>("radar:active")) ?? {}).map(([id, v]) => ({ id, ...(v as object) }));
   return {
-    online, reason, heartbeat: hb, marketOpen: marketOpen(now), config: cfg, panel: panel(day, now), day,
+    online, armed: cfg.armedDay === brtDate(now) && !cfg.paused, reason, heartbeat: hb, marketOpen: marketOpen(now), config: cfg, panel: panel(day, now), day,
     trades: await store.listTrades({ day: day.date }), alerts: await store.listAlerts(30), radar,
     news: cache ? upcoming(cache.events, now, cfg.enabledPairs, 24, 2) : [], newsVerified: !!cache && now - cache.at < CAL_USABLE_SEC,
     execution: "DESLIGADA", mode: "ANALISTA AUTÔNOMO", serverTime: now,

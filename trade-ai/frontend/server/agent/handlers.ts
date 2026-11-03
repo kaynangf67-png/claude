@@ -1,6 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { FOREX_YAHOO } from "../forex/marketData.js";
 import { agentStatus, runTick, type TickDeps } from "./agent.js";
+import { brtDate } from "./risk2x0.js";
 import { DEFAULT_NEWS_CONFIG } from "./news.js";
 import { telegramFromEnv, type Sender } from "./telegram.js";
 import { DEFAULT_CONFIG, storeFromEnv, type AgentConfig, type Store } from "./store.js";
@@ -47,6 +48,7 @@ export function sanitizeConfig(raw: unknown, cur: AgentConfig): AgentConfig {
     costPips: num(r.costPips, 0, 5, cur.costPips), distantAtr: num(r.distantAtr, 4, 30, cur.distantAtr), intervalMin: Math.round(num(r.intervalMin, 1, 60, cur.intervalMin)),
     notify: { distant: typeof nt.distant === "boolean" ? nt.distant : cur.notify.distant, forming: typeof nt.forming === "boolean" ? nt.forming : cur.notify.forming },
     paused: typeof r.paused === "boolean" ? r.paused : cur.paused,
+    armedDay: cur.armedDay, // só os botões Ligar/Desligar mexem nisto, nunca o formulário de configuração
     execution: DEFAULT_CONFIG.execution, // execução real: sempre desligada
   };
 }
@@ -74,9 +76,12 @@ export async function handleAgent(request: Request, deps: AgentDeps = {}): Promi
       if (!ok) return json({ error: "Não autorizado." }, 401);
       const body = (await request.json().catch(() => ({}))) as { op?: string; config?: unknown };
       const cur = await store.getConfig();
+      const today = brtDate(Math.floor((deps.now ?? Date.now)() / 1000));
       if (body.op === "pause" || body.op === "resume") await store.setConfig({ ...cur, paused: body.op === "pause" });
+      else if (body.op === "start") await store.setConfig({ ...cur, armedDay: today, paused: false });
+      else if (body.op === "stop") await store.setConfig({ ...cur, armedDay: null });
       else if (body.op === "config") await store.setConfig(sanitizeConfig(body.config, cur));
-      else return json({ error: "Operação inválida (use pause, resume ou config)." }, 400);
+      else return json({ error: "Operação inválida (use start, stop, pause, resume ou config)." }, 400);
       return json({ ok: true, config: await store.getConfig() });
     }
     return json({ error: "Ação ou método inválido." }, 405);

@@ -43,7 +43,7 @@ const override = (base: ReturnType<typeof world>, extra: Record<string, Candle[]
 };
 
 const PAIRS = ["EURUSD", "GBPUSD", "USDJPY"];
-const cfg = { ...DEFAULT_CONFIG, enabledPairs: PAIRS };
+const cfg = { ...DEFAULT_CONFIG, enabledPairs: PAIRS, armedDay: "2026-11-03" }; // o usuário "ligou o bot" na terça
 function harness(store: Store, send?: (t: string) => Promise<{ ok: boolean; error?: string }>) {
   const sent: string[] = [];
   const sender = send ?? (async (t: string) => { sent.push(t); return { ok: true }; });
@@ -159,11 +159,45 @@ describe("agente: entrada, resultado e gerenciamento 2x0", () => {
     expect((await store.latestDay())!.trades).toHaveLength(1);
     // próximo dia operacional (quarta 10h): READY de novo, histórico do dia anterior preservado
     const WED = at("2026-11-04T10:00:00-03:00"), wedW = world(WED, { EURUSD: "none", GBPUSD: "buy", USDJPY: "none" });
+    const semLigar = await h.tick(WED, wedW);
+    expect([semLigar.action, semLigar.opened]).toEqual(["idle", null]);   // ligar na terça NÃO vale na quarta
+    expect(wedW.calls).toHaveLength(0);
+    await store.setConfig({ ...(await store.getConfig()), armedDay: "2026-11-04" });
     const rw = await h.tick(WED, wedW);
     expect(rw.opened).toBe("GBP/USD BUY");
     expect((await store.listDays(5)).map((d) => d.date)).toEqual(["2026-11-04", "2026-11-03"]);
     expect((await store.getDay("2026-11-03"))!.trades[0].result).toBe("LOSS");
   }, 30_000);
+});
+
+describe("liga/desliga diário do bot", () => {
+  it("desligado (padrão de todo dia): não varre, não opera, não manda relatório; o painel diz que está desligado", async () => {
+    const store = await setup({ armedDay: null }), h = harness(store), w = world(TUE, { EURUSD: "buy", GBPUSD: "buy", USDJPY: "buy" });
+    const r = await h.tick(TUE, w);
+    expect([r.action, r.opened, w.calls.length, h.sent.length]).toEqual(["idle", null, 0, 0]);
+    expect(r.note).toMatch(/DESLIGADO hoje/);
+    const st = await agentStatus(store, (TUE + 30) * 1000);
+    expect([st.online, st.armed]).toEqual([true, false]);
+    expect(st.reason).toMatch(/DESLIGADO/);
+  });
+  it("ligado hoje: opera; ligar ontem não vale hoje; pausar derruba mesmo ligado", async () => {
+    const store = await setup({ armedDay: "2026-11-02" }), h = harness(store);   // ligado na segunda
+    expect((await h.tick(TUE, world(TUE, { EURUSD: "buy", GBPUSD: "none", USDJPY: "none" }))).opened).toBeNull();
+    await store.setConfig({ ...(await store.getConfig()), armedDay: "2026-11-03" });
+    expect((await agentStatus(store, TUE * 1000 + 1)).armed).toBe(true);
+    await store.setConfig({ ...(await store.getConfig()), paused: true });
+    expect((await agentStatus(store, TUE * 1000 + 1)).armed).toBe(false);
+  });
+  it("desligar no meio do dia não abandona operação aberta: ela continua sendo conferida até o resultado", async () => {
+    const store = await setup(), h = harness(store);
+    await h.tick(TUE, world(TUE, { EURUSD: "buy", GBPUSD: "none", USDJPY: "none" }));
+    const t1 = (await store.listTrades({ status: "OPEN" }))[0];
+    await store.setConfig({ ...(await store.getConfig()), armedDay: null });    // usuário desligou
+    const orig = world(TUE, { EURUSD: "buy" }).m5("EURUSD"), T1 = TUE + 900, w = world(T1, { GBPUSD: "buy" });
+    const r = await runTick({ store, send: async (t) => { h.sent.push(t); return { ok: true }; }, now: () => (T1 + 10) * 1000, series: override(w, { EURUSD: [...orig, ...after(t1, TUE - 300, "WIN")] }), calendar: async () => [] });
+    expect(r.closed).toEqual(["EUR/USD WIN"]);
+    expect(r.opened).toBeNull();
+  });
 });
 
 describe("travas: horário, mercado, pausa, notícias, dados", () => {
@@ -314,6 +348,7 @@ describe.skipIf(!PG)("persistência real: o bloqueio diário sobrevive a 'reinic
     expect([rx.action, rx.state, rx.opened, wx.calls.length]).toEqual(["locked", "DAILY_LOCKED", null, 0]);
     expect((await s3.latestDay())!.trades).toHaveLength(1);
     await s3.close();
+    await s1.setConfig({ ...(await s1.getConfig()), armedDay: "2026-11-04" });
     const WED = at("2026-11-04T10:00:00-03:00"), s4 = new PgStore(PG!, { schema: "t_agent" });
     const rw = await runTick({ store: s4, send: async () => ({ ok: true }), now: () => (WED + 10) * 1000, series: world(WED, { GBPUSD: "buy", EURUSD: "none", USDJPY: "none" }).series, calendar: async () => [] });
     expect(rw.opened).toBe("GBP/USD BUY");

@@ -14,6 +14,8 @@ export interface AgentConfig {
   window: { startMin: number; endMin: number };
   news: NewsConfig;
   paused: boolean;
+  /** Dia (America/Sao_Paulo) para o qual o usuário LIGOU o bot. O bot só varre e opera se for hoje: todo dia começa desligado. */
+  armedDay: string | null;
   /** Custo simulado (spread + slippage) em pips, descontado do R de cada operação simulada. */
   costPips: number;
   /** Até quantos ATR(M5) de uma região H1 o preço conta como "oportunidade distante". */
@@ -26,7 +28,7 @@ export interface AgentConfig {
 export const DEFAULT_PAIRS = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "USDCHF", "NZDUSD", "EURGBP", "EURJPY", "GBPJPY"];
 export const DEFAULT_CONFIG: AgentConfig = {
   enabledPairs: DEFAULT_PAIRS, strategies: [1, 2, 3, 4, 5, 9], style: "equilibrado", entryTf: "M1",
-  window: { startMin: 5 * 60, endMin: 17 * 60 }, news: DEFAULT_NEWS_CONFIG, paused: false, costPips: 1.2, distantAtr: 12, intervalMin: 5,
+  window: { startMin: 5 * 60, endMin: 17 * 60 }, news: DEFAULT_NEWS_CONFIG, paused: false, armedDay: null, costPips: 1.2, distantAtr: 12, intervalMin: 5,
   notify: { distant: false, forming: true }, execution: { enabled: false, broker: null },
 };
 
