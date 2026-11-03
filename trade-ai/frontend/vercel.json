@@ -1,0 +1,25 @@
+{
+  "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "functions": {
+    "api/analyze.ts": {
+      "maxDuration": 60
+    },
+    "api/signal.ts": {
+      "maxDuration": 60
+    },
+    "api/forex.ts": {
+      "maxDuration": 60
+    },
+    "api/forex-resolve.ts": {
+      "maxDuration": 60
+    },
+    "api/forex-backtest.ts": {
+      "maxDuration": 60
+    },
+    "api/agent.ts": {
+      "maxDuration": 60
+    }
+  }
+}

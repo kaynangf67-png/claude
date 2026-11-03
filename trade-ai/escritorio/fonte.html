@@ -1,0 +1,1629 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Escritório Trade AI</title>
+<style>
+  :root { color-scheme: dark; --ink: #f4f4f5; --mute: #a1a1aa; --line: #262626; --buy: #22c55e; --sell: #ef4444; }
+  html, body { margin: 0; height: 100%; background: #000; color: var(--ink); font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  .hud { position: fixed; left: max(16px, env(safe-area-inset-left)); right: max(16px, env(safe-area-inset-right)); top: max(16px, env(safe-area-inset-top)); display: flex; align-items: center; gap: 12px; pointer-events: none; }
+  .brand { display: flex; align-items: center; gap: 10px; pointer-events: auto; }
+  .logo { width: 36px; height: 36px; border-radius: 10px; background: #0d1410; border: 1px solid #ffffff14; display: grid; place-items: center; }
+  .brand b { display: block; font-size: 15px; letter-spacing: .08em; }
+  .brand b span { background: linear-gradient(90deg, #4ade80, #22c55e 45%, #ef4444 75%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .brand small { display: block; font-size: 11px; color: var(--mute); }
+  .bar { position: fixed; left: 50%; transform: translateX(-50%); bottom: max(18px, env(safe-area-inset-bottom)); display: flex; gap: 6px; padding: 6px; border-radius: 16px; background: #0a0a0acc; border: 1px solid var(--line); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); max-width: calc(100vw - 32px); flex-wrap: wrap; justify-content: center; }
+  .bar button { appearance: none; border: 0; border-radius: 11px; padding: 10px 14px; font: 700 13px/1 inherit; font-family: inherit; color: var(--mute); background: transparent; cursor: pointer; display: flex; align-items: center; gap: 7px; }
+  .bar button:hover { color: var(--ink); background: #151515; }
+  .bar button.on { color: #03130a; background: linear-gradient(180deg, #34d36f, #16a34a); }
+  .bar button:focus-visible { outline: 2px solid var(--buy); outline-offset: 2px; }
+  .hint { position: fixed; right: max(16px, env(safe-area-inset-right)); top: max(22px, env(safe-area-inset-top)); font-size: 12px; color: #63636b; pointer-events: none; text-align: right; }
+  .news { position: fixed; inset: 0; display: none; place-items: center; padding: 16px; background: #000a; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); z-index: 5; }
+  .news.open { display: grid; }
+  .news .card { width: min(520px, 100%); box-sizing: border-box; background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 20px; padding: 22px; box-shadow: 0 30px 80px -20px #000; }
+  .news .tag { font-size: 11px; font-weight: 800; letter-spacing: .12em; color: #63636b; }
+  .news h2 { margin: 10px 0 8px; font-size: 20px; line-height: 1.3; }
+  .news .meta { font-size: 13px; color: var(--mute); }
+  .news .row { display: flex; gap: 8px; margin-top: 20px; }
+  .news a, .news button { flex: 1; text-align: center; text-decoration: none; border: 0; border-radius: 12px; padding: 13px 14px; font: 800 14px/1 inherit; font-family: inherit; cursor: pointer; }
+  .news a { color: #03130a; background: linear-gradient(180deg, #34d36f, #16a34a); }
+  .news a[aria-disabled="true"] { pointer-events: none; opacity: .4; }
+  .news button { flex: 0 0 auto; color: var(--ink); background: #1a1a1a; }
+  .news .note { margin-top: 12px; font-size: 11.5px; color: #63636b; }
+  .pc { position: fixed; inset: 0; z-index: 6; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 12px 16px; background: #000c; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  .pc.open { display: flex; }
+  .pc-monitor { width: min(1640px, 100%); background: linear-gradient(180deg, #1a1a1a, #0b0b0b); border: 1px solid #2c2c2c; border-radius: 18px; padding: 14px 14px 0; box-shadow: 0 40px 90px -30px #000, inset 0 1px 0 #ffffff12; box-sizing: border-box; }
+  .pc-screen { background: #000; border-radius: 8px; overflow: hidden; border: 1px solid #000; display: flex; flex-direction: column; height: min(calc(100vh - 160px), 940px); }
+  .pc-top { display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: #0b0b0b; border-bottom: 1px solid #1c1c1c; font-size: 13px; }
+  .pc-dots { display: flex; gap: 6px; } .pc-dots i { width: 10px; height: 10px; border-radius: 50%; background: #2a2a2a; } .pc-dots i:first-child { background: #ef4444; } .pc-dots i:last-child { background: #22c55e; }
+  .pc-top b { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pc-state { font-size: 11.5px; font-weight: 800; padding: 4px 9px; border-radius: 99px; white-space: nowrap; }
+  .pc-state.on { color: #22c55e; background: #22c55e1f; } .pc-state.off { color: #f59e0b; background: #f59e0b1f; }
+  .pc-top button { appearance: none; border: 0; background: #1a1a1a; color: var(--ink); width: 30px; height: 30px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+  .pc-top button:hover { background: #262626; }
+  .pc-pick { padding: 10px 12px; border-bottom: 1px solid #1c1c1c; display: flex; flex-direction: column; gap: 8px; }
+  .pc-groups { display: flex; gap: 4px; }
+  .pc-groups button, .pc-assets button { appearance: none; font-family: inherit; cursor: pointer; }
+  .pc-groups button { border: 0; border-radius: 99px; padding: 6px 12px; font-size: 12.5px; font-weight: 800; color: var(--mute); background: transparent; }
+  .pc-groups button.on { background: var(--ink); color: #000; }
+  .pc-assets { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+  .pc-assets::-webkit-scrollbar { display: none; }
+  .pc-assets button { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; border: 1px solid #262626; background: #0b0b0b; color: var(--mute); border-radius: 10px; padding: 7px 11px; font-size: 12.5px; font-weight: 700; }
+  .pc-assets button:hover { color: var(--ink); border-color: #3a3a3a; }
+  .pc-assets button.on { border-color: var(--buy); color: var(--ink); background: #22c55e1a; }
+  .pc-assets i { width: 6px; height: 6px; border-radius: 50%; background: #3f3f46; } .pc-assets i.up { background: var(--buy); }
+  .pc-body { flex: 1; min-height: 0; display: flex; }
+  .pc-chart { flex: 1; min-width: 0; min-height: 0; background: #000; }
+  .ai { width: 340px; flex: 0 0 auto; border-left: 1px solid #1c1c1c; background: #050505; display: flex; flex-direction: column; min-height: 0; }
+  .ai-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 10px 12px 0; font-size: 11px; font-weight: 800; letter-spacing: .12em; color: #63636b; }
+  .ai-head small { letter-spacing: 0; font-weight: 600; text-align: right; }
+  .ai-go { margin: 10px 12px; appearance: none; border: 0; border-radius: 12px; padding: 12px; font: 800 14px/1 inherit; font-family: inherit; cursor: pointer; color: #03130a; background: linear-gradient(180deg, #34d36f, #16a34a); }
+  .ai-go:disabled { opacity: .45; cursor: default; }
+  .ai-out { flex: 1; min-height: 0; overflow-y: auto; padding: 0 12px 12px; font-size: 13px; line-height: 1.45; }
+  .ai-hint { color: #71717a; margin: 4px 0; }
+  .ai-err { color: #fca5a5; background: #ef44441a; border: 1px solid #ef444440; border-radius: 10px; padding: 10px; }
+  .ai-dec { border-radius: 14px; padding: 12px; text-align: center; }
+  .ai-dec b { display: block; font-size: 26px; letter-spacing: .04em; }
+  .ai-dec span { font-size: 12px; opacity: .8; }
+  .ai-dec.call { background: #22c55e1f; color: #4ade80; border: 1px solid #22c55e55; }
+  .ai-dec.put { background: #ef44441f; color: #f87171; border: 1px solid #ef444455; }
+  .ai-dec.wait { background: #ffffff0a; color: #d4d4d8; border: 1px solid #ffffff1a; }
+  .ai-bar { height: 6px; border-radius: 9px; background: #1f1f1f; margin: 10px 0 2px; overflow: hidden; } .ai-bar i { display: block; height: 100%; border-radius: 9px; }
+  .ai-grid { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; margin: 10px 0; font-size: 12.5px; }
+  .ai-grid dt { color: #8b8b93; } .ai-grid dd { margin: 0; text-align: right; font-weight: 700; font-family: ui-monospace, monospace; }
+  .ai h4 { margin: 10px 0 4px; font-size: 11px; letter-spacing: .1em; color: #63636b; }
+  .ai ul { margin: 0; padding-left: 16px; } .ai li { margin: 2px 0; }
+  .ai ul.pro li::marker { color: #22c55e; } .ai ul.con li::marker { color: #ef4444; }
+  .ai-foot { margin-top: 10px; font-size: 11px; color: #63636b; }
+  .ai.wide { width: 440px; }
+  .ai-tools { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px 8px; } .ai-tools button { flex: 1 1 22%; } .ai-tools[hidden] { display: none; }
+  .ai-tools button { flex: 1; appearance: none; border: 1px solid #262626; background: #0b0b0b; color: var(--mute); border-radius: 9px; padding: 7px; font: 700 12px/1 inherit; font-family: inherit; cursor: pointer; }
+  .ai-tools button:hover { color: var(--ink); border-color: #3a3a3a; }
+  .ai-dec.wait2 { background: #f59e0b1a; color: #fbbf24; border: 1px solid #f59e0b55; }
+  .fx-sub { margin-top: 6px; font-size: 12px; font-weight: 600; opacity: .9; text-align: left; line-height: 1.4; }
+  .fx-top { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; color: #71717a; margin-bottom: 8px; }
+  .fx-warn { color: #fca5a5; background: #ef44441a; border: 1px solid #ef444440; border-radius: 10px; padding: 9px; margin: 8px 0; font-size: 12px; }
+  .fx-note { color: #a1a1aa; background: #ffffff08; border-radius: 10px; padding: 9px; margin: 8px 0; font-size: 12px; }
+  .fx-chips { display: flex; gap: 6px; margin: 8px 0; flex-wrap: wrap; }
+  .fx-chip { flex: 1 1 90px; border-radius: 10px; padding: 7px 9px; font-size: 11px; background: #ffffff0a; border: 1px solid #ffffff12; }
+  .fx-chip b { display: block; font-size: 13px; margin-top: 2px; }
+  .fx-chip.up b { color: #4ade80; } .fx-chip.down b { color: #f87171; } .fx-chip.flat b { color: #a1a1aa; }
+  .fx-kv { display: grid; grid-template-columns: 1fr auto; gap: 3px 10px; margin: 6px 0; font-size: 12.5px; } .fx-kv dt { color: #8b8b93; } .fx-kv dd { margin: 0; text-align: right; font-weight: 700; font-family: ui-monospace, monospace; }
+  .fx-sec { margin-top: 12px; } .fx-sec > h4 { margin: 0 0 4px; }
+  .fx-trade { border: 1px solid #22c55e55; background: #22c55e0f; border-radius: 12px; padding: 10px; margin-top: 10px; } .fx-trade.sell { border-color: #ef444455; background: #ef44440f; }
+  .fx-list { margin: 0; padding: 0; list-style: none; font-size: 12px; } .fx-list li { padding: 3px 0; border-bottom: 1px solid #ffffff08; display: flex; gap: 6px; }
+  .fx-dot { width: 8px; height: 8px; border-radius: 50%; background: #3f3f46; flex: 0 0 auto; margin-top: 4px; } .fx-dot.ok { background: #22c55e; } .fx-dot.bad { background: #ef4444; } .fx-dot.warn { background: #f59e0b; } .fx-dot.dim { background: #3f3f46; }
+  .ai details { margin-top: 10px; } .ai summary { cursor: pointer; font-size: 11px; font-weight: 800; letter-spacing: .1em; color: #63636b; }
+  .fx-narr { margin-top: 10px; padding: 10px; border-radius: 10px; border: 1px dashed #ffffff22; font-size: 12.5px; color: #d4d4d8; } .fx-narr small { display: block; margin-bottom: 4px; color: #71717a; font-size: 10.5px; letter-spacing: .08em; }
+
+  .fx-chart { margin: 10px 0 4px; } .fx-chart canvas { display: block; width: 100%; border-radius: 10px; border: 1px solid #ffffff14; background: #0b0b0b; }
+  .fx-legend { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 5px; font-size: 10.5px; color: #8b8b93; } .fx-legend i { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
+  .fx-conf-head { display: flex; align-items: baseline; gap: 8px; } .fx-conf-head b { font-size: 30px; font-family: ui-monospace, monospace; } .fx-conf-head span { font-size: 12px; color: #a1a1aa; font-weight: 700; }
+  .fx-comp { padding: 7px 0; border-bottom: 1px solid #ffffff0a; font-size: 12px; } .fx-comp-top { display: flex; align-items: center; gap: 8px; } .fx-comp-top b { flex: 1; } .fx-comp-top small { color: #71717a; }
+  .fx-comp .ai-bar { margin: 5px 0 4px; height: 4px; } .fx-comp p { margin: 0; color: #a1a1aa; line-height: 1.4; }
+  .fx-st { font-size: 10px; font-weight: 800; letter-spacing: .04em; border-radius: 6px; padding: 2px 6px; border: 1px solid #ffffff22; color: #a1a1aa; }
+  .fx-st.favoravel { color: #4ade80; border-color: #22c55e66; background: #22c55e14; } .fx-st.contrario { color: #f87171; border-color: #ef444466; background: #ef444414; } .fx-st.neutro { color: #fbbf24; border-color: #f59e0b66; background: #f59e0b12; }
+  .fx-thesis { border: 1px solid #ffffff1a; background: #ffffff06; border-radius: 12px; padding: 10px; margin-top: 4px; } .fx-thesis h5 { margin: 0 0 6px; font-size: 13px; letter-spacing: .03em; }
+  .fx-th { display: flex; gap: 6px; padding: 3px 0; font-size: 12px; line-height: 1.4; } .fx-th b { flex: 0 0 82px; color: #8b8b93; font-size: 11px; letter-spacing: .04em; }
+  .fx-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 6px 0; } .fx-field { display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: #8b8b93; }
+  .fx-field input, .fx-field select, .fx-fields select, .fx-fields input { background: #0b0b0b; color: var(--ink); border: 1px solid #262626; border-radius: 8px; padding: 7px; font: 600 12px/1 inherit; font-family: inherit; width: 100%; box-sizing: border-box; }
+  .fx-checks { display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 4px 0; } .fx-chk { display: flex; align-items: center; gap: 5px; font-size: 12px; cursor: pointer; }
+  .fx-mini { appearance: none; border: 1px solid #ffffff22; background: #111; color: #a1a1aa; border-radius: 7px; padding: 3px 7px; font: 700 10.5px/1 inherit; font-family: inherit; cursor: pointer; margin-left: auto; flex: 0 0 auto; }
+
+  .ag-strip { margin: 0 12px 8px; padding: 8px 10px; border-radius: 10px; border: 1px solid #ffffff1a; background: #ffffff06; font-size: 11px; line-height: 1.5; } .ag-strip[hidden] { display: none; }
+  .ag-strip b { font-family: ui-monospace, monospace; } .ag-strip .ag-ban { margin-top: 4px; font-weight: 800; font-size: 11.5px; }
+  .ag-strip.locked { border-color: #ef444466; background: #ef44440f; } .ag-strip.locked .ag-ban { color: #f87171; } .ag-strip.target { border-color: #22c55e66; background: #22c55e0f; } .ag-strip.target .ag-ban { color: #4ade80; }
+  .ag-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; } .ag-pill { font-size: 10.5px; font-weight: 800; letter-spacing: .05em; border-radius: 99px; padding: 3px 9px; border: 1px solid #ffffff22; }
+  .ag-pill.on { color: #4ade80; border-color: #22c55e66; background: #22c55e14; } .ag-pill.off { color: #f87171; border-color: #ef444466; background: #ef444414; } .ag-pill.warn { color: #fbbf24; border-color: #f59e0b66; background: #f59e0b12; }
+  .ag-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0; } .ag-cell { border: 1px solid #ffffff12; background: #ffffff08; border-radius: 10px; padding: 7px 9px; font-size: 11px; color: #8b8b93; } .ag-cell b { display: block; font-size: 14px; color: var(--ink); font-family: ui-monospace, monospace; margin-top: 2px; }
+  .ag-rules { margin: 8px 0; padding: 9px; border: 1px solid #ffffff1a; border-radius: 10px; font-size: 12px; line-height: 1.6; font-weight: 700; letter-spacing: .02em; }
+  .fx-btn { margin-top: 8px; width: 100%; appearance: none; border: 1px solid #ffffff22; background: #111; color: var(--ink); border-radius: 10px; padding: 9px; font: 700 12px/1 inherit; font-family: inherit; cursor: pointer; }
+  @media (max-width: 560px) { .ai.wide { width: auto; } }
+  .pc-chin { height: 34px; display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 11px; font-weight: 800; letter-spacing: .2em; color: #52525b; }
+  .pc-chin em { font-style: normal; color: #22c55e; }
+  .pc-led { width: 5px; height: 5px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 8px #22c55e; }
+  .pc-neck { width: 70px; height: 34px; background: linear-gradient(90deg, #111, #2a2a2a, #111); }
+  .pc-foot { width: 240px; height: 10px; border-radius: 6px 6px 3px 3px; background: linear-gradient(180deg, #2a2a2a, #111); }
+  @media (max-width: 560px) { .pc { padding: 10px; } .pc-monitor { padding: 8px 8px 0; border-radius: 14px; } .pc-screen { height: 86vh; } .pc-body { flex-direction: column; } .pc-chart { flex: 0 0 38%; } .ai { width: auto; flex: 1; border-left: 0; border-top: 1px solid #1c1c1c; } .pc-neck, .pc-foot { display: none; } .pc-top { flex-wrap: wrap; } .pc-dots { display: none; } .pc-top b { flex: 1 1 100%; order: -1; } .pc-chin { height: 26px; } }
+  @media (max-width: 560px) { .hint { display: none; } .bar { display: grid; grid-template-columns: 1fr 1fr; width: calc(100vw - 32px); box-sizing: border-box; } .bar button { justify-content: center; padding: 11px 8px; font-size: 12.5px; } }
+</style>
+</head>
+<body>
+<canvas id="c" aria-label="Escritório 3D com uma mesa de trading. Arraste para girar."></canvas>
+
+<div class="hud">
+  <div class="brand">
+    <div class="logo"><svg width="26" height="26" viewBox="0 0 48 48"><line x1="17" y1="8" x2="17" y2="40" stroke="#22c55e" stroke-width="2.5"/><rect x="12" y="14" width="9" height="18" rx="1.5" fill="#22c55e"/><line x1="32" y1="12" x2="32" y2="42" stroke="#ef4444" stroke-width="2.5"/><rect x="27" y="18" width="9" height="16" rx="1.5" fill="#ef4444"/></svg></div>
+    <div><b>TRADE <span>AI</span></b><small>Escritório · prévia 3D</small></div>
+  </div>
+</div>
+<div class="hint">Arraste para girar 360°<br>Role ou faça pinça para aproximar</div>
+
+<nav class="bar" aria-label="Câmera">
+  <button id="spin" class="on" type="button">⟳ Girar 360°</button>
+  <button id="top" type="button">Visão de cima</button>
+  <button id="desk" type="button">Ver a mesa</button>
+  <button id="tela1" type="button">Tela 1</button>
+  <button id="tela2" type="button">Tela 2</button>
+  <button id="reset" type="button">Visão ampla</button>
+</nav>
+
+<div class="news" id="news" role="dialog" aria-modal="true" aria-labelledby="news-title">
+  <div class="card">
+    <div class="tag">NOTÍCIA · MERCADO FINANCEIRO</div>
+    <h2 id="news-title"></h2>
+    <div class="meta" id="news-meta"></div>
+    <div class="row">
+      <a id="news-link" href="#" target="_blank" rel="noopener noreferrer">Ler matéria completa ↗</a>
+      <button id="news-close" type="button">Fechar</button>
+    </div>
+    <div class="note">A matéria abre no site do veículo, numa nova aba. Alguns sites exigem assinatura.</div>
+  </div>
+</div>
+
+<div class="pc" id="pc" role="dialog" aria-modal="true" aria-labelledby="pc-title">
+  <div class="pc-monitor">
+    <div class="pc-screen">
+      <div class="pc-top">
+        <span class="pc-dots"><i></i><i></i><i></i></span>
+        <b id="pc-title">Monitor</b>
+        <span class="pc-state" id="pc-state"></span>
+        <button id="pc-close" type="button" aria-label="Fechar">✕</button>
+      </div>
+      <div class="pc-pick">
+        <div class="pc-groups" id="pc-groups">
+          <button type="button" data-g="Forex">Forex</button><button type="button" data-g="Cripto">Cripto</button><button type="button" data-g="Commodities">Commodities</button>
+        </div>
+        <div class="pc-assets" id="pc-assets"></div>
+      </div>
+      <div class="pc-body">
+        <div class="pc-chart" id="pc-chart"></div>
+        <aside class="ai" aria-live="polite">
+          <div class="ai-head"><span>IA · ENTRADA M5</span><small id="ai-src"></small></div>
+          <button id="ai-go" class="ai-go" type="button">Pedir entrada à IA</button>
+          <div class="ai-tools" id="ai-tools" hidden><button id="ai-prof" type="button">Perfil</button><button id="ai-scan" type="button">Varrer</button><button id="ai-agent" type="button">Agente</button><button id="ai-hist" type="button">Histórico</button><button id="ai-bt" type="button">Backtest</button></div>
+          <div class="ag-strip" id="ag-strip" hidden></div>
+          <div id="ai-out" class="ai-out"><p class="ai-hint">Escolha o mercado e peça a leitura. A IA usa as velas reais de 5 minutos, indicadores (EMA, RSI, ATR) e o calendário de notícias.</p></div>
+        </aside>
+      </div>
+    </div>
+    <div class="pc-chin"><span>TRADE <em>AI</em></span><i class="pc-led"></i></div>
+  </div>
+  <div class="pc-neck"></div><div class="pc-foot"></div>
+</div>
+
+<script>/*THREE*/</script>
+<script>/*ORBIT*/</script>
+<script>
+(() => {
+  const canvas = document.getElementById("c");
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.0;
+
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x000000);
+  scene.fog = new THREE.Fog(0x000000, 22, 45);
+
+  const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 200);
+  const controls = new THREE.OrbitControls(camera, canvas);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.minDistance = 0.6;
+  controls.maxDistance = 34;
+  controls.minPolarAngle = 0.05;           // quase de cima
+  controls.maxPolarAngle = Math.PI / 2 - 0.01; // até a altura do alvo, nunca abaixo do piso
+  controls.target.set(0, 0.6, 0);
+  controls.autoRotateSpeed = 0.9;
+
+  // ---------- materiais ----------
+  const mat = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, metalness: 0.05, ...o });
+  const M = {
+    floor: mat(0x060606, { roughness: 0.5, metalness: 0.2 }),
+    wall: mat(0x101010, { roughness: 0.95 }),
+    desk: mat(0x141414, { roughness: 0.35, metalness: 0.25 }),
+    edge: mat(0x22c55e, { emissive: 0x22c55e, emissiveIntensity: 1.2 }),
+    metal: mat(0x2a2a2a, { roughness: 0.3, metalness: 0.8 }),
+    black: mat(0x050505, { roughness: 0.4 }),
+    fabric: mat(0x181818, { roughness: 1 }),
+    green: mat(0x16a34a, { roughness: 0.9 }),
+    leaf: mat(0x15803d, { roughness: 0.9 }),
+    pot: mat(0x2b2b2b, { roughness: 0.7 }),
+    red: mat(0xef4444, { emissive: 0xef4444, emissiveIntensity: 1.4 }),
+    grn: mat(0x22c55e, { emissive: 0x22c55e, emissiveIntensity: 1.4 }),
+    mug: mat(0xc2410c, { roughness: 0.5 }),
+  };
+
+  function box(w, h, d, m, x, y, z, cast = true) {
+    const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+    b.position.set(x, y, z);
+    b.castShadow = cast;
+    b.receiveShadow = true;
+    scene.add(b);
+    return b;
+  }
+  function cyl(rt, rb, h, m, x, y, z, seg = 24) {
+    const c = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), m);
+    c.position.set(x, y, z);
+    c.castShadow = true;
+    c.receiveShadow = true;
+    scene.add(c);
+    return c;
+  }
+
+  // ---------- sala ----------
+  const W = 12, D = 9, H = 3.6;
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(W, D), M.floor);
+  floor.rotation.x = -Math.PI / 2;
+  floor.receiveShadow = true;
+  scene.add(floor);
+  const grid = new THREE.GridHelper(Math.max(W, D), 24, 0x1f1f1f, 0x141414);
+  grid.position.y = 0.002;
+  grid.scale.set(W / Math.max(W, D), 1, D / Math.max(W, D));
+  scene.add(grid);
+
+  // Paredes viradas para dentro: de fora ficam invisíveis, então dá para girar 360° sem tapar a vista.
+  function wall(w, h, x, z, ry) {
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({ color: 0x090909, roughness: 0.95, side: THREE.FrontSide }));
+    p.position.set(x, h / 2, z);
+    p.rotation.y = ry;
+    p.receiveShadow = true;
+    scene.add(p);
+    return p;
+  }
+  wall(W, H, 0, -D / 2, 0);              // fundo
+  wall(D, H, -W / 2, 0, Math.PI / 2);    // esquerda
+  wall(D, H, W / 2, 0, -Math.PI / 2);    // direita
+  wall(W, H, 0, D / 2, Math.PI);         // frente
+
+  // fitas de LED no rodapé (verde e vermelha)
+  box(W, 0.03, 0.03, M.grn, 0, 0.04, -D / 2 + 0.03, false);
+  box(0.03, 0.03, D, M.red, -W / 2 + 0.03, 0.04, 0, false);
+  box(0.03, 0.03, D, M.grn, W / 2 - 0.03, 0.04, 0, false);
+  box(W, 0.03, 0.03, M.red, 0, 0.04, D / 2 - 0.03, false);
+
+  // tapete
+  const rug = new THREE.Mesh(new THREE.PlaneGeometry(5.2, 3.6), mat(0x5c0f0f, { roughness: 1 }));
+  rug.rotation.x = -Math.PI / 2; rug.position.set(0, 0.004, 0.2); rug.receiveShadow = true; scene.add(rug);
+  const rugEdge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(5.2, 3.6)), new THREE.LineBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.6 }));
+  rugEdge.rotation.x = -Math.PI / 2; rugEdge.position.set(0, 0.006, 0.2); scene.add(rugEdge);
+
+  // ---------- texturas de tela (gráfico de velas) ----------
+  function chartTexture(seed, w = 512, h = 300, title = "BTC/USD · M5") {
+    const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+    const g = cv.getContext("2d");
+    const tex = new THREE.CanvasTexture(cv);
+    tex.encoding = THREE.sRGBEncoding;
+    let s = seed;
+    const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
+    const n = 36;
+    const candles = [];
+    let p = 100;
+    for (let i = 0; i < n; i++) { const o = p; p += (rnd() - 0.47) * 4; candles.push([o, p, Math.max(o, p) + rnd() * 2, Math.min(o, p) - rnd() * 2]); }
+    function draw() {
+      g.fillStyle = "#030303"; g.fillRect(0, 0, w, h);
+      g.strokeStyle = "#ffffff10"; g.lineWidth = 1;
+      for (let y = 40; y < h; y += 40) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
+      const hi = Math.max(...candles.map(c => c[2])), lo = Math.min(...candles.map(c => c[3]));
+      const Y = v => 50 + (hi - v) / (hi - lo) * (h - 70);
+      const cw = (w - 40) / n;
+      candles.forEach((c, i) => {
+        const up = c[1] >= c[0], x = 20 + i * cw + cw / 2;
+        g.strokeStyle = g.fillStyle = up ? "#22c55e" : "#ef4444";
+        g.beginPath(); g.moveTo(x, Y(c[2])); g.lineTo(x, Y(c[3])); g.stroke();
+        g.fillRect(x - cw * 0.32, Math.min(Y(c[0]), Y(c[1])), cw * 0.64, Math.max(2, Math.abs(Y(c[0]) - Y(c[1]))));
+      });
+      g.fillStyle = "#f4f4f5"; g.font = "bold 22px Inter, sans-serif"; g.fillText(title, 18, 32);
+      // velas decorativas: sem preço na tela da mesa; o gráfico real abre ao clicar
+      g.fillStyle = "#63636b"; g.font = "600 15px Inter, sans-serif"; g.textAlign = "right";
+      g.fillText("CLIQUE PARA ABRIR", w - 16, 30); g.textAlign = "left";
+      tex.needsUpdate = true;
+    }
+    draw();
+    return {
+      tex,
+      setTitle(t) { title = t; draw(); },
+      step() { const o = candles[n - 1][1]; const c = o + (rnd() - 0.47) * 4; candles.shift(); candles.push([o, c, Math.max(o, c) + rnd() * 2, Math.min(o, c) - rnd() * 2]); draw(); },
+    };
+  }
+  function cityTexture() {
+    const cv = document.createElement("canvas"); cv.width = 512; cv.height = 256;
+    const g = cv.getContext("2d");
+    const grad = g.createLinearGradient(0, 0, 0, 256); grad.addColorStop(0, "#04120b"); grad.addColorStop(1, "#160608");
+    g.fillStyle = grad; g.fillRect(0, 0, 512, 256);
+    let x = 0;
+    while (x < 512) {
+      const bw = 30 + Math.random() * 50, bh = 60 + Math.random() * 150;
+      g.fillStyle = "#060606"; g.fillRect(x, 256 - bh, bw, bh);
+      for (let yy = 256 - bh + 8; yy < 250; yy += 14) for (let xx = x + 6; xx < x + bw - 6; xx += 11)
+        if (Math.random() < 0.35) { g.fillStyle = Math.random() < 0.8 ? "#fde68a" : "#22c55e"; g.globalAlpha = 0.75; g.fillRect(xx, yy, 4, 6); g.globalAlpha = 1; }
+      x += bw + 4;
+    }
+    const t = new THREE.CanvasTexture(cv); t.encoding = THREE.sRGBEncoding; return t;
+  }
+
+  // ---------- painel ao vivo ----------
+  function liveBoard() {
+    const w = 1280, h = 720;
+    const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+    const g = cv.getContext("2d");
+    const tex = new THREE.CanvasTexture(cv); tex.encoding = THREE.sRGBEncoding; tex.anisotropy = 4;
+    const state = { quotes: [], news: [], ok: null, at: 0, prev: {} };
+    const fmt = (v) => v >= 1000 ? v.toLocaleString("pt-BR", { maximumFractionDigits: 0 }) : v.toLocaleString("pt-BR", { maximumFractionDigits: v >= 1 ? 2 : 4 });
+    const ago = (t) => { const m = Math.max(0, Math.round((Date.now() / 1000 - t) / 60)); return m < 60 ? `há ${m} min` : `há ${Math.floor(m / 60)} h`; };
+    function clip(text, max) {
+      if (g.measureText(text).width <= max) return text;
+      while (text.length && g.measureText(text + "…").width > max) text = text.slice(0, -1);
+      return text + "…";
+    }
+    async function load() {
+      try {
+        const r = await fetch("/api/feed", { cache: "no-store" });
+        if (!r.ok) throw new Error(String(r.status));
+        const d = await r.json();
+        state.quotes.forEach((q) => (state.prev[q.symbol] = q.price));
+        state.quotes = d.quotes; state.news = d.news; state.at = d.at; state.ok = d.quotes.length > 0 || d.news.length > 0;
+      } catch { state.ok = false; }
+    }
+    load(); setInterval(load, 15000);
+    let scroll = 0;
+    function draw(dt) {
+      g.fillStyle = "#020202"; g.fillRect(0, 0, w, h);
+      // cabeçalho
+      g.fillStyle = "#f4f4f5"; g.font = "800 34px Inter, sans-serif"; g.fillText("TRADE", 40, 62);
+      g.fillStyle = "#22c55e"; g.fillText("A", 162, 62); g.fillStyle = "#ef4444"; g.fillText("I", 187, 62);
+      g.fillStyle = "#a1a1aa"; g.font = "600 22px Inter, sans-serif"; g.fillText("MERCADO AO VIVO", 222, 60);
+      const live = state.ok === true;
+      g.fillStyle = live ? "#22c55e" : state.ok === false ? "#ef4444" : "#63636b";
+      // status alinhado à direita, sempre antes do relógio (não sobrepõe)
+      const clock = new Date().toLocaleTimeString("pt-BR");
+      g.font = "700 24px monospace"; const cw = g.measureText(clock).width;
+      const label = live ? "AO VIVO" : state.ok === false ? "SEM CONEXÃO" : "CONECTANDO";
+      g.font = "700 20px Inter, sans-serif"; const lw = g.measureText(label).width;
+      const lx = w - 40 - cw - 24 - lw;
+      g.beginPath(); g.arc(lx - 18, 52, 8, 0, Math.PI * 2); g.fill();
+      g.fillText(label, lx, 59);
+      g.fillStyle = "#f4f4f5"; g.font = "700 24px monospace"; g.fillText(clock, w - 40 - cw, 60);
+      g.fillStyle = "#1c1c1c"; g.fillRect(40, 84, w - 80, 2);
+
+      if (state.ok === false) {
+        g.fillStyle = "#a1a1aa"; g.font = "600 30px Inter, sans-serif";
+        g.fillText("Sem conexão com os dados ao vivo.", 40, 200);
+        g.font = "500 22px Inter, sans-serif"; g.fillStyle = "#63636b";
+        g.fillText("O painel busca cotações e notícias pelo site do Trade AI. Abra pela página publicada.", 40, 240);
+      }
+      // cotações (coluna esquerda)
+      g.font = "700 18px Inter, sans-serif"; g.fillStyle = "#63636b"; g.fillText("CRIPTO · BINANCE · 24H", 40, 124);
+      state.quotes.forEach((q, i) => {
+        const y = 170 + i * 70;
+        g.fillStyle = "#0b0b0b"; g.fillRect(40, y - 40, 460, 60);
+        g.fillStyle = "#f4f4f5"; g.font = "800 28px Inter, sans-serif"; g.fillText(q.symbol, 58, y);
+        const up = q.change >= 0;
+        const prev = state.prev[q.symbol];
+        g.fillStyle = prev && prev !== q.price ? (q.price > prev ? "#4ade80" : "#f87171") : "#f4f4f5";
+        g.font = "700 28px monospace"; g.textAlign = "right"; g.fillText("$ " + fmt(q.price), 360, y);
+        g.fillStyle = up ? "#22c55e" : "#ef4444"; g.font = "800 24px monospace";
+        g.fillText((up ? "▲ " : "▼ ") + Math.abs(q.change).toFixed(2) + "%", 488, y); g.textAlign = "left";
+      });
+      // notícias (coluna direita)
+      g.font = "700 18px Inter, sans-serif"; g.fillStyle = "#63636b"; g.fillText("ÚLTIMAS NOTÍCIAS · MERCADO FINANCEIRO", 540, 124);
+      state.news.slice(0, 6).forEach((n, i) => {
+        const y = 168 + i * 72;
+        g.fillStyle = i === 0 ? "#22c55e" : "#2a2a2a"; g.fillRect(540, y - 26, 5, 52);
+        g.fillStyle = "#f4f4f5"; g.font = "700 24px Inter, sans-serif"; g.fillText(clip(n.title, w - 600), 560, y);
+        g.fillStyle = "#a1a1aa"; g.font = "500 18px Inter, sans-serif"; g.fillText(`${n.source} · ${ago(n.at)}`, 560, y + 24);
+      });
+      // faixa de manchetes correndo
+      g.fillStyle = "#0a0a0a"; g.fillRect(0, h - 64, w, 64);
+      g.fillStyle = "#ef4444"; g.fillRect(0, h - 64, 150, 64);
+      g.fillStyle = "#fff"; g.font = "900 22px Inter, sans-serif"; g.fillText("URGENTE", 24, h - 24);
+      if (state.news.length) {
+        const text = state.news.map((n) => `${n.title}  (${n.source})`).join("     •     ") + "     •     ";
+        g.font = "600 24px Inter, sans-serif";
+        const tw = g.measureText(text).width;
+        scroll = (scroll + dt * 90) % tw;
+        g.save(); g.beginPath(); g.rect(160, h - 64, w - 160, 64); g.clip();
+        g.fillStyle = "#f4f4f5";
+        for (let x = 170 - scroll; x < w; x += tw) g.fillText(text, x, h - 24);
+        g.restore();
+      }
+      tex.needsUpdate = true;
+    }
+    // qual manchete está em (u, v) da tela; as linhas de notícia ocupam x 540..1240
+    function hit(u, v) {
+      const x = u * w, y = (1 - v) * h;
+      if (x < 535 || x > w - 30) return null;
+      const i = Math.floor((y - 168 + 36) / 72);
+      return i >= 0 && i < Math.min(6, state.news.length) ? state.news[i] : null;
+    }
+    draw(0);
+    return { tex, draw, hit };
+  }
+
+
+  // ---------- telão do calendário econômico (via /api/calendar do próprio site) ----------
+  function calendarBoard() {
+    const w = 1280, h = 720;
+    const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+    const g = cv.getContext("2d");
+    const tex = new THREE.CanvasTexture(cv); tex.encoding = THREE.sRGBEncoding; tex.anisotropy = 4;
+    const state = { events: [], ok: null };
+    const TZ = "America/Sao_Paulo";
+    const hm = (t) => new Date(t * 1000).toLocaleTimeString("pt-BR", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
+    const dayKey = (t) => new Date(t * 1000).toLocaleDateString("pt-BR", { timeZone: TZ });
+    const dayLabel = (t) => new Date(t * 1000).toLocaleDateString("pt-BR", { timeZone: TZ, weekday: "short", day: "2-digit", month: "2-digit" }).replace(".", "");
+    function clip(text, max) {
+      if (g.measureText(text).width <= max) return text;
+      while (text.length && g.measureText(text + "…").width > max) text = text.slice(0, -1);
+      return text + "…";
+    }
+    async function load() {
+      try {
+        const r = await fetch("/api/calendar");
+        if (!r.ok) throw new Error(String(r.status));
+        state.events = (await r.json()).events; state.ok = true;
+      } catch { state.ok = false; }
+    }
+    load(); setInterval(load, 10 * 60 * 1000);
+    const STAR = { 3: "#ef4444", 2: "#f59e0b", 1: "#a1a1aa" };
+    function draw() {
+      const now = Date.now() / 1000;
+      g.fillStyle = "#020202"; g.fillRect(0, 0, w, h);
+      g.fillStyle = "#f4f4f5"; g.font = "800 34px Inter, sans-serif"; g.fillText("CALENDÁRIO ECONÔMICO", 40, 62);
+      const tw = g.measureText("CALENDÁRIO ECONÔMICO").width;
+      g.fillStyle = "#a1a1aa"; g.font = "600 20px Inter, sans-serif"; g.fillText("HORÁRIO DE BRASÍLIA", 40 + tw + 24, 60);
+      g.fillStyle = state.ok ? "#22c55e" : state.ok === false ? "#ef4444" : "#63636b";
+      g.beginPath(); g.arc(w - 172, 52, 8, 0, Math.PI * 2); g.fill();
+      g.fillStyle = "#f4f4f5"; g.font = "700 24px monospace";
+      g.fillText(new Date().toLocaleTimeString("pt-BR", { timeZone: TZ }), w - 150, 60);
+      g.fillStyle = "#1c1c1c"; g.fillRect(40, 84, w - 80, 2);
+
+      g.font = "700 16px Inter, sans-serif"; g.fillStyle = "#63636b";
+      g.fillText("HORA", 40, 120); g.fillText("MOEDA", 190, 120); g.fillText("IMPACTO", 290, 120); g.fillText("EVENTO", 430, 120);
+      g.textAlign = "right"; g.fillText("PREVISÃO", 1110, 120); g.fillText("ANTERIOR", 1240, 120); g.textAlign = "left";
+
+      if (state.ok === false || (state.ok && !state.events.length)) {
+        g.fillStyle = "#a1a1aa"; g.font = "600 28px Inter, sans-serif";
+        g.fillText(state.ok === false ? "Calendário indisponível no momento." : "Sem eventos nesta semana.", 40, 200);
+      }
+      if (state.ok && state.events.length && !state.events.some((e) => e.at >= now - 3600)) {
+        g.fillStyle = "#a1a1aa"; g.font = "600 28px Inter, sans-serif";
+        g.fillText("A agenda da nova semana ainda não foi publicada pela fonte.", 40, 200);
+        g.font = "500 20px Inter, sans-serif"; g.fillStyle = "#63636b";
+        g.fillText("Costuma sair ao longo do domingo. O telão atualiza sozinho.", 40, 238);
+        if (state.ok === false) { g.font = "500 20px Inter, sans-serif"; g.fillStyle = "#63636b"; g.fillText("Os dados vêm pelo site do Trade AI. Abra pela página publicada.", 40, 238); }
+      }
+      // próximos eventos (mostra também os da última hora, apagados)
+      const list = state.events.filter((e) => e.at >= now - 3600).slice(0, 9);
+      const next = list.find((e) => e.at >= now);
+      const today = dayKey(now);
+      list.forEach((e, i) => {
+        const y = 166 + i * 58, past = e.at < now;
+        g.fillStyle = e === next ? "#0d1a12" : i % 2 ? "#070707" : "#0b0b0b"; g.fillRect(40, y - 30, w - 80, 54);
+        if (e === next) { g.fillStyle = "#22c55e"; g.fillRect(40, y - 30, 5, 54); }
+        g.globalAlpha = past ? 0.4 : 1;
+        g.fillStyle = "#f4f4f5"; g.font = "700 24px monospace"; g.fillText(hm(e.at), 56, y + (dayKey(e.at) === today ? 0 : -6));
+        if (dayKey(e.at) !== today) { g.fillStyle = "#a1a1aa"; g.font = "600 14px Inter, sans-serif"; g.fillText(dayLabel(e.at), 56, y + 16); }
+        g.fillStyle = "#e4e4e7"; g.font = "800 22px Inter, sans-serif"; g.fillText(e.country, 190, y);
+        if (e.impact) {
+          g.font = "26px sans-serif";
+          for (let k = 0; k < 3; k++) { g.fillStyle = k < e.impact ? STAR[e.impact] : "#262626"; g.fillText("★", 290 + k * 32, y + 2); }
+        } else { g.fillStyle = "#63636b"; g.font = "700 16px Inter, sans-serif"; g.fillText("FERIADO", 292, y); }
+        g.fillStyle = "#f4f4f5"; g.font = "700 22px Inter, sans-serif";
+        g.fillText(clip(e.title, e === next ? 470 : 540), 430, y);
+        if (e === next) {
+          const m = Math.round((e.at - now) / 60);
+          g.fillStyle = "#4ade80"; g.font = "700 18px Inter, sans-serif"; g.textAlign = "right";
+          g.fillText(m < 60 ? `em ${m} min` : m < 1440 ? `em ${Math.floor(m / 60)} h ${m % 60} min` : `em ${Math.floor(m / 1440)} d`, 975, y); g.textAlign = "left";
+        }
+        g.fillStyle = "#e4e4e7"; g.font = "600 22px monospace"; g.textAlign = "right";
+        g.fillText(e.forecast || "—", 1110, y); g.fillStyle = "#a1a1aa"; g.fillText(e.previous || "—", 1240, y); g.textAlign = "left";
+        g.globalAlpha = 1;
+      });
+      // legenda
+      g.fillStyle = "#0a0a0a"; g.fillRect(0, h - 52, w, 52);
+      let lx = 40;
+      for (const [stars, color, label] of [["★★★", "#ef4444", "alto"], ["★★", "#f59e0b", "médio"], ["★", "#a1a1aa", "baixo"]]) {
+        g.font = "20px sans-serif"; g.fillStyle = color; g.fillText(stars, lx, h - 19); lx += g.measureText(stars).width + 8;
+        g.font = "600 16px Inter, sans-serif"; g.fillStyle = "#a1a1aa"; g.fillText(label, lx, h - 20); lx += g.measureText(label).width + 26;
+      }
+      g.fillStyle = "#63636b"; g.textAlign = "right"; g.fillText("Fonte: Forex Factory · evento de alto impacto mexe forte com o preço", w - 40, h - 20); g.textAlign = "left";
+      tex.needsUpdate = true;
+    }
+    draw();
+    return { tex, draw };
+  }
+
+  // ---------- janela e telão ----------
+  const win = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 1.9), new THREE.MeshBasicMaterial({ map: cityTexture() }));
+  win.position.set(-2.4, 2.1, -D / 2 + 0.02); scene.add(win);
+  box(4.4, 0.08, 0.08, M.metal, -2.4, 3.08, -D / 2 + 0.05, false);
+  box(4.4, 0.08, 0.08, M.metal, -2.4, 1.12, -D / 2 + 0.05, false);
+  box(0.06, 1.95, 0.06, M.metal, -2.4, 2.1, -D / 2 + 0.05, false);
+
+  // telão: cotações de cripto e notícias ao vivo (via /api/feed do próprio site)
+  const tv = liveBoard();
+  const tvMesh = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.8), new THREE.MeshBasicMaterial({ map: tv.tex }));
+  tvMesh.position.set(-W / 2 + 0.07, 2.05, -1.75); tvMesh.rotation.y = Math.PI / 2; scene.add(tvMesh);
+  box(0.06, 1.9, 3.3, M.black, -W / 2 + 0.03, 2.05, -1.75, false); // moldura atrás da tela
+
+  // telão ao lado: calendário econômico
+  const cal = calendarBoard();
+  const calMesh = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.8), new THREE.MeshBasicMaterial({ map: cal.tex }));
+  calMesh.position.set(-W / 2 + 0.07, 2.05, 1.75); calMesh.rotation.y = Math.PI / 2; scene.add(calMesh);
+  box(0.06, 1.9, 3.3, M.black, -W / 2 + 0.03, 2.05, 1.75, false);
+
+  // letreiro na parede do fundo
+  const signCv = document.createElement("canvas"); signCv.width = 1024; signCv.height = 200;
+  const sg = signCv.getContext("2d");
+  sg.font = "900 120px Inter, sans-serif"; sg.fillStyle = "#f4f4f5"; sg.fillText("TRADE", 40, 140);
+  sg.fillStyle = "#22c55e"; sg.fillText("A", 490, 140); sg.fillStyle = "#ef4444"; sg.fillText("I", 575, 140);
+  const signTex = new THREE.CanvasTexture(signCv); signTex.encoding = THREE.sRGBEncoding;
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 0.62), new THREE.MeshBasicMaterial({ map: signTex, transparent: true }));
+  sign.position.set(2.9, 2.6, -D / 2 + 0.02); scene.add(sign);
+
+  // ---------- mesa ----------
+  const DX = 0, DZ = -0.6, DH = 0.76;
+  box(2.6, 0.05, 1.15, M.desk, DX, DH, DZ);
+  box(2.6, 0.012, 0.012, M.edge, DX, DH - 0.02, DZ + 0.575, false); // filete de LED na borda
+  [[-1.22, -0.5], [1.22, -0.5], [-1.22, 0.5], [1.22, 0.5]].forEach(([x, z]) => box(0.05, DH, 0.05, M.metal, DX + x, DH / 2, DZ + z));
+  box(2.4, 0.12, 0.04, M.black, DX, DH - 0.12, DZ - 0.5); // calha de cabos
+
+  // monitores
+  const screens = [], screenMeshes = [];
+  function monitor(x, z, ry, seed, title) {
+    const g = new THREE.Group();
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.5, 0.03), M.black); frame.castShadow = true; g.add(frame);
+    const ch = chartTexture(seed, 512, 300, title);
+    const scr = new THREE.Mesh(new THREE.PlaneGeometry(0.78, 0.46), new THREE.MeshBasicMaterial({ map: ch.tex }));
+    scr.position.z = 0.016; g.add(scr);
+    const neck = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.22, 0.04), M.metal); neck.position.set(0, -0.33, -0.03); g.add(neck);
+    const foot = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.015, 0.18), M.metal); foot.position.set(0, -0.44, 0); g.add(foot);
+    g.position.set(DX + x, DH + 0.47, DZ + z); g.rotation.y = ry; scene.add(g);
+    screens.push(ch); scr.userData.monitor = screenMeshes.length; screenMeshes.push(scr);
+  }
+  // da esquerda para a direita: monitor 1, 2 e 3
+  monitor(-0.86, -0.18, 0.42, 11, "ETH/USD · M5");
+  monitor(0, -0.32, 0, 3, "BTC/USD · M5");
+  monitor(0.86, -0.18, -0.42, 23, "EUR/USD · M5");
+  const glow = new THREE.PointLight(0x7dd3a8, 1.3, 3.2, 2); glow.position.set(DX, DH + 0.5, DZ + 0.15); scene.add(glow);
+
+  // ---------- teclado, mouse e caneca ----------
+  const TOP = DH + 0.025; // superfície do tampo
+  const animators = [];
+
+  // caixa com cantos arredondados (perfil extrudado)
+  function rounded(w, d, h, r, m) {
+    const sh = new THREE.Shape();
+    const x = -w / 2, y = -d / 2;
+    sh.moveTo(x + r, y); sh.lineTo(x + w - r, y); sh.quadraticCurveTo(x + w, y, x + w, y + r);
+    sh.lineTo(x + w, y + d - r); sh.quadraticCurveTo(x + w, y + d, x + w - r, y + d);
+    sh.lineTo(x + r, y + d); sh.quadraticCurveTo(x, y + d, x, y + d - r);
+    sh.lineTo(x, y + r); sh.quadraticCurveTo(x, y, x + r, y);
+    const g = new THREE.ExtrudeGeometry(sh, { depth: h, bevelEnabled: true, bevelThickness: h * 0.25, bevelSize: r * 0.35, bevelSegments: 3, steps: 1 });
+    g.rotateX(-Math.PI / 2);
+    const mesh = new THREE.Mesh(g, m);
+    mesh.castShadow = true; mesh.receiveShadow = true;
+    return mesh;
+  }
+
+  // mousepad (desk mat) sob teclado e mouse
+  const pad = rounded(0.86, 0.32, 0.003, 0.02, mat(0x090909, { roughness: 1 }));
+  pad.position.set(DX + 0.08, TOP, DZ + 0.24); scene.add(pad);
+  const padEdge = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(0.86, 0.32)), new THREE.LineBasicMaterial({ color: 0x22c55e, transparent: true, opacity: 0.5 }));
+  padEdge.rotation.x = -Math.PI / 2; padEdge.position.set(DX + 0.08, TOP + 0.0045, DZ + 0.24); scene.add(padEdge);
+
+  // teclado: gabinete inclinado + teclas individuais
+  const kb = new THREE.Group();
+  const kbCase = rounded(0.44, 0.15, 0.012, 0.012, mat(0x161616, { roughness: 0.45, metalness: 0.4 }));
+  kb.add(kbCase);
+  const glowStrip = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.13), new THREE.MeshBasicMaterial({ color: 0x22c55e, transparent: true, opacity: 0.18 }));
+  glowStrip.rotation.x = -Math.PI / 2; glowStrip.position.y = -0.001; kb.add(glowStrip);
+  const keyGeo = new THREE.BoxGeometry(1, 1, 1);
+  const keyMat = mat(0x222222, { roughness: 0.55 });
+  const U = 0.0245, GAP = 0.0035, KH = 0.007;
+  // fileiras do teclado em unidades de tecla (1 = tecla comum)
+  const rows = [
+    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2],
+    [1.5, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1.5],
+    [1.75, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2.25],
+    [2.25, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2.75],
+    [1.25, 1.25, 1.25, 6.25, 1.25, 1.25, 1.25, 1.25],
+  ];
+  const keyCount = rows.reduce((n, r) => n + r.length, 0);
+  const keys = new THREE.InstancedMesh(keyGeo, keyMat, keyCount);
+  keys.castShadow = true;
+  const dummy = new THREE.Object3D();
+  let k = 0;
+  const totalW = 15 * U;
+  rows.forEach((row, ri) => {
+    let xu = 0;
+    row.forEach((wu) => {
+      const w = wu * U - GAP;
+      dummy.position.set(-totalW / 2 + (xu + wu / 2) * U, 0.014 + KH / 2, -0.052 + ri * U);
+      dummy.scale.set(w, KH, U - GAP);
+      dummy.updateMatrix();
+      keys.setMatrixAt(k++, dummy.matrix);
+      xu += wu;
+    });
+  });
+  kb.add(keys);
+  // Enter e Esc com destaque verde e vermelho
+  const accentKey = (x, z, w, m) => { const a = new THREE.Mesh(keyGeo, m); a.scale.set(w, KH + 0.0005, U - GAP); a.position.set(x, 0.014 + KH / 2 + 0.0002, z); kb.add(a); };
+  accentKey(-totalW / 2 + 0.5 * U, -0.052, U - GAP, mat(0x7f1d1d, { roughness: 0.5 }));
+  accentKey(-totalW / 2 + (12.75 + 1.125) * U, -0.052 + 2 * U, 2.25 * U - GAP, mat(0x14532d, { roughness: 0.5 }));
+  kb.rotation.x = 0.07; // inclinação para o usuário
+  kb.position.set(DX - 0.06, TOP + 0.004, DZ + 0.24);
+  scene.add(kb);
+
+  // mouse: casco anatômico, botões separados e roda
+  const mouse = new THREE.Group();
+  const shell = new THREE.Mesh(new THREE.SphereGeometry(1, 32, 24, 0, Math.PI * 2, 0, Math.PI / 2), mat(0x1a1a1a, { roughness: 0.35, metalness: 0.2 }));
+  shell.scale.set(0.031, 0.019, 0.052); shell.castShadow = true; mouse.add(shell);
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 0.003, 32), mat(0x0a0a0a));
+  base.scale.set(0.031, 1, 0.052); base.position.y = 0.0015; mouse.add(base);
+  const split = new THREE.Mesh(new THREE.BoxGeometry(0.0012, 0.004, 0.03), mat(0x050505));
+  split.position.set(0, 0.0175, -0.026); split.rotation.x = 0.35; mouse.add(split);
+  const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.0055, 0.0055, 0.004, 20), mat(0x22c55e, { emissive: 0x22c55e, emissiveIntensity: 0.6, roughness: 0.4 }));
+  wheel.rotation.z = Math.PI / 2; wheel.position.set(0, 0.0185, -0.024); mouse.add(wheel);
+  mouse.rotation.y = -0.18;
+  mouse.position.set(DX + 0.34, TOP + 0.004, DZ + 0.25);
+  scene.add(mouse);
+
+  // caneca: cerâmica oca (perfil girado), alça, café com espuma e vapor
+  const mug = new THREE.Group();
+  const R = 0.04, MH = 0.095, T = 0.004;
+  const prof = [
+    [0, 0], [R - 0.006, 0], [R - 0.001, 0.003], [R, 0.01], [R + 0.001, MH - 0.004], [R, MH], // parede externa
+    [R - T, MH], [R - T - 0.0005, 0.012], [R - T - 0.004, 0.008], [0, 0.008],                // parede interna e fundo
+  ].map(([x, y]) => new THREE.Vector2(x, y));
+  const ceramic = new THREE.MeshStandardMaterial({ color: 0xf2efe9, roughness: 0.28, metalness: 0, side: THREE.DoubleSide });
+  const body = new THREE.Mesh(new THREE.LatheGeometry(prof, 48), ceramic);
+  body.castShadow = true; body.receiveShadow = true; mug.add(body);
+  const band = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.0012, R + 0.0012, 0.012, 48, 1, true), mat(0x16a34a, { roughness: 0.4 }));
+  band.position.y = 0.03; mug.add(band); // faixa verde
+  const handle = new THREE.Mesh(new THREE.TorusGeometry(0.024, 0.0055, 16, 32, Math.PI * 1.15), ceramic);
+  handle.rotation.z = -Math.PI * 0.575; handle.position.set(R + 0.004, MH * 0.52, 0); handle.castShadow = true; mug.add(handle);
+  const coffee = new THREE.Mesh(new THREE.CircleGeometry(R - T - 0.0006, 40), new THREE.MeshStandardMaterial({ color: 0x2b1408, roughness: 0.15 }));
+  coffee.rotation.x = -Math.PI / 2; coffee.position.y = MH - 0.014; mug.add(coffee);
+  const crema = new THREE.Mesh(new THREE.RingGeometry(R - T - 0.006, R - T - 0.0006, 40), new THREE.MeshStandardMaterial({ color: 0x8a5a32, roughness: 0.6 }));
+  crema.rotation.x = -Math.PI / 2; crema.position.y = MH - 0.0138; mug.add(crema);
+  mug.rotation.y = -0.35;
+  mug.position.set(DX + 0.88, TOP, DZ + 0.22);
+  scene.add(mug);
+
+  // vapor: alguns planos com gradiente suave subindo e sumindo
+  const steamCv = document.createElement("canvas"); steamCv.width = steamCv.height = 64;
+  const sgx = steamCv.getContext("2d");
+  const rg = sgx.createRadialGradient(32, 32, 2, 32, 32, 30); rg.addColorStop(0, "rgba(255,255,255,0.55)"); rg.addColorStop(1, "rgba(255,255,255,0)");
+  sgx.fillStyle = rg; sgx.fillRect(0, 0, 64, 64);
+  const steamTex = new THREE.CanvasTexture(steamCv);
+  const puffs = [];
+  for (let i = 0; i < 6; i++) {
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: steamTex, transparent: true, depthWrite: false, opacity: 0 }));
+    sp.userData.phase = i / 6;
+    scene.add(sp); puffs.push(sp);
+  }
+  const mugTop = new THREE.Vector3(DX + 0.88, TOP + MH, DZ + 0.22);
+  animators.push((t) => {
+    puffs.forEach((sp) => {
+      const p = (t * 0.25 + sp.userData.phase) % 1;
+      sp.position.set(mugTop.x + Math.sin(t * 1.3 + sp.userData.phase * 6) * 0.012 * p, mugTop.y + p * 0.16, mugTop.z + Math.cos(t + sp.userData.phase * 5) * 0.008 * p);
+      const sc = 0.03 + p * 0.06; sp.scale.set(sc, sc, sc);
+      sp.material.opacity = Math.sin(p * Math.PI) * 0.35;
+    });
+  });
+
+  // cadeira
+  const CZ = DZ + 1.05;
+  box(0.56, 0.08, 0.54, M.fabric, DX, 0.5, CZ);
+  const back = box(0.54, 0.68, 0.07, M.fabric, DX, 0.9, CZ + 0.28); back.rotation.x = -0.12;
+  box(0.56, 0.035, 0.035, M.edge, DX, 1.25, CZ + 0.32, false);
+  box(0.05, 0.05, 0.38, M.black, DX - 0.3, 0.68, CZ + 0.02); box(0.05, 0.05, 0.38, M.black, DX + 0.3, 0.68, CZ + 0.02);
+  cyl(0.035, 0.035, 0.36, M.metal, DX, 0.28, CZ);
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2;
+    const leg = box(0.3, 0.03, 0.04, M.metal, DX + Math.cos(a) * 0.15, 0.08, CZ + Math.sin(a) * 0.15); leg.rotation.y = -a;
+    cyl(0.03, 0.03, 0.04, M.black, DX + Math.cos(a) * 0.29, 0.03, CZ + Math.sin(a) * 0.29);
+  }
+
+  // ---------- boneco do agente (estilo Mario, em bloquinhos): mostra o estado REAL do agente na nuvem ----------
+  const man = new THREE.Group(); man.position.set(DX, 0, CZ - 0.14); scene.add(man);
+  const CM = {
+    skin: mat(0xf2b88c, { roughness: 0.9 }), hair: mat(0x0a0a0a, { roughness: 0.85 }), suit: mat(0x101010, { roughness: 0.6 }), shirt: mat(0xf4f4f5, { roughness: 0.8 }),
+    tie: mat(0x16a34a, { roughness: 0.7 }), shoe: mat(0x040404, { roughness: 0.4 }), eye: mat(0x050505, { roughness: 0.5 }), white: mat(0xffffff, { roughness: 0.5 }),
+  };
+  const part = (parent, w, h, d, m, x, y, z) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.castShadow = true; b.receiveShadow = true; parent.add(b); return b; };
+  // pernas (sentado)
+  [-0.09, 0.09].forEach((x) => { part(man, 0.12, 0.12, 0.34, CM.suit, x, 0.6, -0.12); part(man, 0.11, 0.4, 0.11, CM.suit, x, 0.34, -0.3); part(man, 0.12, 0.07, 0.2, CM.shoe, x, 0.1, -0.34); });
+  // tronco
+  const torso = new THREE.Group(); torso.position.set(0, 0.56, 0); man.add(torso);
+  part(torso, 0.34, 0.36, 0.2, CM.suit, 0, 0.18, 0);
+  part(torso, 0.1, 0.3, 0.012, CM.shirt, 0, 0.2, -0.104);
+  part(torso, 0.045, 0.22, 0.014, CM.tie, 0, 0.17, -0.112);
+  part(torso, 0.05, 0.32, 0.014, CM.suit, -0.075, 0.19, -0.108); part(torso, 0.05, 0.32, 0.014, CM.suit, 0.075, 0.19, -0.108);
+  // cabeça: grande, como nos bonecos de videogame
+  const head = new THREE.Group(); head.position.set(0, 0.38, 0); torso.add(head);
+  part(head, 0.27, 0.27, 0.27, CM.skin, 0, 0.15, 0);
+  part(head, 0.29, 0.07, 0.29, CM.hair, 0, 0.3, 0);          // cabelo preto (topo)
+  part(head, 0.29, 0.22, 0.07, CM.hair, 0, 0.2, 0.125);       // cabelo (nuca)
+  part(head, 0.03, 0.12, 0.2, CM.hair, -0.14, 0.2, 0.02); part(head, 0.03, 0.12, 0.2, CM.hair, 0.14, 0.2, 0.02); // laterais
+  part(head, 0.03, 0.07, 0.04, CM.skin, -0.15, 0.13, 0); part(head, 0.03, 0.07, 0.04, CM.skin, 0.15, 0.13, 0);   // orelhas
+  const eyeL = part(head, 0.035, 0.06, 0.012, CM.eye, -0.055, 0.18, -0.138), eyeR = part(head, 0.035, 0.06, 0.012, CM.eye, 0.055, 0.18, -0.138);
+  part(head, 0.075, 0.065, 0.05, CM.skin, 0, 0.115, -0.15);    // nariz grande
+  part(head, 0.18, 0.032, 0.03, CM.hair, 0, 0.07, -0.14);      // bigode
+  // braços: pivô no ombro, apontam para frente (teclado)
+  const arm = (x) => { const g = new THREE.Group(); g.position.set(x, 0.3, -0.02); torso.add(g); part(g, 0.1, 0.1, 0.5, CM.suit, 0, 0, -0.25); part(g, 0.09, 0.09, 0.09, CM.skin, 0, 0, -0.54); return g; };
+  const armL = arm(-0.22), armR = arm(0.22);
+  // balão de texto (canvas)
+  const bubbleCv = document.createElement("canvas"); bubbleCv.width = 384; bubbleCv.height = 96;
+  const bubbleTex = new THREE.CanvasTexture(bubbleCv);
+  const bubble = new THREE.Sprite(new THREE.SpriteMaterial({ map: bubbleTex, transparent: true, depthTest: false }));
+  bubble.scale.set(1.0, 0.25, 1); bubble.position.set(0, 1.78, 0); bubble.renderOrder = 10; man.add(bubble);
+  let bubbleText = "";
+  function setBubble(text, color) {
+    if (text === bubbleText) return; bubbleText = text;
+    const g = bubbleCv.getContext("2d"); g.clearRect(0, 0, 384, 96);
+    g.fillStyle = "#0b0b0bee"; g.strokeStyle = color; g.lineWidth = 4; g.beginPath(); g.roundRect(6, 6, 372, 84, 22); g.fill(); g.stroke();
+    g.fillStyle = color; g.font = "700 34px Inter, system-ui, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText(text, 192, 50);
+    bubbleTex.needsUpdate = true; bubble.visible = !!text;
+  }
+  const POSES = {
+    offline:     { show: false },
+    monitorando: { lean: 0.05, hp: 0.05, scan: 1, type: 1, al: -0.16, ar: -0.16, bub: "Monitorando o mercado", col: "#4ade80" },
+    formacao:    { lean: 0.22, hp: 0.08, scan: 0, type: 0.4, al: -0.16, ar: -0.16, bub: "Setup em formação…", col: "#fbbf24" },
+    confirmada:  { lean: 0.1, hp: 0, scan: 0, type: 0, al: -0.16, ar: 1.25, wave: 1, bub: "Entrada confirmada!", col: "#4ade80" },
+    travado:     { lean: 0.18, hp: 0.55, scan: 0, type: 0, al: 0, ar: 0, alY: -1.35, arY: 1.35, bub: "Dia encerrado (LOSS)", col: "#f87171" },
+    meta:        { lean: -0.05, hp: -0.15, scan: 0, type: 0, al: 2.5, ar: 2.5, jump: 1, bub: "Meta 2x0 alcançada!", col: "#4ade80" },
+    desligado:   { lean: 0.5, hp: 0.7, scan: 0, type: 0, al: -1.3, ar: -1.3, sleep: 1, bub: "Bot desligado: ligue para começar", col: "#fbbf24" },
+    dormindo:    { lean: 0.55, hp: 0.75, scan: 0, type: 0, al: -1.3, ar: -1.3, sleep: 1, bub: "Zzz… fora de operação", col: "#a1a1aa" },
+  };
+  const cur = { lean: 0, hp: 0, al: -0.16, ar: -0.16, alY: 0, arY: 0, y: 0 };
+  let pose = POSES.dormindo, poseName = "dormindo";
+  man.visible = false; bubble.visible = false;
+  function setAgentVisual(name) {
+    if (!POSES[name] || name === poseName) return;
+    poseName = name; pose = POSES[name]; refreshMan();
+    if (pose.show === false) { setBubble("", "#fff"); return; }
+    setBubble(pose.bub, pose.col);
+    const closed = !!pose.sleep || name === "travado"; eyeL.scale.y = eyeR.scale.y = closed ? 0.2 : 1;
+    if (matchMedia("(prefers-reduced-motion: reduce)").matches) applyPose(0, 1);
+  }
+  let inDeskView = false;
+  function refreshMan() { man.visible = pose.show !== false && !inDeskView; }
+  const ease = (a, b, k) => a + (b - a) * k;
+  function applyPose(t, k) {
+    if (pose.show === false) return;
+    cur.lean = ease(cur.lean, pose.lean, k); cur.hp = ease(cur.hp, pose.hp, k);
+    const ty = pose.type ? Math.sin(t * 9) * 0.05 * pose.type : 0;
+    cur.al = ease(cur.al, pose.al + ty, k * 2); cur.ar = ease(cur.ar, pose.ar + (pose.wave ? Math.sin(t * 7) * 0.25 : -ty), k * 2);
+    cur.alY = ease(cur.alY, pose.alY || 0, k); cur.arY = ease(cur.arY, pose.arY || 0, k);
+    cur.y = ease(cur.y, pose.jump ? Math.abs(Math.sin(t * 5)) * 0.14 : 0, k * 2);
+    torso.rotation.x = cur.lean; head.rotation.x = cur.hp; head.rotation.y = pose.scan ? Math.sin(t * 0.6) * 0.28 : 0;
+    armL.rotation.x = cur.al; armR.rotation.x = cur.ar; armL.rotation.y = cur.alY; armR.rotation.y = cur.arY;
+    man.position.y = cur.y; bubble.position.y = 1.78 + (pose.sleep ? Math.sin(t * 1.5) * 0.04 : 0);
+    bubble.material.opacity = poseName === "confirmada" ? 0.65 + 0.35 * Math.abs(Math.sin(t * 4)) : 1;
+  }
+  animators.push((t, dt) => applyPose(t, Math.min(1, dt * 6)));
+  /** Estado do agente (API) → pose. Sem agente online, a cadeira fica vazia. */
+  function visualFromStatus(st) {
+    if (!st || !st.online) return "offline";
+    if (!st.armed) return st.config.paused ? "dormindo" : "desligado"; // todo dia começa desligado até o usuário ligar
+    const s = st.panel.state, radar = st.radar || [];
+    if (s === "TARGET_REACHED") return "meta";
+    if (s === "DAILY_LOCKED") return "travado";
+    if (st.config.paused || !st.marketOpen || s === "WAIT_NEXT_DAY") return "dormindo";
+    if (st.trades.some((x) => x.status === "OPEN") || radar.some((r) => r.cls === "CONFIRMADA")) return "confirmada";
+    if (radar.some((r) => r.cls === "FORMACAO")) return "formacao";
+    return "monitorando";
+  }
+  const previewPose = new URLSearchParams(location.search).get("agente");
+  if (previewPose && POSES[previewPose]) setAgentVisual(previewPose);   // ?agente=meta (pré-visualização dos estados)
+  else {
+    const poll = async () => { try { const r = await fetch("/api/agent?action=status"); setAgentVisual(r.ok ? visualFromStatus(await r.json()) : "offline"); } catch { setAgentVisual("offline"); } };
+    poll(); setInterval(poll, 60000);
+  }
+
+  // ---------- outros móveis ----------
+  // servidor com luzes
+  box(0.7, 2.0, 0.6, mat(0x0a0a0a, { metalness: 0.4, roughness: 0.4 }), -W / 2 + 0.5, 1.0, -D / 2 + 0.45);
+  const leds = [];
+  for (let i = 0; i < 9; i++) {
+    const m = (i % 3 === 1 ? M.red : M.grn).clone();
+    leds.push(m);
+    box(0.05, 0.03, 0.01, m, -W / 2 + 0.3 + (i % 3) * 0.12, 0.5 + Math.floor(i / 3) * 0.45, -D / 2 + 0.755, false);
+  }
+  // estante
+  box(1.6, 1.8, 0.35, mat(0x111111), 4.6, 0.9, -D / 2 + 0.2);
+  [0.45, 0.9, 1.35].forEach((y) => box(1.5, 0.03, 0.32, mat(0x1a1a1a), 4.6, y, -D / 2 + 0.22));
+  [[4.1, 0.6], [4.35, 0.6], [4.9, 1.05], [5.1, 1.5], [4.3, 1.5]].forEach(([x, y], i) => box(0.12, 0.26, 0.22, i % 2 ? M.green : mat(0x7f1d1d), x, y, -D / 2 + 0.22));
+  // sofá
+  box(2.2, 0.4, 0.8, M.fabric, 3.6, 0.2, 2.6);
+  box(2.2, 0.55, 0.18, M.fabric, 3.6, 0.55, 2.95);
+  box(0.18, 0.55, 0.8, M.fabric, 2.6, 0.45, 2.6); box(0.18, 0.55, 0.8, M.fabric, 4.6, 0.45, 2.6);
+  box(1.0, 0.3, 0.55, mat(0x161616, { metalness: 0.3, roughness: 0.4 }), 3.6, 0.15, 1.65);
+  // plantas
+  // ---------- plantas: vaso de cerâmica torneado, terra e folhas modeladas ----------
+  let pseed = 7;
+  const prnd = () => (pseed = (pseed * 16807) % 2147483647) / 2147483647;
+  function leafTexture(kind) {
+    const cv = document.createElement("canvas"); cv.width = 128; cv.height = 256;
+    const g = cv.getContext("2d");
+    if (kind === "fig") {
+      const gr = g.createLinearGradient(0, 0, 128, 0); gr.addColorStop(0, "#1f6b33"); gr.addColorStop(0.5, "#2f8a45"); gr.addColorStop(1, "#1f6b33");
+      g.fillStyle = gr; g.fillRect(0, 0, 128, 256);
+      g.strokeStyle = "#7fc48d"; g.lineWidth = 3; g.beginPath(); g.moveTo(64, 256); g.lineTo(64, 0); g.stroke();   // nervura central
+      g.strokeStyle = "#5aa86a88"; g.lineWidth = 1.5;
+      for (let y = 230; y > 20; y -= 26) { g.beginPath(); g.moveTo(64, y); g.quadraticCurveTo(30, y - 18, 4, y - 40); g.moveTo(64, y); g.quadraticCurveTo(98, y - 18, 124, y - 40); g.stroke(); }
+    } else {
+      // espada-de-são-jorge: verde escuro com faixas claras e borda amarela
+      g.fillStyle = "#1d4d2b"; g.fillRect(0, 0, 128, 256);
+      for (let y = 4; y < 256; y += 9 + prnd() * 8) {
+        g.strokeStyle = `rgba(150, 200, 140, ${0.18 + prnd() * 0.2})`; g.lineWidth = 2 + prnd() * 3;
+        g.beginPath(); g.moveTo(0, y); for (let x = 0; x <= 128; x += 16) g.lineTo(x, y + Math.sin(x / 14 + y) * 3); g.stroke();
+      }
+      g.fillStyle = "#d9c45a"; g.fillRect(0, 0, 9, 256); g.fillRect(119, 0, 9, 256);
+    }
+    const t = new THREE.CanvasTexture(cv); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4; return t;
+  }
+  // folha: plano subdividido, com contorno, dobra na nervura e caimento na ponta
+  function leafGeometry(L, wdt, fold, droop, profile) {
+    const geo = new THREE.PlaneGeometry(1, 1, 6, 12), pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+      const u = pos.getX(i), v = pos.getY(i) + 0.5;               // u em -0,5..0,5; v em 0..1 (base → ponta)
+      const x = u * wdt * profile(v), y = v * L;
+      pos.setXYZ(i, x, y, -fold * Math.abs(x) + droop * v * v * L);
+    }
+    geo.computeVertexNormals(); return geo;
+  }
+  const FIG_LEAF = leafGeometry(0.26, 0.2, 0.35, 0.18, (v) => Math.pow(Math.sin(Math.PI * Math.min(1, v * 1.08)), 0.7) * (1.15 - 0.35 * v));
+  const BLADE = leafGeometry(1, 0.075, 0.25, 0.06, (v) => (v < 0.85 ? 1 - 0.25 * v : (1 - v) / 0.15 * 0.79));
+  const figMat = new THREE.MeshStandardMaterial({ map: leafTexture("fig"), roughness: 0.55, side: THREE.DoubleSide });
+  const bladeMat = new THREE.MeshStandardMaterial({ map: leafTexture("blade"), roughness: 0.6, side: THREE.DoubleSide });
+  const soilMat = mat(0x24170f, { roughness: 1 });
+  const POTS = { concrete: mat(0x3d3d3b, { roughness: 0.92 }), ceramic: mat(0xe8e4dc, { roughness: 0.45 }) };
+  const barkMat = mat(0x4a3523, { roughness: 0.9 });
+
+  // vaso torneado (LatheGeometry): parede com espessura, borda arredondada e base mais estreita
+  function pot(x, z, r, h, kind) {
+    const pts = [[0, 0], [r * 0.78, 0], [r * 0.82, 0.02], [r * 0.97, h * 0.75], [r, h * 0.97], [r * 0.99, h], [r * 0.93, h], [r * 0.9, h * 0.94], [0.001, h * 0.94]]
+      .map(([a, b]) => new THREE.Vector2(a, b));
+    const m = new THREE.Mesh(new THREE.LatheGeometry(pts, 40), POTS[kind]); m.position.set(x, 0, z); m.castShadow = true; m.receiveShadow = true; scene.add(m);
+    const soil = new THREE.Mesh(new THREE.CircleGeometry(r * 0.9, 32), soilMat); soil.rotation.x = -Math.PI / 2; soil.position.set(x, h * 0.9, z); scene.add(soil);
+    return h * 0.9;
+  }
+  const tint = new THREE.Color();
+  // figueira-lira: tronco fino com galhos e folhas largas
+  function fig(x, z, s) {
+    const top = pot(x, z, 0.24 * s, 0.42 * s, "concrete");
+    const H = 1.35 * s, n = 46;
+    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.018 * s, 0.03 * s, H, 8), barkMat); trunk.position.set(x, top + H / 2, z); trunk.castShadow = true; scene.add(trunk);
+    const leaves = new THREE.InstancedMesh(FIG_LEAF, figMat, n); leaves.castShadow = true;
+    const d = new THREE.Object3D();
+    for (let i = 0; i < n; i++) {
+      const t = 0.35 + 0.65 * (i / n), ang = i * 2.4 + prnd() * 0.5;          // espiral (ângulo de ouro)
+      const reach = (0.04 + (0.16 + 0.12 * prnd()) * Math.sin(Math.PI * Math.min(1, t * 1.1))) * s;   // copa mais larga no meio
+      d.position.set(x + Math.cos(ang) * reach, top + t * H, z + Math.sin(ang) * reach);
+      d.rotation.set(0, 0, 0); d.rotateY(-ang + Math.PI / 2); d.rotateX(0.55 + prnd() * 0.65);   // folha aponta para fora e para cima d.rotateZ((prnd() - 0.5) * 0.6);
+      const sc = s * (0.75 + 0.5 * prnd()) * (t > 0.9 ? 0.7 : 1); d.scale.set(sc, sc, sc); d.updateMatrix();
+      leaves.setMatrixAt(i, d.matrix); leaves.setColorAt(i, tint.setHSL(0.33 + (prnd() - 0.5) * 0.04, 0.5, 0.55 + prnd() * 0.25));
+    }
+    scene.add(leaves);
+  }
+  // espada-de-são-jorge: lâminas eretas saindo da terra
+  function snake(x, z, s) {
+    const top = pot(x, z, 0.17 * s, 0.32 * s, "ceramic");
+    const n = 13, blades = new THREE.InstancedMesh(BLADE, bladeMat, n); blades.castShadow = true;
+    const d = new THREE.Object3D();
+    for (let i = 0; i < n; i++) {
+      const ang = prnd() * Math.PI * 2, rr = prnd() * 0.1 * s;
+      d.position.set(x + Math.cos(ang) * rr, top - 0.01, z + Math.sin(ang) * rr);
+      d.rotation.set(0, 0, 0); d.rotateY(prnd() * Math.PI * 2); d.rotateX(-(0.05 + prnd() * 0.22));
+      const hh = s * (0.45 + prnd() * 0.45); d.scale.set(s, hh, s); d.updateMatrix();
+      blades.setMatrixAt(i, d.matrix); blades.setColorAt(i, tint.setHSL(0.33, 0.25, 0.75 + prnd() * 0.25));
+    }
+    scene.add(blades);
+  }
+  fig(-W / 2 + 0.6, D / 2 - 0.6, 1.15); fig(W / 2 - 0.55, -D / 2 + 0.6, 1); snake(-1.8, -D / 2 + 0.45, 1); snake(1.8, -D / 2 + 0.45, 1);
+
+  // ---------- luzes ----------
+  scene.add(new THREE.AmbientLight(0xffffff, 0.07));
+  scene.add(new THREE.HemisphereLight(0x9ca3af, 0x050505, 0.12));
+  const key = new THREE.DirectionalLight(0xffffff, 0.5);
+  key.position.set(5, 9, 6); key.castShadow = true;
+  key.shadow.mapSize.set(2048, 2048);
+  Object.assign(key.shadow.camera, { left: -8, right: 8, top: 8, bottom: -8, near: 1, far: 30 });
+  key.shadow.bias = -0.0005;
+  scene.add(key);
+  const gl = new THREE.PointLight(0x22c55e, 1.6, 9, 2); gl.position.set(3, 1.2, -D / 2 + 0.6); scene.add(gl);
+  const rl = new THREE.PointLight(0xef4444, 1.4, 9, 2); rl.position.set(-W / 2 + 0.6, 1.2, 1.5); scene.add(rl);
+  const ceiling = new THREE.PointLight(0xffffff, 0.6, 14, 2); ceiling.position.set(0, 3.4, 0); ceiling.castShadow = true; scene.add(ceiling);
+
+  // ---------- câmera e botões ----------
+  const VIEWS = {
+    wide: { pos: [9.5, 9.5, 11], target: [0, 0.6, 0] },
+    top: { pos: [0.01, 18, 0.01], target: [0, 0, 0] },
+    desk: { pos: [1.15, 1.55, 0.95], target: [0.15, 0.82, -0.45] },
+  };
+  // em tela estreita, câmera mais longe para caber a sala inteira
+  const narrow = () => window.innerWidth < 600;
+  if (narrow()) { VIEWS.wide.pos = [13, 15, 16]; VIEWS.top.pos = [0.01, 26, 0.01]; VIEWS.desk.pos = [2.0, 2.8, 2.6]; }
+  camera.position.set(...VIEWS.wide.pos);
+  let tween = null;
+  // de frente para a parede dos telões: distância calculada para a área (largura × 1,8 m) caber na janela atual
+  function wallView(z, width) {
+    const half = THREE.MathUtils.degToRad(camera.fov / 2);
+    const fitH = (1.8 / 2) / Math.tan(half);
+    const fitW = (width / 2) / (Math.tan(half) * camera.aspect);
+    const d = Math.min(Math.max(fitH, fitW) * 1.12, W - 0.6);
+    const x = tvMesh.position.x, y = tvMesh.position.y;
+    return { pos: [x + d, y + 0.04, z], target: [x, y, z] };
+  }
+  function go(name) {
+    inDeskView = name === "desk"; refreshMan(); // na visão "Ver a mesa" a câmera está no lugar do boneco: ele sai de cena
+    const v = name === "tv" ? wallView(0, 6.8) : name === "news" ? wallView(tvMesh.position.z, 3.2)
+      : name === "cal" ? wallView(calMesh.position.z, 3.2) : VIEWS[name];
+    tween = { t: 0, from: camera.position.clone(), to: new THREE.Vector3(...v.pos), tf: controls.target.clone(), tt: new THREE.Vector3(...v.target) };
+  }
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const spinBtn = document.getElementById("spin");
+  function setSpin(on) { controls.autoRotate = on; spinBtn.classList.toggle("on", on); spinBtn.setAttribute("aria-pressed", String(on)); }
+  setSpin(!reduce);
+  spinBtn.onclick = () => setSpin(!controls.autoRotate);
+  document.getElementById("top").onclick = () => go("top");
+  document.getElementById("desk").onclick = () => { setSpin(false); go("desk"); };
+  // clique numa manchete do telão abre a notícia (um toque/clique sem arrastar)
+  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  function newsAt(e) {
+    const r = canvas.getBoundingClientRect();
+    ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    const hitTv = ray.intersectObjects([tvMesh, calMesh, ...screenMeshes])[0];
+    if (!hitTv) return null;
+    if (hitTv.object.userData.monitor !== undefined) return { monitor: hitTv.object.userData.monitor };
+    if (hitTv.object === calMesh) return { screen: "cal" };
+    const n = hitTv.uv ? tv.hit(hitTv.uv.x, hitTv.uv.y) : null;
+    return n ? { screen: "news", news: n } : { screen: "news" };
+  }
+  const newsBox = document.getElementById("news"), newsLink = document.getElementById("news-link");
+  function openNews(n) {
+    document.getElementById("news-title").textContent = n.title;
+    const mins = Math.max(0, Math.round((Date.now() / 1000 - n.at) / 60));
+    document.getElementById("news-meta").textContent = `${n.source} · ${mins < 60 ? `há ${mins} min` : `há ${Math.floor(mins / 60)} h`}`;
+    newsLink.href = n.link || "#"; newsLink.setAttribute("aria-disabled", String(!n.link));
+    newsBox.classList.add("open"); setSpin(false); newsLink.focus();
+  }
+  const closeNews = () => newsBox.classList.remove("open");
+  document.getElementById("news-close").onclick = closeNews;
+  newsBox.addEventListener("click", (e) => { if (e.target === newsBox) closeNews(); });
+  addEventListener("keydown", (e) => { if (e.key === "Escape") { closeNews(); closePc(); } });
+
+  // ---------- tela de computador: gráfico real (TradingView, M5) com escolha de mercado ----------
+  const ASSETS = [
+    ["EURUSD", "EUR/USD", "Forex", "FX:EURUSD"], ["GBPUSD", "GBP/USD", "Forex", "FX:GBPUSD"], ["USDJPY", "USD/JPY", "Forex", "FX:USDJPY"],
+    ["AUDUSD", "AUD/USD", "Forex", "FX:AUDUSD"], ["USDCAD", "USD/CAD", "Forex", "FX:USDCAD"], ["USDCHF", "USD/CHF", "Forex", "FX:USDCHF"],
+    ["NZDUSD", "NZD/USD", "Forex", "FX:NZDUSD"], ["EURJPY", "EUR/JPY", "Forex", "FX:EURJPY"], ["EURGBP", "EUR/GBP", "Forex", "FX:EURGBP"],
+    ["GBPJPY", "GBP/JPY", "Forex", "FX:GBPJPY"], ["AUDCAD", "AUD/CAD", "Forex", "FX:AUDCAD"], ["AUDJPY", "AUD/JPY", "Forex", "FX:AUDJPY"],
+    ["BTCUSD", "BTC/USD", "Cripto", "BINANCE:BTCUSDT"], ["ETHUSD", "ETH/USD", "Cripto", "BINANCE:ETHUSDT"], ["LTCUSD", "LTC/USD", "Cripto", "BINANCE:LTCUSDT"],
+    ["XAUUSD", "Ouro", "Commodities", "OANDA:XAUUSD"], ["XAGUSD", "Prata", "Commodities", "OANDA:XAGUSD"], ["USOIL", "Petróleo", "Commodities", "TVC:USOIL"],
+  ].map(([id, label, group, tv]) => ({ id, label, group, tv }));
+  const findAsset = (id) => ASSETS.find((a) => a.id === id) || ASSETS[0];
+  // horário de Nova York: forex dom 17h–sex 17h; commodities dom 18h–sex 17h com pausa 17h–18h; cripto 24h
+  function isOpen(a) {
+    if (a.group === "Cripto") return true;
+    const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", weekday: "short", hour: "numeric", minute: "numeric", hourCycle: "h23" }).formatToParts(new Date());
+    const get = (t) => (parts.find((x) => x.type === t) || {}).value || "";
+    const day = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(get("weekday")), h = Number(get("hour")) + Number(get("minute")) / 60;
+    const start = a.group === "Forex" ? 17 : 18;
+    if (day === 6 || (day === 5 && h >= 17) || (day === 0 && h < start)) return false;
+    return a.group === "Forex" || !(h >= 17 && h < 18);
+  }
+  const STORE = "tradeai-monitores";
+  let picks = ["ETHUSD", "BTCUSD", "EURUSD"];
+  try { const saved = JSON.parse(localStorage.getItem(STORE)); if (Array.isArray(saved) && saved.length === 3) picks = saved.map((id) => findAsset(id).id); } catch {}
+  const mtitle = (id) => `${findAsset(id).label} · M5`;
+  picks.forEach((id, i) => screens[i].setTitle(mtitle(id)));
+
+  const pc = document.getElementById("pc"), pcChart = document.getElementById("pc-chart");
+  let pcIdx = 0, pcGroup = "Forex";
+  function mountChart(a) {
+    pcChart.innerHTML = '<div class="tradingview-widget-container" style="height:100%;width:100%"><div class="tradingview-widget-container__widget" style="height:100%;width:100%"></div></div>';
+    const sc = document.createElement("script");
+    sc.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js"; sc.async = true;
+    sc.textContent = JSON.stringify({ autosize: true, symbol: a.tv, interval: "5", timezone: "America/Sao_Paulo", theme: "dark", style: "1", locale: "br",
+      backgroundColor: "#000000", gridColor: "rgba(255,255,255,0.04)", allow_symbol_change: false, hide_side_toolbar: true, hide_volume: true,
+      save_image: false, details: false, calendar: false, support_host: "https://www.tradingview.com" });
+    pcChart.firstChild.appendChild(sc);
+  }
+  function renderPc() {
+    const a = findAsset(picks[pcIdx]), open = isOpen(a);
+    document.getElementById("pc-title").textContent = `Monitor ${pcIdx + 1} · ${a.label} · M5`;
+    const st = document.getElementById("pc-state");
+    st.textContent = open ? "Ao vivo" : "Mercado fechado"; st.className = "pc-state " + (open ? "on" : "off");
+    document.querySelectorAll("#pc-groups button").forEach((b) => b.classList.toggle("on", b.dataset.g === pcGroup));
+    const list = document.getElementById("pc-assets"); list.innerHTML = "";
+    ASSETS.filter((x) => x.group === pcGroup).forEach((x) => {
+      const b = document.createElement("button"); b.type = "button";
+      b.className = x.id === a.id ? "on" : ""; b.innerHTML = `<i class="${isOpen(x) ? "up" : ""}"></i>`; b.append(x.label);
+      b.onclick = () => pickAsset(x.id); list.appendChild(b);
+    });
+  }
+  // ---------- IA: entrada sugerida ----------
+  const aiOut = document.getElementById("ai-out"), aiGo = document.getElementById("ai-go");
+  let aiTimer = null, aiCool = 0;
+  const hhmm = (t) => new Date(t * 1000).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+  const num = (v) => (v === null || v === undefined ? "—" : Number(v).toLocaleString("pt-BR", { maximumSignificantDigits: 6 }));
+  function aiReset() {
+    clearInterval(aiTimer); aiOut.innerHTML = "";
+    aiOut.append(el("p", "ai-hint", "Escolha o mercado e peça a leitura. A IA usa as velas reais de 5 minutos, indicadores (EMA, RSI, ATR) e o calendário de notícias."));
+    document.getElementById("ai-src").textContent = "";
+  }
+  function aiShow(sig) {
+    clearInterval(aiTimer); aiOut.innerHTML = "";
+    document.getElementById("ai-src").textContent = sig.delayed ? "dados com atraso" : "tempo real";
+    const kind = sig.decision === "CALL" ? "call" : sig.decision === "PUT" ? "put" : "wait";
+    const box = el("div", "ai-dec " + kind);
+    box.append(el("b", "", sig.decision === "CALL" ? "▲ CALL" : sig.decision === "PUT" ? "▼ PUT" : "NÃO OPERAR"));
+    box.append(el("span", "", sig.decision === "NAO_OPERAR" ? (sig.blocked_by || "Sem setup claro agora") : `${sig.label} · ${sig.decision === "CALL" ? "compra (alta)" : "venda (baixa)"} na abertura da vela`));
+    aiOut.append(box);
+    if (sig.decision !== "NAO_OPERAR") {
+      const bar = el("div", "ai-bar"), fill = el("i"); fill.style.width = sig.strength + "%";
+      fill.style.background = sig.strength >= 75 ? "#22c55e" : "#f59e0b"; bar.append(fill); aiOut.append(bar);
+      aiOut.append(el("div", "ai-hint", `Força do sinal: ${sig.strength}/100 (clareza do setup, não chance de acerto)`));
+      const dl = el("dl", "ai-grid");
+      const row = (k, v) => { dl.append(el("dt", "", k)); const d = el("dd", "", v); dl.append(d); return d; };
+      const cd = row("Entrada", hhmm(sig.entry_at));
+      row("Expiração", `${hhmm(sig.expiry_at)} (${sig.expiry_candles} vela${sig.expiry_candles > 1 ? "s" : ""})`);
+      row("Preço da análise", num(sig.price));
+      row("Invalida se chegar em", num(sig.invalidation_price));
+      row("Alvo de referência", num(sig.target_price));
+      aiOut.append(dl);
+      const tick = () => {
+        const left = sig.entry_at - Math.floor(Date.now() / 1000);
+        if (left > 0) cd.textContent = `${hhmm(sig.entry_at)} (em ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")})`;
+        else { cd.textContent = `${hhmm(sig.entry_at)} (passou)`; clearInterval(aiTimer); }
+      };
+      tick(); aiTimer = setInterval(tick, 1000);
+    }
+    if (sig.reasons_for.length) { aiOut.append(el("h4", "", "A FAVOR")); const ul = el("ul", "pro"); sig.reasons_for.forEach((r) => ul.append(el("li", "", r))); aiOut.append(ul); }
+    if (sig.reasons_against.length) { aiOut.append(el("h4", "", "CONTRA")); const ul = el("ul", "con"); sig.reasons_against.forEach((r) => ul.append(el("li", "", r))); aiOut.append(ul); }
+    aiOut.append(el("div", "ai-foot", `Fonte: ${sig.source}. Gerado às ${hhmm(sig.at)}. Em binárias não há stop nem take: vale o preço na expiração. Sinal de IA não é garantia.`));
+  }
+  aiGo.onclick = async () => {
+    if (Date.now() < aiCool) return;
+    const asset = picks[pcIdx];
+    if (isForex(asset)) return runForex(asset);
+    aiGo.disabled = true; aiGo.textContent = "Analisando…"; aiCool = Date.now() + 20000;
+    aiOut.innerHTML = ""; aiOut.append(el("p", "ai-hint", "Buscando velas, conferindo notícias e consultando a IA…"));
+    try {
+      const r = await fetch("/api/signal", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ asset }) });
+      const d = await r.json().catch(() => ({ error: `Erro ${r.status}` }));
+      if (asset !== picks[pcIdx]) return;            // trocou de mercado no meio
+      if (!r.ok) throw new Error(d.error || `Erro ${r.status}`);
+      aiShow(d);
+    } catch (e) {
+      aiOut.innerHTML = ""; aiOut.append(el("div", "ai-err", e.message === "Failed to fetch" ? "Sem conexão com o servidor do Trade AI. Abra pela página publicada." : e.message));
+    } finally {
+      aiGo.textContent = "Pedir entrada à IA";
+      setTimeout(() => { aiGo.disabled = false; }, Math.max(0, aiCool - Date.now()));
+    }
+  };
+
+
+  // ---------- ANÁLISE TÉCNICA FOREX (motor multitemporal no servidor: /api/forex) ----------
+  const isForex = (id) => findAsset(id).group === "Forex";
+  const HKEY = "tradeai-forex-historico";
+  let hist = [];
+  try { const h = JSON.parse(localStorage.getItem(HKEY)); if (Array.isArray(h)) hist = h; } catch {}
+  const saveHist = () => { try { localStorage.setItem(HKEY, JSON.stringify(hist.slice(-200))); } catch {} };
+  const aiBox = document.querySelector(".ai"), aiTools = document.getElementById("ai-tools");
+  function syncForex() { const f = isForex(picks[pcIdx]); aiBox.classList.toggle("wide", f); aiTools.hidden = !f; if (f) startStrip(); else { clearInterval(stripTimer); stripEl.hidden = true; } document.querySelector(".ai-head span").textContent = f ? "ANÁLISE TÉCNICA FOREX" : "IA · ENTRADA M5"; }
+  const DIR = { BUY: "COMPRA", SELL: "VENDA" };
+  const when = (t) => new Date(t * 1000).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const pct = (v) => (v === null || v === undefined ? "—" : (v * 100).toFixed(1) + "%");
+  const num2 = (v) => (v === null || v === undefined ? "—" : Number(v).toFixed(2));
+  const sec = (title, ...kids) => { const d = el("div", "fx-sec"); d.append(el("h4", "", title), ...kids); return d; };
+  const ul = (items, cls) => { const u = el("ul", cls || ""); items.forEach((t) => u.append(el("li", "", t))); return u; };
+  const trendChip = (name, t) => { const c = el("div", "fx-chip " + (t === "alta" ? "up" : t === "baixa" ? "down" : "flat"), name); c.append(el("b", "", t === "alta" ? "▲ Alta" : t === "baixa" ? "▼ Baixa" : "■ Lateral")); return c; };
+  const kv = (rows) => { const dl = el("dl", "fx-kv"); rows.forEach(([k, v]) => { dl.append(el("dt", "", k)); dl.append(el("dd", "", v)); }); return dl; };
+
+
+  // ---------- TRADE PROFILE: critérios salvos que TODAS as análises usam ----------
+  const PKEY = "tradeai-forex-perfil";
+  const FX_PAIRS = ASSETS.filter((a) => a.group === "Forex").map((a) => [a.id, a.label]);
+  const STRATS = [[1, "Continuidade de tendência"], [2, "Reversão em suporte/resistência"], [3, "BOS e reteste"], [4, "Varredura de liquidez"], [5, "LTA e LTB"], [9, "Impulso a favor da estrutura"]];
+  const STYLES = {
+    conservador: { minRR: 2, txt: "Confluência mínima 80, gatilho obrigatório no M1, bloqueia se o calendário de notícias não puder ser verificado." },
+    equilibrado: { minRR: 1.5, txt: "Confluência mínima 75; se o M1 faltar, o gatilho é avaliado no M5." },
+    agressivo: { minRR: 1.2, txt: "Confluência mínima 70 e R:R menor: mais sinais e, em geral, mais ruído." },
+  };
+  const defProfile = () => ({ pairs: FX_PAIRS.map((p) => p[0]), entryTf: "M1", context: ["M15", "H1"], maxRiskPct: 1, minRR: 1.5, strategies: STRATS.map((x) => x[0]), style: "equilibrado", balance: null });
+  let profile = defProfile();
+  try { const p = JSON.parse(localStorage.getItem(PKEY)); if (p && typeof p === "object") profile = { ...profile, ...p }; } catch {}
+  const saveProfile = () => { try { localStorage.setItem(PKEY, JSON.stringify(profile)); } catch {} };
+  const profileLine = () => `Perfil ${profile.style} · R:R mín. ${profile.minRR} · risco ${profile.maxRiskPct}% · ${profile.pairs.length} pares · ${profile.strategies.length} estratégias · entrada no ${profile.entryTf}`;
+
+  function renderProfile() {
+    clearInterval(aiTimer); aiOut.innerHTML = "";
+    aiOut.append(el("div", "fx-top")); aiOut.lastChild.append(el("span", "", "Trade Profile"), el("span", "", "salvo neste navegador"));
+    const draft = JSON.parse(JSON.stringify(profile));
+    const toggle = (arr, v, on) => { const i = arr.indexOf(v); if (on && i < 0) arr.push(v); if (!on && i >= 0) arr.splice(i, 1); };
+    const checks = (items, selected) => { const w = el("div", "fx-checks"); items.forEach(([v, t]) => { const l = el("label", "fx-chk"), i = el("input"); i.type = "checkbox"; i.checked = selected.includes(v); i.onchange = () => toggle(selected, v, i.checked); l.append(i, el("span", "", t)); w.append(l); }); return w; };
+    const field = (label, node) => { const w = el("label", "fx-field"); w.append(el("span", "", label), node); return w; };
+    const numIn = (v, step) => { const i = el("input"); i.type = "number"; i.step = step; i.value = v ?? ""; return i; };
+    const opt = (sel, pairs) => { pairs.forEach(([v, t]) => { const o = el("option", "", t); o.value = v; sel.append(o); }); return sel; };
+    aiOut.append(sec("MERCADO E PARES MONITORADOS", el("div", "ai-hint", "Mercado: Forex. A análise só roda para os pares marcados."), checks(FX_PAIRS, draft.pairs)));
+    const main = el("input"); main.value = "M5 (movimento atual)"; main.disabled = true;
+    const entry = opt(el("select"), [["M1", "M1 (gatilho)"], ["M5", "M5 (sem M1)"]]); entry.value = draft.entryTf; entry.onchange = () => { draft.entryTf = entry.value; };
+    const tf = el("div", "fx-fields"); tf.append(field("Principal", main), field("Entrada", entry));
+    aiOut.append(sec("TEMPORALIDADES", tf, el("div", "ai-hint", "Contexto (entra no alinhamento de tendência):"), checks([["M15", "M15"], ["H1", "H1"]], draft.context), el("div", "ai-hint", "O H1 sempre define as regiões de suporte e resistência.")));
+    const risk = numIn(draft.maxRiskPct, "0.1"), rr = numIn(draft.minRR, "0.1"), bal = numIn(draft.balance, "100");
+    const style = opt(el("select"), Object.keys(STYLES).map((k) => [k, k[0].toUpperCase() + k.slice(1)])); style.value = draft.style;
+    const styleTxt = el("div", "ai-hint", STYLES[draft.style].txt);
+    style.onchange = () => { draft.style = style.value; styleTxt.textContent = STYLES[draft.style].txt; rr.value = STYLES[draft.style].minRR; };
+    const fl = el("div", "fx-fields"); fl.append(field("Risco máx. por operação (%)", risk), field("R:R mínimo", rr), field("Saldo em USD (opcional)", bal), field("Perfil", style));
+    aiOut.append(sec("RISCO E PERFIL", fl, styleTxt, el("div", "ai-hint", "O saldo só serve para calcular o lote (pares com USD). Nada é enviado a corretora.")));
+    aiOut.append(sec("ESTRATÉGIAS HABILITADAS", checks(STRATS, draft.strategies)));
+    const msg = el("div", "fx-note"); msg.hidden = true;
+    const save = el("button", "fx-btn", "Salvar perfil"); save.type = "button";
+    save.onclick = () => {
+      if (!draft.pairs.length || !draft.strategies.length) { msg.hidden = false; msg.textContent = "Marque ao menos um par e uma estratégia."; return; }
+      profile = { ...draft, maxRiskPct: Math.min(5, Math.max(0.1, +risk.value || 1)), minRR: Math.min(5, Math.max(1, +rr.value || 1.5)), balance: bal.value === "" ? null : Math.max(1, +bal.value || 0) || null };
+      saveProfile(); msg.hidden = false; msg.textContent = "Perfil salvo. " + profileLine() + ". As próximas análises já usam estes critérios.";
+    };
+    const reset = el("button", "fx-btn", "Restaurar padrão"); reset.type = "button";
+    reset.onclick = () => { profile = defProfile(); saveProfile(); renderProfile(); };
+    aiOut.append(save, reset, msg);
+  }
+  document.getElementById("ai-prof").onclick = () => renderProfile();
+
+  // ---------- TRADE AGENT: painel do agente autônomo (o estado vem do servidor; esta tela só mostra e envia comandos) ----------
+  const TKEY = "tradeai-agent-token";
+  const stripEl = document.getElementById("ag-strip");
+  const hmBrt = (t) => new Date(t * 1000).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+  const minToTime = (m) => String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
+  const timeToMin = (v) => { const [h, m] = String(v).split(":").map(Number); return (h || 0) * 60 + (m || 0); };
+  async function agentApi(action, opts) {
+    const r = await fetch("/api/agent?action=" + action, opts); const j = await r.json().catch(() => ({ error: "Erro " + r.status }));
+    if (!r.ok) { const e = new Error(j.error || "Erro " + r.status); e.status = r.status; throw e; } return j;
+  }
+  const adminToken = () => { let t = ""; try { t = sessionStorage.getItem(TKEY) || ""; } catch {} if (!t) { t = prompt("Token de administração do agente (AGENT_ADMIN_TOKEN). Fica só nesta aba e nunca é gravado no navegador:") || ""; try { if (t) sessionStorage.setItem(TKEY, t); } catch {} } return t; };
+  async function agentControl(body) {
+    const t = adminToken(); if (!t) throw new Error("Token não informado.");
+    try { return await agentApi("control", { method: "POST", headers: { "content-type": "application/json", authorization: "Bearer " + t }, body: JSON.stringify(body) }); }
+    catch (e) { if (e.status === 401) { try { sessionStorage.removeItem(TKEY); } catch {} } throw e; }
+  }
+  /** Faixa permanente com a meta do dia (vem do backend; atualizar a página nunca reinicia nada). */
+  function renderStrip(st) {
+    if (!st) { stripEl.hidden = true; return; }
+    const p = st.panel; stripEl.hidden = false; stripEl.className = "ag-strip" + (p.state === "DAILY_LOCKED" ? " locked" : p.state === "TARGET_REACHED" ? " target" : "");
+    stripEl.innerHTML = "";
+    stripEl.append(el("div", "", ""));
+    stripEl.firstChild.innerHTML = `<b>${p.goal}</b> · ${p.risk} · <b>${p.wins}</b> · <b>${p.losses}</b> · <b>${p.ops}</b> · ESTADO ATUAL: <b>${p.state}</b>`;
+    if (p.banner) stripEl.append(el("div", "ag-ban", p.banner));
+    const tg = el("button", "fx-mini", st.armed ? "⏹ Desligar bot" : "▶ Ligar bot hoje"); tg.type = "button"; tg.style.margin = "6px 0 0"; tg.style.display = "block";
+    tg.onclick = async () => { tg.disabled = true; try { await agentControl({ op: st.armed ? "stop" : "start" }); await refreshStrip(); } catch (e) { tg.disabled = false; tg.textContent = "Falhou: " + e.message; } };
+    stripEl.append(tg);
+  }
+  let stripTimer = null;
+  async function refreshStrip() { try { renderStrip(await agentApi("status")); } catch { stripEl.hidden = true; } }
+  function startStrip() { clearInterval(stripTimer); refreshStrip(); stripTimer = setInterval(refreshStrip, 60000); }
+
+  async function renderAgent() {
+    clearInterval(aiTimer); aiOut.innerHTML = ""; aiOut.append(el("p", "ai-hint", "Consultando o agente na nuvem…"));
+    let st;
+    try { st = await agentApi("status"); }
+    catch (e) {
+      aiOut.innerHTML = ""; aiOut.append(el("div", "fx-top")); aiOut.lastChild.append(el("span", "", "TRADE AGENT"), el("span", "", "OFFLINE"));
+      aiOut.append(el("div", "fx-warn", e.status === 503 ? e.message : "Não consegui falar com o agente: " + e.message));
+      aiOut.append(sec("O QUE FALTA", ul(["Banco de dados PostgreSQL (variável DATABASE_URL na Vercel).", "Agendador chamando /api/agent?action=tick a cada 5 min (GitHub Actions) ou o worker persistente.", "Telegram: TELEGRAM_BOT_TOKEN e TELEGRAM_CHAT_ID (opcional para o painel, necessário para os alertas).", "Passo a passo completo em docs/TRADE-AGENT.md."], "fx-list"))); return;
+    }
+    renderStrip(st);
+    const p = st.panel, hb = st.heartbeat;
+    aiOut.innerHTML = "";
+    aiOut.append(el("div", "fx-top")); aiOut.lastChild.append(el("span", "", "TRADE AGENT"), el("span", "", "atualizado " + hmBrt(st.serverTime) + " (Brasília)"));
+    const head = el("div", "ag-head");
+    head.append(el("span", "ag-pill " + (st.online ? "on" : "off"), st.online ? "ONLINE" : "OFFLINE"), el("span", "ag-pill " + (st.marketOpen ? "on" : "warn"), st.marketOpen ? "MERCADO ABERTO" : "MERCADO FECHADO"), el("span", "ag-pill " + (st.armed ? "on" : "warn"), st.config.paused ? "PAUSADO" : st.armed ? "LIGADO HOJE" : "DESLIGADO"), el("span", "ag-pill warn", "EXECUÇÃO REAL: " + st.execution));
+    aiOut.append(head, el("div", "ai-hint", st.reason + " Modo: " + st.mode + " — só analisa, alerta e simula; nenhuma ordem é enviada."));
+    const rules = el("div", "ag-rules" ); rules.innerHTML = [p.goal, p.risk, p.wins, p.losses, p.ops, "ESTADO ATUAL: " + p.state].join("<br>");
+    aiOut.append(sec("GERENCIAMENTO 2X0 (FIXO)", rules));
+    if (p.banner) aiOut.append(el("div", p.state === "TARGET_REACHED" ? "fx-note" : "fx-warn", p.banner));
+    else if (p.reason) aiOut.append(el("div", "ai-hint", "Entradas: " + p.reason));
+    aiOut.append(kv([["Resultado do dia (simulado)", `${num2(p.resultR)}R = R$ ${num2(p.resultBrl)}`], ["Meta perfeita 2x0", p.perfect2x0 ? "ALCANÇADA" : p.wins + p.losses ? (p.losses ? "comprometida (houve loss)" : "em andamento") : "em andamento"]]));
+    const ctrl = el("div", "ag-grid");
+    const pause = el("button", "fx-btn", st.armed ? "⏹ Desligar o bot" : "▶ Ligar o bot hoje"); pause.type = "button";
+    pause.onclick = async () => { pause.disabled = true; try { await agentControl({ op: st.armed ? "stop" : "start" }); renderAgent(); } catch (e) { pause.disabled = false; pause.textContent = "Falhou: " + e.message; } };
+    const cfgBtn = el("button", "fx-btn", "⚙ Configurações"); cfgBtn.type = "button"; cfgBtn.onclick = () => renderAgentConfig(st);
+    ctrl.append(pause, cfgBtn); aiOut.append(ctrl);
+    aiOut.append(sec("SAÚDE E DADOS", kv([["Última execução", hb ? hmBrt(hb.at) + ` (${Math.round((st.serverTime - hb.at) / 60)} min atrás)` : "nunca"], ["Última atualização dos dados", hb && hb.lastDataAt ? hmBrt(hb.lastDataAt) + ` (${Math.round((st.serverTime - hb.lastDataAt) / 60)} min atrás)` : "—"], ["Pares ok / com falha", hb ? `${hb.pairsOk} / ${hb.pairsFailed}` : "—"], ["Falhas seguidas", hb ? String(hb.consecutiveFailures) : "—"], ["Fonte dos dados", "Yahoo Finance (gratuito, pode atrasar)"]])));
+    aiOut.append(sec(`PARES MONITORADOS (${st.config.enabledPairs.length})`, el("div", "fx-note", st.config.enabledPairs.map((x) => x.slice(0, 3) + "/" + x.slice(3)).join(" · "))));
+    const nl = el("ul", "fx-list"); st.news.forEach((n) => { const li = el("li"); li.append(el("span", "fx-dot " + (n.impact === "ALTO" ? "bad" : "warn")), el("span", "", `${hmBrt(n.at)} ${n.currency} ${n.title} [${n.impact}] · esp. ${n.forecast ?? "—"} · ant. ${n.previous ?? "—"}${n.actual ? " · res. " + n.actual : ""} · pares: ${n.pairs.join(", ") || "—"}`)); nl.append(li); });
+    if (!st.news.length) nl.append(el("li", "", st.newsVerified ? "Sem notícias de médio/alto impacto nas próximas 24 h." : "Notícias NÃO verificadas (calendário indisponível)."));
+    aiOut.append(sec("NOTÍCIAS PRÓXIMAS", nl));
+    const rl3 = el("ul", "fx-list"); st.radar.forEach((r) => { const li = el("li"); li.append(el("span", "fx-dot " + (r.cls === "CONFIRMADA" ? "ok" : "warn")), el("span", "", `${r.label} · ${r.dir ? DIR[r.dir] : ""} · ${r.cls === "CONFIRMADA" ? "confirmada" : "em formação"} · ${r.strategy ?? ""}`)); rl3.append(li); });
+    if (!st.radar.length) rl3.append(el("li", "", "Nenhum setup em formação agora."));
+    aiOut.append(sec("OPORTUNIDADES (RADAR)", rl3));
+    const tl = el("ul", "fx-list"); st.trades.forEach((t) => { const li = el("li"); li.append(el("span", "fx-dot " + (t.status === "WIN" ? "ok" : t.status === "LOSS" ? "bad" : "warn")), el("span", "", `${hmBrt(t.openedAt)} ${t.label} ${DIR[t.dir]} · ${t.strategy} · entrada ${t.entry.toFixed(t.symbol.includes("JPY") ? 3 : 5)} · stop ${t.sl.toFixed(t.symbol.includes("JPY") ? 3 : 5)} · ${t.status}${t.r !== undefined ? ` ${num2(t.r)}R (R$ ${num2(t.brl)})` : ""} · SIMULADA`)); tl.append(li); });
+    if (!st.trades.length) tl.append(el("li", "", "Nenhuma operação hoje."));
+    aiOut.append(sec("SINAIS DO DIA", tl));
+    const al = el("ul", "fx-list"); st.alerts.forEach((a) => { const li = el("li"); li.append(el("span", "fx-dot " + (a.sent ? "ok" : "dim")), el("span", "", `${hmBrt(a.at)} · ${a.title}${a.sent ? "" : " · não enviado" + (a.error ? " (" + a.error + ")" : "")}`)); al.append(li); });
+    if (!st.alerts.length) al.append(el("li", "", "Nenhum alerta ainda."));
+    aiOut.append(sec("HISTÓRICO DE ALERTAS", al));
+    const rf = el("button", "fx-btn", "Atualizar agora"); rf.type = "button"; rf.onclick = renderAgent; aiOut.append(rf);
+    aiTimer = setInterval(() => { if (aiOut.querySelector(".ag-rules")) renderAgent(); }, 60000);
+  }
+  function renderAgentConfig(st) {
+    clearInterval(aiTimer); aiOut.innerHTML = ""; const c = JSON.parse(JSON.stringify(st.config));
+    aiOut.append(el("div", "fx-top")); aiOut.lastChild.append(el("span", "", "TRADE AGENT · Configurações"), el("span", "", "salvo no servidor"));
+    aiOut.append(el("div", "ai-hint", "Risco por operação (R$ 5,00), máximo de 2 operações, meta de 2 vitórias e limite de 1 derrota são FIXOS no código e não aparecem aqui."));
+    const toggle = (arr, v, on) => { const i = arr.indexOf(v); if (on && i < 0) arr.push(v); if (!on && i >= 0) arr.splice(i, 1); };
+    const checks = (items, sel) => { const w = el("div", "fx-checks"); items.forEach(([v, t]) => { const l = el("label", "fx-chk"), i = el("input"); i.type = "checkbox"; i.checked = sel.includes(v); i.onchange = () => toggle(sel, v, i.checked); l.append(i, el("span", "", t)); w.append(l); }); return w; };
+    const field = (label, node) => { const w = el("label", "fx-field"); w.append(el("span", "", label), node); return w; };
+    const inp = (type, v, step) => { const i = el("input"); i.type = type; if (step) i.step = step; i.value = v; return i; };
+    const sel = (opts, v) => { const x = el("select"); opts.forEach(([a, b]) => { const o = el("option", "", b); o.value = a; x.append(o); }); x.value = v; return x; };
+    aiOut.append(sec("PARES", checks(FX_PAIRS, c.enabledPairs), el("div", "ai-hint", "Marque ou desmarque para adicionar ou remover pares do monitoramento.")));
+    aiOut.append(sec("ESTRATÉGIAS", checks(STRATS, c.strategies)));
+    const ini = inp("time", minToTime(c.window.startMin)), fim = inp("time", minToTime(c.window.endMin));
+    const f1 = el("div", "fx-fields"); f1.append(field("Início (Brasília)", ini), field("Fim (Brasília)", fim)); aiOut.append(sec("HORÁRIO OPERACIONAL", f1));
+    const nb = inp("number", c.news.beforeMin, "1"), na = inp("number", c.news.afterMin, "1");
+    const f2 = el("div", "fx-fields"); f2.append(field("Bloquear X min antes", nb), field("Aguardar X min depois", na)); aiOut.append(sec("BLOQUEIO POR NOTÍCIA DE ALTO IMPACTO", f2));
+    const style = sel(Object.keys(STYLES).map((k) => [k, k[0].toUpperCase() + k.slice(1)]), c.style), cost = inp("number", c.costPips, "0.1"), dist = inp("number", c.distantAtr, "1");
+    const f3 = el("div", "fx-fields"); f3.append(field("Perfil técnico", style), field("Custo simulado (pips)", cost), field("Radar: distância (ATR)", dist)); aiOut.append(sec("MOTOR", f3));
+    const nf = { forming: c.notify.forming, distant: c.notify.distant };
+    aiOut.append(sec("ALERTAS NO TELEGRAM", (() => { const w = el("div", "fx-checks"); [["forming", "Setups em formação"], ["distant", "Pares próximos de região (mais ruído)"]].forEach(([k, t]) => { const l = el("label", "fx-chk"), i = el("input"); i.type = "checkbox"; i.checked = nf[k]; i.onchange = () => (nf[k] = i.checked); l.append(i, el("span", "", t)); w.append(l); }); return w; })(), el("div", "ai-hint", "Entradas confirmadas, resultados, notícias, meta, stop diário e relatórios sempre são enviados.")));
+    const msg = el("div", "fx-note"); msg.hidden = true;
+    const save = el("button", "fx-btn", "Salvar configurações"); save.type = "button";
+    save.onclick = async () => {
+      if (!c.enabledPairs.length || !c.strategies.length) { msg.hidden = false; msg.textContent = "Marque ao menos um par e uma estratégia."; return; }
+      save.disabled = true;
+      try {
+        await agentControl({ op: "config", config: { enabledPairs: c.enabledPairs, strategies: c.strategies, window: { startMin: timeToMin(ini.value), endMin: timeToMin(fim.value) }, news: { beforeMin: +nb.value, afterMin: +na.value, blockMedium: c.news.blockMedium }, style: style.value, costPips: +cost.value, distantAtr: +dist.value, notify: nf } });
+        renderAgent();
+      } catch (e) { save.disabled = false; msg.hidden = false; msg.textContent = "Falhou: " + e.message; }
+    };
+    const back = el("button", "fx-btn", "Voltar"); back.type = "button"; back.onclick = renderAgent;
+    aiOut.append(save, back, msg);
+  }
+  document.getElementById("ai-agent").onclick = () => renderAgent();
+
+
+  // ---------- Pattern History, sinais abertos e registro de TODAS as análises ----------
+  function patternStats() {
+    const m = new Map();
+    hist.filter((h) => h.dir && h.status !== "aberto" && (typeof h.realR === "number" || typeof h.r === "number")).forEach((h) => {
+      const k = h.strategy + "|" + h.symbol, x = m.get(k) || { strategy: h.strategy, symbol: h.symbol, n: 0, sumR: 0 };
+      x.n++; x.sumR += typeof h.realR === "number" ? h.realR : h.r; m.set(k, x);
+    });
+    return [...m.values()];
+  }
+  const openSignal = (sym, at) => hist.find((h) => h.symbol === sym && h.dir && h.status === "aberto" && at >= h.at && at - h.at < 3600);
+  /** Registra toda análise (inclusive NO TRADE). Um sinal confirmado repetido dentro de 1 h NÃO cria registro novo: o original fica congelado. */
+  function logAnalysis(d, frozen) {
+    const confirmed = d.state === "entrada_confirmada";
+    if (confirmed && frozen && frozen.dir === d.trade.dir) return;
+    hist.push({ id: d.symbol + "-" + d.at, symbol: d.symbol, label: d.label, at: d.at, tf: "M5", decision: d.decision, state: d.state, dir: confirmed ? d.trade.dir : null,
+      strategy: d.chosen ? d.chosen.name : "—", entry: d.trade ? d.trade.entry : null, sl: d.trade ? d.trade.sl : null, tps: d.trade ? d.trade.tps : [null, null, null], score: d.score ? d.score.total : null,
+      reasons: d.favor.slice(0, 4), against: d.contra.slice(0, 3), missing: (d.missing || []).slice(0, 3), pip: d.pip, status: confirmed ? "aberto" : "sem entrada", r: null, snap: confirmed ? d.trade : null, profile: profile.style });
+    saveHist();
+  }
+
+  // ---------- CHART ANNOTATION: candles M5 reais + marcações com os preços exatos do motor ----------
+  const ANN_COLOR = { entrada: "#60a5fa", stop: "#f87171", take: "#4ade80", suporte: "#22c55e", resistencia: "#ef4444", lta: "#34d399", ltb: "#fb7185", sweep: "#f59e0b", bos: "#a78bfa", choch: "#22d3ee", fvg: "#eab308" };
+  const ANN_NAME = { entrada: "Entrada", stop: "Stop", take: "Take", suporte: "Suporte", resistencia: "Resistência", lta: "LTA", ltb: "LTB", sweep: "Sweep", bos: "BOS", choch: "CHoCH", fvg: "FVG" };
+  function drawChart(d, frozen) {
+    const wrap = el("div", "fx-chart"), cv = el("canvas"), cs = d.chart.candles;
+    if (cs.length < 10) { wrap.append(el("div", "ai-hint", "Poucas velas para desenhar o gráfico.")); return wrap; }
+    const W = 440, H = 250, dpr = window.devicePixelRatio || 1; cv.width = W * dpr; cv.height = H * dpr; cv.style.aspectRatio = W + "/" + H;
+    const g = cv.getContext("2d"); g.scale(dpr, dpr);
+    const dg = d.symbol.includes("JPY") ? 3 : 5, L = 6, Rm = 74, T = 8, B = 16, pw = W - L - Rm, ph = H - T - B, step = pw / cs.length;
+    const anns = d.chart.annotations.filter((a) => !(frozen && (a.kind === "entrada" || a.kind === "stop" || a.kind === "take")));
+    // a escala usa entrada, stop, TP1 e TP2; um TP3 distante não pode achatar as velas (ele só é desenhado se couber)
+    const levels = anns.filter((a) => (a.kind === "entrada" || a.kind === "stop" || (a.kind === "take" && /Take [12]/.test(a.label))) && a.price != null).map((a) => a.price);
+    if (frozen) levels.push(frozen.entry, frozen.sl, ...(frozen.tps || []).slice(0, 2).filter((x) => x != null));
+    let lo = Math.min(...cs.map((c) => c.l), ...levels), hi = Math.max(...cs.map((c) => c.h), ...levels);
+    const pad = (hi - lo) * 0.06 || 1e-4; lo -= pad; hi += pad;
+    const Y = (p) => T + ((hi - p) / (hi - lo)) * ph;
+    const idx = (t) => { if (t <= cs[0].t) return 0; for (let i = 0; i < cs.length; i++) if (cs[i].t > t) return Math.max(0, i - 1); return cs.length - 1; };
+    const X = (t) => L + (idx(t) + 0.5) * step;
+    g.fillStyle = "#0b0b0b"; g.fillRect(0, 0, W, H);
+    g.font = "9px ui-monospace, monospace";
+    const zone = (a, fill) => { if (a.high < lo || a.low > hi) return; const y1 = Y(Math.min(a.high, hi)), y2 = Y(Math.max(a.low, lo)), x1 = a.t1 ? X(a.t1) : L, x2 = a.t2 ? X(a.t2) + step : L + pw; g.fillStyle = fill; g.fillRect(x1, y1, x2 - x1, Math.max(1.5, y2 - y1)); };
+    anns.forEach((a) => { if (a.low == null) return; if (a.kind === "suporte") zone(a, "#22c55e24"); else if (a.kind === "resistencia") zone(a, "#ef444424"); else if (a.kind === "fvg") zone(a, "#eab30830"); else if (a.kind === "entrada") zone(a, "#60a5fa30"); });
+    cs.forEach((c, i) => {
+      const x = L + (i + 0.5) * step, up = c.c >= c.o; g.strokeStyle = g.fillStyle = up ? "#22c55e" : "#ef4444"; g.lineWidth = 1;
+      g.beginPath(); g.moveTo(x, Y(c.h)); g.lineTo(x, Y(c.l)); g.stroke();
+      const y1 = Y(Math.max(c.o, c.c)), y2 = Y(Math.min(c.o, c.c)); g.fillRect(x - Math.max(1, step * 0.32), y1, Math.max(2, step * 0.64), Math.max(1, y2 - y1));
+    });
+    const hline = (p, color, dash, label) => { if (p < lo || p > hi) return; const y = Y(p); g.strokeStyle = color; g.lineWidth = 1; g.setLineDash(dash); g.beginPath(); g.moveTo(L, y); g.lineTo(L + pw, y); g.stroke(); g.setLineDash([]); g.fillStyle = color; g.fillText(label + " " + Number(p).toFixed(dg), L + pw + 3, y + 3); };
+    const seg = (t1, p1, t2, p2, color, dash) => { g.strokeStyle = color; g.lineWidth = 1.2; g.setLineDash(dash); g.beginPath(); g.moveTo(X(t1), Y(p1)); g.lineTo(X(t2), Y(p2)); g.stroke(); g.setLineDash([]); };
+    anns.forEach((a) => {
+      const col = ANN_COLOR[a.kind];
+      if (a.kind === "lta" || a.kind === "ltb") seg(a.t1, a.p1, a.t2, a.p2, col, [5, 3]);
+      else if (a.kind === "bos" || a.kind === "choch") { if (a.price >= lo && a.price <= hi) { seg(a.t1, a.price, a.t2, a.price, col, [2, 2]); g.fillStyle = col; g.fillText(ANN_NAME[a.kind], X(a.t1), Y(a.price) - 3); } }
+      else if (a.kind === "sweep") { if (a.price >= lo && a.price <= hi) { const x = X(a.t1), y = Y(a.price); g.fillStyle = col; g.beginPath(); g.moveTo(x, y - 5); g.lineTo(x - 4, y + 3); g.lineTo(x + 4, y + 3); g.fill(); g.fillText("Sweep", x + 6, y + 3); } }
+      else if (a.kind === "entrada" && a.price != null) hline(a.price, col, [], "E");
+      else if (a.kind === "stop") hline(a.price, col, a.label.includes("condicional") ? [3, 3] : [], "SL");
+      else if (a.kind === "take") hline(a.price, col, a.label.includes("condicional") ? [3, 3] : [], "TP" + (a.label.match(/Take (\d)/) || [0, ""])[1]);
+    });
+    if (frozen) { hline(frozen.entry, ANN_COLOR.entrada, [1, 2], "E reg."); hline(frozen.sl, ANN_COLOR.stop, [1, 2], "SL reg."); (frozen.tps || []).forEach((tp, i) => { if (tp != null) hline(tp, ANN_COLOR.take, [1, 2], "TP" + (i + 1) + " reg."); }); }
+    g.fillStyle = "#71717a"; const tm = (t) => new Date(t * 1000).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
+    [0, Math.floor(cs.length / 2), cs.length - 1].forEach((i, k) => g.fillText(tm(cs[i].t), Math.min(W - Rm - 28, L + i * step - (k === 2 ? 22 : 0)), H - 4));
+    wrap.append(cv);
+    const kinds = [...new Set(anns.map((a) => a.kind).concat(frozen ? ["entrada", "stop", "take"] : []))];
+    const lg = el("div", "fx-legend"); kinds.forEach((k) => { const sp = el("span"); const i = el("i"); i.style.background = ANN_COLOR[k]; sp.append(i, ANN_NAME[k]); lg.append(sp); });
+    wrap.append(lg, el("div", "ai-hint", `Últimas ${cs.length} velas fechadas do M5 (Yahoo). Marcações usam os preços calculados pelo motor${frozen ? "; as linhas “reg.” são do sinal já registrado e não mudam" : ""}.`));
+    return wrap;
+  }
+
+  const STATE_TXT = { favoravel: "A FAVOR", neutro: "NEUTRO", contrario: "CONTRA", nao_verificado: "NÃO VERIFICADO", sem_dados: "SEM DADOS" };
+  function confluenceView(sc) {
+    const w = el("div"), head = el("div", "fx-conf-head");
+    head.append(el("b", "", String(sc.total)), el("span", "", "/100 · " + sc.label)); w.append(head);
+    const bar = el("div", "ai-bar"), fill = el("i"); fill.style.width = sc.total + "%"; fill.style.background = sc.capped.length ? "#ef4444" : sc.total >= 75 ? "#22c55e" : sc.total >= 50 ? "#f59e0b" : "#71717a"; bar.append(fill); w.append(bar);
+    w.append(el("div", "ai-hint", "Confluência é a soma ponderada de evidências técnicas. Não é probabilidade de acerto e não foi calibrada com resultados. Componentes sem dado verificável ficam fora da média." + (sc.capped.length ? ` Pontuação limitada a 49 porque o filtro obrigatório falhou: ${sc.capped.join(", ")}.` : "")));
+    sc.components.forEach((c) => {
+      const row = el("div", "fx-comp"), top = el("div", "fx-comp-top");
+      top.append(el("b", "", c.name), el("small", "", `peso ${c.weight}`), el("b", "", c.score === null ? "—" : String(c.score)), el("span", "fx-st " + c.state, STATE_TXT[c.state]));
+      top.lastChild.previousSibling.style.flex = "0 0 auto";
+      const b = el("div", "ai-bar"), f2 = el("i"); f2.style.width = (c.score ?? 0) + "%"; f2.style.background = c.state === "favoravel" ? "#22c55e" : c.state === "contrario" ? "#ef4444" : c.state === "neutro" ? "#f59e0b" : "#3f3f46"; b.append(f2);
+      row.append(top, b, el("p", "", c.why)); w.append(row);
+    });
+    return w;
+  }
+  function thesisView(t) {
+    const b = el("div", "fx-thesis");
+    b.append(el("h5", "", `CENÁRIO: ${t.scenario}` + (t.status === "condicional" ? " · condicional (ainda não é entrada)" : t.status === "confirmada" ? " · entrada confirmada" : "")));
+    t.lines.forEach((l) => { const r = el("div", "fx-th"); r.append(el("b", "", l.label), el("span", "", l.text)); b.append(r); });
+    return b;
+  }
+
+  function renderForex(d) {
+    clearInterval(aiTimer); aiOut.innerHTML = "";
+    const f = (v) => (v === null || v === undefined ? "—" : Number(v).toFixed(d.symbol.includes("JPY") ? 3 : 5));
+    document.getElementById("ai-src").textContent = "Yahoo · pode atrasar";
+    aiOut.append(el("div", "fx-top")); aiOut.lastChild.append(el("span", "", `${d.label} · M5 · ${d.atBrt} (Brasília)`), el("span", "", `Preço ${f(d.price)}`));
+    aiOut.append(el("div", "ai-hint", profileLine()));
+    const confirmed = d.state === "entrada_confirmada", waiting = d.state === "aguardando_confirmacao";
+    const frozen = openSignal(d.symbol, d.at);
+    const kind = confirmed ? (d.decision === "BUY" ? "call" : "put") : waiting ? "wait2" : "wait";
+    const box = el("div", "ai-dec " + kind);
+    box.append(el("b", "", confirmed ? (d.decision === "BUY" ? "▲ COMPRA" : "▼ VENDA") : waiting ? `AGUARDANDO ${DIR[d.watch.dir]}` : "NÃO OPERAR"));
+    box.append(el("span", "", confirmed ? `Entrada confirmada · ${d.chosen.name}` : waiting ? `Cenário de ${DIR[d.watch.dir].toLowerCase()} em formação · ${d.chosen.name}` : d.data.ok ? "Sem oportunidade clara agora" : "Bloqueado: dados com problema"));
+    if (!confirmed && d.missing && d.missing.length) box.append(el("div", "fx-sub", "Falta: " + d.missing.slice(0, 2).join(" · ")));
+    aiOut.append(box);
+    if (!d.data.ok) aiOut.append(el("div", "fx-warn", "Dados bloqueados: " + d.data.issues.join(" | ")));
+    if (frozen) {
+      const fz = el("div", "fx-note"); fz.append(el("div", "", `SINAL REGISTRADO ABERTO · ${DIR[frozen.dir]} às ${when(frozen.at)} · ${frozen.strategy}`), ul([`Entrada ${f(frozen.entry)} · Stop ${f(frozen.sl)} · Take 1 ${f(frozen.tps[0])}`, "Estes níveis foram congelados no momento do sinal e não mudam com as velas novas. Esta análise não cria outro registro do mesmo sinal."], "fx-list"));
+      aiOut.append(fz);
+    }
+    aiOut.append(sec("GRÁFICO M5 COM MARCAÇÕES", drawChart(d, frozen)));
+    if (d.score) aiOut.append(sec("CONFLUENCE SCORE", confluenceView(d.score)));
+    else aiOut.append(sec("CONFLUENCE SCORE", el("div", "fx-note", "Sem cenário avaliável: nenhuma estratégia habilitada chegou ao ponto de pontuar.")));
+    if (!confirmed && d.release) {
+      const rl2 = el("ul", "fx-list");
+      d.release.conditions.forEach((c) => { const li = el("li"); li.append(el("span", "fx-dot " + (c.ok ? "ok" : "bad")), el("span", "", (c.ok ? "✓ " : "✗ ") + c.text)); rl2.append(li); });
+      aiOut.append(sec(`CONDIÇÕES PARA LIBERAR · ${d.release.scenario} (${DIR[d.release.dir].toLowerCase()})`, rl2, el("div", "ai-hint", "A operação só é liberada quando todas as condições estiverem ✓ e o gatilho confirmar. Cenário NÃO ativo: não é entrada.")));
+    }
+    aiOut.append(sec("TRADE THESIS", thesisView(d.thesis)));
+    const chips = el("div", "fx-chips");
+    chips.append(trendChip("Movimento M5", d.trends.M5), d.trends.M1 ? trendChip("Movimento M1", d.trends.M1) : (() => { const c = el("div", "fx-chip flat", "Movimento M1"); c.append(el("b", "", "indisponível")); return c; })());
+    aiOut.append(chips, kv([["Contexto", d.context], ["Estrutura M5", `${d.tfs.M5.bos ? "BOS " + DIR[d.tfs.M5.bos] : "sem BOS"} · ${d.tfs.M5.choch ? "CHoCH " + DIR[d.tfs.M5.choch] : "sem CHoCH"}`], ["Último topo / fundo M5", `${f(d.tfs.M5.lastHigh)} / ${f(d.tfs.M5.lastLow)}`], ["RSI 14 · ATR 14 (M5)", `${d.tfs.M5.rsi ?? "—"} · ${d.tfs.M5.atrPips} pips`], ["EMAs M5", d.tfs.M5.ema.stack === "alta" ? "alinhadas p/ alta" : d.tfs.M5.ema.stack === "baixa" ? "alinhadas p/ baixa" : "sem alinhamento"]]));
+
+    if (d.trade && confirmed) {
+      const t = frozen && frozen.snap ? frozen.snap : d.trade, box2 = el("div", "fx-trade" + (t.dir === "SELL" ? " sell" : ""));
+      box2.append(el("h4", "", "OPERAÇÃO · " + DIR[t.dir]), kv([["Entrada", f(t.entry)], ["Stop Loss", f(t.sl)], ["Take Profit 1", `${f(t.tps[0])}  (R:R ${num2(t.rr[0])})`], ["Take Profit 2", t.tps[1] ? `${f(t.tps[1])}  (R:R ${num2(t.rr[1])})` : "—"], ["Take Profit 3", t.tps[2] ? `${f(t.tps[2])}  (R:R ${num2(t.rr[2])})` : "—"], ["Risco", `${t.riskPips} pips (ATR ${t.atrPips})`], ["Alvo 1", `${t.targetAtr} ATR do M5`], ["Duração prevista", `até ${t.maxHoldMin} min (operação curta)`], ["Confluência", `${d.score.total}/100 (não é probabilidade)`]]));
+      if (d.sizing && !frozen) box2.append(el("div", "ai-hint", d.sizing.note));
+      if (t.notes.length) box2.append(ul(t.notes, "fx-list"));
+      aiOut.append(box2);
+    }
+    if (d.watch) aiOut.append(sec("PRÓXIMA OPORTUNIDADE", el("div", "fx-note", `${waiting ? "AGUARDANDO " + DIR[d.watch.dir] : "Em observação (" + DIR[d.watch.dir].toLowerCase() + ")"}. ${d.watch.condition} Só vale como entrada depois que o gatilho for confirmado; reanalise com dados novos.`)));
+    if (d.trigger) aiOut.append(sec("GATILHO DE ENTRADA", el("div", "fx-note", d.trigger.detail)));
+
+    const rl = el("ul", "fx-list");
+    d.regions.forEach((r) => { const li = el("li"); li.append(el("span", "fx-dot " + (r.role === "suporte" ? "ok" : "bad")), el("span", "", `${r.role === "suporte" ? "Suporte" : "Resistência"} ${r.strength} ${f(r.low)}–${f(r.high)} · ${r.reactions} reações · ${r.origin} · ${r.distancePips} pips`)); rl.append(li); });
+    d.liquidity.forEach((l) => { const li = el("li"); li.append(el("span", "fx-dot warn"), el("span", "", `Liquidez ${l.side}: ${l.kind} em ${f(l.price)}`)); rl.append(li); });
+    if (!rl.children.length) rl.append(el("li", "", "Nenhuma região com reações repetidas perto do preço."));
+    aiOut.append(sec("REGIÕES DO H1 (SUPORTE E RESISTÊNCIA)", rl));
+
+    const sl = el("ul", "fx-list");
+    d.strategies.forEach((s) => { const li = el("li"); const cls = s.status === "pronta" || s.status === "confluencia" ? "ok" : s.status === "em_formacao" ? "warn" : "dim"; const label = { pronta: "pronta", em_formacao: "em formação", ausente: "ausente", confluencia: "confluência", confluencia_ausente: "sem confluência", desabilitada: "desabilitada no perfil" }[s.status]; li.append(el("span", "fx-dot " + cls), el("span", "", `${s.id}. ${s.name} — ${label}${s.dir ? " (" + DIR[s.dir].toLowerCase() + ")" : ""}${s.detail[0] ? ": " + s.detail[0] : ""}`)); sl.append(li); });
+    aiOut.append(sec("ESTRATÉGIAS", sl));
+
+    const fd = el("details"); fd.append(el("summary", "", `FILTROS OBRIGATÓRIOS (${d.filters.filter((x) => x.status === "ok").length}/${d.filters.length} ok)`));
+    const fl = el("ul", "fx-list");
+    d.filters.forEach((x) => { const li = el("li"); li.append(el("span", "fx-dot " + (x.status === "ok" ? "ok" : x.status === "falha" ? "bad" : "warn")), el("span", "", `${x.id}. ${x.name}: ${x.note}`)); fl.append(li); });
+    fd.append(fl); aiOut.append(fd);
+
+    if (d.favor.length) aiOut.append(sec("FATORES A FAVOR", ul(d.favor, "pro")));
+    if (d.contra.length) aiOut.append(sec("FATORES CONTRA", ul(d.contra, "con")));
+    if (d.invalidation && d.invalidation !== "—") aiOut.append(sec("INVALIDAÇÃO", el("div", "fx-note", d.invalidation)));
+    aiOut.append(sec("CONTEXTO DOS ÚLTIMOS 30 MIN", el("div", "fx-note", d.context30)));
+    if (d.narrative) { const n = el("div", "fx-narr"); n.append(el("small", "", "EXPLICAÇÃO DA IA (não altera a decisão)"), el("div", "", d.narrative.resumo)); aiOut.append(n); }
+    else if (d.narrativeError) aiOut.append(el("div", "fx-note", "A explicação da IA falhou: " + d.narrativeError + ". A análise acima é do motor e continua válida."));
+    if (!d.m1Used) aiOut.append(el("div", "fx-note", "M1 indisponível agora: o gatilho foi avaliado no M5."));
+    if (d.filters.some((x) => x.status === "nao_verificado")) aiOut.append(el("div", "fx-note", "Filtro de notícias NÃO verificado (calendário indisponível)."));
+    aiOut.append(el("div", "ai-foot", d.sourceNote + " Análise técnica não é recomendação nem garantia de resultado."));
+
+    logAnalysis(d, frozen);
+  }
+
+  async function runForex(asset) {
+    aiGo.disabled = true; aiGo.textContent = "Analisando…"; aiCool = Date.now() + 15000;
+    aiOut.innerHTML = ""; aiOut.append(el("p", "ai-hint", "Buscando velas de H1, M15, M5 e M1, calculando estrutura, regiões e filtros…"));
+    try {
+      const r = await fetch("/api/forex", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ asset, profile, history: patternStats() }) });
+      const d = await r.json().catch(() => ({ error: `Erro ${r.status}` }));
+      if (asset !== picks[pcIdx]) return;
+      if (!r.ok) throw new Error(d.error || `Erro ${r.status}`);
+      renderForex(d);
+    } catch (e) {
+      aiOut.innerHTML = ""; aiOut.append(el("div", "ai-err", e.message === "Failed to fetch" ? "Sem conexão com o servidor do Trade AI. Abra pela página publicada." : e.message));
+    } finally { aiGo.textContent = "Pedir entrada à IA"; setTimeout(() => { aiGo.disabled = false; }, Math.max(0, aiCool - Date.now())); }
+  }
+
+  function statBlock(title, s) {
+    const wrap = el("div", "fx-sec"); wrap.append(el("h4", "", title));
+    wrap.append(kv([["Sinais resolvidos", `${s.n} (ganhos: ${s.wins} · perdas: ${s.losses})`], ["Taxa de acerto", `${pct(s.winRate)}${s.ci ? ` (IC95% ${pct(s.ci[0])}–${pct(s.ci[1])})` : ""}`], ["Taxa de erro", pct(s.lossRate)], ["Resultado (R)", num2(s.sumR)], ["Expectativa por sinal (R)", num2(s.expectancy)], ["Profit Factor", s.profitFactor === null ? "—" : num2(s.profitFactor)], ["Drawdown máx. (R)", num2(s.maxDrawdownR)]]));
+    const grp = (name, arr) => { if (!arr.length) return; wrap.append(el("div", "ai-hint", name + ": " + arr.map((g) => `${g.key} (${g.n}, ${pct(g.winRate)}, ${num2(g.sumR)}R)`).join(" · "))); };
+    grp("Por estratégia", s.byStrategy); grp("Por ativo", s.bySymbol); grp("Por tempo gráfico", s.byTf); grp("Por pontuação", s.byScore);
+    wrap.append(el("div", "ai-foot", s.note));
+    return wrap;
+  }
+
+  const slim = (h) => { const { snap, ...rest } = h; return rest; };
+  function renderHistory(sum) {
+    aiOut.innerHTML = "";
+    aiOut.append(el("div", "fx-top")); aiOut.lastChild.append(el("span", "", `Histórico (${hist.length} análises)`), el("span", "", "salvo neste navegador"));
+    const trades = hist.filter((h) => h.dir);
+    const upd = el("button", "fx-btn", `Atualizar resultados (${trades.length} sinais)`); upd.type = "button";
+    upd.onclick = async () => {
+      upd.disabled = true; upd.textContent = "Conferindo velas reais…";
+      try {
+        const r = await fetch("/api/forex-resolve", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ items: hist.slice(-300).map(slim) }) });
+        const j = await r.json(); if (!r.ok) throw new Error(j.error || r.status);
+        j.resolved.forEach((x) => { const h = hist.find((y) => y.id === x.id); if (h) { h.status = x.status; h.r = x.r; } });
+        saveHist(); renderHistory(j.summary);
+      } catch (e) { upd.disabled = false; upd.textContent = "Falhou: " + e.message; }
+    };
+    aiOut.append(upd);
+    if (sum) {
+      const a2 = sum.analyses;
+      aiOut.append(sec("ANÁLISES REGISTRADAS (TODAS, INCLUSIVE NO TRADE)", kv([["Total", String(a2.total)], ["Com entrada confirmada", String(a2.entries)], ["Aguardando confirmação", String(a2.waiting)], ["Sem operação (NO TRADE)", String(a2.noTrade)]])));
+      aiOut.append(statBlock("SIMULADOS · conferidos com as velas reais (nenhuma ordem foi enviada)", sum.simulated));
+      if (sum.real) aiOut.append(statBlock("REAIS · resultados que você registrou", sum.real));
+      else aiOut.append(sec("REAIS", el("div", "fx-note", "Nenhum resultado real registrado. Em um sinal que você operou de verdade, use “Registrar real” e informe o resultado em R.")));
+      aiOut.append(sec("AINDA NÃO RESOLVIDOS", el("div", "fx-note", `${sum.unresolved} sinal(is) sem stop nem alvo atingidos até agora (ou dentro da 1 h de duração).`)));
+      if (sum.noTradeBySymbol.length) aiOut.append(sec("SEM OPERAÇÃO", el("div", "ai-hint", "Por par: " + sum.noTradeBySymbol.map((g) => `${g.key} (${g.n})`).join(" · ")), el("div", "ai-hint", "Motivos mais comuns: " + sum.noTradeReasons.map((g) => `${g.key} (${g.n})`).join(" · "))));
+    } else aiOut.append(el("div", "ai-hint", "Toque em “Atualizar resultados” para separar simulados, reais e não resolvidos e ver as estatísticas por estratégia, ativo e tempo gráfico."));
+    const l = el("ul", "fx-list");
+    [...hist].reverse().slice(0, 40).forEach((h) => {
+      const li = el("li"); const res = h.dir ? (typeof h.realR === "number" ? `REAL ${num2(h.realR)}R` : ({ aberto: "aberto", tp1: "ganho (simulado)", stop: "stop (simulado)", ambiguo: "stop ambíguo (simulado)", expirou: "expirou", expirado: "expirou (simulado)" }[h.status] || h.status) + (h.r !== null && h.r !== undefined ? ` ${num2(h.r)}R` : "")) : "sem entrada";
+      li.append(el("span", "fx-dot " + (h.status === "tp1" ? "ok" : h.status === "stop" || h.status === "ambiguo" ? "bad" : h.dir ? "warn" : "dim")), el("span", "", `${when(h.at)} · ${h.label} · ${h.dir ? DIR[h.dir] : h.state === "aguardando_confirmacao" ? "aguardando" : "não operar"} · ${h.strategy} · ${h.score ?? "—"} pts · ${res}`));
+      if (h.dir) { const b = el("button", "fx-mini", typeof h.realR === "number" ? "Editar real" : "Registrar real"); b.type = "button"; b.onclick = () => { const v = prompt("Resultado REAL desta operação em R (ex.: 1.5 ou -1). Deixe vazio para remover:", typeof h.realR === "number" ? h.realR : ""); if (v === null) return; const n = Number(String(v).replace(",", ".")); if (v.trim() === "") delete h.realR; else if (Number.isFinite(n)) h.realR = n; else return; saveHist(); renderHistory(sum); }; li.append(b); }
+      l.append(li);
+    });
+    if (!hist.length) l.append(el("li", "", "Nenhuma análise registrada ainda. Peça uma entrada para um par de Forex."));
+    aiOut.append(sec("ANÁLISES E SINAIS", l));
+    const clr = el("button", "fx-btn", "Limpar histórico"); clr.type = "button";
+    clr.onclick = () => { if (confirm("Apagar todo o histórico deste navegador?")) { hist = []; saveHist(); renderHistory(); } };
+    aiOut.append(clr);
+  }
+  document.getElementById("ai-hist").onclick = () => renderHistory();
+  document.getElementById("ai-scan").onclick = async () => {
+    const btn = document.getElementById("ai-scan");
+    if (btn.disabled) return;
+    btn.disabled = true; clearInterval(aiTimer); aiOut.innerHTML = "";
+    aiOut.append(el("div", "fx-top")); aiOut.lastChild.append(el("span", "", "Varredura dos pares monitorados"), el("span", "", profile.style));
+    aiOut.append(el("div", "ai-hint", profileLine()));
+    const rows = el("ul", "fx-list"); aiOut.append(sec("RESULTADO POR PAR (clique para abrir)", rows));
+    const status = el("div", "ai-hint", ""); aiOut.append(status);
+    for (const [i, id] of profile.pairs.entries()) {
+      status.textContent = `Analisando ${id} (${i + 1}/${profile.pairs.length})…`;
+      const li = el("li"); rows.append(li);
+      try {
+        const r = await fetch("/api/forex", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ asset: id, explain: false, profile, history: patternStats() }) });
+        const d = await r.json(); if (!r.ok) throw new Error(d.error || r.status);
+        logAnalysis(d, openSignal(d.symbol, d.at));
+        const cls = d.state === "entrada_confirmada" ? (d.decision === "BUY" ? "ok" : "bad") : d.state === "aguardando_confirmacao" ? "warn" : "dim";
+        li.append(el("span", "fx-dot " + cls), el("span", "", `${d.label} · ${d.state === "entrada_confirmada" ? (d.decision === "BUY" ? "COMPRA" : "VENDA") : d.state === "aguardando_confirmacao" ? "AGUARDANDO " + DIR[d.watch.dir] : "NÃO OPERAR"} · confluência ${d.score ? d.score.total : "—"}${d.chosen ? " · " + d.chosen.name : ""}`));
+        li.style.cursor = "pointer"; li.onclick = () => { pickAsset(id); runForex(id); };
+      } catch (e) { li.append(el("span", "fx-dot bad"), el("span", "", `${id}: ${e.message}`)); }
+      await new Promise((ok) => setTimeout(ok, 250));
+    }
+    status.textContent = "Varredura concluída. Todas as análises foram registradas no histórico (inclusive as sem operação).";
+    btn.disabled = false;
+  };
+
+
+  document.getElementById("ai-bt").onclick = async () => {
+    const asset = picks[pcIdx], btn = document.getElementById("ai-bt");
+    btn.disabled = true; aiOut.innerHTML = ""; aiOut.append(el("p", "ai-hint", "Rodando o backtest passo a passo (sem olhar o futuro) com as velas do último mês. Pode levar até 1 minuto…"));
+    try {
+      const r = await fetch("/api/forex-backtest?symbol=" + asset); const j = await r.json();
+      if (!r.ok) throw new Error(j.error || r.status);
+      aiOut.innerHTML = "";
+      aiOut.append(el("div", "fx-top")); aiOut.lastChild.append(el("span", "", `Backtest ${j.label} · ${j.period.days} dias`), el("span", "", `${j.period.from} → ${j.period.to}`));
+      aiOut.append(el("div", "fx-note", j.verdict));
+      aiOut.append(kv([["Operações simuladas", String(j.trades)], ["Custos por operação", `${j.costsPips} pips (spread + slippage)`], ["Passos analisados", `${j.analyzed}${j.truncated ? " (parcial: tempo esgotado)" : ""}`]]));
+      aiOut.append(statBlock("DESENVOLVIMENTO (primeiros 60%)", j.development), statBlock("VALIDAÇÃO (últimos 40%)", j.validation));
+      aiOut.append(el("div", "ai-foot", j.note));
+    } catch (e) { aiOut.innerHTML = ""; aiOut.append(el("div", "ai-err", e.message === "Failed to fetch" ? "Sem conexão com o servidor do Trade AI." : "Backtest falhou: " + e.message)); }
+    finally { btn.disabled = false; }
+  };
+
+  function pickAsset(id) {
+    if (picks[pcIdx] === id) return;
+    aiReset();
+    picks[pcIdx] = id; syncForex(); screens[pcIdx].setTitle(mtitle(id));
+    try { localStorage.setItem(STORE, JSON.stringify(picks)); } catch {}
+    renderPc(); mountChart(findAsset(id));
+  }
+  function openPc(i) {
+    pcIdx = i; pcGroup = findAsset(picks[i]).group; setSpin(false); aiReset(); syncForex();
+    renderPc(); mountChart(findAsset(picks[i])); pc.classList.add("open");
+    document.getElementById("pc-close").focus();
+  }
+  function closePc() { if (!pc.classList.contains("open")) return; pc.classList.remove("open"); pcChart.innerHTML = ""; clearInterval(aiTimer); }
+  document.querySelectorAll("#pc-groups button").forEach((b) => (b.onclick = () => { pcGroup = b.dataset.g; renderPc(); }));
+  document.getElementById("pc-close").onclick = closePc;
+  pc.addEventListener("click", (e) => { if (e.target === pc) closePc(); });
+  let down = null;
+  canvas.addEventListener("pointerdown", (e) => { down = { x: e.clientX, y: e.clientY }; });
+  canvas.addEventListener("pointerup", (e) => {
+    if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) return;
+    const t = newsAt(e); if (!t) return;
+    // manchete abre a notícia; qualquer outro ponto de um telão leva a câmera para a frente dele
+    if (t.monitor !== undefined) openPc(t.monitor);
+    else if (t.news) openNews(t.news); else { setSpin(false); go(t.screen); }
+  });
+  canvas.addEventListener("pointermove", (e) => { if (e.pointerType === "mouse" && !e.buttons) canvas.style.cursor = newsAt(e) ? "pointer" : ""; });
+  // Tela 1 = telão da esquerda (calendário econômico); Tela 2 = telão da direita (cotações e notícias)
+  document.getElementById("tela1").onclick = () => { setSpin(false); go("cal"); };
+  document.getElementById("tela2").onclick = () => { setSpin(false); go("news"); };
+  document.getElementById("reset").onclick = () => go("wide");
+
+  function resize() {
+    const w = window.innerWidth, h = window.innerHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.fov = w < 600 ? 60 : 45; // no celular, mais campo de visão
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  const clock = new THREE.Clock();
+  let acc = 0;
+  let tvAcc = 0, calAcc = 0;
+  function frame() {
+    const dt = clock.getDelta();
+    if (tween) {
+      tween.t = Math.min(1, tween.t + dt / 1.2);
+      const e = tween.t < 0.5 ? 4 * tween.t ** 3 : 1 - (-2 * tween.t + 2) ** 3 / 2;
+      camera.position.lerpVectors(tween.from, tween.to, e);
+      controls.target.lerpVectors(tween.tf, tween.tt, e);
+      if (tween.t >= 1) tween = null;
+    }
+    acc += dt;
+    if (acc > 1.6 && !reduce) { acc = 0; screens.forEach((s) => s.step()); }
+    tvAcc += dt; if (tvAcc > 1 / 30) { tv.draw(tvAcc); tvAcc = 0; }
+    calAcc += dt; if (calAcc > 1) { cal.draw(); calAcc = 0; }
+    const t = clock.elapsedTime;
+    leds.forEach((m, i) => { m.emissiveIntensity = 0.4 + 1.2 * (0.5 + 0.5 * Math.sin(t * 3 + i * 1.7)); });
+    if (!reduce) animators.forEach((f) => f(t, dt));
+    controls.update();
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+  frame();
+})();
+</script>
+</body>
+</html>
