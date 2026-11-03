@@ -1838,12 +1838,14 @@
   man.visible = false; bubble.visible = false;
   function setAgentVisual(name) {
     if (!POSES[name] || name === poseName) return;
-    poseName = name; pose = POSES[name]; man.visible = pose.show !== false;
+    poseName = name; pose = POSES[name]; refreshMan();
     if (pose.show === false) { setBubble("", "#fff"); return; }
     setBubble(pose.bub, pose.col);
     const closed = !!pose.sleep || name === "travado"; eyeL.scale.y = eyeR.scale.y = closed ? 0.2 : 1;
     if (matchMedia("(prefers-reduced-motion: reduce)").matches) applyPose(0, 1);
   }
+  let inDeskView = false;
+  function refreshMan() { man.visible = pose.show !== false && !inDeskView; }
   const ease = (a, b, k) => a + (b - a) * k;
   function applyPose(t, k) {
     if (pose.show === false) return;
@@ -2012,6 +2014,7 @@
     return { pos: [x + d, y + 0.04, z], target: [x, y, z] };
   }
   function go(name) {
+    inDeskView = name === "desk"; refreshMan(); // na visão "Ver a mesa" a câmera está no lugar do boneco: ele sai de cena
     const v = name === "tv" ? wallView(0, 6.8) : name === "news" ? wallView(tvMesh.position.z, 3.2)
       : name === "cal" ? wallView(calMesh.position.z, 3.2) : VIEWS[name];
     tween = { t: 0, from: camera.position.clone(), to: new THREE.Vector3(...v.pos), tf: controls.target.clone(), tt: new THREE.Vector3(...v.target) };
