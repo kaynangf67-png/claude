@@ -80,7 +80,8 @@ def conn():
     import psycopg
     url = DB.replace("postgresql+psycopg://", "postgresql://")
     env = {**os.environ, "DATABASE_URL": url}
-    subprocess.run(["alembic", "downgrade", "base"], cwd=BACKEND, env=env, check=True, capture_output=True)
+    with psycopg.connect(url, autocommit=True) as c0:
+        c0.execute("drop schema public cascade; create schema public")
     subprocess.run(["alembic", "upgrade", "head"], cwd=BACKEND, env=env, check=True, capture_output=True)
     with psycopg.connect(url, autocommit=True) as c:
         yield c
@@ -117,6 +118,14 @@ def test_schema_tem_as_21_tabelas(conn):
 
 
 @needs_db
+def test_autorizacao_expirada_libera_a_vaga(conn):
+    a, day, sig = _account_day(conn)
+    z1 = _authorize(conn, a, day, sig, 1)
+    conn.execute("update trade_authorizations set status='EXPIRED' where authorization_id=%s", (z1,))
+    _authorize(conn, a, day, sig, 1)  # ordem não executada não ocupa a vaga
+
+
+@needs_db
 def test_conta_real_e_recusada_pelo_banco(conn):
     import psycopg
     a, _, _ = _account_day(conn)
@@ -128,8 +137,12 @@ def test_conta_real_e_recusada_pelo_banco(conn):
 def test_terceira_operacao_e_recusada_pelo_banco(conn):
     import psycopg
     a, day, sig = _account_day(conn)
-    _authorize(conn, a, day, sig, 1)
-    _authorize(conn, a, day, sig, 2)
+    z1 = _authorize(conn, a, day, sig, 1)
+    with pytest.raises(psycopg.errors.UniqueViolation):  # nunca duas autorizações pendentes
+        _authorize(conn, a, day, sig, 2)
+    conn.execute("update trade_authorizations set status='EXECUTED' where authorization_id=%s", (z1,))
+    z2 = _authorize(conn, a, day, sig, 2)
+    conn.execute("update trade_authorizations set status='EXECUTED' where authorization_id=%s", (z2,))
     with pytest.raises(psycopg.errors.CheckViolation):
         _authorize(conn, a, day, sig, 3)
     with pytest.raises(psycopg.errors.UniqueViolation):  # nem repetir a sequência 2
@@ -148,7 +161,9 @@ def test_risco_acima_de_5_e_recusado(conn):
 def test_duas_posicoes_abertas_sao_recusadas(conn):
     import psycopg
     a, day, sig = _account_day(conn)
-    z1, z2 = _authorize(conn, a, day, sig, 1), _authorize(conn, a, day, sig, 2)
+    z1 = _authorize(conn, a, day, sig, 1)
+    conn.execute("update trade_authorizations set status='EXECUTED' where authorization_id=%s", (z1,))
+    z2 = _authorize(conn, a, day, sig, 2)
     conn.execute("insert into positions(account_id,authorization_id,broker_position_ticket,status,opened_at) values (%s,%s,%s,'OPEN',now())",
                  (a, z1, str(uuid.uuid4())))
     with pytest.raises(psycopg.errors.UniqueViolation):
