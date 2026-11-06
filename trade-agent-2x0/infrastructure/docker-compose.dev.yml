@@ -1,0 +1,8 @@
+# Postgres local para desenvolvimento e testes. Não usar em produção.
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: postgres   # só local
+      POSTGRES_DB: ta2x0
+    ports: ["5432:5432"]
