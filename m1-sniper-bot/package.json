@@ -1,0 +1,12 @@
+{
+  "name": "m1-sniper-bot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Assistente de análise M1 para Quotex (extensão Chrome MV3). Execução sempre manual.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "backtest": "node scripts/backtest.mjs",
+    "icons": "node scripts/make-icons.mjs"
+  }
+}

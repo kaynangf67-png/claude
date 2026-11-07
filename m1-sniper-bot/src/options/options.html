@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>M1 SNIPER BOT — Relatórios e configurações</title>
+<link rel="stylesheet" href="options.css">
+</head>
+<body>
+<header>
+  <h1>M1 <b>SNIPER</b> BOT</h1>
+  <span id="modeBadge" class="badge">DEMO</span>
+  <span id="dayInfo" class="muted"></span>
+</header>
+<main>
+  <section class="card warn">
+    <h2>Avisos importantes</h2>
+    <ul>
+      <li>O bot <b>não executa ordens</b> e não clica em nada na Quotex. Toda entrada é aberta por você.</li>
+      <li>Os candles vêm da <b>API pública da Binance</b>, não da Quotex. Os preços podem diferir. Ativos <b>OTC e Forex da Quotex não são cobertos</b>.</li>
+      <li>A pontuação (0–100) mede quantos critérios bateram. <b>Ela não é probabilidade de vitória.</b></li>
+      <li>Opções binárias têm alto risco e são restritas ou proibidas em vários países. Opere só com dinheiro que você pode perder.</li>
+    </ul>
+  </section>
+
+  <section class="card">
+    <h2>Configurações</h2>
+    <div class="grid">
+      <label>Fuso horário (virada do dia)
+        <select id="tz"></select>
+        <small>Só pode ser alterado em um dia sem operações e sem bloqueio.</small>
+      </label>
+      <label>Pontuação mínima (80–100)
+        <input id="minScore" type="number" min="80" max="100" step="1">
+      </label>
+      <label>Payout da Quotex (fração, ex.: 0.85)
+        <input id="payout" type="number" min="0.1" max="1.5" step="0.01">
+        <small>Usado só para calcular break-even e drawdown.</small>
+      </label>
+      <label>Validade do sinal (s após a abertura do candle de entrada)
+        <input id="ttl" type="number" min="3" max="30" step="1">
+      </label>
+    </div>
+    <p class="muted">Fixos (não configuráveis): meta de 10 GREEN/dia, limite de 3 LOSS/dia, sem Martingale, uma operação por vez.</p>
+    <button id="saveSettings">Salvar configurações</button> <span id="settingsMsg" class="msg"></span>
+  </section>
+
+  <section class="card">
+    <h2>Validação: operações registradas</h2>
+    <div class="tabs"><button data-src="DEMO" class="on">DEMO</button><button data-src="REAL">REAL</button><button data-src="SIGNALS">Todos os sinais (medidos na fonte)</button></div>
+    <div id="summary" class="kpis"></div>
+    <div class="two">
+      <div><h3>Por ativo</h3><table id="byAsset"></table></div>
+      <div><h3>Por horário</h3><table id="byHour"></table></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Modo REAL</h2>
+    <p>O modo REAL só muda o rótulo e as verificações do painel; o bot continua sem executar ordens. Ele só é liberado depois que <b>todos</b> os critérios abaixo forem cumpridos <b>e</b> você confirmar por escrito.</p>
+    <ul id="checks" class="checks"></ul>
+    <div id="realForm">
+      <label>Digite exatamente: <code id="phrase"></code>
+        <input id="confirm" type="text" autocomplete="off">
+      </label>
+      <button id="goReal" class="danger">Habilitar modo REAL</button>
+      <button id="goDemo">Voltar para DEMO</button>
+      <span id="modeMsg" class="msg"></span>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Histórico e registro de eventos</h2>
+    <button id="expTrades">Exportar operações (CSV)</button>
+    <button id="expSignals">Exportar sinais (CSV)</button>
+    <button id="expAll">Backup completo (JSON)</button>
+    <h3>Últimas operações</h3>
+    <table id="trades"></table>
+    <h3>Eventos</h3>
+    <div id="events" class="events"></div>
+  </section>
+</main>
+<script type="module" src="options.js"></script>
+</body>
+</html>

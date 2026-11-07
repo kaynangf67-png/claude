@@ -1,0 +1,28 @@
+:root { color-scheme: dark; }
+body { margin: 0; font: 14px/1.5 "Inter", "Segoe UI", system-ui, sans-serif; background: #060b18; color: #dbe4f3; }
+header { display: flex; align-items: center; gap: 12px; padding: 16px 24px; background: #0b1530; border-bottom: 1px solid #1d2b4a; }
+h1 { margin: 0; font-size: 18px; letter-spacing: .06em; } h1 b { color: #22c55e; }
+main { max-width: 1000px; margin: 0 auto; padding: 20px; display: grid; gap: 16px; }
+.card { background: #0b1328; border: 1px solid #1d2b4a; border-radius: 12px; padding: 16px 20px; }
+.card.warn { border-color: #78350f; }
+h2 { margin: 0 0 10px; font-size: 16px; } h3 { font-size: 13px; color: #94a3b8; margin: 14px 0 6px; }
+.muted { color: #7c8aa5; } small { display: block; color: #7c8aa5; font-size: 11px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 10px; align-items: start; }
+label { display: grid; gap: 4px; font-size: 13px; grid-template-rows: 2.6em auto auto; }
+#realForm label { grid-template-rows: none; }
+input, select { font: inherit; color: #fff; background: #0f1b38; border: 1px solid #263a63; border-radius: 6px; padding: 6px 8px; }
+button { font: inherit; font-weight: 700; color: #fff; background: #2563eb; border: 0; border-radius: 8px; padding: 7px 14px; cursor: pointer; margin: 4px 4px 4px 0; }
+button.danger { background: #b91c1c; } button:disabled { opacity: .4; cursor: not-allowed; }
+.badge { font-size: 11px; font-weight: 800; padding: 3px 9px; border-radius: 999px; background: #1e3a8a; color: #bfdbfe; }
+.badge.real { background: #7f1d1d; color: #fecaca; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+.kpi { background: #0f1b38; border-radius: 8px; padding: 8px 10px; } .kpi b { display: block; font-size: 18px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+td, th { padding: 4px 6px; border-bottom: 1px solid #16223f; text-align: left; }
+.tabs button { background: #1e293b; } .tabs button.on { background: #2563eb; }
+.checks { list-style: none; padding: 0; } .checks li { padding: 3px 0; } .ok { color: #22c55e; } .no { color: #ef4444; }
+.msg { font-size: 12px; } .msg.err { color: #fca5a5; } .msg.good { color: #4ade80; }
+.events { max-height: 260px; overflow: auto; font: 12px/1.5 ui-monospace, monospace; background: #050a16; padding: 8px; border-radius: 8px; }
+.GREEN { color: #22c55e; } .LOSS { color: #ef4444; }
+code { background: #1e293b; padding: 1px 6px; border-radius: 4px; }
