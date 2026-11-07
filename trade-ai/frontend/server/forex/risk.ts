@@ -15,15 +15,17 @@ export interface Risk {
   invalidation: number; maxHoldMin: number; targetAtr: number | null;
 }
 
-export function computeRisk(dir: Dir, entry: number, o: { invalidation: number; regions: Region[]; extraTargets: number[]; atr: number; pip: number; minRR?: number }): Risk {
+/** atrTf = nome (do papel) do tempo gráfico cujo ATR mede stop e alvo: M5 no day trade; no swing, M15 (= H4 depois da troca de rótulos). */
+export function computeRisk(dir: Dir, entry: number, o: { invalidation: number; regions: Region[]; extraTargets: number[]; atr: number; pip: number; minRR?: number; atrTf?: string }): Risk {
+  const tfa = o.atrTf ?? "M5";
   const minRR = o.minRR ?? 1.5;
   const notes: string[] = [];
   const buy = dir === "BUY";
   let sl = buy ? o.invalidation - 0.5 * o.atr : o.invalidation + 0.5 * o.atr;
   let dist = Math.abs(entry - sl);
-  if (dist < 1.0 * o.atr) { dist = 1.0 * o.atr; sl = buy ? entry - dist : entry + dist; notes.push("Stop ampliado para pelo menos 1 ATR do M5 (evitar stop apertado)."); }
+  if (dist < 1.0 * o.atr) { dist = 1.0 * o.atr; sl = buy ? entry - dist : entry + dist; notes.push(`Stop ampliado para pelo menos 1 ATR do ${tfa} (evitar stop apertado).`); }
   let ok = true;
-  if (dist > 4 * o.atr) { ok = false; notes.push("Stop muito distante (mais de 4 ATR do M5): a invalidação estrutural está longe."); }
+  if (dist > 4 * o.atr) { ok = false; notes.push(`Stop muito distante (mais de 4 ATR do ${tfa}): a invalidação estrutural está longe.`); }
 
   type T = { price: number; region: boolean };
   const ahead = (p: number) => (buy ? p > entry : p < entry);
@@ -47,6 +49,6 @@ export function computeRisk(dir: Dir, entry: number, o: { invalidation: number; 
   const t = [tp1?.price ?? null, idx >= 0 ? list[idx + 1]?.price ?? null : null, idx >= 0 ? list[idx + 2]?.price ?? null : null];
   const rr = t.map((p) => (p === null ? null : Math.abs(p - entry) / dist));
   const targetAtr = t[0] === null ? null : Math.abs(t[0] - entry) / o.atr;
-  if (ok && targetAtr !== null && targetAtr > MAX_TARGET_ATR) { ok = false; notes.push(`Alvo longe demais para operação curta: ${(Math.abs(t[0]! - entry) / o.pip).toFixed(0)} pips (${targetAtr.toFixed(1)} ATR do M5; máximo ${MAX_TARGET_ATR}).`); }
+  if (ok && targetAtr !== null && targetAtr > MAX_TARGET_ATR) { ok = false; notes.push(`Alvo longe demais para operação curta: ${(Math.abs(t[0]! - entry) / o.pip).toFixed(0)} pips (${targetAtr.toFixed(1)} ATR do ${tfa}; máximo ${MAX_TARGET_ATR}).`); }
   return { ok, notes, entry, sl, tps: t, riskDist: dist, riskPips: dist / o.pip, atrPips: o.atr / o.pip, rr, invalidation: o.invalidation, maxHoldMin: MAX_HOLD_MIN, targetAtr };
 }

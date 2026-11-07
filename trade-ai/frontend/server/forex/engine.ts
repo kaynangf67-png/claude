@@ -91,6 +91,16 @@ function context30(m5: Candle[], pip: number, swing = false): string {
   return `${swing ? "Nas últimas 6 horas" : "Nos últimos 30 minutos"} (6 velas M5) o preço ${dirTxt}: ${up} velas de alta e ${6 - up} de baixa, com máxima ${hi.toFixed(5)}, mínima ${lo.toFixed(5)} e amplitude de ${pips(hi - lo, pip)} pips.`;
 }
 
+/** Invalidação do swing: o ponto estrutural do H4 além da entrada (último fundo abaixo na compra, último topo acima na venda),
+ * ou a invalidação do setup, se for mais distante. Sem H4, fica a do setup. */
+export function swingRisk(dir: Dir, entry: number, setupInv: number, h4: TFAnalysis | null, _setupAtr: number): { invalidation: number } {
+  if (!h4) return { invalidation: setupInv };
+  const buy = dir === "BUY";
+  const piv = h4.pivots.filter((p) => p.type === (buy ? "low" : "high") && (buy ? p.price < entry : p.price > entry)).at(-1);
+  if (!piv) return { invalidation: setupInv };
+  return { invalidation: buy ? Math.min(piv.price, setupInv) : Math.max(piv.price, setupInv) };
+}
+
 export function analyze(inp: EngineInput): ForexAnalysis {
   const out = analyzeRoles(inp);
   if ((inp.horizon ?? "curto") !== "swing") return { ...out, horizon: "curto" };
@@ -121,6 +131,8 @@ function analyzeRoles(inp: EngineInput): ForexAnalysis {
   const a1 = inp.candles.M1 && inp.candles.M1.length >= 30 ? tfA(inp.candles.M1, R.trigger, "M1") : null;
   const a15 = inp.candles.M15 && inp.candles.M15.length >= 60 ? tfA(inp.candles.M15, R.struct, "M15") : null;
   const a = { H1: tfA(inp.candles.H1, R.ctx, "H1"), M5: tfA(inp.candles.M5, R.setup, "M5"), M1: a1 };
+  // ATR que mede stop e alvo: setup no day trade; H4 no swing (sem H4, aproxima por 2x o ATR do H1)
+  const riskAtr = swing ? (a15 && a15.atr > 0 ? a15.atr : 2 * a.M5.atr) : a.M5.atr;
   const aAll = { ...a, M15: a15 };
   const price = a.M5.lastClose;
   const regions = mergeRegions([buildRegions(inp.candles.H1, "H1", price, a.H1.atr, pip)], price, pip);
@@ -146,11 +158,14 @@ function analyzeRoles(inp: EngineInput): ForexAnalysis {
     const justified = (s.id === 2 || s.id === 4) && (s.region?.strength === "forte" || s.id === 4) && (a.M5.struct.choch === dir || a.M5.sweep?.dir === dir);
     let trig = entryTrigger(useM1 ? inp.candles.M1! : m5, dir, useM1 ? "M1" : "M5", useM1 && a1 ? a1.atr : a.M5.atr);
     if (rules.requireM1 && !useM1) trig = { ...trig, confirmed: false, detail: `Perfil conservador exige gatilho no M1, e o M1 está indisponível. ${trig.detail}` };
-    const invalidation = s.invalidation ?? (dir === "BUY" ? Math.min(...m5.slice(-10).map((k) => k.l)) : Math.max(...m5.slice(-10).map((k) => k.h)));
+    const setupInv = s.invalidation ?? (dir === "BUY" ? Math.min(...m5.slice(-10).map((k) => k.l)) : Math.max(...m5.slice(-10).map((k) => k.h)));
     const entry = useM1 ? inp.candles.M1![inp.candles.M1!.length - 1].c : price;
-    // alvos: bordas das regiões de H1 e topos/fundos recentes do M5 (operação curta)
-    const swings = a.M5.pivots.filter((p) => p.type === (dir === "BUY" ? "high" : "low")).slice(-8).map((p) => p.price);
-    const risk = computeRisk(dir, entry, { invalidation, regions, extraTargets: swings, atr: a.M5.atr, pip, minRR: profile.minRR });
+    // SWING: stop pela estrutura do H4 (último fundo/topo do H4 além da entrada) e alvos nos topos/fundos do H4 + regiões do D1.
+    // DAY TRADE: stop pela estrutura do setup (M5) e alvos nos topos/fundos do M5 + regiões do H1.
+    const sw = swing ? swingRisk(dir, entry, setupInv, a15, a.M5.atr) : null;
+    const invalidation = sw ? sw.invalidation : setupInv;
+    const swings = (sw ? a15!.pivots : a.M5.pivots).filter((p) => p.type === (dir === "BUY" ? "high" : "low")).slice(-8).map((p) => p.price);
+    const risk = computeRisk(dir, entry, { invalidation, regions, extraTargets: swings, atr: riskAtr, pip, minRR: profile.minRR, atrTf: swing ? "M15" : "M5" });
     // movimento já percorrido
     const start = s.region ? (dir === "BUY" ? s.region.high : s.region.low) : invalidation;
     const tp1 = risk.tps[0];
@@ -243,7 +258,7 @@ function analyzeRoles(inp: EngineInput): ForexAnalysis {
     // modo Livre: entrada antecipada com o melhor candidato que tenha stop e alvo, sem exigir todos os filtros
     if (rules.relaxed) {
       const hard = (c: (typeof cands)[number]) => c.filters.some((x) => (x.id === 10 || x.id === 9) && x.status === "falha");
-      const ok = cands.filter((c) => !hard(c) && c.risk.tps[0] !== null && (c.risk.rr[0] ?? 0) >= profile.minRR && (c.score.raw ?? c.score.total) >= minScore && c.risk.riskDist <= 4 * a.M5.atr)
+      const ok = cands.filter((c) => !hard(c) && c.risk.tps[0] !== null && (c.risk.rr[0] ?? 0) >= profile.minRR && (c.score.raw ?? c.score.total) >= minScore && c.risk.riskDist <= 4 * riskAtr)
         .sort((x, y) => (y.score.raw ?? y.score.total) - (x.score.raw ?? x.score.total));
       const e = ok[0];
       if (e) {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { runBacktest } from "./backtest.js";
 import { assessQuality } from "./candles.js";
-import { analyze, relabel } from "./engine.js";
+import { analyze, relabel, swingRisk } from "./engine.js";
 import { handleForexAnalyze, handleForexBacktest, type Deps } from "./handlers.js";
 import { aggregate as aggUtc } from "./marketData.js";
 import { aggregate, noisy } from "./testkit.js";
@@ -109,5 +109,29 @@ describe("backtest swing", () => {
     const j = await (await handleForexBacktest(new Request("http://x/api/forex-backtest?symbol=EURUSD&horizon=swing&stride=6"), { series, now: () => nowS * 1000 })).json();
     expect(j.horizon).toBe("swing");
     expect(j.period.tfSeconds).toBe(3600);
+  });
+});
+
+describe("stop do swing pela estrutura do H4", () => {
+  const h4 = (pivots: { price: number; type: "high" | "low" }[]) => ({ pivots: pivots.map((p, i) => ({ ...p, i, t: i })) }) as never;
+  it("compra: stop no último fundo do H4 abaixo da entrada, se for mais longe que o do setup", () => {
+    const r = swingRisk("BUY", 1.1, 1.099, h4([{ price: 1.095, type: "low" }, { price: 1.12, type: "high" }, { price: 1.097, type: "low" }]), 0.001);
+    expect(r.invalidation).toBe(1.097);
+  });
+  it("venda: stop no último topo do H4 acima da entrada", () => {
+    expect(swingRisk("SELL", 1.1, 1.101, h4([{ price: 1.104, type: "high" }]), 0.001).invalidation).toBe(1.104);
+  });
+  it("sem H4 ou sem pivô além da entrada, fica a invalidação do setup", () => {
+    expect(swingRisk("BUY", 1.1, 1.099, null, 0.001).invalidation).toBe(1.099);
+    expect(swingRisk("BUY", 1.1, 1.099, h4([{ price: 1.105, type: "low" }]), 0.001).invalidation).toBe(1.099);
+  });
+  it("no motor, o stop do swing fica a pelo menos 1 ATR do H4 da entrada", () => {
+    const h4c = aggUtc(h1, 14400);
+    const s = analyze({ symbol: "EURUSD", label: "EUR/USD", pip: 0.0001, currencies: ["EUR", "USD"], now: nowS, events: [], skipFreshness: true,
+      candles: { H1: d1, M15: h4c, M5: h1, M1: null }, horizon: "swing" });
+    expect(s.tfs.M15?.tf).toBe("H4");
+    for (const c of [s.trade, s.plan].filter(Boolean) as { entry: number; sl: number }[])
+      expect(Math.abs(c.entry - c.sl)).toBeGreaterThanOrEqual(s.tfs.M15!.atr * 0.999);
+    expect(strings(s).join(" ")).not.toMatch(/ATR do H1/);
   });
 });

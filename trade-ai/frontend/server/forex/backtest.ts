@@ -1,6 +1,7 @@
 import type { Profile } from "./profile.js";
 import { analyze, type ForexAnalysis } from "./engine.js";
 import { computeStats, type Resolved, type Stats } from "./history.js";
+import { aggregate } from "./marketData.js";
 import { HORIZON_TFS, TF_SECONDS, type Candle, type Dir, type Horizon } from "./types.js";
 
 /**
@@ -33,7 +34,7 @@ export function runBacktest(m5: Candle[], h1: Candle[], o: BtOptions): BtResult 
     if (p1 < 90) continue;
     const a: ForexAnalysis = analyze({
       symbol: o.symbol, label: o.label, pip: o.pip, currencies: o.currencies, now, events: null, skipFreshness: true,
-      candles: { H1: h1.slice(Math.max(0, p1 - 400), p1), M5: m5.slice(Math.max(0, i - 399), i + 1), M1: null }, profile: o.profile, horizon,
+      candles: { H1: h1.slice(Math.max(0, p1 - 400), p1), M5: m5.slice(Math.max(0, i - 399), i + 1), M1: null, M15: horizon === "swing" ? h4Until(m5, i, now) : null }, profile: o.profile, horizon,
     });
     analyzed++;
     if (a.decision === "NO_TRADE" || !a.trade || !a.chosen) continue;
@@ -65,4 +66,9 @@ export function runBacktest(m5: Candle[], h1: Candle[], o: BtOptions): BtResult 
       : "Sem vantagem comprovada: a expectativa na validação não é positiva depois dos custos.";
   }
   return { steps: Math.ceil((m5.length - 402) / stride), analyzed, truncated, trades: trades.length, development, validation, all, splitAt, costsPips: spread + slip, verdict, byStrategy, list: trades.slice(-200) };
+}
+
+/** Swing: H4 montado do H1 até a vela i, só com blocos de 4h já fechados (sem olhar o futuro). */
+function h4Until(h1: Candle[], i: number, now: number): Candle[] {
+  return aggregate(h1.slice(Math.max(0, i - 1599), i + 1), 14400).filter((k) => k.t + 14400 <= now);
 }
