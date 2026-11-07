@@ -9,6 +9,7 @@ import { load, save, type Entry } from "./lib/history";
 import { Logo } from "./components/Logo";
 import { Candle3D, CandleScene, Tilt } from "./components/ThreeD";
 import { LiveMarket } from "./components/LiveMarket";
+import { MarketAnalysis } from "./components/MarketAnalysis";
 import { findAsset, marketState } from "./lib/markets";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -29,13 +30,21 @@ export default function App() {
   const [blob, setBlob] = useState<Blob | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [capturedAt, setCapturedAt] = useState<number | null>(null);
-  const [payout, setPayout] = useState(() => {
+  // Payout por par: cada ativo guarda o seu (a corretora paga diferente em cada um)
+  const [payouts, setPayouts] = useState<Record<string, number>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("trade-ai:payouts") ?? "{}") as Record<string, number>;
+    } catch {
+      return {};
+    }
+  });
+  const defaultPayout = (() => {
     try {
       return Number(localStorage.getItem("trade-ai:payout")) || 85;
     } catch {
       return 85;
     }
-  });
+  })();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Result | null>(null);
@@ -49,6 +58,8 @@ export default function App() {
     }
   });
   const asset = findAsset(assetId);
+  const payout = payouts[asset.id] ?? defaultPayout;
+  const setPayout = (v: number) => setPayouts((p) => ({ ...p, [asset.id]: v }));
   const [clock, setClock] = useState(() => new Date());
   useEffect(() => {
     const id = setInterval(() => setClock(new Date()), 30_000);
@@ -69,9 +80,9 @@ export default function App() {
   useEffect(() => save(history), [history]);
   useEffect(() => {
     try {
-      localStorage.setItem("trade-ai:payout", String(payout));
+      localStorage.setItem("trade-ai:payouts", JSON.stringify(payouts));
     } catch { /* sem armazenamento */ }
-  }, [payout]);
+  }, [payouts]);
 
   // null = escondida; texto = caixa de "toque e segure → Colar" aberta com essa explicação
   const [pasteBox, setPasteBox] = useState<string | null>(null);
@@ -180,7 +191,7 @@ export default function App() {
         <Logo size={44} />
         <div className="leading-tight">
           <div className="text-[18px] font-extrabold tracking-[0.08em]">TRADE <span className="title-gradient">AI</span></div>
-          <div className="text-[11.5px] text-faint">Binárias · gráfico de 5 minutos</div>
+          <div className="text-[11.5px] text-faint">Análise de mercado · Day trade e Swing trade</div>
         </div>
         <div className="ml-auto hidden items-end gap-5 pr-2 sm:flex" style={{ perspective: 600 }} aria-hidden>
           <Candle3D up w={14} h={34} wick={10} />
@@ -190,6 +201,7 @@ export default function App() {
 
 
       <LiveMarket asset={asset} state={state} clock={clock} onPick={pickAsset} />
+      <MarketAnalysis asset={asset} />
 
       <main className="mt-5 grid flex-1 gap-5 lg:grid-cols-[1.1fr_1fr]">
         {/* Print */}
@@ -230,12 +242,10 @@ export default function App() {
           )}
 
           <div className="mt-4 flex items-end gap-3">
-            <label className="w-32">
-              <span className="text-[12px] font-medium text-mute">Payout</span>
+            <label className="w-40">
+              <span className="text-[12px] font-medium text-mute">Payout de {asset.label}</span>
               <div className="relative mt-1.5">
-                <input type="number" min={10} max={100} value={payout}
-                  onChange={(e) => setPayout(Math.min(100, Math.max(10, Number(e.target.value) || 0)))}
-                  className="num w-full rounded-xl border border-line-2 bg-panel px-3 py-2.5 pr-8 text-[14px] focus:border-info focus:outline-none" />
+                <PayoutInput key={asset.id} value={payout} onChange={setPayout} />
                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[13px] text-faint">%</span>
               </div>
             </label>
@@ -457,5 +467,20 @@ function Stat({ k, v, hint, tone }: { k: string; v: string; hint?: string; tone?
       <div className={cx("num mt-1 text-[19px] font-semibold", tone)}>{v}</div>
       {hint && <div className="mt-0.5 text-[10.5px] text-faint">{hint}</div>}
     </div>
+  );
+}
+
+/** Digitação livre (dá para apagar e escrever 92); só vale um número de 10 a 100, e ao sair do campo volta ao último válido. */
+function PayoutInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const [text, setText] = useState(String(value));
+  return (
+    <input type="number" inputMode="numeric" min={10} max={100} value={text} aria-label="Payout em porcentagem"
+      onChange={(e) => {
+        setText(e.target.value);
+        const n = Number(e.target.value);
+        if (e.target.value !== "" && Number.isFinite(n) && n >= 10 && n <= 100) onChange(n);
+      }}
+      onBlur={() => setText(String(value))}
+      className="num w-full rounded-xl border border-line-2 bg-panel px-3 py-2.5 pr-8 text-[14px] focus:border-info focus:outline-none" />
   );
 }
