@@ -8,7 +8,7 @@ import type { PatternStat } from "./confluence.js";
 import { sanitizeProfile } from "./profile.js";
 import { currenciesOf, fetchSeries, FOREX_LABEL, FOREX_YAHOO, type RawSeries } from "./marketData.js";
 import { narrate } from "./narrative.js";
-import { HORIZON_TFS, isSetupTf, pipSize, SETUP_TFS, TF_SECONDS, type Horizon, type Roles, type TF } from "./types.js";
+import { HORIZON_TFS, isSetupTf, pipSize, SETUP_TFS, TF_SECONDS, type Horizon, type Roles, type SetupTf, type TF } from "./types.js";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
@@ -66,36 +66,72 @@ export async function handleForexAnalyze(request: Request, deps: Deps = {}): Pro
   const id = typeof body.asset === "string" ? body.asset : "";
   if (!FOREX_YAHOO[id]) return json({ error: "Par de Forex desconhecido" }, 400);
   // tf = tempo gráfico escolhido (M1, M5, M15, H1, H4): define os quatro papéis e o horizonte. Sem tf, vale o horizonte.
+  // tf = "auto": a IA analisa todos os tempos do horizonte e recomenda o de setup mais forte AGORA.
+  const auto = body.tf === "auto";
   const pick = isSetupTf(body.tf) ? SETUP_TFS[body.tf] : null;
   const horizon: Horizon = pick ? pick.horizon : body.horizon === "swing" ? "swing" : "curto";
-  const R: Roles = pick ? { ctx: pick.ctx, struct: pick.struct, setup: pick.setup, trigger: pick.trigger } : HORIZON_TFS[horizon];
+  const roleSets: Roles[] = auto
+    ? AUTO_TFS[horizon].map((t) => { const x = SETUP_TFS[t]; return { ctx: x.ctx, struct: x.struct, setup: x.setup, trigger: x.trigger }; })
+    : [pick ? { ctx: pick.ctx, struct: pick.struct, setup: pick.setup, trigger: pick.trigger } : HORIZON_TFS[horizon]];
   const profile = sanitizeProfile(body.profile);
   if (!profile.pairs.includes(id)) return json({ error: `${FOREX_LABEL(id)} não está nos pares monitorados do seu Trade Profile. Inclua o par no perfil para analisá-lo.` }, 400);
   const history: PatternStat[] = (Array.isArray(body.history) ? body.history : []).slice(0, 200).filter((h): h is PatternStat => !!h && typeof h.strategy === "string" && typeof h.symbol === "string" && Number.isFinite(h.n) && Number.isFinite(h.sumR) && h.n >= 0);
   const now = Math.floor((deps.now ?? Date.now)() / 1000);
   const get = deps.series ?? fetchSeries;
-  // ordem: contexto/regiões, setup (movimento atual), gatilho, estrutura. curto = H1, M5, M1, M15; swing = D1, H1, M15, H4
-  const tfs: TF[] = [R.ctx, R.setup, R.trigger, R.struct];
-  const uniq = [...new Set(tfs)];
+  // busca cada tempo gráfico uma vez só, mesmo quando vários papéis ou vários tempos candidatos o usam
+  const uniq = [...new Set(roleSets.flatMap((R) => [R.ctx, R.setup, R.trigger, R.struct]))];
   const got = await Promise.allSettled(uniq.map((t) => get(id, t)));
-  const [h1, m5, m1, m15] = tfs.map((t) => got[uniq.indexOf(t)]);
-  for (const [i, r] of [h1, m5].entries()) if (r.status === "rejected") return json({ error: `Não consegui buscar as velas ${tfs[i]}: ${(r.reason as Error).message}` }, 502);
-  const closed = (r: PromiseSettledResult<RawSeries>, tf: TF) => (r.status === "fulfilled" ? closedOnly(r.value.candles, tf, now) : null);
+  const series = (t: TF) => got[uniq.indexOf(t)];
+  const closed = (t: TF) => { const r = series(t); return r.status === "fulfilled" ? closedOnly(r.value.candles, t, now) : null; };
   let events: NewsEvent[] | null = null;
   try { events = await (deps.calendar ?? fetchCalendar)(); } catch { events = null; }
   const pip = pipSize(id);
-  const analysis = analyze({
-    symbol: id, label: FOREX_LABEL(id), pip, currencies: currenciesOf(id), now, events,
-    candles: { H1: closed(h1, R.ctx)!, M5: closed(m5, R.setup)!, M1: closed(m1, R.trigger), M15: closed(m15, R.struct) },
-    profile, history, horizon, roles: R,
-  });
-  const view = { ...toView(analysis, pip, closed(m5, R.setup)!), horizon, roleTf: R };
+
+  const runs: { R: Roles; analysis: ForexAnalysis }[] = [];
+  let firstError: string | null = null;
+  for (const R of roleSets) {
+    const bad = [R.ctx, R.setup].find((t) => series(t).status === "rejected");
+    if (bad) { firstError ??= `Não consegui buscar as velas ${bad}: ${((series(bad) as PromiseRejectedResult).reason as Error).message}`; continue; }
+    runs.push({ R, analysis: analyze({
+      symbol: id, label: FOREX_LABEL(id), pip, currencies: currenciesOf(id), now, events,
+      candles: { H1: closed(R.ctx)!, M5: closed(R.setup)!, M1: closed(R.trigger), M15: closed(R.struct) },
+      profile, history, horizon, roles: R,
+    }) });
+  }
+  if (!runs.length) return json({ error: firstError ?? "Sem dados." }, 502);
+  const ranked = [...runs].sort((x, y) => setupStrength(y.analysis) - setupStrength(x.analysis));
+  const { R, analysis } = ranked[0];
+  const autoPick = auto ? {
+    tf: R.setup,
+    reason: autoReason(analysis, ranked.length),
+    ranking: ranked.map((x) => ({ tf: x.R.setup, decision: x.analysis.decision, state: x.analysis.state, score: x.analysis.score?.total ?? null,
+      rr: x.analysis.trade?.rr[0] ?? null, dataOk: x.analysis.data.ok })),
+  } : null;
+  const view = { ...toView(analysis, pip, closed(R.setup)!), horizon, roleTf: R, autoPick };
   let narrative = null as Awaited<ReturnType<typeof narrate>> | null, narrativeError: string | null = null;
   const wantsExplain = body.explain !== false && (analysis.decision !== "NO_TRADE" || analysis.state === "aguardando_confirmacao");
   if (wantsExplain && (deps.narrate || process.env.ANTHROPIC_API_KEY)) {
     try { narrative = await (deps.narrate ?? narrate)(view); } catch (e) { narrativeError = (e as Error).message.slice(0, 200); }
   }
   return json({ ...view, narrative, narrativeError, m1Used: view.tfs.M1 !== null });
+}
+
+/** Tempos que a IA compara no modo automático. */
+export const AUTO_TFS: Record<Horizon, SetupTf[]> = { curto: ["M1", "M5", "M15"], swing: ["H1", "H4"] };
+
+/** Força do setup AGORA, para escolher o tempo: estado (entrada > antecipada > aguardando > nada), dados válidos, confluência e R:R.
+ * Não é chance de acerto: só ordena qual tempo tem o cenário mais completo neste momento. */
+export function setupStrength(a: ForexAnalysis): number {
+  const st = { entrada_confirmada: 4, entrada_antecipada: 3, aguardando_confirmacao: 2, sem_operacao: 1 }[a.state];
+  return (a.data.ok ? 10_000 : 0) + st * 1_000 + (a.score?.total ?? 0) * 5 + Math.min(5, a.trade?.rr[0] ?? 0);
+}
+
+function autoReason(a: ForexAnalysis, n: number): string {
+  if (!a.data.ok) return `Nenhum dos ${n} tempos tem dados atualizados (mercado fechado ou dados atrasados).`;
+  if (a.state === "entrada_confirmada") return `Único ou melhor tempo com entrada confirmada${a.score ? ` (confluência ${a.score.total})` : ""}.`;
+  if (a.state === "entrada_antecipada") return "Melhor cenário encontrado é uma entrada antecipada (sem todos os filtros).";
+  if (a.state === "aguardando_confirmacao") return `Nenhum tempo tem entrada confirmada; este é o cenário mais perto de liberar${a.score ? ` (confluência ${a.score.total})` : ""}.`;
+  return `Nenhum dos ${n} tempos tem setup agora; mostrando o de leitura mais completa.`;
 }
 
 export async function handleForexResolve(request: Request, deps: Deps = {}): Promise<Response> {

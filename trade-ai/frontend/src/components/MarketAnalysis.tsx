@@ -12,6 +12,9 @@ export const TF_OPTIONS: Record<Horizon, { tf: SetupTf; hint: string }[]> = {
   swing: [{ tf: "H1", hint: "D1 · H4 · H1 · M15" }, { tf: "H4", hint: "D1 · H4 · H1" }],
 };
 export const horizonOf = (tf: SetupTf): Horizon => (tf === "H1" || tf === "H4" ? "swing" : "curto");
+/** "auto" = a IA compara os tempos do tipo de operação e recomenda o de setup mais forte agora. */
+export type TfChoice = SetupTf | "auto";
+export const DEFAULT_TF: Record<Horizon, SetupTf> = { curto: "M5", swing: "H1" };
 
 /** Só os campos de /api/forex que esta tela usa. */
 interface ForexView {
@@ -26,23 +29,28 @@ interface ForexView {
   score: { total: number } | null;
   data: { ok: boolean; issues: string[] };
   favor: string[]; contra: string[]; missing: string[]; invalidation: string;
+  autoPick?: { tf: SetupTf; reason: string; ranking: { tf: SetupTf; decision: string; state: ForexView["state"]; score: number | null; rr: number | null; dataOk: boolean }[] } | null;
 }
 
-const HZ: Record<Horizon, { title: string; sub: string; def: SetupTf }> = {
-  curto: { title: "Day trade", sub: "minutos a horas · M1, M5, M15", def: "M5" },
-  swing: { title: "Swing trade", sub: "pode durar dias · H1, H4", def: "H1" },
+const HZ: Record<Horizon, { title: string; sub: string }> = {
+  curto: { title: "Day trade", sub: "minutos a horas · M1, M5, M15" },
+  swing: { title: "Swing trade", sub: "pode durar dias · H1, H4" },
 };
 
 /** Analisar mercado: velas reais (sem print) pelo mesmo motor do escritório. Só indica a possível entrada; nada é executado. */
-export function MarketAnalysis({ asset, tf, onTf }: { asset: Asset; tf: SetupTf; onTf: (tf: SetupTf) => void }) {
-  const horizon = horizonOf(tf);
+export function MarketAnalysis({ asset, horizon, tf, onChange, onPicked }: {
+  asset: Asset; horizon: Horizon; tf: TfChoice;
+  onChange: (h: Horizon, tf: TfChoice) => void;
+  /** Tempo que a IA recomendou (para o gráfico acompanhar); null ao limpar. */
+  onPicked: (tf: SetupTf | null) => void;
+}) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [res, setRes] = useState<ForexView | null>(null);
   const forex = asset.group === "Forex";
 
-  useEffect(() => { setRes(null); setError(null); }, [asset.id, tf]);
-  const pick = (h: Horizon) => { if (h !== horizon) onTf(HZ[h].def); };
+  useEffect(() => { setRes(null); setError(null); onPicked(null); }, [asset.id, tf, horizon]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pick = (h: Horizon) => { if (h !== horizon) onChange(h, tf === "auto" ? "auto" : DEFAULT_TF[h]); };
 
   const run = async () => {
     setBusy(true); setError(null); setRes(null);
@@ -52,6 +60,7 @@ export function MarketAnalysis({ asset, tf, onTf }: { asset: Asset; tf: SetupTf;
       const body = await r.json().catch(() => ({ error: `Erro ${r.status}` }));
       if (!r.ok) throw new Error(body.error ?? `Erro ${r.status}`);
       setRes(body as ForexView);
+      if ((body as ForexView).autoPick) onPicked((body as ForexView).autoPick!.tf);
     } catch (e) {
       setError(e instanceof TypeError ? "Sem conexão com o servidor." : (e as Error).message);
     } finally { setBusy(false); }
@@ -79,20 +88,27 @@ export function MarketAnalysis({ asset, tf, onTf }: { asset: Asset; tf: SetupTf;
       <div className="mt-3">
         <div className="text-[11px] font-semibold uppercase tracking-wider text-faint">Tempo gráfico da entrada</div>
         <div className="mt-1.5 flex flex-wrap gap-2" role="group" aria-label="Tempo gráfico">
+          <button onClick={() => onChange(horizon, "auto")} aria-pressed={tf === "auto"} title="A IA analisa todos os tempos e recomenda o de setup mais forte agora"
+            className={cx("rounded-lg border px-3.5 py-1.5 text-[13px] font-bold transition-colors",
+              tf === "auto" ? "border-info bg-info/15 text-ink" : "border-line bg-panel text-mute hover:border-line-2 hover:text-ink")}>
+            ✦ IA escolhe
+          </button>
           {TF_OPTIONS[horizon].map((o) => (
-            <button key={o.tf} onClick={() => onTf(o.tf)} aria-pressed={tf === o.tf} title={`Analisa com ${o.hint}`}
+            <button key={o.tf} onClick={() => onChange(horizon, o.tf)} aria-pressed={tf === o.tf} title={`Analisa com ${o.hint}`}
               className={cx("num rounded-lg border px-3.5 py-1.5 text-[13px] font-bold transition-colors",
                 tf === o.tf ? "border-info bg-info/15 text-ink" : "border-line bg-panel text-mute hover:border-line-2 hover:text-ink")}>
               {o.tf}
             </button>
           ))}
         </div>
-        <div className="mt-1.5 text-[11.5px] text-faint">Analisa com {TF_OPTIONS[horizon].find((o) => o.tf === tf)?.hint}. O gráfico acima muda junto.</div>
+        <div className="mt-1.5 text-[11.5px] text-faint">{tf === "auto"
+          ? `A IA compara ${TF_OPTIONS[horizon].map((o) => o.tf).join(", ")} e recomenda o de setup mais forte agora (não é garantia de acerto).`
+          : `Analisa com ${TF_OPTIONS[horizon].find((o) => o.tf === tf)?.hint}. O gráfico acima muda junto.`}</div>
       </div>
 
       <button onClick={run} disabled={!forex || busy}
         className="btn3d mt-3 flex w-full items-center justify-center gap-2.5 rounded-2xl py-3.5 text-[14.5px] font-extrabold tracking-[0.05em] text-[#03130a] disabled:cursor-not-allowed disabled:opacity-40">
-        {busy ? <><Loader2 size={18} className="animate-spin" /> ANALISANDO {asset.label}…</> : "ANALISAR MERCADO PARA UMA POSSÍVEL ENTRADA"}
+        {busy ? <><Loader2 size={18} className="animate-spin" /> {tf === "auto" ? `COMPARANDO ${TF_OPTIONS[horizon].map((o) => o.tf).join(", ")}…` : `ANALISANDO ${asset.label}…`}</> : "ANALISAR MERCADO PARA UMA POSSÍVEL ENTRADA"}
       </button>
       {!forex && <p className="mt-2 text-[12px] text-warn">A análise de mercado funciona só para os pares de Forex. Escolha um par na aba Forex.</p>}
 
@@ -112,8 +128,23 @@ function Verdict({ r }: { r: ForexView }) {
   const m = r.trade?.maxHoldMin ?? 0;
   const hold = r.trade ? (swing ? `até ${Math.round(m / 1440)} dias` : m >= 60 ? `até ${String(m / 60).replace(".", ",")} h` : `até ${m} min`) : null;
 
+  const ap = r.autoPick;
+  const stTxt: Record<ForexView["state"], string> = { entrada_confirmada: "entrada", entrada_antecipada: "antecipada", aguardando_confirmacao: "aguardando", sem_operacao: "sem setup" };
   return (
     <div className="animate-fade mt-4 space-y-3">
+      {ap && (
+        <div className="rounded-2xl border border-info/40 bg-info/10 p-3">
+          <div className="text-[13.5px] font-bold text-ink">✦ Tempo recomendado pela IA: <span className="num">{ap.tf}</span></div>
+          <div className="mt-0.5 text-[12px] text-mute">{ap.reason}</div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {ap.ranking.map((x, i) => (
+              <span key={x.tf} className={cx("num rounded-md border px-2 py-0.5 text-[11.5px]", i === 0 ? "border-info text-ink" : "border-line text-faint")}>
+                {i + 1}º {x.tf} · {x.dataOk ? stTxt[x.state] : "sem dados"}{x.score !== null ? ` · ${x.score}` : ""}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
       <div className={cx("flex items-center gap-4 rounded-2xl border p-4",
         tone === "wait" ? "border-line-2 bg-card-2" : tone === "buy" ? "border-buy/40 bg-buy/10" : "border-sell/40 bg-sell/10")}>
         <div className={cx("grid size-12 shrink-0 place-items-center rounded-2xl border",

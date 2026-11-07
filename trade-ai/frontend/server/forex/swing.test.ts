@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { runBacktest } from "./backtest.js";
 import { assessQuality } from "./candles.js";
 import { analyze, relabel, swingRisk } from "./engine.js";
-import { handleForexAnalyze, handleForexBacktest, type Deps } from "./handlers.js";
+import { handleForexAnalyze, handleForexBacktest, setupStrength, type Deps } from "./handlers.js";
 import { aggregate as aggUtc } from "./marketData.js";
 import { aggregate, noisy } from "./testkit.js";
 import type { Candle, TF } from "./types.js";
@@ -168,5 +168,46 @@ describe("tempo gráfico escolhido (tf)", () => {
   it("tf inválido cai no horizonte", async () => {
     const { asked } = await call("M7");
     expect(asked).toEqual(["H1", "M1", "M15", "M5"]);
+  });
+});
+
+describe("IA recomenda o tempo gráfico (tf=auto)", () => {
+  const m5 = noisy(15, 2360);
+  const byTf = (tf: TF): Candle[] => {
+    const step = { M1: 60, M5: 300, M15: 900, H1: 3600, H4: 14400, D1: 86400 }[tf];
+    return m5.map((k, i) => ({ ...k, t: 1_800_000_000 - (1_800_000_000 % 86400) + i * step }));
+  };
+  const call = async (horizon: string, fail?: TF) => {
+    const asked: TF[] = [];
+    const series: Deps["series"] = async (_id, t) => { asked.push(t); if (t === fail) throw new Error("fora"); return { candles: byTf(t), duplicates: 0, invalid: 0 }; };
+    const r = await handleForexAnalyze(new Request("http://x/api/forex", { method: "POST", body: JSON.stringify({ asset: "EURUSD", tf: "auto", horizon, explain: false }) }),
+      { series, calendar: async () => [], now: () => (byTf("M1").at(-1)!.t + 60) * 1000 });
+    return { j: await r.json(), asked: asked.sort(), status: r.status };
+  };
+  it("day trade compara M1, M5 e M15, busca cada tempo uma vez e devolve o de setup mais forte", async () => {
+    const { j, asked, status } = await call("curto");
+    expect(status).toBe(200);
+    expect(asked).toEqual(["H1", "H4", "M1", "M15", "M5"]);
+    expect(j.autoPick.ranking.map((x: { tf: string }) => x.tf).sort()).toEqual(["M1", "M15", "M5"]);
+    expect(j.autoPick.tf).toBe(j.autoPick.ranking[0].tf);
+    expect(j.roleTf.setup).toBe(j.autoPick.tf);
+    expect(j.autoPick.reason.length).toBeGreaterThan(10);
+  });
+  it("swing compara H1 e H4", async () => {
+    const { j } = await call("swing");
+    expect(j.horizon).toBe("swing");
+    expect(j.autoPick.ranking.map((x: { tf: string }) => x.tf).sort()).toEqual(["H1", "H4"]);
+  });
+  it("se um tempo falha, os outros seguem; se todos falham, 502", async () => {
+    const ok = await call("swing", "H4"); // H4 é setup do H4 → só sobra o H1
+    expect(ok.status).toBe(200);
+    expect(ok.j.autoPick.ranking.map((x: { tf: string }) => x.tf)).toEqual(["H1"]);
+    expect((await call("swing", "D1")).status).toBe(502); // D1 é o contexto dos dois
+  });
+  it("ordem: dados válidos > entrada > aguardando > nada; depois confluência", () => {
+    const mk = (state: string, score: number | null, ok = true) => ({ state, score: score === null ? null : { total: score }, data: { ok }, trade: null }) as never;
+    const order = [mk("sem_operacao", 90), mk("entrada_confirmada", 70), mk("aguardando_confirmacao", 95), mk("entrada_confirmada", 80), mk("entrada_confirmada", 99, false)]
+      .sort((a, b) => setupStrength(b) - setupStrength(a)).map((x: { state: string; score: { total: number } | null }) => `${x.state}:${x.score?.total}`);
+    expect(order).toEqual(["entrada_confirmada:80", "entrada_confirmada:70", "aguardando_confirmacao:95", "sem_operacao:90", "entrada_confirmada:99"]);
   });
 });

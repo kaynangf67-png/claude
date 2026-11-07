@@ -9,7 +9,7 @@ import { load, save, type Entry } from "./lib/history";
 import { Logo } from "./components/Logo";
 import { Candle3D, CandleScene, Tilt } from "./components/ThreeD";
 import { LiveMarket } from "./components/LiveMarket";
-import { MarketAnalysis, TF_OPTIONS, type SetupTf } from "./components/MarketAnalysis";
+import { DEFAULT_TF, MarketAnalysis, TF_OPTIONS, type Horizon, type SetupTf, type TfChoice } from "./components/MarketAnalysis";
 import { findAsset, marketState } from "./lib/markets";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -58,19 +58,23 @@ export default function App() {
     }
   });
   const asset = findAsset(assetId);
-  // Tempo gráfico escolhido: muda o gráfico ao vivo e a base da análise
-  const [tf, setTfState] = useState<SetupTf>(() => {
+  // Tipo de operação e tempo gráfico (ou "IA escolhe"): mudam o gráfico ao vivo e a base da análise
+  const [choice, setChoice] = useState<{ hz: Horizon; tf: TfChoice }>(() => {
     try {
-      const v = localStorage.getItem("trade-ai:tf");
-      return [...TF_OPTIONS.curto, ...TF_OPTIONS.swing].some((o) => o.tf === v) ? (v as SetupTf) : "M5";
+      const v = JSON.parse(localStorage.getItem("trade-ai:tempo") ?? "null") as { hz?: string; tf?: string } | null;
+      const hz: Horizon = v?.hz === "swing" ? "swing" : "curto";
+      const tf = v?.tf === "auto" || TF_OPTIONS[hz].some((o) => o.tf === v?.tf) ? (v!.tf as TfChoice) : DEFAULT_TF[hz];
+      return { hz, tf };
     } catch {
-      return "M5";
+      return { hz: "curto", tf: "M5" };
     }
   });
-  const setTf = (v: SetupTf) => {
-    setTfState(v);
-    try { localStorage.setItem("trade-ai:tf", v); } catch { /* sem armazenamento */ }
+  const [aiTf, setAiTf] = useState<SetupTf | null>(null);
+  const changeChoice = (hz: Horizon, tf: TfChoice) => {
+    setChoice({ hz, tf });
+    try { localStorage.setItem("trade-ai:tempo", JSON.stringify({ hz, tf })); } catch { /* sem armazenamento */ }
   };
+  const chartTf: SetupTf = choice.tf === "auto" ? aiTf ?? DEFAULT_TF[choice.hz] : choice.tf;
   const payout = payouts[asset.id] ?? defaultPayout;
   const setPayout = (v: number) => setPayouts((p) => ({ ...p, [asset.id]: v }));
   const [clock, setClock] = useState(() => new Date());
@@ -213,8 +217,8 @@ export default function App() {
       </header>
 
 
-      <LiveMarket asset={asset} state={state} clock={clock} onPick={pickAsset} tf={tf} />
-      <MarketAnalysis asset={asset} tf={tf} onTf={setTf} />
+      <LiveMarket asset={asset} state={state} clock={clock} onPick={pickAsset} tf={chartTf} />
+      <MarketAnalysis asset={asset} horizon={choice.hz} tf={choice.tf} onChange={changeChoice} onPicked={setAiTf} />
 
       <main className="mt-5 grid flex-1 gap-5 lg:grid-cols-[1.1fr_1fr]">
         {/* Print */}
