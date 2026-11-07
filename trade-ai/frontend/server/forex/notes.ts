@@ -1,1 +1,3 @@
 export const backtestNote = "Backtest passo a passo sem olhar o futuro, com spread e slippage descontados em R. H1 só para suporte e resistência; direção e gatilho pelo M5. Sem M1 no histórico longo e sem calendário de notícias histórico. Taxa de acerto aqui é medida, não prevista.";
+
+export const swingBacktestNote = "Backtest SWING passo a passo sem olhar o futuro, com spread e slippage descontados em R. D1 para suporte e resistência; direção e gatilho pelo H1 (sem H4 e sem M15 no histórico longo). Cada operação fica aberta no máximo 5 dias de mercado. Sem calendário de notícias histórico e sem custo de swap (juros por noite). Taxa de acerto aqui é medida, não prevista.";

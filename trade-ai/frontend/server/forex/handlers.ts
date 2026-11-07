@@ -1,5 +1,5 @@
 import { fetchCalendar } from "../calendar.js";
-import { backtestNote } from "./notes.js";
+import { backtestNote, swingBacktestNote } from "./notes.js";
 import { runBacktest } from "./backtest.js";
 import { closedOnly } from "./candles.js";
 import { analyze, type ForexAnalysis, type NewsEvent } from "./engine.js";
@@ -137,5 +137,5 @@ export async function handleForexBacktest(request: Request, deps: Deps = {}): Pr
     spreadPips: Number(url.searchParams.get("spread") ?? 1.0), slipPips: Number(url.searchParams.get("slip") ?? 0.2), stride: Number(url.searchParams.get("stride") ?? 3),
   });
   const first = c5[0]?.t ?? 0, last = c5.at(-1)?.t ?? 0;
-  return json({ symbol: id, label: FOREX_LABEL(id), period: { from: brt(first), to: brt(last), days: Math.round((last - first) / 86400), candlesM5: c5.length, candlesSetup: c5.length, tfSeconds: TF_SECONDS[R.setup] }, horizon, ...result, note: backtestNote });
+  return json({ symbol: id, label: FOREX_LABEL(id), period: { from: brt(first), to: brt(last), days: Math.round((last - first) / 86400), candlesM5: c5.length, candlesSetup: c5.length, tfSeconds: TF_SECONDS[R.setup] }, horizon, ...result, note: horizon === "swing" ? swingBacktestNote : backtestNote });
 }
