@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>M1 SNIPER BOT — extensão de análise M1</title>
+<link rel="icon" href="icons/icon48.png">
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+<header>
+  <img src="icons/icon48.png" alt="" width="32" height="32">
+  <h1>M1 <b>SNIPER</b> BOT</h1>
+  <nav><a href="#monitor">Monitor</a><a href="#instalar">Instalar</a><a href="#risco">Risco</a><a href="#limites">Limitações</a></nav>
+</header>
+<main>
+  <section class="hero">
+    <div>
+      <h2>Análise de candles M1 com gestão de risco obrigatória</h2>
+      <p>É uma extensão do Chrome que coloca um painel pequeno e arrastável sobre a Quotex. O painel combina EMA 9/21/200, RSI 14, ADX 14, Bollinger 20/2 e Price Action, dá uma nota de 0 a 100 e sugere CALL ou PUT com expiração de 1 minuto. <b>Quem abre a operação é sempre você.</b></p>
+      <a class="cta" href="m1-sniper-bot.zip" download>Baixar extensão (.zip)</a>
+      <p class="small muted">Versão 1.0.0 · Chrome / Edge / Brave (Manifest V3)</p>
+    </div>
+    <figure class="shot-wrap"><img class="shot" src="img/painel.png" alt="Painel do M1 SNIPER BOT com um exemplo de sinal CALL"><figcaption class="small muted">Exemplo de sinal (captura de teste do painel)</figcaption></figure>
+  </section>
+
+  <section class="card warn">
+    <b>Avisos.</b> O bot não executa ordens, não clica na Quotex e não usa APIs privadas. Os candles vêm da API pública da Binance, não da Quotex, e só cobrem criptomoedas (OTC e Forex não). A nota <b>não é probabilidade de acerto</b>. Opções binárias têm alto risco e são restritas ou proibidas em vários países.
+  </section>
+
+  <section id="monitor" class="card">
+    <h2>Monitor ao vivo</h2>
+    <p class="muted">Este é o motor da extensão rodando no seu navegador com candles reais da Binance. Ele é só leitura: não há contadores nem confirmação de entradas, que ficam na extensão.</p>
+    <div class="controls">
+      <label>Ativo <select id="sym"></select></label>
+      <span id="conn" class="pill">conectando…</span>
+      <span id="clock" class="mono"></span>
+    </div>
+    <div class="grid">
+      <div class="panel" id="result"><div class="muted">Carregando candles…</div></div>
+      <div class="panel">
+        <h3>Indicadores (último candle fechado)</h3>
+        <table id="ind"></table>
+      </div>
+    </div>
+    <h3>Sinais desta sessão</h3>
+    <table id="sigs"><tr><th>Horário</th><th>Ativo</th><th>Direção</th><th>Nota</th><th>Resultado (Binance)</th></tr></table>
+  </section>
+
+  <section id="instalar" class="card">
+    <h2>Instalação</h2>
+    <ol>
+      <li>Baixe o <a href="m1-sniper-bot.zip" download>m1-sniper-bot.zip</a> e <b>extraia</b> o arquivo em uma pasta.</li>
+      <li>Abra <code>chrome://extensions</code> e ative o <b>Modo do desenvolvedor</b>.</li>
+      <li>Clique em <b>Carregar sem compactação</b> e selecione a pasta extraída (a que contém <code>manifest.json</code>).</li>
+      <li>Abra a Quotex em <b>conta DEMO</b>, M1, no mesmo ativo escolhido no painel (ex.: BTC/USD ↔ BTCUSDT).</li>
+      <li>Defina o valor por operação e clique em <b>LIGAR</b>. Quando aparecer um sinal, abra a operação você mesmo na Quotex e clique em <b>CONFIRMEI A ENTRADA</b>.</li>
+      <li>Depois de 1 minuto, registre <b>GREEN</b>, <b>LOSS</b> ou <b>EMPATE</b> conforme o resultado na Quotex.</li>
+    </ol>
+  </section>
+
+  <section id="risco" class="card">
+    <h2>Gestão de risco (fixa)</h2>
+    <ul>
+      <li><b>10 GREEN</b> no dia: META DIÁRIA ATINGIDA, painel bloqueado até o dia seguinte.</li>
+      <li><b>3 LOSS</b> no dia: LIMITE DE LOSS ATINGIDO, painel bloqueado até o dia seguinte.</li>
+      <li>Sem Martingale: depois de um LOSS, o valor não pode subir no mesmo dia.</li>
+      <li>Uma operação por vez, sem sinais duplicados, e sinais vencidos são descartados.</li>
+      <li>Contadores preservados ao fechar o navegador. A trava é reaplicada sempre que o estado é carregado.</li>
+      <li>O modo REAL só é liberado com 100 operações DEMO em 5 ou mais dias, acerto acima do break-even + 3 p.p., resultado positivo, drawdown ≤ 10 entradas e confirmação escrita.</li>
+    </ul>
+  </section>
+
+  <section id="limites" class="card">
+    <h2>Backtest e limitações</h2>
+    <p>Backtest de 7 dias com dados reais da Binance, sem antecipação de candles (payout 0,85, break-even 54,1%):</p>
+    <table>
+      <tr><th>Ativo</th><th>Sinais</th><th>Acerto</th><th>Resultado</th></tr>
+      <tr><td>BTCUSDT</td><td>72</td><td>66,2%</td><td>+15,25 entradas</td></tr>
+      <tr><td>ETHUSDT</td><td>49</td><td>50,0%</td><td>−3,60 entradas</td></tr>
+      <tr><td>SOLUSDT</td><td>44</td><td>38,5%</td><td>−11,25 entradas</td></tr>
+      <tr><td><b>Total</b></td><td>165</td><td>54,2%</td><td>+0,40 entradas</td></tr>
+    </table>
+    <p>No total, o resultado ficou no zero a zero. Uma semana de dados <b>não comprova vantagem estatística</b>. Valide na DEMO antes de qualquer decisão. A detecção do ativo e da conta (DEMO/REAL) na página da Quotex é feita pelo título e pela URL e não foi verificada na Quotex real.</p>
+  </section>
+</main>
+<footer class="muted small">M1 SNIPER BOT · ferramenta de análise; não é recomendação de investimento.</footer>
+<script type="module" src="monitor.js"></script>
+</body>
+</html>
