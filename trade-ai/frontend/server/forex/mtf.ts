@@ -15,14 +15,14 @@ export interface TFAnalysis {
   fvgs: Fvg[]; sweep: Sweep | null; liquidity: LiquidityLevel[];
 }
 
-const KEEP: Record<TF, number> = { H1: 400, M15: 400, M5: 400, M1: 150 };
+const KEEP: Record<TF, number> = { D1: 400, H4: 400, H1: 400, M15: 400, M5: 400, M1: 150 };
 
 export function analyzeTF(all: Candle[], tf: TF): TFAnalysis {
   const c = all.slice(-KEEP[tf]);
   const closes = c.map((k) => k.c);
   const atrS = atrSeries(c), atrV = atrS[atrS.length - 1] || 0;
   const atrMed = median(atrS.slice(-100));
-  const w = tf === "H1" ? 2 : 3;
+  const w = tf === "H1" || tf === "H4" || tf === "D1" ? 2 : 3;
   const pivots = findPivots(c, w, w);
   const struct = analyzeStructure(c, pivots);
   const e9 = ema(closes, 9), e20 = ema(closes, 20), e50 = ema(closes, 50), e200 = ema(closes, 200);

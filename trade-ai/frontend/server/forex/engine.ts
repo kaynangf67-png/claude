@@ -9,7 +9,7 @@ import { detectPatterns } from "./patterns.js";
 import { computeRisk, type Risk } from "./risk.js";
 import { confluence, moves, runDirectional, type Ctx, type StrategyResult } from "./strategies.js";
 import { entryTrigger, type Trigger } from "./triggers.js";
-import { opposite, type Candle, type Dir, type Region, type TF } from "./types.js";
+import { HORIZON_TFS, opposite, type Candle, type Dir, type Horizon, type Region, type TF } from "./types.js";
 
 /** ForexSignalEngine: reúne os módulos, aplica os 10 filtros, pontua a confluência e decide BUY / SELL / NO_TRADE. */
 
@@ -22,6 +22,23 @@ export interface EngineInput {
   newsWindow?: { before: number; after: number }; // minutos de bloqueio ao redor de evento de alto impacto (padrão 15 antes e 30 depois)
   events: NewsEvent[] | null;       // null = calendário não verificado
   skipFreshness?: boolean;          // backtest
+  /** curto (padrão): H1/M15/M5/M1. swing: as MESMAS posições recebem D1/H4/H1/M15 (contexto, estrutura, setup, gatilho). */
+  horizon?: Horizon;
+}
+
+/** Nome do papel (como o motor fala internamente) → tempo gráfico real do swing. */
+const ROLE_TO_SWING: Record<string, string> = { H1: "D1", M15: "H4", M5: "H1", M1: "M15" };
+const SWING_TO_ROLE: Record<string, string> = { D1: "H1", H4: "M15", H1: "M5", M15: "M1" };
+const relabelText = (s: string, map: Record<string, string>) => s.replace(/\b(D1|H4|H1|M15|M5|M1)\b/g, (m) => map[m] ?? m);
+/** Swing: até 120 velas de H1 (5 dias de mercado), mesma regra do backtest. */
+export const SWING_MAX_HOLD_MIN = 5 * 24 * 60;
+const swingText = (s: string) => relabelText(s, ROLE_TO_SWING).replace(/operação curta/g, "swing");
+/** Troca os rótulos de tempo gráfico em todos os textos do resultado (as chaves dos objetos não mudam). */
+export function relabel<T>(v: T, map: Record<string, string> | ((s: string) => string)): T {
+  if (typeof v === "string") return (typeof map === "function" ? map(v) : relabelText(v, map)) as T;
+  if (Array.isArray(v)) return v.map((x) => relabel(x, map)) as T;
+  if (v && typeof v === "object") return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, relabel(x, map)])) as T;
+  return v;
 }
 
 export type FilterStatus = "ok" | "falha" | "atencao" | "nao_verificado";
@@ -49,6 +66,8 @@ export interface ForexAnalysis {
   release: Release | null;
   /** Setup em foco (para identificar o mesmo setup entre análises): estratégia, direção e região operacional. */
   setup: { strategyId: number; dir: Dir; region: { low: number; high: number } | null; invalidation: number } | null;
+  /** curto = minutos a ~1 hora; swing = pode durar dias (D1/H4/H1/M15). */
+  horizon?: Horizon;
   plan: Plan | null; thesis: Thesis; annotations: Annotation[]; sizing: Sizing | null; profile: Profile;
   trigger: Trigger | null;
   trade: (Risk & { dir: Dir }) | null;
@@ -62,34 +81,46 @@ const wantTrend = (d: Dir) => (d === "BUY" ? "alta" : "baixa");
 
 function pips(v: number, pip: number) { return Math.round((v / pip) * 10) / 10; }
 
-function context30(m5: Candle[], pip: number): string {
+function context30(m5: Candle[], pip: number, swing = false): string {
   const s = m5.slice(-6);
-  if (s.length < 6) return "Poucas velas para descrever os últimos 30 minutos.";
+  const span = swing ? "as últimas 6 horas" : "os últimos 30 minutos";
+  if (s.length < 6) return `Poucas velas para descrever ${span}.`;
   const net = s[s.length - 1].c - s[0].o, up = s.filter((k) => k.c > k.o).length;
   const hi = Math.max(...s.map((k) => k.h)), lo = Math.min(...s.map((k) => k.l));
   const dirTxt = Math.abs(net) < 2 * pip ? "ficou praticamente lateral" : net > 0 ? `subiu ${pips(net, pip)} pips` : `caiu ${pips(-net, pip)} pips`;
-  return `Nos últimos 30 minutos (6 velas M5) o preço ${dirTxt}: ${up} velas de alta e ${6 - up} de baixa, com máxima ${hi.toFixed(5)}, mínima ${lo.toFixed(5)} e amplitude de ${pips(hi - lo, pip)} pips.`;
+  return `${swing ? "Nas últimas 6 horas" : "Nos últimos 30 minutos"} (6 velas M5) o preço ${dirTxt}: ${up} velas de alta e ${6 - up} de baixa, com máxima ${hi.toFixed(5)}, mínima ${lo.toFixed(5)} e amplitude de ${pips(hi - lo, pip)} pips.`;
 }
 
 export function analyze(inp: EngineInput): ForexAnalysis {
+  const out = analyzeRoles(inp);
+  if ((inp.horizon ?? "curto") !== "swing") return { ...out, horizon: "curto" };
+  const s = relabel(out, swingText);
+  return { ...s, horizon: "swing", trade: s.trade && { ...s.trade, maxHoldMin: SWING_MAX_HOLD_MIN } };
+}
+
+function analyzeRoles(inp: EngineInput): ForexAnalysis {
   const { symbol, pip, now } = inp;
+  const swing = inp.horizon === "swing", R = HORIZON_TFS[inp.horizon ?? "curto"];
+  // qualidade e análise usam o tempo gráfico REAL; os textos saem com o nome do papel e são trocados no fim
+  const toRole = (q: Quality): Quality => (swing ? { ...q, issues: q.issues.map((x) => relabelText(x, SWING_TO_ROLE)) } : q);
+  const tfA = (c: Candle[], real: TF, role: TF): TFAnalysis => ({ ...analyzeTF(c, real), tf: role });
   const profile = inp.profile ?? DEFAULT_PROFILE, rules = STYLE_RULES[profile.style], history = inp.history ?? [];
   const minScore = rules.minScore;
   const f5 = (v: number) => v.toFixed(symbol.includes("JPY") ? 3 : 5);
   const quality: Partial<Record<TF, Quality>> = {
-    H1: assessQuality(inp.candles.H1, "H1", now, !inp.skipFreshness),
-    M5: assessQuality(inp.candles.M5, "M5", now, !inp.skipFreshness),
+    H1: toRole(assessQuality(inp.candles.H1, R.ctx, now, !inp.skipFreshness)),
+    M5: toRole(assessQuality(inp.candles.M5, R.setup, now, !inp.skipFreshness)),
   };
-  if (inp.candles.M1) quality.M1 = assessQuality(inp.candles.M1, "M1", now, !inp.skipFreshness);
+  if (inp.candles.M1) quality.M1 = toRole(assessQuality(inp.candles.M1, R.trigger, now, !inp.skipFreshness));
   const issues = Object.values(quality).flatMap((q) => q?.issues ?? []);
   // sem M1 válido, o gatilho usa o M5 (isso não bloqueia, mas é informado)
   const m1Ok = !!inp.candles.M1 && !!quality.M1?.ok;
   const useM1 = m1Ok && profile.entryTf === "M1"; // o perfil pode mandar avaliar o gatilho só no M5
   const baseOk = !!(quality.H1?.ok && quality.M5?.ok);
 
-  const a1 = inp.candles.M1 && inp.candles.M1.length >= 30 ? analyzeTF(inp.candles.M1, "M1") : null;
-  const a15 = inp.candles.M15 && inp.candles.M15.length >= 60 ? analyzeTF(inp.candles.M15, "M15") : null;
-  const a = { H1: analyzeTF(inp.candles.H1, "H1"), M5: analyzeTF(inp.candles.M5, "M5"), M1: a1 };
+  const a1 = inp.candles.M1 && inp.candles.M1.length >= 30 ? tfA(inp.candles.M1, R.trigger, "M1") : null;
+  const a15 = inp.candles.M15 && inp.candles.M15.length >= 60 ? tfA(inp.candles.M15, R.struct, "M15") : null;
+  const a = { H1: tfA(inp.candles.H1, R.ctx, "H1"), M5: tfA(inp.candles.M5, R.setup, "M5"), M1: a1 };
   const aAll = { ...a, M15: a15 };
   const price = a.M5.lastClose;
   const regions = mergeRegions([buildRegions(inp.candles.H1, "H1", price, a.H1.atr, pip)], price, pip);
@@ -168,7 +199,7 @@ export function analyze(inp: EngineInput): ForexAnalysis {
     trends: { M5: a.M5.trend, M1: a1 ? a1.trend : null },
     tfs: { ...a, M15: a15, M1: a1 }, regions,
     liquidity: [...a.H1.liquidity, ...a.M5.liquidity].map((l) => ({ price: l.price, kind: l.kind, side: l.side })),
-    context, strategies, context30: context30(m5, pip), closest,
+    context, strategies, context30: context30(m5, pip, swing), closest,
   };
   const noData = !baseOk;
   const missingBase = noData ? ["Dados atualizados e completos (bloqueio por qualidade dos dados)."] : [];

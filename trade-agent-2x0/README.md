@@ -1,5 +1,7 @@
 # TRADE AGENT 2x0
 
+> **PAUSADO (07/11/2026).** O foco do projeto voltou para o Trade AI (`trade-ai/`): plataforma de ANÁLISE que indica uma possível entrada em Forex, nos horizontes curto prazo e swing. Execução automática (MT5/EA) está fora do escopo atual. O código fica aqui só como referência.
+
 Sistema de análise e execução de Forex (EURUSD, GBPUSD, USDJPY) integrado ao MetaTrader 5, com gerenciamento diário 2x0.
 
 > **Ambiente DEMO apenas.** O modo REAL é recusado pela configuração e pelo banco de dados. Nenhuma ordem é enviada nesta fase.

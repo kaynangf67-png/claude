@@ -20,8 +20,9 @@ export const closedOnly = (c: Candle[], tf: TF, now: number) => c.filter((k) => 
 
 export interface Quality { ok: boolean; issues: string[]; lastClosedAt: number | null; ageMin: number | null; missing: number }
 
-const MAX_AGE_MIN: Record<TF, number> = { M1: 8, M5: 20, M15: 45, H1: 150 };
-const MIN_COUNT: Record<TF, number> = { M1: 30, M5: 250, M15: 120, H1: 80 };
+// D1: a vela diária do Yahoo fecha 1x por dia (até ~26h de atraso normal); H4 é montado do H1.
+const MAX_AGE_MIN: Record<TF, number> = { M1: 8, M5: 20, M15: 45, H1: 150, H4: 330, D1: 26 * 60 };
+const MIN_COUNT: Record<TF, number> = { M1: 30, M5: 250, M15: 120, H1: 80, H4: 120, D1: 120 };
 
 /** Qualidade: atualizado, completo e contínuo nas últimas velas. `strictAge` desliga a checagem de atraso (backtest). */
 export function assessQuality(c: Candle[], tf: TF, now: number, strictAge = true): Quality {
@@ -37,7 +38,8 @@ export function assessQuality(c: Candle[], tf: TF, now: number, strictAge = true
   let missing = 0;
   for (let i = 1; i < tail.length; i++) missing += Math.max(0, Math.round((tail[i].t - tail[i - 1].t) / step) - 1);
   const tolerated = tf === "M1" ? 3 : 1;
-  if (missing > tolerated) issues.push(`${tf}: ${missing} velas faltando nas últimas 12`);
+  // D1 e H4 atravessam o fim de semana nas últimas 12 velas: lacuna de fim de semana não é dado faltando
+  if (tf !== "D1" && tf !== "H4" && missing > tolerated) issues.push(`${tf}: ${missing} velas faltando nas últimas 12`);
   return { ok: issues.length === 0, issues, lastClosedAt: last.t + step, ageMin, missing };
 }
 

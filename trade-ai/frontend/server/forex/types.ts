@@ -1,6 +1,15 @@
 export interface Candle { t: number; o: number; h: number; l: number; c: number; v?: number }
-export type TF = "H1" | "M15" | "M5" | "M1";
-export const TF_SECONDS: Record<TF, number> = { H1: 3600, M15: 900, M5: 300, M1: 60 };
+export type TF = "D1" | "H4" | "H1" | "M15" | "M5" | "M1";
+export const TF_SECONDS: Record<TF, number> = { D1: 86400, H4: 14400, H1: 3600, M15: 900, M5: 300, M1: 60 };
+
+/** Horizonte da análise. curto = minutos a ~1 hora; swing = posição que pode durar dias. */
+export type Horizon = "curto" | "swing";
+/** Papéis dos tempos gráficos: contexto/regiões, estrutura, setup e gatilho. */
+export interface Roles { ctx: TF; struct: TF; setup: TF; trigger: TF }
+export const HORIZON_TFS: Record<Horizon, Roles> = {
+  curto: { ctx: "H1", struct: "M15", setup: "M5", trigger: "M1" },
+  swing: { ctx: "D1", struct: "H4", setup: "H1", trigger: "M15" },
+};
 export type Trend = "alta" | "baixa" | "lateral";
 export type Dir = "BUY" | "SELL";
 export const opposite = (d: Dir): Dir => (d === "BUY" ? "SELL" : "BUY");

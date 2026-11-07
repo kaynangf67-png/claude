@@ -8,7 +8,7 @@ import type { PatternStat } from "./confluence.js";
 import { sanitizeProfile } from "./profile.js";
 import { currenciesOf, fetchSeries, FOREX_LABEL, FOREX_YAHOO, type RawSeries } from "./marketData.js";
 import { narrate } from "./narrative.js";
-import { pipSize, TF_SECONDS, type TF } from "./types.js";
+import { HORIZON_TFS, pipSize, TF_SECONDS, type Horizon, type TF } from "./types.js";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
@@ -61,29 +61,32 @@ export function toView(a: ForexAnalysis, pip: number, m5?: { t: number; o: numbe
 
 export async function handleForexAnalyze(request: Request, deps: Deps = {}): Promise<Response> {
   if (request.method !== "POST") return json({ error: "Método não permitido" }, 405);
-  let body: { asset?: unknown; explain?: unknown; profile?: unknown; history?: unknown };
+  let body: { asset?: unknown; explain?: unknown; profile?: unknown; history?: unknown; horizon?: unknown };
   try { body = await request.json(); } catch { return json({ error: "JSON inválido" }, 400); }
   const id = typeof body.asset === "string" ? body.asset : "";
   if (!FOREX_YAHOO[id]) return json({ error: "Par de Forex desconhecido" }, 400);
+  const horizon: Horizon = body.horizon === "swing" ? "swing" : "curto";
+  const R = HORIZON_TFS[horizon];
   const profile = sanitizeProfile(body.profile);
   if (!profile.pairs.includes(id)) return json({ error: `${FOREX_LABEL(id)} não está nos pares monitorados do seu Trade Profile. Inclua o par no perfil para analisá-lo.` }, 400);
   const history: PatternStat[] = (Array.isArray(body.history) ? body.history : []).slice(0, 200).filter((h): h is PatternStat => !!h && typeof h.strategy === "string" && typeof h.symbol === "string" && Number.isFinite(h.n) && Number.isFinite(h.sumR) && h.n >= 0);
   const now = Math.floor((deps.now ?? Date.now)() / 1000);
   const get = deps.series ?? fetchSeries;
-  const tfs: TF[] = ["H1", "M5", "M1", "M15"]; // H1 e M15 = contexto e regiões; M5 e M1 = movimento atual
+  // ordem: contexto/regiões, setup (movimento atual), gatilho, estrutura. curto = H1, M5, M1, M15; swing = D1, H1, M15, H4
+  const tfs: TF[] = [R.ctx, R.setup, R.trigger, R.struct];
   const res = await Promise.allSettled(tfs.map((t) => get(id, t)));
   const [h1, m5, m1, m15] = res;
-  for (const [i, r] of [h1, m5].entries()) if (r.status === "rejected") return json({ error: `Não consegui buscar as velas ${tfs[i === 0 ? 0 : 1]}: ${(r.reason as Error).message}` }, 502);
+  for (const [i, r] of [h1, m5].entries()) if (r.status === "rejected") return json({ error: `Não consegui buscar as velas ${tfs[i]}: ${(r.reason as Error).message}` }, 502);
   const closed = (r: PromiseSettledResult<RawSeries>, tf: TF) => (r.status === "fulfilled" ? closedOnly(r.value.candles, tf, now) : null);
   let events: NewsEvent[] | null = null;
   try { events = await (deps.calendar ?? fetchCalendar)(); } catch { events = null; }
   const pip = pipSize(id);
   const analysis = analyze({
     symbol: id, label: FOREX_LABEL(id), pip, currencies: currenciesOf(id), now, events,
-    candles: { H1: closed(h1, "H1")!, M5: closed(m5, "M5")!, M1: closed(m1, "M1"), M15: closed(m15, "M15") },
-    profile, history,
+    candles: { H1: closed(h1, R.ctx)!, M5: closed(m5, R.setup)!, M1: closed(m1, R.trigger), M15: closed(m15, R.struct) },
+    profile, history, horizon,
   });
-  const view = toView(analysis, pip, closed(m5, "M5")!);
+  const view = { ...toView(analysis, pip, closed(m5, R.setup)!), horizon, roleTf: R };
   let narrative = null as Awaited<ReturnType<typeof narrate>> | null, narrativeError: string | null = null;
   const wantsExplain = body.explain !== false && (analysis.decision !== "NO_TRADE" || analysis.state === "aguardando_confirmacao");
   if (wantsExplain && (deps.narrate || process.env.ANTHROPIC_API_KEY)) {
@@ -119,16 +122,20 @@ export async function handleForexBacktest(request: Request, deps: Deps = {}): Pr
   const id = (url.searchParams.get("symbol") ?? "EURUSD").toUpperCase();
   if (!FOREX_YAHOO[id]) return json({ error: "Par de Forex desconhecido" }, 400);
   const get = deps.series ?? fetchSeries;
-  const [h1, m5] = await Promise.allSettled([get(id, "H1"), get(id, "M5")]);
-  for (const [i, r] of [h1, m5].entries()) if (r.status === "rejected") return json({ error: `Não consegui buscar as velas ${["H1", "M5"][i]}: ${(r.reason as Error).message}` }, 502);
+  const horizon: Horizon = url.searchParams.get("horizon") === "swing" ? "swing" : "curto";
+  const R = HORIZON_TFS[horizon];
+  // swing: 1 ano de H1 (o Yahoo limita o 60m a ~2 anos) e 2 anos de D1 para o contexto
+  const [h1, m5] = await Promise.allSettled([get(id, R.ctx), horizon === "swing" ? get(id, R.setup, "1y") : get(id, R.setup)]);
+  for (const [i, r] of [h1, m5].entries()) if (r.status === "rejected") return json({ error: `Não consegui buscar as velas ${[R.ctx, R.setup][i]}: ${(r.reason as Error).message}` }, 502);
   const now = Math.floor((deps.now ?? Date.now)() / 1000);
   const ok = (r: PromiseSettledResult<RawSeries>, tf: TF) => closedOnly((r as PromiseFulfilledResult<RawSeries>).value.candles, tf, now);
-  const c5 = ok(m5, "M5");
-  const result = runBacktest(c5, ok(h1, "H1"), {
+  const c5 = ok(m5, R.setup);
+  const result = runBacktest(c5, ok(h1, R.ctx), {
+    horizon,
     pip: pipSize(id), label: FOREX_LABEL(id), symbol: id, currencies: currenciesOf(id),
     profile: sanitizeProfile({ style: url.searchParams.get("style") ?? undefined }),
     spreadPips: Number(url.searchParams.get("spread") ?? 1.0), slipPips: Number(url.searchParams.get("slip") ?? 0.2), stride: Number(url.searchParams.get("stride") ?? 3),
   });
   const first = c5[0]?.t ?? 0, last = c5.at(-1)?.t ?? 0;
-  return json({ symbol: id, label: FOREX_LABEL(id), period: { from: brt(first), to: brt(last), days: Math.round((last - first) / 86400), candlesM5: c5.length, tfSeconds: TF_SECONDS.M5 }, ...result, note: backtestNote });
+  return json({ symbol: id, label: FOREX_LABEL(id), period: { from: brt(first), to: brt(last), days: Math.round((last - first) / 86400), candlesM5: c5.length, candlesSetup: c5.length, tfSeconds: TF_SECONDS[R.setup] }, horizon, ...result, note: backtestNote });
 }

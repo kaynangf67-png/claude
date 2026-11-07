@@ -63,6 +63,10 @@
   .ai-head small { letter-spacing: 0; font-weight: 600; text-align: right; }
   .ai-go { margin: 10px 12px; appearance: none; border: 0; border-radius: 12px; padding: 12px; font: 800 14px/1 inherit; font-family: inherit; cursor: pointer; color: #03130a; background: linear-gradient(180deg, #34d36f, #16a34a); }
   .ai-go:disabled { opacity: .45; cursor: default; }
+  .fx-hz { display: flex; gap: 6px; margin: 10px 12px 0; } .fx-hz[hidden] { display: none; }
+  .fx-hz button { flex: 1; appearance: none; border: 1px solid #262626; background: #0b0b0b; color: var(--mute); border-radius: 10px; padding: 8px 6px; font: 800 13px/1.15 inherit; font-family: inherit; cursor: pointer; }
+  .fx-hz button small { display: block; font-size: 10.5px; font-weight: 600; opacity: .75; margin-top: 2px; }
+  .fx-hz button.on { border-color: var(--buy); color: var(--ink); background: #22c55e1a; }
   .ai-out { flex: 1 0 auto; padding: 0 12px 16px; font-size: 13px; line-height: 1.45; }
   .ai-hint { color: #71717a; margin: 4px 0; }
   .ai-err { color: #fca5a5; background: #ef44441a; border: 1px solid #ef444440; border-radius: 10px; padding: 10px; }
@@ -187,7 +191,7 @@
         <div class="pc-chart" id="pc-chart"></div>
         <aside class="ai" aria-live="polite">
           <div class="ai-head"><span>IA · ENTRADA M5</span><small id="ai-src"></small></div>
-          <button id="ai-go" class="ai-go" type="button">Pedir entrada à IA</button><button id="ai-live" class="fx-mini" type="button" hidden title="Reanalisa sozinho a cada minuto, com a vela de 1 minuto mais recente fechada">● Ao vivo: desligado</button>
+          <div class="fx-hz" id="ai-hz" hidden role="group" aria-label="Horizonte da análise"><button type="button" data-h="curto">Curto prazo<small>M5 · minutos</small></button><button type="button" data-h="swing">Swing<small>H1/D1 · dias</small></button></div><button id="ai-go" class="ai-go" type="button">Pedir entrada à IA</button><button id="ai-live" class="fx-mini" type="button" hidden title="Reanalisa sozinho a cada minuto, com a vela de 1 minuto mais recente fechada">● Ao vivo: desligado</button>
           <div class="ai-tools" id="ai-tools" hidden><button id="ai-prof" type="button">Perfil</button><button id="ai-scan" type="button">Varrer</button><button id="ai-agent" type="button">Agente</button><button id="ai-hist" type="button">Histórico</button><button id="ai-bt" type="button">Backtest</button></div>
           <div class="ag-strip" id="ag-strip" hidden></div>
           <div id="ai-out" class="ai-out"><p class="ai-hint">Escolha o mercado e peça a leitura. A IA usa as velas reais de 5 minutos, indicadores (EMA, RSI, ATR) e o calendário de notícias.</p></div>
@@ -1129,7 +1133,17 @@
   try { const h = JSON.parse(localStorage.getItem(HKEY)); if (Array.isArray(h)) hist = h; } catch {}
   const saveHist = () => { try { localStorage.setItem(HKEY, JSON.stringify(hist.slice(-200))); } catch {} };
   const aiBox = document.querySelector(".ai"), aiTools = document.getElementById("ai-tools");
-  function syncForex() { const f = isForex(picks[pcIdx]); aiBox.classList.toggle("wide", f); aiTools.hidden = !f; document.getElementById("ai-live").hidden = !f; if (!f && typeof setLive === "function") setLive(false); if (f) startStrip(); else { clearInterval(stripTimer); stripEl.hidden = true; } document.querySelector(".ai-head span").textContent = f ? "ANÁLISE TÉCNICA FOREX" : "IA · ENTRADA M5"; }
+  // Horizonte da análise: curto prazo (minutos) ou swing (dias). Lembrado só neste navegador.
+  let horizon = (() => { try { return localStorage.getItem("ta-horizon") === "swing" ? "swing" : "curto"; } catch { return "curto"; } })();
+  const paintHz = () => document.querySelectorAll("#ai-hz button").forEach((b) => { b.classList.toggle("on", b.dataset.h === horizon); b.setAttribute("aria-pressed", String(b.dataset.h === horizon)); });
+  document.querySelectorAll("#ai-hz button").forEach((b) => (b.onclick = () => {
+    if (horizon === b.dataset.h) return;
+    horizon = b.dataset.h; try { localStorage.setItem("ta-horizon", horizon); } catch {}
+    paintHz(); aiOut.innerHTML = "";
+    aiOut.append(el("p", "ai-hint", horizon === "swing" ? "Swing: operação que pode durar dias. Contexto no D1, estrutura no H4, setup no H1 e gatilho no M15. Clique em Pedir entrada à IA." : "Curto prazo: operação de minutos até ~1 hora. Contexto no H1, estrutura no M15, setup no M5 e gatilho no M1. Clique em Pedir entrada à IA."));
+  }));
+  paintHz();
+  function syncForex() { const f = isForex(picks[pcIdx]); aiBox.classList.toggle("wide", f); aiTools.hidden = !f; document.getElementById("ai-hz").hidden = !f; document.getElementById("ai-live").hidden = !f; if (!f && typeof setLive === "function") setLive(false); if (f) startStrip(); else { clearInterval(stripTimer); stripEl.hidden = true; } document.querySelector(".ai-head span").textContent = f ? "ANÁLISE TÉCNICA FOREX" : "IA · ENTRADA M5"; }
   const DIR = { BUY: "COMPRA", SELL: "VENDA" };
   const when = (t) => new Date(t * 1000).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
   const pct = (v) => (v === null || v === undefined ? "—" : (v * 100).toFixed(1) + "%");
@@ -1328,7 +1342,7 @@
   function logAnalysis(d, frozen) {
     const confirmed = d.state === "entrada_confirmada";
     if (confirmed && frozen && frozen.dir === d.trade.dir) return;
-    hist.push({ id: d.symbol + "-" + d.at, symbol: d.symbol, label: d.label, at: d.at, tf: "M5", decision: d.decision, state: d.state, dir: confirmed ? d.trade.dir : null,
+    hist.push({ id: d.symbol + "-" + d.at, symbol: d.symbol, label: d.label, at: d.at, tf: (d.roleTf && d.roleTf.setup) || "M5", horizon: d.horizon || "curto", decision: d.decision, state: d.state, dir: confirmed ? d.trade.dir : null,
       strategy: d.chosen ? d.chosen.name : "—", entry: d.trade ? d.trade.entry : null, sl: d.trade ? d.trade.sl : null, tps: d.trade ? d.trade.tps : [null, null, null], score: d.score ? d.score.total : null,
       reasons: d.favor.slice(0, 4), against: d.contra.slice(0, 3), missing: (d.missing || []).slice(0, 3), pip: d.pip, status: confirmed ? "aberto" : "sem entrada", r: null, snap: confirmed ? d.trade : null, profile: profile.style });
     saveHist();
@@ -1378,7 +1392,7 @@
     wrap.append(cv);
     const kinds = [...new Set(anns.map((a) => a.kind).concat(frozen ? ["entrada", "stop", "take"] : []))];
     const lg = el("div", "fx-legend"); kinds.forEach((k) => { const sp = el("span"); const i = el("i"); i.style.background = ANN_COLOR[k]; sp.append(i, ANN_NAME[k]); lg.append(sp); });
-    wrap.append(lg, el("div", "ai-hint", `Últimas ${cs.length} velas fechadas do M5 (Yahoo). Marcações usam os preços calculados pelo motor${frozen ? "; as linhas “reg.” são do sinal já registrado e não mudam" : ""}.`));
+    wrap.append(lg, el("div", "ai-hint", `Últimas ${cs.length} velas fechadas do ${(d.roleTf && d.roleTf.setup) || "M5"} (Yahoo). Marcações usam os preços calculados pelo motor${frozen ? "; as linhas “reg.” são do sinal já registrado e não mudam" : ""}.`));
     return wrap;
   }
 
@@ -1406,9 +1420,10 @@
 
   function renderForex(d) {
     clearInterval(aiTimer); aiOut.innerHTML = "";
+    const RT = d.roleTf || { ctx: "H1", struct: "M15", setup: "M5", trigger: "M1" }, S = RT.setup, G = RT.trigger, swing = d.horizon === "swing";
     const f = (v) => (v === null || v === undefined ? "—" : Number(v).toFixed(d.symbol.includes("JPY") ? 3 : 5));
     document.getElementById("ai-src").textContent = "Yahoo · pode atrasar";
-    aiOut.append(el("div", "fx-top")); aiOut.lastChild.append(el("span", "", `${d.label} · M5 · ${d.atBrt} (Brasília)`), el("span", "", `Preço ${f(d.price)}`));
+    aiOut.append(el("div", "fx-top")); aiOut.lastChild.append(el("span", "", `${d.label} · ${swing ? "SWING · " : ""}${S} · ${d.atBrt} (Brasília)`), el("span", "", `Preço ${f(d.price)}`));
     aiOut.append(el("div", "ai-hint", profileLine()));
     const early = d.state === "entrada_antecipada";
     const confirmed = d.state === "entrada_confirmada" || early, waiting = d.state === "aguardando_confirmacao";
@@ -1424,7 +1439,7 @@
       const fz = el("div", "fx-note"); fz.append(el("div", "", `SINAL REGISTRADO ABERTO · ${DIR[frozen.dir]} às ${when(frozen.at)} · ${frozen.strategy}`), ul([`Entrada ${f(frozen.entry)} · Stop ${f(frozen.sl)} · Take 1 ${f(frozen.tps[0])}`, "Estes níveis foram congelados no momento do sinal e não mudam com as velas novas. Esta análise não cria outro registro do mesmo sinal."], "fx-list"));
       aiOut.append(fz);
     }
-    aiOut.append(sec("GRÁFICO M5 COM MARCAÇÕES", drawChart(d, frozen)));
+    aiOut.append(sec(`GRÁFICO ${S} COM MARCAÇÕES`, drawChart(d, frozen)));
     if (d.score) aiOut.append(sec("CONFLUENCE SCORE", confluenceView(d.score)));
     else aiOut.append(sec("CONFLUENCE SCORE", el("div", "fx-note", "Sem cenário avaliável: nenhuma estratégia habilitada chegou ao ponto de pontuar.")));
     if (!confirmed && d.release) {
@@ -1434,12 +1449,12 @@
     }
     aiOut.append(sec("TRADE THESIS", thesisView(d.thesis)));
     const chips = el("div", "fx-chips");
-    chips.append(trendChip("Movimento M5", d.trends.M5), d.trends.M1 ? trendChip("Movimento M1", d.trends.M1) : (() => { const c = el("div", "fx-chip flat", "Movimento M1"); c.append(el("b", "", "indisponível")); return c; })());
-    aiOut.append(chips, kv([["Contexto", d.context], ["Estrutura M5", `${d.tfs.M5.bos ? "BOS " + DIR[d.tfs.M5.bos] : "sem BOS"} · ${d.tfs.M5.choch ? "CHoCH " + DIR[d.tfs.M5.choch] : "sem CHoCH"}`], ["Último topo / fundo M5", `${f(d.tfs.M5.lastHigh)} / ${f(d.tfs.M5.lastLow)}`], ["RSI 14 · ATR 14 (M5)", `${d.tfs.M5.rsi ?? "—"} · ${d.tfs.M5.atrPips} pips`], ["EMAs M5", d.tfs.M5.ema.stack === "alta" ? "alinhadas p/ alta" : d.tfs.M5.ema.stack === "baixa" ? "alinhadas p/ baixa" : "sem alinhamento"]]));
+    chips.append(trendChip(`Movimento ${S}`, d.trends.M5), d.trends.M1 ? trendChip(`Movimento ${G}`, d.trends.M1) : (() => { const c = el("div", "fx-chip flat", `Movimento ${G}`); c.append(el("b", "", "indisponível")); return c; })());
+    aiOut.append(chips, kv([["Contexto", d.context], [`Estrutura ${S}`, `${d.tfs.M5.bos ? "BOS " + DIR[d.tfs.M5.bos] : "sem BOS"} · ${d.tfs.M5.choch ? "CHoCH " + DIR[d.tfs.M5.choch] : "sem CHoCH"}`], [`Último topo / fundo ${S}`, `${f(d.tfs.M5.lastHigh)} / ${f(d.tfs.M5.lastLow)}`], [`RSI 14 · ATR 14 (${S})`, `${d.tfs.M5.rsi ?? "—"} · ${d.tfs.M5.atrPips} pips`], [`EMAs ${S}`, d.tfs.M5.ema.stack === "alta" ? "alinhadas p/ alta" : d.tfs.M5.ema.stack === "baixa" ? "alinhadas p/ baixa" : "sem alinhamento"]]));
 
     if (d.trade && confirmed) {
       const t = frozen && frozen.snap ? frozen.snap : d.trade, box2 = el("div", "fx-trade" + (t.dir === "SELL" ? " sell" : ""));
-      box2.append(el("h4", "", "OPERAÇÃO · " + DIR[t.dir]), kv([["Entrada", f(t.entry)], ["Stop Loss", f(t.sl)], ["Take Profit 1", `${f(t.tps[0])}  (R:R ${num2(t.rr[0])})`], ["Take Profit 2", t.tps[1] ? `${f(t.tps[1])}  (R:R ${num2(t.rr[1])})` : "—"], ["Take Profit 3", t.tps[2] ? `${f(t.tps[2])}  (R:R ${num2(t.rr[2])})` : "—"], ["Risco", `${t.riskPips} pips (ATR ${t.atrPips})`], ["Alvo 1", `${t.targetAtr} ATR do M5`], ["Duração prevista", `até ${t.maxHoldMin} min (operação curta)`], ["Confluência", `${d.score.total}/100 (não é probabilidade)`]]));
+      box2.append(el("h4", "", "OPERAÇÃO · " + DIR[t.dir]), kv([["Entrada", f(t.entry)], ["Stop Loss", f(t.sl)], ["Take Profit 1", `${f(t.tps[0])}  (R:R ${num2(t.rr[0])})`], ["Take Profit 2", t.tps[1] ? `${f(t.tps[1])}  (R:R ${num2(t.rr[1])})` : "—"], ["Take Profit 3", t.tps[2] ? `${f(t.tps[2])}  (R:R ${num2(t.rr[2])})` : "—"], ["Risco", `${t.riskPips} pips (ATR ${t.atrPips})`], ["Alvo 1", `${t.targetAtr} ATR do ${S}`], ["Duração prevista", swing ? `até ${Math.round(t.maxHoldMin / 1440)} dias (swing)` : `até ${t.maxHoldMin} min (operação curta)`], ["Confluência", `${d.score.total}/100 (não é probabilidade)`]]));
       if (d.sizing && !frozen) box2.append(el("div", "ai-hint", d.sizing.note));
       if (t.notes.length) box2.append(ul(t.notes, "fx-list"));
       aiOut.append(box2);
@@ -1468,7 +1483,7 @@
     aiOut.append(sec("CONTEXTO DOS ÚLTIMOS 30 MIN", el("div", "fx-note", d.context30)));
     if (d.narrative) { const n = el("div", "fx-narr"); n.append(el("small", "", "EXPLICAÇÃO DA IA (não altera a decisão)"), el("div", "", d.narrative.resumo)); aiOut.append(n); }
     else if (d.narrativeError) aiOut.append(el("div", "fx-note", "A explicação da IA falhou: " + d.narrativeError + ". A análise acima é do motor e continua válida."));
-    if (!d.m1Used) aiOut.append(el("div", "fx-note", "M1 indisponível agora: o gatilho foi avaliado no M5."));
+    if (!d.m1Used) aiOut.append(el("div", "fx-note", `${G} indisponível agora: o gatilho foi avaliado no ${S}.`));
     if (d.filters.some((x) => x.status === "nao_verificado")) aiOut.append(el("div", "fx-note", "Filtro de notícias NÃO verificado (calendário indisponível)."));
     aiOut.append(el("div", "ai-foot", d.sourceNote + " Análise técnica não é recomendação nem garantia de resultado."));
 
@@ -1477,9 +1492,9 @@
 
   async function runForex(asset) {
     aiGo.disabled = true; aiGo.textContent = "Analisando…"; aiCool = Date.now() + 15000;
-    aiOut.innerHTML = ""; aiOut.append(el("p", "ai-hint", "Buscando velas de H1, M15, M5 e M1, calculando estrutura, regiões e filtros…"));
+    aiOut.innerHTML = ""; aiOut.append(el("p", "ai-hint", horizon === "swing" ? "Swing: buscando velas de D1, H4, H1 e M15, calculando estrutura, regiões e filtros…" : "Buscando velas de H1, M15, M5 e M1, calculando estrutura, regiões e filtros…"));
     try {
-      const r = await fetch("/api/forex", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ asset, profile, history: patternStats() }) });
+      const r = await fetch("/api/forex", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ asset, profile, history: patternStats(), horizon }) });
       const d = await r.json().catch(() => ({ error: `Erro ${r.status}` }));
       if (asset !== picks[pcIdx]) return;
       if (!r.ok) throw new Error(d.error || `Erro ${r.status}`);
