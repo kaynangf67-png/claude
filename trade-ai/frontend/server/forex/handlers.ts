@@ -8,7 +8,7 @@ import type { PatternStat } from "./confluence.js";
 import { sanitizeProfile } from "./profile.js";
 import { currenciesOf, fetchSeries, FOREX_LABEL, FOREX_YAHOO, type RawSeries } from "./marketData.js";
 import { narrate } from "./narrative.js";
-import { HORIZON_TFS, pipSize, TF_SECONDS, type Horizon, type TF } from "./types.js";
+import { HORIZON_TFS, isSetupTf, pipSize, SETUP_TFS, TF_SECONDS, type Horizon, type Roles, type TF } from "./types.js";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
@@ -61,12 +61,14 @@ export function toView(a: ForexAnalysis, pip: number, m5?: { t: number; o: numbe
 
 export async function handleForexAnalyze(request: Request, deps: Deps = {}): Promise<Response> {
   if (request.method !== "POST") return json({ error: "Método não permitido" }, 405);
-  let body: { asset?: unknown; explain?: unknown; profile?: unknown; history?: unknown; horizon?: unknown };
+  let body: { asset?: unknown; explain?: unknown; profile?: unknown; history?: unknown; horizon?: unknown; tf?: unknown };
   try { body = await request.json(); } catch { return json({ error: "JSON inválido" }, 400); }
   const id = typeof body.asset === "string" ? body.asset : "";
   if (!FOREX_YAHOO[id]) return json({ error: "Par de Forex desconhecido" }, 400);
-  const horizon: Horizon = body.horizon === "swing" ? "swing" : "curto";
-  const R = HORIZON_TFS[horizon];
+  // tf = tempo gráfico escolhido (M1, M5, M15, H1, H4): define os quatro papéis e o horizonte. Sem tf, vale o horizonte.
+  const pick = isSetupTf(body.tf) ? SETUP_TFS[body.tf] : null;
+  const horizon: Horizon = pick ? pick.horizon : body.horizon === "swing" ? "swing" : "curto";
+  const R: Roles = pick ? { ctx: pick.ctx, struct: pick.struct, setup: pick.setup, trigger: pick.trigger } : HORIZON_TFS[horizon];
   const profile = sanitizeProfile(body.profile);
   if (!profile.pairs.includes(id)) return json({ error: `${FOREX_LABEL(id)} não está nos pares monitorados do seu Trade Profile. Inclua o par no perfil para analisá-lo.` }, 400);
   const history: PatternStat[] = (Array.isArray(body.history) ? body.history : []).slice(0, 200).filter((h): h is PatternStat => !!h && typeof h.strategy === "string" && typeof h.symbol === "string" && Number.isFinite(h.n) && Number.isFinite(h.sumR) && h.n >= 0);
@@ -74,8 +76,9 @@ export async function handleForexAnalyze(request: Request, deps: Deps = {}): Pro
   const get = deps.series ?? fetchSeries;
   // ordem: contexto/regiões, setup (movimento atual), gatilho, estrutura. curto = H1, M5, M1, M15; swing = D1, H1, M15, H4
   const tfs: TF[] = [R.ctx, R.setup, R.trigger, R.struct];
-  const res = await Promise.allSettled(tfs.map((t) => get(id, t)));
-  const [h1, m5, m1, m15] = res;
+  const uniq = [...new Set(tfs)];
+  const got = await Promise.allSettled(uniq.map((t) => get(id, t)));
+  const [h1, m5, m1, m15] = tfs.map((t) => got[uniq.indexOf(t)]);
   for (const [i, r] of [h1, m5].entries()) if (r.status === "rejected") return json({ error: `Não consegui buscar as velas ${tfs[i]}: ${(r.reason as Error).message}` }, 502);
   const closed = (r: PromiseSettledResult<RawSeries>, tf: TF) => (r.status === "fulfilled" ? closedOnly(r.value.candles, tf, now) : null);
   let events: NewsEvent[] | null = null;
@@ -84,7 +87,7 @@ export async function handleForexAnalyze(request: Request, deps: Deps = {}): Pro
   const analysis = analyze({
     symbol: id, label: FOREX_LABEL(id), pip, currencies: currenciesOf(id), now, events,
     candles: { H1: closed(h1, R.ctx)!, M5: closed(m5, R.setup)!, M1: closed(m1, R.trigger), M15: closed(m15, R.struct) },
-    profile, history, horizon,
+    profile, history, horizon, roles: R,
   });
   const view = { ...toView(analysis, pip, closed(m5, R.setup)!), horizon, roleTf: R };
   let narrative = null as Awaited<ReturnType<typeof narrate>> | null, narrativeError: string | null = null;

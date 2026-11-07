@@ -3,11 +3,12 @@ import { Moon } from "lucide-react";
 import { ASSETS, GROUPS, brt, marketState, nextOpen, type Asset, type MarketState } from "../lib/markets";
 import { LiveChart } from "./LiveChart";
 
+const TV_INTERVAL: Record<string, string> = { M1: "1", M5: "5", M15: "15", H1: "60", H4: "240" };
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 
 /** Mercado ao vivo: abas por tipo de ativo, ativos da aba, gráfico M5 limpo. */
-export function LiveMarket({ asset, state, clock, onPick }: {
-  asset: Asset; state: MarketState; clock: Date; onPick: (id: string) => void;
+export function LiveMarket({ asset, state, clock, onPick, tf = "M5" }: {
+  asset: Asset; state: MarketState; clock: Date; onPick: (id: string) => void; tf?: string;
 }) {
   const [group, setGroup] = useState<Asset["group"]>(asset.group);
 
@@ -19,7 +20,7 @@ export function LiveMarket({ asset, state, clock, onPick }: {
           <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-faint">Mercado ao vivo</div>
           <div className="mt-0.5 flex items-center gap-2">
             <h2 className="truncate text-[22px] font-extrabold leading-tight">{asset.label}</h2>
-            <span className="num rounded-md border border-line-2 px-1.5 py-0.5 text-[11px] font-bold text-mute">M5</span>
+            <span className="num rounded-md border border-line-2 px-1.5 py-0.5 text-[11px] font-bold text-mute">{tf}</span>
           </div>
         </div>
         <span className={cx("ml-auto flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-bold",
@@ -58,7 +59,7 @@ export function LiveMarket({ asset, state, clock, onPick }: {
 
       {/* Gráfico (com aviso centralizado quando o mercado está fechado) */}
       <div className="relative h-[340px] border-t border-line bg-black md:h-[440px]">
-        <LiveChart symbol={asset.tv} />
+        <LiveChart symbol={asset.tv} interval={TV_INTERVAL[tf] ?? "5"} />
         {!state.open && (
           <div className="absolute inset-0 grid place-items-center bg-black/70 p-5 backdrop-blur-[2px]">
             <div className="w-full max-w-[320px] rounded-3xl border border-line-2 bg-black/90 px-6 py-6 text-center shadow-[0_20px_60px_-20px_#000]">

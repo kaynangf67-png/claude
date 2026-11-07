@@ -5,6 +5,13 @@ import type { Asset } from "../lib/markets";
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 
 export type Horizon = "curto" | "swing";
+export type SetupTf = "M1" | "M5" | "M15" | "H1" | "H4";
+/** Tempos gráficos de cada tipo de operação e o que cada um usa de contexto. */
+export const TF_OPTIONS: Record<Horizon, { tf: SetupTf; hint: string }[]> = {
+  curto: [{ tf: "M1", hint: "M15 · M5 · M1" }, { tf: "M5", hint: "H1 · M15 · M5 · M1" }, { tf: "M15", hint: "H4 · H1 · M15 · M5" }],
+  swing: [{ tf: "H1", hint: "D1 · H4 · H1 · M15" }, { tf: "H4", hint: "D1 · H4 · H1" }],
+};
+export const horizonOf = (tf: SetupTf): Horizon => (tf === "H1" || tf === "H4" ? "swing" : "curto");
 
 /** Só os campos de /api/forex que esta tela usa. */
 interface ForexView {
@@ -21,29 +28,27 @@ interface ForexView {
   favor: string[]; contra: string[]; missing: string[]; invalidation: string;
 }
 
-const HZ: Record<Horizon, { title: string; sub: string; tfs: string }> = {
-  curto: { title: "Day trade", sub: "minutos a ~1 hora", tfs: "H1 · M15 · M5 · M1" },
-  swing: { title: "Swing trade", sub: "pode durar dias", tfs: "D1 · H4 · H1 · M15" },
+const HZ: Record<Horizon, { title: string; sub: string; def: SetupTf }> = {
+  curto: { title: "Day trade", sub: "minutos a horas · M1, M5, M15", def: "M5" },
+  swing: { title: "Swing trade", sub: "pode durar dias · H1, H4", def: "H1" },
 };
 
 /** Analisar mercado: velas reais (sem print) pelo mesmo motor do escritório. Só indica a possível entrada; nada é executado. */
-export function MarketAnalysis({ asset }: { asset: Asset }) {
-  const [horizon, setHorizon] = useState<Horizon>(() => {
-    try { return localStorage.getItem("ta-horizon") === "swing" ? "swing" : "curto"; } catch { return "curto"; }
-  });
+export function MarketAnalysis({ asset, tf, onTf }: { asset: Asset; tf: SetupTf; onTf: (tf: SetupTf) => void }) {
+  const horizon = horizonOf(tf);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [res, setRes] = useState<ForexView | null>(null);
   const forex = asset.group === "Forex";
 
-  useEffect(() => { setRes(null); setError(null); }, [asset.id, horizon]);
-  const pick = (h: Horizon) => { setHorizon(h); try { localStorage.setItem("ta-horizon", h); } catch { /* sem armazenamento */ } };
+  useEffect(() => { setRes(null); setError(null); }, [asset.id, tf]);
+  const pick = (h: Horizon) => { if (h !== horizon) onTf(HZ[h].def); };
 
   const run = async () => {
     setBusy(true); setError(null); setRes(null);
     try {
       const r = await fetch("/api/forex", { method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ asset: asset.id, horizon, explain: false }) });
+        body: JSON.stringify({ asset: asset.id, tf, horizon, explain: false }) });
       const body = await r.json().catch(() => ({ error: `Erro ${r.status}` }));
       if (!r.ok) throw new Error(body.error ?? `Erro ${r.status}`);
       setRes(body as ForexView);
@@ -66,9 +71,23 @@ export function MarketAnalysis({ asset }: { asset: Asset }) {
             className={cx("rounded-xl border px-3 py-2.5 text-left transition-colors",
               horizon === h ? "border-buy bg-buy/15 text-ink" : "border-line bg-panel text-mute hover:border-line-2 hover:text-ink")}>
             <div className="text-[14px] font-extrabold">{HZ[h].title}</div>
-            <div className="text-[11.5px] opacity-80">{HZ[h].sub} · {HZ[h].tfs}</div>
+            <div className="text-[11.5px] opacity-80">{HZ[h].sub}</div>
           </button>
         ))}
+      </div>
+
+      <div className="mt-3">
+        <div className="text-[11px] font-semibold uppercase tracking-wider text-faint">Tempo gráfico da entrada</div>
+        <div className="mt-1.5 flex flex-wrap gap-2" role="group" aria-label="Tempo gráfico">
+          {TF_OPTIONS[horizon].map((o) => (
+            <button key={o.tf} onClick={() => onTf(o.tf)} aria-pressed={tf === o.tf} title={`Analisa com ${o.hint}`}
+              className={cx("num rounded-lg border px-3.5 py-1.5 text-[13px] font-bold transition-colors",
+                tf === o.tf ? "border-info bg-info/15 text-ink" : "border-line bg-panel text-mute hover:border-line-2 hover:text-ink")}>
+              {o.tf}
+            </button>
+          ))}
+        </div>
+        <div className="mt-1.5 text-[11.5px] text-faint">Analisa com {TF_OPTIONS[horizon].find((o) => o.tf === tf)?.hint}. O gráfico acima muda junto.</div>
       </div>
 
       <button onClick={run} disabled={!forex || busy}
@@ -90,7 +109,8 @@ function Verdict({ r }: { r: ForexView }) {
   const swing = r.horizon === "swing";
   const title = entry ? (buy ? "COMPRA" : "VENDA") : r.state === "aguardando_confirmacao" && r.watch ? `AGUARDANDO ${r.watch.dir === "BUY" ? "COMPRA" : "VENDA"}` : "SEM ENTRADA AGORA";
   const tone = entry ? (buy ? "buy" : "sell") : "wait";
-  const hold = r.trade ? (swing ? `até ${Math.round(r.trade.maxHoldMin / 1440)} dias` : `até ${r.trade.maxHoldMin} min`) : null;
+  const m = r.trade?.maxHoldMin ?? 0;
+  const hold = r.trade ? (swing ? `até ${Math.round(m / 1440)} dias` : m >= 60 ? `até ${String(m / 60).replace(".", ",")} h` : `até ${m} min`) : null;
 
   return (
     <div className="animate-fade mt-4 space-y-3">
@@ -105,7 +125,7 @@ function Verdict({ r }: { r: ForexView }) {
             {title}{r.state === "entrada_antecipada" && <span className="ml-2 text-[12px] text-warn">antecipada</span>}
           </div>
           <div className="mt-1.5 text-[12.5px] text-mute">
-            {r.label} · {swing ? "Swing trade" : "Day trade"}{r.roleTf && ` (setup ${r.roleTf.setup})`} · preço {f(r.price)}
+            {r.label} · {swing ? "Swing trade" : "Day trade"}{r.roleTf && ` · ${r.roleTf.setup}`} · preço {f(r.price)}
             {r.chosen && <> · {r.chosen.name}</>}{r.score && <> · confluência {r.score.total}/100</>}
           </div>
           {r.atBrt && <div className="text-[11px] text-faint">{r.atBrt} (Brasília)</div>}

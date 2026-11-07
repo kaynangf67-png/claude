@@ -135,3 +135,38 @@ describe("stop do swing pela estrutura do H4", () => {
     expect(strings(s).join(" ")).not.toMatch(/ATR do H1/);
   });
 });
+
+describe("tempo gráfico escolhido (tf)", () => {
+  const m5 = noisy(15, 2360);
+  const byTf = (tf: TF): Candle[] => {
+    const step = { M1: 60, M5: 300, M15: 900, H1: 3600, H4: 14400, D1: 86400 }[tf];
+    return m5.map((k, i) => ({ ...k, t: 1_800_000_000 - (1_800_000_000 % 86400) + i * step }));
+  };
+  const call = async (tf: string) => {
+    const asked: TF[] = [];
+    const series: Deps["series"] = async (_id, t) => { asked.push(t); return { candles: byTf(t), duplicates: 0, invalid: 0 }; };
+    const r = await handleForexAnalyze(new Request("http://x/api/forex", { method: "POST", body: JSON.stringify({ asset: "EURUSD", tf, explain: false }) }),
+      { series, calendar: async () => [], now: () => (byTf("M1").at(-1)!.t + 60) * 1000 });
+    return { j: await r.json(), asked: asked.sort(), status: r.status };
+  };
+  it("M15: contexto H4, estrutura H1, setup M15, gatilho M5 (day trade)", async () => {
+    const { j, asked, status } = await call("M15");
+    expect(status).toBe(200);
+    expect(asked).toEqual(["H1", "H4", "M15", "M5"]);
+    expect(j.roleTf).toEqual({ ctx: "H4", struct: "H1", setup: "M15", trigger: "M5" });
+    expect(j.horizon).toBe("curto");
+    expect(j.context30).toMatch(/últimas 1,5 horas \(6 velas M15\)/);
+  });
+  it("M1 busca cada tempo uma vez só; H4 vira swing com contexto D1", async () => {
+    const m1 = await call("M1");
+    expect(m1.asked).toEqual(["M1", "M15", "M5"]);
+    expect(m1.j.roleTf.setup).toBe("M1");
+    const h4 = await call("H4");
+    expect(h4.asked).toEqual(["D1", "H1", "H4"]);
+    expect(h4.j.horizon).toBe("swing");
+  });
+  it("tf inválido cai no horizonte", async () => {
+    const { asked } = await call("M7");
+    expect(asked).toEqual(["H1", "M1", "M15", "M5"]);
+  });
+});

@@ -9,7 +9,7 @@ import { load, save, type Entry } from "./lib/history";
 import { Logo } from "./components/Logo";
 import { Candle3D, CandleScene, Tilt } from "./components/ThreeD";
 import { LiveMarket } from "./components/LiveMarket";
-import { MarketAnalysis } from "./components/MarketAnalysis";
+import { MarketAnalysis, TF_OPTIONS, type SetupTf } from "./components/MarketAnalysis";
 import { findAsset, marketState } from "./lib/markets";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -58,6 +58,19 @@ export default function App() {
     }
   });
   const asset = findAsset(assetId);
+  // Tempo gráfico escolhido: muda o gráfico ao vivo e a base da análise
+  const [tf, setTfState] = useState<SetupTf>(() => {
+    try {
+      const v = localStorage.getItem("trade-ai:tf");
+      return [...TF_OPTIONS.curto, ...TF_OPTIONS.swing].some((o) => o.tf === v) ? (v as SetupTf) : "M5";
+    } catch {
+      return "M5";
+    }
+  });
+  const setTf = (v: SetupTf) => {
+    setTfState(v);
+    try { localStorage.setItem("trade-ai:tf", v); } catch { /* sem armazenamento */ }
+  };
   const payout = payouts[asset.id] ?? defaultPayout;
   const setPayout = (v: number) => setPayouts((p) => ({ ...p, [asset.id]: v }));
   const [clock, setClock] = useState(() => new Date());
@@ -200,8 +213,8 @@ export default function App() {
       </header>
 
 
-      <LiveMarket asset={asset} state={state} clock={clock} onPick={pickAsset} />
-      <MarketAnalysis asset={asset} />
+      <LiveMarket asset={asset} state={state} clock={clock} onPick={pickAsset} tf={tf} />
+      <MarketAnalysis asset={asset} tf={tf} onTf={setTf} />
 
       <main className="mt-5 grid flex-1 gap-5 lg:grid-cols-[1.1fr_1fr]">
         {/* Print */}

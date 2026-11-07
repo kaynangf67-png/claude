@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 
-/** Gráfico ao vivo do TradingView (widget oficial gratuito), fixo em 5 minutos. */
-export function LiveChart({ symbol }: { symbol: string }) {
+/** Gráfico ao vivo do TradingView (widget oficial gratuito). interval em minutos: "1", "5", "15", "60", "240". */
+export function LiveChart({ symbol, interval = "5" }: { symbol: string; interval?: string }) {
   const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -15,7 +15,7 @@ export function LiveChart({ symbol }: { symbol: string }) {
     script.innerHTML = JSON.stringify({
       autosize: true,
       symbol,
-      interval: "5",
+      interval,
       timezone: "America/Sao_Paulo",
       theme: "dark",
       style: "1",
@@ -38,7 +38,7 @@ export function LiveChart({ symbol }: { symbol: string }) {
     return () => {
       el.innerHTML = "";
     };
-  }, [symbol]);
+  }, [symbol, interval]);
 
   return <div ref={box} className="tradingview-widget-container h-full w-full" />;
 }

@@ -9,7 +9,7 @@ import { detectPatterns } from "./patterns.js";
 import { computeRisk, type Risk } from "./risk.js";
 import { confluence, moves, runDirectional, type Ctx, type StrategyResult } from "./strategies.js";
 import { entryTrigger, type Trigger } from "./triggers.js";
-import { HORIZON_TFS, opposite, type Candle, type Dir, type Horizon, type Region, type TF } from "./types.js";
+import { HORIZON_TFS, opposite, TF_SECONDS, type Candle, type Dir, type Horizon, type Region, type Roles, type TF } from "./types.js";
 
 /** ForexSignalEngine: reúne os módulos, aplica os 10 filtros, pontua a confluência e decide BUY / SELL / NO_TRADE. */
 
@@ -24,15 +24,24 @@ export interface EngineInput {
   skipFreshness?: boolean;          // backtest
   /** curto (padrão): H1/M15/M5/M1. swing: as MESMAS posições recebem D1/H4/H1/M15 (contexto, estrutura, setup, gatilho). */
   horizon?: Horizon;
+  /** Tempos gráficos escolhidos (contexto, estrutura, setup, gatilho). Sem isso, os padrões do horizonte. */
+  roles?: Roles;
 }
 
-/** Nome do papel (como o motor fala internamente) → tempo gráfico real do swing. */
-const ROLE_TO_SWING: Record<string, string> = { H1: "D1", M15: "H4", M5: "H1", M1: "M15" };
-const SWING_TO_ROLE: Record<string, string> = { D1: "H1", H4: "M15", H1: "M5", M15: "M1" };
 const relabelText = (s: string, map: Record<string, string>) => s.replace(/\b(D1|H4|H1|M15|M5|M1)\b/g, (m) => map[m] ?? m);
+/** Nome do papel (como o motor fala internamente) → tempo gráfico real, e o inverso (o setup tem prioridade se dois papéis coincidirem). */
+const roleMap = (R: Roles): Record<string, string> => ({ H1: R.ctx, M15: R.struct, M5: R.setup, M1: R.trigger });
+const realToRole = (R: Roles): Record<string, string> => ({ [R.trigger]: "M1", [R.struct]: "M15", [R.ctx]: "H1", [R.setup]: "M5" });
+const sameRoles = (a: Roles, b: Roles) => a.ctx === b.ctx && a.struct === b.struct && a.setup === b.setup && a.trigger === b.trigger;
+/** "os últimos 30 minutos", "as últimas 6 horas"... para 6 velas do setup. */
+function spanOf(setup: TF): string {
+  const min = (6 * TF_SECONDS[setup]) / 60;
+  if (min < 60) return `os últimos ${min} minutos`;
+  const h = min / 60;
+  return h === 1 ? "a última hora" : `as últimas ${String(h).replace(".", ",")} horas`;
+}
 /** Swing: até 120 velas de H1 (5 dias de mercado), mesma regra do backtest. */
 export const SWING_MAX_HOLD_MIN = 5 * 24 * 60;
-const swingText = (s: string) => relabelText(s, ROLE_TO_SWING).replace(/operação curta/g, "swing");
 /** Troca os rótulos de tempo gráfico em todos os textos do resultado (as chaves dos objetos não mudam). */
 export function relabel<T>(v: T, map: Record<string, string> | ((s: string) => string)): T {
   if (typeof v === "string") return (typeof map === "function" ? map(v) : relabelText(v, map)) as T;
@@ -81,14 +90,14 @@ const wantTrend = (d: Dir) => (d === "BUY" ? "alta" : "baixa");
 
 function pips(v: number, pip: number) { return Math.round((v / pip) * 10) / 10; }
 
-function context30(m5: Candle[], pip: number, swing = false): string {
+function context30(m5: Candle[], pip: number, setup: TF = "M5"): string {
   const s = m5.slice(-6);
-  const span = swing ? "as últimas 6 horas" : "os últimos 30 minutos";
+  const span = spanOf(setup);
   if (s.length < 6) return `Poucas velas para descrever ${span}.`;
   const net = s[s.length - 1].c - s[0].o, up = s.filter((k) => k.c > k.o).length;
   const hi = Math.max(...s.map((k) => k.h)), lo = Math.min(...s.map((k) => k.l));
   const dirTxt = Math.abs(net) < 2 * pip ? "ficou praticamente lateral" : net > 0 ? `subiu ${pips(net, pip)} pips` : `caiu ${pips(-net, pip)} pips`;
-  return `${swing ? "Nas últimas 6 horas" : "Nos últimos 30 minutos"} (6 velas M5) o preço ${dirTxt}: ${up} velas de alta e ${6 - up} de baixa, com máxima ${hi.toFixed(5)}, mínima ${lo.toFixed(5)} e amplitude de ${pips(hi - lo, pip)} pips.`;
+  return `${span.charAt(0).toUpperCase() + span.slice(1)} (6 velas M5) o preço ${dirTxt}: ${up} velas de alta e ${6 - up} de baixa, com máxima ${hi.toFixed(5)}, mínima ${lo.toFixed(5)} e amplitude de ${pips(hi - lo, pip)} pips.`;
 }
 
 /** Invalidação do swing: o ponto estrutural do H4 além da entrada (último fundo abaixo na compra, último topo acima na venda),
@@ -102,17 +111,22 @@ export function swingRisk(dir: Dir, entry: number, setupInv: number, h4: TFAnaly
 }
 
 export function analyze(inp: EngineInput): ForexAnalysis {
+  const h = inp.horizon ?? "curto", R = inp.roles ?? HORIZON_TFS[h];
   const out = analyzeRoles(inp);
-  if ((inp.horizon ?? "curto") !== "swing") return { ...out, horizon: "curto" };
-  const s = relabel(out, swingText);
-  return { ...s, horizon: "swing", trade: s.trade && { ...s.trade, maxHoldMin: SWING_MAX_HOLD_MIN } };
+  // day trade: no máximo 12 velas do setup (M5 = 60 min); swing: 5 dias
+  const hold = h === "swing" ? SWING_MAX_HOLD_MIN : (12 * TF_SECONDS[R.setup]) / 60;
+  const map = roleMap(R);
+  const s = sameRoles(R, HORIZON_TFS.curto) ? out
+    : relabel(out, (x: string) => { const t = relabelText(x, map); return h === "swing" ? t.replace(/operação curta/g, "swing") : t; });
+  return { ...s, horizon: h, trade: s.trade && { ...s.trade, maxHoldMin: hold } };
 }
 
 function analyzeRoles(inp: EngineInput): ForexAnalysis {
   const { symbol, pip, now } = inp;
-  const swing = inp.horizon === "swing", R = HORIZON_TFS[inp.horizon ?? "curto"];
+  const swing = inp.horizon === "swing", R = inp.roles ?? HORIZON_TFS[inp.horizon ?? "curto"];
   // qualidade e análise usam o tempo gráfico REAL; os textos saem com o nome do papel e são trocados no fim
-  const toRole = (q: Quality): Quality => (swing ? { ...q, issues: q.issues.map((x) => relabelText(x, SWING_TO_ROLE)) } : q);
+  const back = realToRole(R), relabeled = !sameRoles(R, HORIZON_TFS.curto);
+  const toRole = (q: Quality): Quality => (relabeled ? { ...q, issues: q.issues.map((x) => relabelText(x, back)) } : q);
   const tfA = (c: Candle[], real: TF, role: TF): TFAnalysis => ({ ...analyzeTF(c, real), tf: role });
   const profile = inp.profile ?? DEFAULT_PROFILE, rules = STYLE_RULES[profile.style], history = inp.history ?? [];
   const minScore = rules.minScore;
@@ -214,7 +228,7 @@ function analyzeRoles(inp: EngineInput): ForexAnalysis {
     trends: { M5: a.M5.trend, M1: a1 ? a1.trend : null },
     tfs: { ...a, M15: a15, M1: a1 }, regions,
     liquidity: [...a.H1.liquidity, ...a.M5.liquidity].map((l) => ({ price: l.price, kind: l.kind, side: l.side })),
-    context, strategies, context30: context30(m5, pip, swing), closest,
+    context, strategies, context30: context30(m5, pip, R.setup), closest,
   };
   const noData = !baseOk;
   const missingBase = noData ? ["Dados atualizados e completos (bloqueio por qualidade dos dados)."] : [];

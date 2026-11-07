@@ -10,6 +10,17 @@ export const HORIZON_TFS: Record<Horizon, Roles> = {
   curto: { ctx: "H1", struct: "M15", setup: "M5", trigger: "M1" },
   swing: { ctx: "D1", struct: "H4", setup: "H1", trigger: "M15" },
 };
+
+/** Tempo gráfico escolhido pelo usuário (o do SETUP) → os quatro papéis e o horizonte. */
+export type SetupTf = "M1" | "M5" | "M15" | "H1" | "H4";
+export const SETUP_TFS: Record<SetupTf, Roles & { horizon: Horizon }> = {
+  M1: { ctx: "M15", struct: "M5", setup: "M1", trigger: "M1", horizon: "curto" },
+  M5: { ...HORIZON_TFS.curto, horizon: "curto" },
+  M15: { ctx: "H4", struct: "H1", setup: "M15", trigger: "M5", horizon: "curto" },
+  H1: { ...HORIZON_TFS.swing, horizon: "swing" },
+  H4: { ctx: "D1", struct: "D1", setup: "H4", trigger: "H1", horizon: "swing" },
+};
+export const isSetupTf = (v: unknown): v is SetupTf => typeof v === "string" && v in SETUP_TFS;
 export type Trend = "alta" | "baixa" | "lateral";
 export type Dir = "BUY" | "SELL";
 export const opposite = (d: Dir): Dir => (d === "BUY" ? "SELL" : "BUY");
