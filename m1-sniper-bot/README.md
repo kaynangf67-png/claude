@@ -158,11 +158,27 @@ quantidade de sinais, GREEN/LOSS/empates, taxa de acerto, resultado em stakes, *
 de LOSS, tanto “todos os sinais” quanto “com a gestão diária global” (uma operação por vez entre ativos, parando
 em 10 GREEN ou 3 LOSS).
 
-> **Estado atual da validação:** o backtest com dados reais **ainda não foi executado** — o ambiente onde o
-> projeto foi construído não tinha acesso à API da Binance. O relatório em `reports/backtest-synthetic.md` usa
-> **dados sintéticos** e serve só para provar que o pipeline funciona: o gerador sintético tem regimes de tendência
-> embutidos, então a taxa de acerto dele **não diz nada** sobre o mercado real. Rode o comando da Binance acima
-> antes de tirar qualquer conclusão e, depois, valide em DEMO pelo painel.
+### Resultado da validação com dados reais (2026-11-07)
+
+Detalhes em [`reports/validacao-2026-11-07.md`](reports/validacao-2026-11-07.md) e
+[`reports/backtest-2026-11-07.md`](reports/backtest-2026-11-07.md).
+
+| Teste | Sinais | Acerto | Break-even (payout 85%) | Resultado |
+|---|---:|---:|---:|---:|
+| 14 dias, 6 pares, todos os sinais | 4224 | **49,4%** | 54,1% | −344,6 stakes, drawdown 358,9 |
+| 14 dias, com gestão diária (10G/3L) | 83 | **42,3%** | 54,1% | −17,0 stakes |
+| 30 dias, 2ª metade (fora da amostra), 9 combinações de filtros | 22–4296 | **45,5% a 49,8%** | 54,1% | todas negativas |
+
+**A estratégia, como especificada, não teve vantagem nesses dados.** Nenhuma combinação de pontuação mínima e ADX
+chegou ao break-even fora da amostra. Por isso **não há liberação para conta real**: o painel mantém o modo REAL
+bloqueado até que 50 operações DEMO registradas atinjam ≥ 59,1% de acerto. O motor e o backtest ficam prontos para
+testar variações da estratégia, mas qualquer mudança precisa ser validada fora da amostra antes de ser usada.
+
+O relatório `reports/backtest-synthetic.md` usa **dados sintéticos** e serve só para provar que o pipeline funciona
+(o gerador tem tendência embutida, então o acerto dele não vale para o mercado real).
+
+**Rede no Node:** se você estiver atrás de um proxy, rode com `NODE_USE_ENV_PROXY=1` (Node 22+). Se a sua região
+bloquear `api.binance.com` (HTTP 451), o script usa automaticamente `data-api.binance.vision`.
 
 ### Pré-visualização sem a Quotex
 
