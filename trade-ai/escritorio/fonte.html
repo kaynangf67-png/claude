@@ -87,6 +87,17 @@
   .ai-tools { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px 8px; } .ai-tools button { flex: 1 1 22%; } .ai-tools[hidden] { display: none; }
   .ai-tools button { flex: 1; appearance: none; border: 1px solid #262626; background: #0b0b0b; color: var(--mute); border-radius: 9px; padding: 7px; font: 700 12px/1 inherit; font-family: inherit; cursor: pointer; }
   .ai-tools button[hidden] { display: none; }
+  .ai-tools button#ai-zyon { flex: 1 1 100%; color: #e9d5ff; border-color: #7c3aed80; background: linear-gradient(180deg, #2e1065aa, #1e1b4baa); }
+  .zy-head { display: flex; align-items: center; gap: 8px; margin: 4px 0 8px; } .zy-head b { font-size: 15px; letter-spacing: .04em; } .zy-head .zy-mode { margin-left: auto; font: 800 10px/1 inherit; padding: 4px 7px; border-radius: 99px; color: #fbbf24; background: #f59e0b22; }
+  .zy-agents { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 6px; }
+  .zy-agent { border: 1px solid #ffffff14; border-radius: 10px; padding: 8px; background: #ffffff06; font-size: 11.5px; min-width: 0; }
+  .zy-agent b { display: block; font-size: 13px; } .zy-agent .zy-st { display: inline-block; margin: 3px 0; font: 800 10px/1 inherit; padding: 3px 6px; border-radius: 99px; background: #ffffff12; color: #a1a1aa; }
+  .zy-agent p { margin: 2px 0 0; color: #a1a1aa; overflow-wrap: anywhere; }
+  .zy-st.oportunidade { background: #22c55e26; color: #4ade80; } .zy-st.em_operacao { background: #3b82f626; color: #93c5fd; } .zy-st.aguardando { background: #f59e0b26; color: #fbbf24; } .zy-st.erro { background: #ef444426; color: #f87171; } .zy-st.dormindo { background: #ffffff0a; color: #71717a; }
+  .zy-flow { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 10.5px; color: #a1a1aa; margin: 8px 0; } .zy-flow span { padding: 3px 6px; border: 1px solid #ffffff14; border-radius: 6px; } .zy-flow .veto { border-color: #ef444466; color: #fca5a5; }
+  .zy-tl { list-style: none; margin: 0; padding: 0; max-height: 260px; overflow: auto; font-size: 11.5px; }
+  .zy-tl li { display: grid; grid-template-columns: 42px 74px 1fr; gap: 6px; padding: 4px 0; border-bottom: 1px solid #ffffff08; } .zy-tl time { color: #71717a; } .zy-tl em { font-style: normal; font-weight: 800; font-size: 10px; }
+  .zy-tl .aprovada em, .zy-tl .aberta em { color: #4ade80; } .zy-tl .vetada em { color: #f87171; } .zy-tl .descartada em { color: #fbbf24; } .zy-tl .fechada em { color: #93c5fd; } .zy-tl .erro em { color: #f87171; } .zy-tl .oportunidade em { color: #c4b5fd; }
   .ai-tools button:hover { color: var(--ink); border-color: #3a3a3a; }
   .ai-dec.wait2 { background: #f59e0b1a; color: #fbbf24; border: 1px solid #f59e0b55; }
   .fx-sub { margin-top: 6px; font-size: 12px; font-weight: 600; opacity: .9; text-align: left; line-height: 1.4; }
@@ -193,7 +204,7 @@
         <aside class="ai" aria-live="polite">
           <div class="ai-head"><span>IA · ENTRADA M5</span><small id="ai-src"></small></div>
           <div class="fx-hz" id="ai-hz" hidden role="group" aria-label="Horizonte da análise"><button type="button" data-h="curto">Day trade<small>H1 → M1 · minutos a horas</small></button><button type="button" data-h="swing">Swing trade<small>D1 → M15 · dias</small></button></div><button id="ai-go" class="ai-go" type="button">Pedir entrada à IA</button><button id="ai-live" class="fx-mini" type="button" hidden title="Reanalisa sozinho a cada minuto, com a vela de 1 minuto mais recente fechada">● Ao vivo: desligado</button>
-          <div class="ai-tools" id="ai-tools" hidden><button id="ai-prof" type="button" hidden>Perfil</button><button id="ai-scan" type="button" hidden>Varrer</button><button id="ai-agent" type="button" hidden>Agente</button><button id="ai-hist" type="button">Histórico</button><button id="ai-bt" type="button" hidden>Backtest</button></div>
+          <div class="ai-tools" id="ai-tools" hidden><button id="ai-prof" type="button" hidden>Perfil</button><button id="ai-scan" type="button" hidden>Varrer</button><button id="ai-agent" type="button" hidden>Agente</button><button id="ai-zyon" type="button">✦ Zyon · Mesa de agentes</button><button id="ai-hist" type="button">Histórico</button><button id="ai-bt" type="button" hidden>Backtest</button></div>
           <div class="ag-strip" id="ag-strip" hidden></div>
           <div id="ai-out" class="ai-out"><p class="ai-hint">Escolha o mercado e peça a leitura. A IA usa as velas reais de 5 minutos, indicadores (EMA, RSI, ATR) e o calendário de notícias.</p></div>
         </aside>
@@ -1225,6 +1236,57 @@
   const hmBrt = (t) => new Date(t * 1000).toLocaleTimeString("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" });
   const minToTime = (m) => String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
   const timeToMin = (v) => { const [h, m] = String(v).split(":").map(Number); return (h || 0) * 60 + (m || 0); };
+  // ---------- ZYON AI TRADING FLOOR: especialistas → Master → News → Risk Guard (veto) → execução SIMULADA → Brain ----------
+  let zyonTimer = null;
+  const ZST = { dormindo: "DORMINDO", analisando: "ANALISANDO", sem_setup: "SEM SETUP", aguardando: "AGUARDANDO", oportunidade: "OPORTUNIDADE", em_operacao: "EM OPERAÇÃO", erro: "ERRO" };
+  const ZWHO = { ESPECIALISTA: "Especialista", MASTER: "Master", NEWS: "News", RISK: "Risk Guard", EXEC: "Execução", BRAIN: "Brain", SISTEMA: "Sistema" };
+  const zhm = (sec) => new Date(sec * 1000).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" });
+  const zR = (v) => (v === null || v === undefined ? "—" : `${v >= 0 ? "+" : ""}${Number(v).toFixed(2)}R`);
+  async function zyonFetch(cycle) {
+    const r = await fetch(cycle ? "/api/agent?action=zyon-cycle" : "/api/agent?action=zyon", { method: cycle ? "POST" : "GET" });
+    const d = await r.json().catch(() => ({ error: `Erro ${r.status}` }));
+    if (!r.ok) throw new Error(d.error || `Erro ${r.status}`);
+    return d;
+  }
+  async function renderZyon(cycle) {
+    clearInterval(aiTimer); clearInterval(zyonTimer);
+    if (!aiOut.querySelector(".zy-root")) { aiOut.innerHTML = ""; aiOut.append(el("p", "ai-hint", "Abrindo a mesa Zyon…")); }
+    let d;
+    try { d = await zyonFetch(cycle); } catch (e) { aiOut.innerHTML = ""; aiOut.append(el("div", "fx-warn", "Zyon indisponível: " + (e.message === "Failed to fetch" ? "sem conexão com o servidor." : e.message))); return; }
+    aiOut.innerHTML = "";
+    const root = el("div", "zy-root"); aiOut.append(root);
+    const head = el("div", "zy-head"); head.append(el("b", "", "ZYON · MESA DE AGENTES"), el("span", "zy-mode", d.mode));
+    root.append(head, el("div", "ai-hint", d.note));
+    if (d.cycleNote && !d.ran) root.append(el("div", "fx-note", d.cycleNote));
+    const btn = el("button", "fx-btn", d.nextIn > 0 ? `Próximo ciclo liberado em ${d.nextIn}s` : "▶ Rodar ciclo agora");
+    btn.type = "button"; btn.disabled = d.nextIn > 0; btn.onclick = async () => { btn.disabled = true; btn.textContent = "Rodando ciclo… (especialistas analisando)"; await renderZyon(true); };
+    root.append(kv([["Último ciclo", d.lastCycle ? `${zhm(d.lastCycle)} (Brasília) · ${d.cycles} ciclo(s) no total` : "nenhum ainda"], ["Ativos", d.pairs.map((p) => p.slice(0, 3) + "/" + p.slice(3)).join(" · ") + " · day trade M5"]]), btn);
+    const flow = el("div", "zy-flow");
+    ["Especialistas", "→", "Master", "→", "News", "→", "Risk Guard", "→", "Execução simulada", "→", "Brain"].forEach((t) => { if (t === "→") flow.append(document.createTextNode("→")); else { const s = el("span", t === "Risk Guard" ? "veto" : "", t); flow.append(s); } });
+    root.append(flow);
+    const ag = el("div", "zy-agents");
+    (d.agents.length ? d.agents : d.pairs.map((p) => ({ label: p.slice(0, 3) + "/" + p.slice(3), status: "dormindo", text: "Aguardando o primeiro ciclo.", score: null }))).forEach((a) => {
+      const c = el("div", "zy-agent"); c.append(el("b", "", "Especialista " + a.label), el("span", "zy-st " + a.status, ZST[a.status] || a.status));
+      if (a.score !== null && a.score !== undefined) c.append(el("p", "", `Confluência ${a.score}`));
+      c.append(el("p", "", a.text)); ag.append(c);
+    });
+    root.append(sec("ESPECIALISTAS POR ATIVO", ag));
+    if (d.open.length) root.append(sec("POSIÇÕES SIMULADAS ABERTAS", ul(d.open.map((p) => `${p.label} ${p.dir === "BUY" ? "COMPRA" : "VENDA"} · entrada ${p.entry} · stop ${p.sl} · alvo ${p.tps[0]} · desde ${zhm(p.at)} · ${p.strategy}`), "fx-list")));
+    const tl = el("ul", "zy-tl");
+    d.events.slice(0, 60).forEach((e) => { const li = el("li", e.kind); li.append(el("time", "", zhm(e.at)), el("em", "", (ZWHO[e.who] || e.who).toUpperCase()), el("span", "", e.text)); tl.append(li); });
+    root.append(sec("LINHA DO TEMPO DAS DECISÕES", d.events.length ? tl : el("div", "fx-note", "Nenhum ciclo rodou ainda. Clique em Rodar ciclo agora.")));
+    const b = d.brain, x = b.executed;
+    root.append(sec("ZYON BRAIN · O QUE OS NÚMEROS DIZEM", kv([
+      ["Operações simuladas", `${x.n} fechadas · ${d.open.length} abertas · acerto ${x.winRate === null ? "—" : Math.round(x.winRate * 100) + "%"}`],
+      ["Resultado (com custos)", `${zR(x.sumR)} · ${zR(x.expectancy)} por operação`],
+      ["Efeito do Risk Guard", b.vetoN ? `${b.vetoN} vetadas acompanhadas: teriam dado ${zR(b.vetoEffectR)} (${b.vetoEffectR < 0 ? "o veto evitou perda" : b.vetoEffectR > 0 ? "o veto custou ganho" : "neutro"})` : "nenhuma vetada fechada ainda"],
+      ["Veredito", b.verdict],
+    ]), ul(b.suggestions, "fx-list"), el("div", "ai-foot", "O Brain só mede e sugere. Regras de risco são fixas no código e só mudam por decisão humana.")));
+    root.append(sec("RISK GUARD · REGRAS FIXAS", ul([`Confluência mínima ${d.rules.minScore} · R:R mínimo ${d.rules.minRR}`, `Até ${d.rules.maxOpen} posições abertas · ${d.rules.maxTradesDay} entradas por dia`, `Trava o dia em ${d.rules.dailyStopR}R · custo de ${d.rules.costPips} pips por operação`, "Notícia de alto impacto ou calendário fora do ar: veto", "Mesma moeda já exposta: o Master descarta (correlação)"], "fx-list")));
+    zyonTimer = setInterval(() => { if (!aiOut.querySelector(".zy-root")) { clearInterval(zyonTimer); return; } renderZyon(false); }, 30000);
+  }
+  document.getElementById("ai-zyon").onclick = () => renderZyon(false);
+
   async function agentApi(action, opts) {
     const r = await fetch("/api/agent?action=" + action, opts); const j = await r.json().catch(() => ({ error: "Erro " + r.status }));
     if (!r.ok) { const e = new Error(j.error || "Erro " + r.status); e.status = r.status; throw e; } return j;

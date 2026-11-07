@@ -5,6 +5,7 @@ import { brtDate } from "./risk2x0.js";
 import { DEFAULT_NEWS_CONFIG } from "./news.js";
 import { telegramFromEnv, type Sender } from "./telegram.js";
 import { DEFAULT_CONFIG, storeFromEnv, type AgentConfig, type Store } from "./store.js";
+import { loadState, runCycle, view as zyonView } from "../zyon/cycle.js";
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
 
@@ -64,6 +65,12 @@ export async function handleAgent(request: Request, deps: AgentDeps = {}): Promi
     if (action === "history" && request.method === "GET") return json({ days: await store.listDays(30), trades: await store.listTrades({ limit: 200 }), alerts: await store.listAlerts(100) });
     if (action === "report" && request.method === "GET") return json((await store.getKv(`report:${url.searchParams.get("date") ?? ""}`)) ?? { error: "Sem relatório para esta data." }, 200);
 
+    // ZYON: mesa multiagente SIMULADA. Leitura e ciclo são públicos (o ciclo tem intervalo mínimo e trava contra execução dupla).
+    if (action === "zyon" && request.method === "GET") return json(zyonView(await loadState(store), Math.floor((deps.now ?? Date.now)() / 1000)));
+    if (action === "zyon-cycle" && request.method === "POST") {
+      const r = await runCycle({ store, now: deps.now, series: deps.series, calendar: deps.calendar });
+      return json({ ...zyonView(r.state, Math.floor((deps.now ?? Date.now)() / 1000)), ran: r.ran, cycleNote: r.note });
+    }
     if (action === "tick" && request.method === "POST") {
       const ok = bearer(request, env, "CRON_SECRET", "AGENT_ADMIN_TOKEN");
       if (ok === "unset") return json({ error: "CRON_SECRET não configurada no servidor." }, 503);

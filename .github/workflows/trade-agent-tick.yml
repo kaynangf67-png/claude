@@ -30,3 +30,16 @@ jobs:
           action=$(grep -o '"action":"[a-z]*"' resp.json | head -1 || true)
           echo "HTTP $code ${action}"
           [ "$code" = "200" ] || exit 1
+      - name: Executar um ciclo da mesa Zyon (simulada)
+        if: always()
+        env:
+          AGENT_URL: ${{ secrets.AGENT_URL }}
+          VERCEL_BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          if [ -z "$AGENT_URL" ]; then echo "Secret AGENT_URL não configurada."; exit 1; fi
+          code=$(curl -sS -o zy.json -w "%{http_code}" --max-time 100 -X POST \
+            -H "x-vercel-protection-bypass: $VERCEL_BYPASS" \
+            "$AGENT_URL/api/agent?action=zyon-cycle")
+          ran=$(grep -o '"ran":[a-z]*' zy.json | head -1 || true)
+          echo "HTTP $code ${ran}"
+          [ "$code" = "200" ] || exit 1
