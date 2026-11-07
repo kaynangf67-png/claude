@@ -1,6 +1,6 @@
 # M1 SNIPER BOT
 
-Extensão do Google Chrome (Manifest V3) que mostra um painel flutuante sobre a Quotex para **análise de operações M1**
+Extensão do Google Chrome (Manifest V3) que mostra um painel flutuante sobre qualquer página (pensado para a Quotex) para **análise de operações M1**
 (1 minuto). Gera sinais **CALL/PUT** com pontuação de 0 a 100 e justificativa, aplica gestão de risco diária rígida e
 registra o histórico. **A execução das ordens é sempre manual**: a extensão não clica, não envia ordens e não lê dados
 internos da corretora.
@@ -36,11 +36,13 @@ resultado real com um clique.
 2. Abra `chrome://extensions` no Chrome.
 3. Ligue **Modo do desenvolvedor** (canto superior direito).
 4. Clique em **Carregar sem compactação** e selecione a pasta `m1-sniper-bot` (a que contém `manifest.json`).
-5. Abra a Quotex (`qxbroker.com`, `quotex.io` ou `quotex.com`). O painel aparece no canto superior esquerdo do gráfico.
-6. O ícone da extensão na barra do Chrome mostra/oculta o painel.
+5. Abra qualquer página (Google, Quotex, etc.). O painel aparece sobreposto no canto superior esquerdo.
+6. O ícone da extensão na barra do Chrome mostra/oculta o painel na aba atual.
 
-**Domínio espelho diferente?** Edite `content_scripts.matches` em `manifest.json`, adicione o domínio
-(ex.: `"https://*.seu-espelho.com/*"`) e clique em **Recarregar** em `chrome://extensions`.
+O painel aparece em **todas as páginas http/https**. O Chrome não permite extensões em páginas internas
+(`chrome://…`, nova guia padrão, Chrome Web Store), então lá ele não aparece. Os contadores, o bloqueio diário e o
+histórico são compartilhados entre abas; o botão ATIVAR vale por aba (cada página abre desativada).
+Para limitar a sites específicos, edite `content_scripts.matches` em `manifest.json` e clique em **Recarregar**.
 
 Para atualizar depois de baixar uma versão nova: substitua os arquivos e clique em **Recarregar** na extensão.
 
@@ -222,4 +224,4 @@ m1-sniper-bot/
 
 - `storage`: salvar configurações, contadores do dia e histórico **no seu navegador**.
 - Acesso a `data-api.binance.vision` / `api.binance.com`: baixar candles públicos. Nenhum dado seu é enviado.
-- O content script roda só nos domínios da Quotex listados no manifest e apenas desenha o painel.
+- O content script roda em todas as páginas http/https apenas para desenhar o painel; ele não lê o conteúdo das páginas.
