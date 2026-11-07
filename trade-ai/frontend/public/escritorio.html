@@ -1901,6 +1901,121 @@
     poll(); setInterval(poll, 60000);
   }
 
+  // ---------- ZYON: fileira de agentes (especialistas, Master, News, Risk Guard) com o estado REAL da mesa Zyon ----------
+  const zyAgents = [];
+  const zyHits = [];
+  (function zyonFloor() {
+    const ZY = [
+      { key: "EURUSD", name: "Especialista EUR/USD", suit: 0x1e3a8a, tie: 0x60a5fa, hair: 0x3b1f0e },
+      { key: "GBPUSD", name: "Especialista GBP/USD", suit: 0x134e4a, tie: 0x2dd4bf, hair: 0x0a0a0a },
+      { key: "USDJPY", name: "Especialista USD/JPY", suit: 0x3f3f46, tie: 0xf472b6, hair: 0x7c2d12 },
+      { key: "MASTER", name: "Master", suit: 0x4c1d95, tie: 0xfbbf24, hair: 0x0a0a0a },
+      { key: "NEWS", name: "News", suit: 0x0c4a6e, tie: 0xe5e7eb, hair: 0x52525b },
+      { key: "RISK", name: "Risk Guard", suit: 0x7f1d1d, tie: 0x0a0a0a, hair: 0x0a0a0a },
+    ];
+    const Z0 = 3.95, AZ = 3.15; // mesa encostada na parede da frente; boneco virado para a câmera
+    const deskMat = mat(0x161616, { roughness: 0.35, metalness: 0.25 });
+    const skin = mat(0xf2b88c, { roughness: 0.9 }), shoe = mat(0x040404, { roughness: 0.4 }), eyeM = mat(0x050505), shirt = mat(0xf4f4f5, { roughness: 0.8 });
+    const p = (parent, w, h, d, m, x, y, z) => { const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); b.position.set(x, y, z); b.castShadow = true; parent.add(b); return b; };
+    function label(text, color, w = 512, h = 96, size = 0.9) {
+      const cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+      const tex = new THREE.CanvasTexture(cv);
+      const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+      sp.scale.set(size, size * h / w, 1); sp.renderOrder = 11;
+      let last = "";
+      const draw = (t, c) => {
+        if (t + c === last) return; last = t + c;
+        const g = cv.getContext("2d"); g.clearRect(0, 0, w, h);
+        g.fillStyle = "#0b0b0bee"; g.strokeStyle = c; g.lineWidth = 4; g.beginPath(); g.roundRect(4, 4, w - 8, h - 8, 20); g.fill(); g.stroke();
+        g.fillStyle = c; g.textAlign = "center"; g.textBaseline = "middle";
+        let fs = 34; g.font = `700 ${fs}px Inter, system-ui, sans-serif`;
+        while (g.measureText(t).width > w - 30 && fs > 18) { fs -= 2; g.font = `700 ${fs}px Inter, system-ui, sans-serif`; }
+        g.fillText(t, w / 2, h / 2 + 1); tex.needsUpdate = true;
+      };
+      draw(text, color); sp.userData.draw = draw; return sp;
+    }
+    ZY.forEach((cfg, i) => {
+      const x = -4.5 + i * 1.0;
+      const st = new THREE.Group(); st.position.set(x, 0, 0); scene.add(st);
+      // mesa compacta com 2 monitores virados para o agente
+      p(st, 0.86, 0.04, 0.5, deskMat, 0, 0.72, Z0);
+      [-0.38, 0.38].forEach((lx) => p(st, 0.04, 0.72, 0.44, deskMat, lx, 0.36, Z0));
+      p(st, 0.86, 0.012, 0.012, M.edge, 0, 0.74, Z0 - 0.25);
+      const scr = [];
+      [-0.2, 0.2].forEach((mx, k) => {
+        p(st, 0.03, 0.18, 0.03, M.metal, mx, 0.83, Z0 + 0.08);
+        const s = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.22), new THREE.MeshBasicMaterial({ color: 0x0b1220 }));
+        s.position.set(mx, 1.0, Z0 + 0.06); s.rotation.y = Math.PI; st.add(s); scr.push(s);
+        p(st, 0.38, 0.24, 0.02, M.black, mx, 1.0, Z0 + 0.075);
+      });
+      // cadeira
+      p(st, 0.44, 0.06, 0.42, M.fabric, 0, 0.46, AZ); p(st, 0.44, 0.5, 0.06, M.fabric, 0, 0.72, AZ - 0.22);
+      // boneco (mesmo estilo do agente principal, com terno e gravata próprios), virado para a mesa (+z)
+      const man = new THREE.Group(); man.position.set(0, 0, AZ); man.rotation.y = Math.PI; st.add(man);
+      const suit = mat(cfg.suit, { roughness: 0.6 }), tie = mat(cfg.tie, { roughness: 0.7 }), hair = mat(cfg.hair, { roughness: 0.85 });
+      [-0.09, 0.09].forEach((lx) => { p(man, 0.12, 0.12, 0.34, suit, lx, 0.6, -0.12); p(man, 0.11, 0.4, 0.11, suit, lx, 0.34, -0.3); p(man, 0.12, 0.07, 0.2, shoe, lx, 0.1, -0.34); });
+      const torso = new THREE.Group(); torso.position.set(0, 0.56, 0); man.add(torso);
+      p(torso, 0.34, 0.36, 0.2, suit, 0, 0.18, 0); p(torso, 0.1, 0.3, 0.012, shirt, 0, 0.2, -0.104); p(torso, 0.045, 0.22, 0.014, tie, 0, 0.17, -0.112);
+      const head = new THREE.Group(); head.position.set(0, 0.38, 0); torso.add(head);
+      p(head, 0.27, 0.27, 0.27, skin, 0, 0.15, 0); p(head, 0.29, 0.07, 0.29, hair, 0, 0.3, 0); p(head, 0.29, 0.22, 0.07, hair, 0, 0.2, 0.125);
+      const eL = p(head, 0.035, 0.06, 0.012, eyeM, -0.055, 0.18, -0.138), eR = p(head, 0.035, 0.06, 0.012, eyeM, 0.055, 0.18, -0.138);
+      p(head, 0.07, 0.06, 0.05, skin, 0, 0.115, -0.15);
+      const arm = (ax) => { const g = new THREE.Group(); g.position.set(ax, 0.3, -0.02); torso.add(g); p(g, 0.1, 0.1, 0.46, suit, 0, 0, -0.23); p(g, 0.09, 0.09, 0.09, skin, 0, 0, -0.5); return g; };
+      const aL = arm(-0.22), aR = arm(0.22);
+      // placa com o nome e balão com o estado
+      const tag = label(cfg.name, "#e5e7eb", 512, 80, 0.95); tag.position.set(0, 1.66, AZ); st.add(tag);
+      const bub = label("Aguardando a mesa Zyon", "#a1a1aa", 512, 96, 1.05); bub.position.set(0, i % 2 ? 2.42 : 2.0, AZ); st.add(bub);
+      const glow = new THREE.PointLight(cfg.tie, 0.35, 1.6, 2); glow.position.set(0, 1.1, Z0 - 0.2); st.add(glow);
+      zyHits.push(...scr, torso.children[0]);
+      zyAgents.push({ key: cfg.key, man, torso, head, aL, aR, eL, eR, bub, scr, pose: "dormindo", phase: i * 0.7 });
+    });
+    const ZP = {
+      trabalhando: { lean: 0.08, hp: 0.05, type: 1, al: -0.16, ar: -0.16, scr: 0x0f2a1a },
+      aguardando: { lean: 0.22, hp: 0.1, type: 0.3, al: -0.16, ar: -0.16, scr: 0x2a1f05 },
+      oportunidade: { lean: 0.05, hp: -0.05, wave: 1, al: -0.16, ar: 1.25, scr: 0x0f3a1a },
+      operando: { lean: 0.1, hp: 0.02, type: 1.6, al: -0.16, ar: -0.16, scr: 0x0b2a4a },
+      vetando: { lean: -0.05, hp: -0.05, al: 0, ar: 0, alY: -1.35, arY: 1.35, scr: 0x3a0b0b },
+      aprovando: { lean: 0, hp: -0.08, al: -0.16, ar: 2.4, scr: 0x0f3a1a },
+      erro: { lean: 0.3, hp: 0.5, al: -0.4, ar: -0.4, scr: 0x3a0b0b },
+      dormindo: { lean: 0.55, hp: 0.75, al: -1.3, ar: -1.3, sleep: 1, scr: 0x050505 },
+    };
+    animators.push((t, dt) => {
+      const k = Math.min(1, dt * 5);
+      for (const a of zyAgents) {
+        const P = ZP[a.pose] || ZP.dormindo, ty = P.type ? Math.sin(t * 9 + a.phase) * 0.05 * P.type : 0;
+        a.torso.rotation.x += ((P.lean) - a.torso.rotation.x) * k; a.head.rotation.x += (P.hp - a.head.rotation.x) * k;
+        a.aL.rotation.x += (P.al + ty - a.aL.rotation.x) * k * 2;
+        a.aR.rotation.x += (P.ar + (P.wave ? Math.sin(t * 7 + a.phase) * 0.25 : -ty) - a.aR.rotation.x) * k * 2;
+        a.aL.rotation.y += ((P.alY || 0) - a.aL.rotation.y) * k; a.aR.rotation.y += ((P.arY || 0) - a.aR.rotation.y) * k;
+        a.eL.scale.y = a.eR.scale.y = P.sleep ? 0.2 : 1;
+      }
+    });
+    // estado REAL vindo da mesa Zyon (o mesmo que o painel mostra)
+    const SPEC = { dormindo: ["dormindo", "Zzz… mercado fechado", "#a1a1aa"], analisando: ["trabalhando", "Analisando…", "#4ade80"], sem_setup: ["trabalhando", "Sem setup agora", "#a1a1aa"],
+      aguardando: ["aguardando", "Setup em formação", "#fbbf24"], oportunidade: ["oportunidade", "Oportunidade!", "#4ade80"], em_operacao: ["operando", "Em operação (simulada)", "#93c5fd"], erro: ["erro", "Sem dados", "#f87171"] };
+    const short = (s, n = 34) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
+    function apply(d) {
+      const evs = d.events || [], last = (who) => evs.find((e) => e.who === who);
+      const closed = (d.agents || []).every((a) => a.status === "dormindo");
+      for (const a of zyAgents) {
+        let pose = "dormindo", text = "Aguardando o 1º ciclo", col = "#a1a1aa";
+        if (!["MASTER", "NEWS", "RISK"].includes(a.key)) {
+          const c = (d.agents || []).find((x) => x.symbol === a.key);
+          if (c) [pose, text, col] = SPEC[c.status] || SPEC.sem_setup;
+        } else if (!d.lastCycle) { /* nenhum ciclo ainda */ }
+        else if (closed) { pose = "dormindo"; text = "Zzz… mercado fechado"; }
+        else if (a.key === "MASTER") { const e = last("MASTER"); pose = "trabalhando"; col = e && e.kind === "descartada" ? "#fbbf24" : "#c4b5fd"; text = e ? (e.kind === "descartada" ? "Descartou " + (e.symbol || "") : e.text.startsWith("Nenhum") ? "Nenhuma entrada no ciclo" : "Encaminhou " + (e.symbol || "")) : "Coordenando"; }
+        else if (a.key === "NEWS") { const e = last("NEWS"); const recent = e && d.lastCycle - e.at < 600; pose = recent ? "erro" : "trabalhando"; text = recent ? "Calendário indisponível" : "Calendário verificado"; col = recent ? "#f87171" : "#93c5fd"; }
+        else if (a.key === "RISK") { const e = evs.find((x) => x.who === "RISK" && d.lastCycle - x.at < 600); pose = e ? (e.kind === "vetada" ? "vetando" : "aprovando") : "trabalhando"; text = e ? (e.kind === "vetada" ? "VETOU " : "APROVOU ") + (e.symbol || "").replace(/(...)(...)/, "$1/$2") : "De olho no risco"; col = e ? (e.kind === "vetada" ? "#f87171" : "#4ade80") : "#a1a1aa"; }
+        a.pose = pose; a.bub.userData.draw(short(text), col);
+        const P = ZP[pose] || ZP.dormindo; a.scr.forEach((s) => s.material.color.setHex(P.scr));
+      }
+    }
+    const poll = async () => { try { const r = await fetch("/api/agent?action=zyon"); if (r.ok) apply(await r.json()); } catch { /* sem servidor: ficam dormindo */ } };
+    poll(); setInterval(poll, 60000);
+    window.__zyApply = apply; // usado pela mesa Zyon do painel para atualizar os bonecos na hora
+  })();
+
   // ---------- outros móveis ----------
   // servidor com luzes
   box(0.7, 2.0, 0.6, mat(0x0a0a0a, { metalness: 0.4, roughness: 0.4 }), -W / 2 + 0.5, 1.0, -D / 2 + 0.45);
@@ -2055,7 +2170,8 @@
     const r = canvas.getBoundingClientRect();
     ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
     ray.setFromCamera(ndc, camera);
-    const hitTv = ray.intersectObjects([tvMesh, calMesh, ...screenMeshes])[0];
+    const hitZy = ray.intersectObjects(zyHits)[0], hitTv = ray.intersectObjects([tvMesh, calMesh, ...screenMeshes])[0];
+    if (hitZy && (!hitTv || hitZy.distance < hitTv.distance)) return { zyon: true };
     if (!hitTv) return null;
     if (hitTv.object.userData.monitor !== undefined) return { monitor: hitTv.object.userData.monitor };
     if (hitTv.object === calMesh) return { screen: "cal" };
@@ -2303,6 +2419,7 @@
     if (!aiOut.querySelector(".zy-root")) { aiOut.innerHTML = ""; aiOut.append(el("p", "ai-hint", "Abrindo a mesa Zyon…")); }
     let d;
     try { d = await zyonFetch(cycle); } catch (e) { aiOut.innerHTML = ""; aiOut.append(el("div", "fx-warn", "Zyon indisponível: " + (e.message === "Failed to fetch" ? "sem conexão com o servidor." : e.message))); return; }
+    if (window.__zyApply) window.__zyApply(d);
     aiOut.innerHTML = "";
     const root = el("div", "zy-root"); aiOut.append(root);
     const head = el("div", "zy-head"); head.append(el("b", "", "ZYON · MESA DE AGENTES"), el("span", "zy-mode", d.mode));
@@ -2728,7 +2845,8 @@
     if (!down || Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) return;
     const t = newsAt(e); if (!t) return;
     // manchete abre a notícia; qualquer outro ponto de um telão leva a câmera para a frente dele
-    if (t.monitor !== undefined) openPc(t.monitor);
+    if (t.zyon) { const i = picks.findIndex((x) => isForex(x)); openPc(i >= 0 ? i : 0); renderZyon(false); }
+    else if (t.monitor !== undefined) openPc(t.monitor);
     else if (t.news) openNews(t.news); else { setSpin(false); go(t.screen); }
   });
   canvas.addEventListener("pointermove", (e) => { if (e.pointerType === "mouse" && !e.buttons) canvas.style.cursor = newsAt(e) ? "pointer" : ""; });
