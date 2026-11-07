@@ -190,7 +190,7 @@
         <div class="pc-chart" id="pc-chart"></div>
         <aside class="ai" aria-live="polite">
           <div class="ai-head"><span>IA · ENTRADA M5</span><small id="ai-src"></small></div>
-          <div class="fx-hz" id="ai-hz" hidden role="group" aria-label="Horizonte da análise"><button type="button" data-h="curto">Curto prazo<small>M5 · minutos</small></button><button type="button" data-h="swing">Swing<small>H1/D1 · dias</small></button></div><button id="ai-go" class="ai-go" type="button">Pedir entrada à IA</button><button id="ai-live" class="fx-mini" type="button" hidden title="Reanalisa sozinho a cada minuto, com a vela de 1 minuto mais recente fechada">● Ao vivo: desligado</button>
+          <div class="fx-hz" id="ai-hz" hidden role="group" aria-label="Horizonte da análise"><button type="button" data-h="curto">Day trade<small>H1 → M1 · minutos a horas</small></button><button type="button" data-h="swing">Swing trade<small>D1 → M15 · dias</small></button></div><button id="ai-go" class="ai-go" type="button">Pedir entrada à IA</button><button id="ai-live" class="fx-mini" type="button" hidden title="Reanalisa sozinho a cada minuto, com a vela de 1 minuto mais recente fechada">● Ao vivo: desligado</button>
           <div class="ai-tools" id="ai-tools" hidden><button id="ai-prof" type="button">Perfil</button><button id="ai-scan" type="button">Varrer</button><button id="ai-agent" type="button">Agente</button><button id="ai-hist" type="button">Histórico</button><button id="ai-bt" type="button">Backtest</button></div>
           <div class="ag-strip" id="ag-strip" hidden></div>
           <div id="ai-out" class="ai-out"><p class="ai-hint">Escolha o mercado e peça a leitura. A IA usa as velas reais de 5 minutos, indicadores (EMA, RSI, ATR) e o calendário de notícias.</p></div>
@@ -2190,7 +2190,7 @@
     if (horizon === b.dataset.h) return;
     horizon = b.dataset.h; try { localStorage.setItem("ta-horizon", horizon); } catch {}
     paintHz(); aiOut.innerHTML = "";
-    aiOut.append(el("p", "ai-hint", horizon === "swing" ? "Swing: operação que pode durar dias. Contexto no D1, estrutura no H4, setup no H1 e gatilho no M15. Clique em Pedir entrada à IA." : "Curto prazo: operação de minutos até ~1 hora. Contexto no H1, estrutura no M15, setup no M5 e gatilho no M1. Clique em Pedir entrada à IA."));
+    aiOut.append(el("p", "ai-hint", horizon === "swing" ? "Swing trade: operação que pode durar dias. Contexto no D1, estrutura no H4, setup no H1 e gatilho no M15. Clique em Pedir entrada à IA." : "Day trade: operação de minutos até ~1 hora. Contexto no H1, estrutura no M15, setup no M5 e gatilho no M1. Clique em Pedir entrada à IA."));
   }));
   paintHz();
   function syncForex() { const f = isForex(picks[pcIdx]); aiBox.classList.toggle("wide", f); aiTools.hidden = !f; document.getElementById("ai-hz").hidden = !f; document.getElementById("ai-live").hidden = !f; if (!f && typeof setLive === "function") setLive(false); if (f) startStrip(); else { clearInterval(stripTimer); stripEl.hidden = true; } document.querySelector(".ai-head span").textContent = f ? "ANÁLISE TÉCNICA FOREX" : "IA · ENTRADA M5"; }
@@ -2473,7 +2473,7 @@
     const RT = d.roleTf || { ctx: "H1", struct: "M15", setup: "M5", trigger: "M1" }, S = RT.setup, G = RT.trigger, swing = d.horizon === "swing";
     const f = (v) => (v === null || v === undefined ? "—" : Number(v).toFixed(d.symbol.includes("JPY") ? 3 : 5));
     document.getElementById("ai-src").textContent = "Yahoo · pode atrasar";
-    aiOut.append(el("div", "fx-top")); aiOut.lastChild.append(el("span", "", `${d.label} · ${swing ? "SWING · " : ""}${S} · ${d.atBrt} (Brasília)`), el("span", "", `Preço ${f(d.price)}`));
+    aiOut.append(el("div", "fx-top")); aiOut.lastChild.append(el("span", "", `${d.label} · ${swing ? "SWING TRADE" : "DAY TRADE"} · ${S} · ${d.atBrt} (Brasília)`), el("span", "", `Preço ${f(d.price)}`));
     aiOut.append(el("div", "ai-hint", profileLine()));
     const early = d.state === "entrada_antecipada";
     const confirmed = d.state === "entrada_confirmada" || early, waiting = d.state === "aguardando_confirmacao";
@@ -2542,7 +2542,7 @@
 
   async function runForex(asset) {
     aiGo.disabled = true; aiGo.textContent = "Analisando…"; aiCool = Date.now() + 15000;
-    aiOut.innerHTML = ""; aiOut.append(el("p", "ai-hint", horizon === "swing" ? "Swing: buscando velas de D1, H4, H1 e M15, calculando estrutura, regiões e filtros…" : "Buscando velas de H1, M15, M5 e M1, calculando estrutura, regiões e filtros…"));
+    aiOut.innerHTML = ""; aiOut.append(el("p", "ai-hint", horizon === "swing" ? "Swing trade: buscando velas de D1, H4, H1 e M15, calculando estrutura, regiões e filtros…" : "Day trade: buscando velas de H1, M15, M5 e M1, calculando estrutura, regiões e filtros…"));
     try {
       const r = await fetch("/api/forex", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ asset, profile, history: patternStats(), horizon }) });
       const d = await r.json().catch(() => ({ error: `Erro ${r.status}` }));
