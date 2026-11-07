@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "M1 SNIPER BOT",
+  "version": "1.0.0",
+  "description": "Painel de análise M1 (EMA, RSI, ADX, Bollinger, Price Action) com sinais CALL/PUT, gestão de risco diária e execução manual.",
+  "icons": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
+  "action": { "default_title": "M1 SNIPER BOT — mostrar/ocultar painel", "default_icon": { "16": "icons/icon16.png", "48": "icons/icon48.png" } },
+  "background": { "service_worker": "src/background/service-worker.js" },
+  "permissions": ["storage"],
+  "host_permissions": ["https://data-api.binance.vision/*", "https://api.binance.com/*"],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://qxbroker.com/*", "https://*.qxbroker.com/*",
+        "https://quotex.io/*", "https://*.quotex.io/*",
+        "https://quotex.com/*", "https://*.quotex.com/*"
+      ],
+      "js": [
+        "src/core/indicators.js",
+        "src/core/patterns.js",
+        "src/core/engine.js",
+        "src/core/risk.js",
+        "src/core/stats.js",
+        "src/core/history.js",
+        "src/core/settings.js",
+        "src/data/binance.js",
+        "src/content/controller.js",
+        "src/ui/panel-styles.js",
+        "src/ui/panel.js",
+        "src/content/main.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ]
+}

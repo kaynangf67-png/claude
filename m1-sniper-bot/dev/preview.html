@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>M1 SNIPER BOT — pré-visualização (dados sintéticos)</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0b1020; font-family: system-ui, sans-serif; color: #8794b0; }
+  #chart { position: fixed; inset: 0; width: 100%; height: 100%; }
+  .tag { position: fixed; left: 12px; bottom: 10px; font-size: 12px; background: rgba(234,57,67,.15); color: #ff9aa1; padding: 4px 8px; border-radius: 6px; }
+</style>
+</head>
+<body>
+<canvas id="chart"></canvas>
+<div class="tag">PRÉ-VISUALIZAÇÃO · dados sintéticos · não é a Quotex · não é mercado real</div>
+<script src="../src/core/indicators.js"></script>
+<script src="../src/core/patterns.js"></script>
+<script src="../src/core/engine.js"></script>
+<script src="../src/core/risk.js"></script>
+<script src="../src/core/stats.js"></script>
+<script src="../src/core/history.js"></script>
+<script src="../src/core/settings.js"></script>
+<script src="../src/data/binance.js"></script>
+<script src="../src/content/controller.js"></script>
+<script src="../src/ui/panel-styles.js"></script>
+<script src="../src/ui/panel.js"></script>
+<script src="./synthetic-browser.js"></script>
+<script>
+(async function () {
+  const M = window.M1;
+  const q = new URLSearchParams(location.search);
+  const scenario = q.get('scenario') || 'signal';
+  if (q.get('reset') !== null) localStorage.clear();
+
+  // Série sintética alinhada ao relógio: o "agora" virtual cai 1,5s após o fechamento de um candle com sinal.
+  const base = Math.floor(Date.now() / 60000) * 60000 - 3000 * 60000;
+  const series = M1Synthetic.generate(4500, { seed: Number(q.get('seed') || 3), startTime: base, start: 64000, vol: 0.0006 });
+  const ind = M.Engine.computeIndicators(series);
+  let idx = 2400;
+  if (scenario !== 'idle') { for (let i = 2400; i < series.length - 5; i++) if (M.Engine.evaluateAt(series, ind, i).signal) { idx = i; break; } }
+  const offset = series[idx].time + 60000 + 1500 - Date.now();
+  const now = () => Date.now() + offset;
+
+  const storage = {
+    get: async (keys) => Object.fromEntries(keys.filter((k) => localStorage.getItem(k) != null).map((k) => [k, JSON.parse(localStorage.getItem(k))])),
+    set: async (o) => { for (const k in o) localStorage.setItem(k, JSON.stringify(o[k])); },
+  };
+  const feed = {
+    fetchKlines: async (_s, limit) => series.filter((c) => c.time <= now()).slice(-limit).map((c) => Object.assign({ closeTime: c.time + 59999 }, c)),
+  };
+
+  // Cenários de demonstração (só nesta página)
+  const K = M.Controller.KEYS;
+  if (scenario === 'locked' || scenario === 'history') {
+    const t0 = now();
+    const trades = Array.from({ length: 14 }, (_, i) => ({
+      id: 'demo' + i, asset: ['BTCUSDT', 'ETHUSDT', 'SOLUSDT'][i % 3], direction: i % 2 ? 'PUT' : 'CALL', score: 72 + (i * 3) % 20,
+      stake: 10, currency: 'R$', accountMode: 'DEMO', entryTime: t0 - (14 - i) * 7 * 60000, result: [0, 3, 6, 10].includes(i) ? 'LOSS' : 'GREEN',
+    }));
+    const risk = Object.assign(M.Risk.createState(t0), scenario === 'locked' ? { greens: 4, losses: 3, stakeCap: 10 } : { greens: 6, losses: 1, stakeCap: 10 });
+    await storage.set({ [K.history]: { signals: trades.map((t) => Object.assign({ status: 'OPERADO', feedResult: t.result, expiryTime: t.entryTime + 60000 }, t)), trades }, [K.risk]: risk });
+  }
+
+  const ctl = M.Controller.createController({ storage, feed, now, onSignal: () => {} });
+  window.ctl = ctl;
+  await ctl.init();
+  M.Panel.mount(ctl, { now });
+  if (q.get('active') !== '0' && scenario !== 'locked') ctl.setActive(true);
+  setInterval(() => ctl.tick(), 1000);
+  await ctl.fetchFeed();
+  ctl.tick();
+
+  // Gráfico de fundo (apenas ilustrativo)
+  const cv = document.getElementById('chart');
+  const g = cv.getContext('2d');
+  function draw() {
+    const dpr = window.devicePixelRatio || 1;
+    cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const cs = series.filter((c) => c.time <= now()).slice(-110);
+    const e9 = M.Indicators.ema(series.filter((c) => c.time <= now()).map((c) => c.close), 21).slice(-110);
+    const hi = Math.max(...cs.map((c) => c.high)), lo = Math.min(...cs.map((c) => c.low));
+    const W = innerWidth - 70, H = innerHeight - 60, w = W / cs.length;
+    const y = (p) => 30 + (hi - p) / (hi - lo) * H;
+    g.fillStyle = '#0b1020'; g.fillRect(0, 0, innerWidth, innerHeight);
+    g.strokeStyle = '#141c33'; g.lineWidth = 1;
+    for (let k = 0; k < 8; k++) { g.beginPath(); g.moveTo(0, 30 + k * H / 7); g.lineTo(W, 30 + k * H / 7); g.stroke(); }
+    cs.forEach((c, i) => {
+      const x = i * w + w / 2, up = c.close >= c.open;
+      g.strokeStyle = g.fillStyle = up ? '#16c784' : '#ea3943';
+      g.beginPath(); g.moveTo(x, y(c.high)); g.lineTo(x, y(c.low)); g.stroke();
+      const top = y(Math.max(c.open, c.close)), bh = Math.max(1, Math.abs(y(c.open) - y(c.close)));
+      g.fillRect(x - w * 0.35, top, w * 0.7, bh);
+    });
+    g.strokeStyle = '#f5b041'; g.beginPath(); e9.forEach((v, i) => { const x = i * w + w / 2; i ? g.lineTo(x, y(v)) : g.moveTo(x, y(v)); }); g.stroke();
+    g.fillStyle = '#5a6684'; g.font = '11px system-ui';
+    for (let k = 0; k < 8; k++) g.fillText((hi - k * (hi - lo) / 7).toFixed(2), W + 8, 34 + k * H / 7);
+  }
+  draw(); setInterval(draw, 1000); addEventListener('resize', draw);
+})();
+</script>
+</body>
+</html>
