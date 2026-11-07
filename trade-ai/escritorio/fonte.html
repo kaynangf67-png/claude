@@ -86,6 +86,7 @@
   .ai.wide { width: 440px; }
   .ai-tools { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px 8px; } .ai-tools button { flex: 1 1 22%; } .ai-tools[hidden] { display: none; }
   .ai-tools button { flex: 1; appearance: none; border: 1px solid #262626; background: #0b0b0b; color: var(--mute); border-radius: 9px; padding: 7px; font: 700 12px/1 inherit; font-family: inherit; cursor: pointer; }
+  .ai-tools button[hidden] { display: none; }
   .ai-tools button:hover { color: var(--ink); border-color: #3a3a3a; }
   .ai-dec.wait2 { background: #f59e0b1a; color: #fbbf24; border: 1px solid #f59e0b55; }
   .fx-sub { margin-top: 6px; font-size: 12px; font-weight: 600; opacity: .9; text-align: left; line-height: 1.4; }
@@ -192,7 +193,7 @@
         <aside class="ai" aria-live="polite">
           <div class="ai-head"><span>IA · ENTRADA M5</span><small id="ai-src"></small></div>
           <div class="fx-hz" id="ai-hz" hidden role="group" aria-label="Horizonte da análise"><button type="button" data-h="curto">Day trade<small>H1 → M1 · minutos a horas</small></button><button type="button" data-h="swing">Swing trade<small>D1 → M15 · dias</small></button></div><button id="ai-go" class="ai-go" type="button">Pedir entrada à IA</button><button id="ai-live" class="fx-mini" type="button" hidden title="Reanalisa sozinho a cada minuto, com a vela de 1 minuto mais recente fechada">● Ao vivo: desligado</button>
-          <div class="ai-tools" id="ai-tools" hidden><button id="ai-prof" type="button">Perfil</button><button id="ai-scan" type="button">Varrer</button><button id="ai-agent" type="button">Agente</button><button id="ai-hist" type="button">Histórico</button><button id="ai-bt" type="button">Backtest</button></div>
+          <div class="ai-tools" id="ai-tools" hidden><button id="ai-prof" type="button" hidden>Perfil</button><button id="ai-scan" type="button" hidden>Varrer</button><button id="ai-agent" type="button" hidden>Agente</button><button id="ai-hist" type="button">Histórico</button><button id="ai-bt" type="button" hidden>Backtest</button></div>
           <div class="ag-strip" id="ag-strip" hidden></div>
           <div id="ai-out" class="ai-out"><p class="ai-hint">Escolha o mercado e peça a leitura. A IA usa as velas reais de 5 minutos, indicadores (EMA, RSI, ATR) e o calendário de notícias.</p></div>
         </aside>
@@ -1143,7 +1144,7 @@
     aiOut.append(el("p", "ai-hint", horizon === "swing" ? "Swing trade: operação que pode durar dias. Contexto no D1, estrutura no H4, setup no H1 e gatilho no M15. Clique em Pedir entrada à IA." : "Day trade: operação de minutos até ~1 hora. Contexto no H1, estrutura no M15, setup no M5 e gatilho no M1. Clique em Pedir entrada à IA."));
   }));
   paintHz();
-  function syncForex() { const f = isForex(picks[pcIdx]); aiBox.classList.toggle("wide", f); aiTools.hidden = !f; document.getElementById("ai-hz").hidden = !f; document.getElementById("ai-live").hidden = !f; if (!f && typeof setLive === "function") setLive(false); if (f) startStrip(); else { clearInterval(stripTimer); stripEl.hidden = true; } document.querySelector(".ai-head span").textContent = f ? "ANÁLISE TÉCNICA FOREX" : "IA · ENTRADA M5"; }
+  function syncForex() { const f = isForex(picks[pcIdx]); aiBox.classList.toggle("wide", f); aiTools.hidden = !f; document.getElementById("ai-hz").hidden = !f; document.getElementById("ai-live").hidden = !f; if (!f && typeof setLive === "function") setLive(false); clearInterval(stripTimer); stripEl.hidden = true; document.querySelector(".ai-head span").textContent = f ? "ANÁLISE TÉCNICA FOREX" : "IA · ENTRADA M5"; }
   const DIR = { BUY: "COMPRA", SELL: "VENDA" };
   const when = (t) => new Date(t * 1000).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
   const pct = (v) => (v === null || v === undefined ? "—" : (v * 100).toFixed(1) + "%");
@@ -1166,7 +1167,7 @@
   };
   const defProfile = () => ({ pairs: FX_PAIRS.map((p) => p[0]), entryTf: "M1", context: ["M15", "H1"], maxRiskPct: 1, minRR: 1.5, strategies: STRATS.map((x) => x[0]), style: "equilibrado", balance: null });
   let profile = defProfile();
-  try { const p = JSON.parse(localStorage.getItem(PKEY)); if (p && typeof p === "object") profile = { ...profile, ...p }; } catch {}
+  // Perfil, Varrer, Agente e Backtest foram tirados da tela: a análise usa sempre o perfil padrão.
   const saveProfile = () => { try { localStorage.setItem(PKEY, JSON.stringify(profile)); } catch {} };
   const profileLine = () => `Perfil ${profile.style} · R:R mín. ${profile.minRR} · risco ${profile.maxRiskPct}% · ${profile.pairs.length} pares · ${profile.strategies.length} estratégias · entrada no ${profile.entryTf}`;
 
@@ -1424,7 +1425,6 @@
     const f = (v) => (v === null || v === undefined ? "—" : Number(v).toFixed(d.symbol.includes("JPY") ? 3 : 5));
     document.getElementById("ai-src").textContent = "Yahoo · pode atrasar";
     aiOut.append(el("div", "fx-top")); aiOut.lastChild.append(el("span", "", `${d.label} · ${swing ? "SWING TRADE" : "DAY TRADE"} · ${S} · ${d.atBrt} (Brasília)`), el("span", "", `Preço ${f(d.price)}`));
-    aiOut.append(el("div", "ai-hint", profileLine()));
     const early = d.state === "entrada_antecipada";
     const confirmed = d.state === "entrada_confirmada" || early, waiting = d.state === "aguardando_confirmacao";
     const frozen = openSignal(d.symbol, d.at);
