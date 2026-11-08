@@ -43,7 +43,9 @@
       };
     }
   }
-  window.postMessage({ __m1tap: 1, at: Date.now(), items: [], hello: true }, '*');
+  // "olá" repetido: o painel da extensão carrega depois deste script
+  const hello = () => window.postMessage({ __m1tap: 1, at: Date.now(), items: [], hello: true, ws: !!window.WebSocket?.__m1wrapped }, '*');
+  hello(); setInterval(hello, 3000);
 
   // ---------------------------------------------------------------- WebSocket (somente leitura)
   // Observa as mensagens que a página RECEBE (histórico de velas, cotações).

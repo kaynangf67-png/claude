@@ -865,7 +865,7 @@ function renderSettings(rebuild) {
   const back = button('', '← VOLTAR AO PAINEL', () => { view = 'main'; render(); });
   const histInfo = el('div', 'small ' + (lastHistory ? (lastHistory.ok ? 'ok' : 'no') : 'muted'),
     lastHistory ? `Última leitura do histórico (${lastHistory.key}): ${lastHistory.ok ? '' : 'falhou — '}${lastHistory.text}` : 'Histórico do gráfico: ainda não tentado');
-  box.replaceChildren(el('b', null, 'Calibração do automático'), cal, diag, hist, histInfo, el('b', null, 'Ajustes'), form, el('b', null, 'Validação DEMO'), stats, real, exp, back);
+  box.replaceChildren(el('div', 'small muted', `M1 SNIPER BOT versão ${chrome.runtime.getManifest().version}`), el('b', null, 'Calibração do automático'), cal, diag, hist, histInfo, el('b', null, 'Ajustes'), form, el('b', null, 'Validação DEMO'), stats, real, exp, back);
   updateSettingsStats();
   renderCalib();
 }

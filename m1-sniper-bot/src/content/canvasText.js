@@ -47,6 +47,8 @@ export function assembleRuns(items) {
 }
 
 let helloAt = 0;
+let wsHooked = false;
+export const tapInfo = () => ({ active: Date.now() - helloAt < 10_000, wsHooked });
 function ingest(rawItems) {
   const items = assembleRuns(rawItems);
   const now = Date.now();
@@ -73,7 +75,7 @@ function ingest(rawItems) {
 if (typeof window !== 'undefined') {
   window.addEventListener('message', (e) => {
     if (e.source !== window || !e.data || e.data.__m1tap !== 1 || !Array.isArray(e.data.items)) return;
-    if (e.data.hello) { helloAt = Date.now(); return; }
+    if (e.data.hello) { helloAt = Date.now(); wsHooked = !!e.data.ws; return; }
     ingest(e.data.items);
   });
 }

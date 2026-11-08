@@ -508,7 +508,7 @@ function ownText(e) {
 
 /** Diagnóstico para o usuário colar no chat: estrutura do painel de operação e do preço. */
 export function diagnostics(calib, doc = document) {
-  const lines = [`url: ${location.pathname}`];
+  const lines = [`versão da extensão: ${globalThis.chrome?.runtime?.getManifest?.().version ?? '?'}`, `url: ${location.pathname}`];
   const outline = (root, maxDepth = 9, maxLines = 220) => {
     const out = [];
     const walk = (e, d) => {

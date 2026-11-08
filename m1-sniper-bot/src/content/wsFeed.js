@@ -3,6 +3,7 @@
 // O formato exato não é documentado: o leitor reconhece velas em vários formatos
 // e valida cada uma (máxima >= abertura/fechamento >= mínima, espaçamento de 1 min).
 import { parseAsset } from './quotexPage.js';
+import { tapInfo } from './canvasText.js';
 
 const M1 = 60_000;
 const stats = { messages: 0, events: new Map(), samples: [], histories: [] };
@@ -145,7 +146,9 @@ export function onWsHistory(fn) { listeners.add(fn); return () => listeners.dele
 
 export function wsInfo() {
   const ev = [...stats.events.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12).map(([k, v]) => `${k}×${v}`).join(' ');
+  const t = tapInfo();
   return [
+    `leitor da página: ${t.active ? 'ativo' : 'NÃO ativo (recarregue a página com F5)'} · conexão observada: ${t.wsHooked ? 'sim' : 'não'}`,
     `mensagens recebidas: ${stats.messages}`,
     `tipos: ${ev || 'nenhum'}`,
     `históricos reconhecidos: ${stats.histories.join(' | ') || 'nenhum'}`,
