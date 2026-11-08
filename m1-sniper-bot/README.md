@@ -64,7 +64,8 @@ Os ajustes (nota mínima, payout, validade do sinal; o horário é sempre o de B
 
 Com a fonte **Quotex** (padrão), o bot lê o **preço ao vivo da tela** e monta as velas M1 sozinho. Assim ele analisa exatamente o gráfico que você vê, **inclusive OTC**, e sinais e AUTO funcionam também no OTC.
 
-1. Em ⚙ → Calibração, clique em **CALIBRAR** em **Preço ao vivo** e depois no **rótulo azul do preço atual**, à direita do gráfico. Calibre também **Comprar** e **Vender**.
+1. Em ⚙ → Calibração, calibre **Comprar** e **Vender**. O preço é lido sozinho: se o rótulo azul do eixo for texto, ele é usado (calibre em **Preço ao vivo**); se for desenhado no gráfico (canvas), o bot usa a **legenda do gráfico** ("Fechamento: …"). Enquanto o mouse está sobre o gráfico, a leitura pausa, porque a legenda mostra a vela apontada.
+   Se algo não for lido, use **⚙ → COPIAR DIAGNÓSTICO** e envie o texto: ele mostra só a estrutura do painel (nomes de elementos e textos visíveis).
 2. **Aquecimento**: a Quotex não fornece histórico, então o bot junta as velas enquanto a página fica aberta no ativo. Com **60 velas (~1 h)** ele já sinaliza, usando a **EMA 50** como tendência longa. Com **260 velas**, passa para a **EMA 200** da regra original.
 3. As velas ficam salvas por ativo: recarregar a página ou trocar de aba rapidamente não perde o aquecimento. Uma pausa maior que 2 minutos recomeça a contagem, porque velas faltando distorceriam os indicadores.
 4. Limitações: máximas e mínimas vêm de leituras a cada 250 ms, então podem diferir levemente das velas da Quotex. A lista de "Mercados indicados" continua usando a Binance como referência.

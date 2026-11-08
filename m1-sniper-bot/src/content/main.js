@@ -9,7 +9,7 @@ import { computeStats, realReadiness, REAL_CONFIRM_PHRASE } from '../core/stats.
 import { formatTime } from '../core/time.js';
 import { SYMBOLS, SOURCE_ID } from '../data/binance.js';
 import { QuotexFeed, feedKey } from './quotexFeed.js';
-import { detectPageMode, detectAsset, assetMatches, assetToSymbol, readAmount, readPayout, panelReadings, readPrice, makeCalib, calibReading, captureNextClick, clickDirection } from './quotexPage.js';
+import { detectPageMode, detectAsset, assetMatches, assetToSymbol, readAmount, readPayout, panelReadings, readPrice, readPriceInfo, diagnostics, makeCalib, calibReading, captureNextClick, clickDirection } from './quotexPage.js';
 
 const POLL_MS = 3000;
 const FAST_POLL_MS = 1000;           // perto da virada do minuto
@@ -23,13 +23,24 @@ let state = null;
 const feed = new QuotexFeed({ onClose: (k) => feed.persist(k) });
 let qxKey = null;
 const qxLoading = new Set();
-const quotexMode = (s = state) => !!s && s.settings.feed !== 'binance' && !!s.settings.calib?.price;
+// Fonte Quotex: padrão. Usa o rótulo calibrado ou, se não houver/for ilegível, a legenda do gráfico.
+const quotexMode = (s = state) => !!s && s.settings.feed !== 'binance';
 const qxSymbol = (key) => (key ? 'QX:' + key : null);
+// Mouse sobre o gráfico: a legenda passa a mostrar a vela apontada (não a atual).
+let pointerOverChartAt = 0;
+window.addEventListener('pointermove', (e) => {
+  if (e.composedPath().includes(hostEl)) return;
+  if (e.target instanceof HTMLCanvasElement || e.target?.closest?.('canvas')) pointerOverChartAt = Date.now();
+}, true);
+let lastPriceFrom = null;
 function qxTick() {
   if (!quotexMode()) return;
   const key = feedKey(detectAsset(state.settings.calib));
-  const price = readPrice(state.settings.calib);
-  if (!key || price == null) return;
+  const info = readPriceInfo(state.settings.calib);
+  if (!key || !info) return;
+  if (info.from === 'legenda' && Date.now() - pointerOverChartAt < 1500) return; // pausa durante o hover
+  lastPriceFrom = info.from;
+  const price = info.price;
   if (!feed.loaded.has(key)) {
     // carrega o histórico salvo deste ativo ANTES de registrar leituras novas
     if (!qxLoading.has(key)) { qxLoading.add(key); feed.ensureLoaded(key, nowMs()).finally(() => qxLoading.delete(key)); }
@@ -90,7 +101,7 @@ async function poll() {
       }
       if (state.settings.symbol !== candleSymbol) { candleSymbol = state.settings.symbol; lastAnalyzedTime = null; confirmed = preview = null; }
       candles = qxKey && qxSymbol(qxKey) === state.settings.symbol ? feed.candles(qxKey) : [];
-      if (!qxKey || (feed.loaded.has(qxKey) && nowMs() - feed.lastTickAt(qxKey) > 5000 && feed.lastTickAt(qxKey) > 0) || !readPrice(state.settings.calib)) throw new Error('Preço da Quotex não está sendo lido — recalibre o "Preço ao vivo" em ⚙');
+      if (!qxKey || (feed.loaded.has(qxKey) && nowMs() - feed.lastTickAt(qxKey) > 5000 && feed.lastTickAt(qxKey) > 0) || (!readPrice(state.settings.calib) && Date.now() - pointerOverChartAt > 1500)) throw new Error('Preço da Quotex não está sendo lido. Deixe a legenda do gráfico (Abertura/Fechamento) visível ou use ⚙ → COPIAR DIAGNÓSTICO e envie ao suporte.');
       // relógio: sincroniza pelo servidor de dados de vez em quando
       if (nowMs() - lastClockSync > 60_000) { lastClockSync = nowMs(); send({ type: 'klines', symbol: 'BTCUSDT', limit: 1 }).then((r) => { if (Number.isFinite(r.clockOffset)) clockOffset = r.clockOffset; }); }
     } else {
@@ -708,8 +719,13 @@ function renderSettings(rebuild) {
     a.href = URL.createObjectURL(new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' }));
     a.download = 'm1-sniper-historico.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   });
+  const diag = button('blue', 'COPIAR DIAGNÓSTICO', async () => {
+    const txt = diagnostics(state.settings.calib);
+    try { await navigator.clipboard.writeText(txt); showToast('Diagnóstico copiado: cole na conversa com o suporte', 'ok'); }
+    catch { window.prompt('Copie o diagnóstico (Ctrl+C):', txt); }
+  });
   const back = button('', '← VOLTAR AO PAINEL', () => { view = 'main'; render(); });
-  box.replaceChildren(el('b', null, 'Calibração do automático'), cal, el('b', null, 'Ajustes'), form, el('b', null, 'Validação DEMO'), stats, real, exp, back);
+  box.replaceChildren(el('b', null, 'Calibração do automático'), cal, diag, el('b', null, 'Ajustes'), form, el('b', null, 'Validação DEMO'), stats, real, exp, back);
   updateSettingsStats();
   renderCalib();
 }
@@ -732,7 +748,9 @@ function renderCalib() {
     let test = '';
     if (c[it.key]) {
       const rd = calibReading(c[it.key], it.key);
-      if (!rd.found) test = 'NÃO ENCONTRADO — refaça';
+      if (!rd.found && it.key === 'price') { const pi = readPriceInfo(c); test = pi ? `usando a legenda do gráfico: ${pi.price}` : 'rótulo é desenhado no gráfico (ilegível); legenda não encontrada'; }
+      else if (!rd.found && /opcional/.test(it.label)) test = 'não usado (lido do painel)';
+      else if (!rd.found) test = 'NÃO ENCONTRADO — refaça';
       else if (it.key === 'asset') { const a = detectAsset(c); test = a ? `lido "${a.label}"` : `lido "${rd.text}" (não reconhecido)`; }
       else if (it.key === 'amount') test = `lido "${rd.text}" = ${readAmount(c) ?? '?'}`;
       else if (it.key === 'price') test = `lido ${readPrice(c) ?? '?'}`;

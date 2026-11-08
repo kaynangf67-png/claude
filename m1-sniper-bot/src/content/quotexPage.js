@@ -90,7 +90,16 @@ function fieldNear(panel, labelRe, test) {
   return null;
 }
 
+let prCache = { at: 0, key: '', val: null };
 export function panelReadings(calib, doc = document) {
+  const key = (calib?.call || '') + '|' + (calib?.asset || '');
+  if (doc === document && Date.now() - prCache.at < 400 && prCache.key === key) return prCache.val;
+  const val = panelReadingsRaw(calib, doc);
+  if (doc === document) prCache = { at: Date.now(), key, val };
+  return val;
+}
+
+function panelReadingsRaw(calib, doc = document) {
   const panel = tradePanel(calib, doc);
   if (!panel) return null;
   const lv = leaves(panel);
@@ -107,10 +116,17 @@ export function panelReadings(calib, doc = document) {
   // preferindo o <input> do bloco. Evita pegar relógio, saldo ou pagamento.
   const isMoney = (t) => !/%|:/.test(t) && MONEY_LEAF_RE.test(t) && parseMoney(t) > 0;
   const isTime = (t) => TIME_LEAF_RE.test(t);
-  const inv = fieldNear(panel, /^\s*(investimento|investment|invest|amount|valor)\b/i, isMoney)
-    || lv.find((l) => isMoney(l.text) && l.el.matches('input')) || null;
-  const tl = fieldNear(panel, /^\s*(tempo|time|expira\w*|expiration|dura\w*)\b/i, isTime)
-    || lv.find((l) => isTime(l.text) && /^\s*00:/.test(l.text)) || null; // expiração < 1h
+  const INV_RE = /^\s*(investimento|investment|invest|amount|valor)\b/i;
+  const TIME_RE = /^\s*(tempo|time|expira\w*|expiration|dura\w*)\b/i;
+  const body = doc.body;
+  const inv = fieldNear(panel, INV_RE, isMoney)
+    || lv.find((l) => isMoney(l.text) && l.el.matches('input'))
+    || fieldNear(body, INV_RE, isMoney) || null;                       // rótulo fora do bloco detectado
+  const tl = fieldNear(panel, TIME_RE, isTime)
+    || lv.find((l) => isTime(l.text) && /^\s*00:/.test(l.text))
+    || fieldNear(body, TIME_RE, (t) => isTime(t) && /^\s*00:/.test(t))
+    || [...doc.querySelectorAll('input')].map((e) => ({ el: e, text: String(e.value || '') })).find((l) => isTime(l.text) && /^\s*00:/.test(l.text))
+    || null; // expiração < 1h
   let expirySec = null;
   if (tl) {
     const [, a, b, c] = tl.text.match(TIME_LEAF_RE);
@@ -299,10 +315,88 @@ export function parsePrice(text) {
   return Number.isFinite(v) && v > 0 ? v : null;
 }
 
-/** Preço ao vivo no elemento calibrado. */
-export function readPrice(calib, doc = document) {
+/**
+ * Preço ao vivo. 1º: elemento calibrado (se for texto). 2º: legenda do gráfico
+ * ("Fechamento: 75277.27"), que na Quotex é texto mesmo quando o rótulo azul
+ * do eixo é desenhado em canvas (ilegível).
+ * Retorna { price, from } ou null.
+ */
+export function readPriceInfo(calib, doc = document) {
   const el = calib?.price && resolveCalib(calib.price, doc, 'price');
-  return el ? parsePrice(readText(el)) : null;
+  const v = el ? parsePrice(readText(el)) : null;
+  if (v != null) return { price: v, from: 'rótulo' };
+  const lg = legendClose(doc);
+  if (lg != null) return { price: lg, from: 'legenda' };
+  return null;
+}
+
+export function readPrice(calib, doc = document) {
+  return readPriceInfo(calib, doc)?.price ?? null;
+}
+
+const CLOSE_RE = /^\s*(fechamento|fech\.?|close|c)\s*:?\s*([\d.,]+)?\s*$/i;
+let legendCache = null; let legendScanAt = 0;
+
+/** Valor de "Fechamento" na legenda OHLC do gráfico (sem depender de calibração). */
+export function legendClose(doc = document) {
+  const fromCache = () => {
+    const c = legendCache?.deref?.();
+    if (!c || !c.label.isConnected) return null;
+    const own = ownText(c.label).match(CLOSE_RE);
+    if (own?.[2]) return parsePrice(own[2]);
+    return c.value?.isConnected ? parsePrice(readText(c.value)) : null;
+  };
+  let v = fromCache();
+  if (v != null) return v;
+  if (Date.now() - legendScanAt < 3000) return null;
+  legendScanAt = Date.now();
+  for (const e of doc.querySelectorAll('body *')) {
+    if (e.closest('#m1-sniper-bot-host')) continue;
+    const m = ownText(e).match(CLOSE_RE);
+    if (!m || /^c$/i.test(m[1]) && !m[2]) continue;
+    let valueEl = null;
+    if (!m[2]) {
+      // valor no próximo elemento (irmão ou célula seguinte)
+      valueEl = e.nextElementSibling || e.parentElement?.nextElementSibling || null;
+      if (!valueEl || parsePrice(readText(valueEl)) == null) continue;
+    }
+    legendCache = new WeakRef({ label: e, value: valueEl });
+    v = fromCache();
+    if (v != null) return v;
+  }
+  return null;
+}
+
+function ownText(e) {
+  return [...e.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join(' ').trim();
+}
+
+/** Diagnóstico para o usuário colar no chat: estrutura do painel de operação e do preço. */
+export function diagnostics(calib, doc = document) {
+  const lines = [`url: ${location.pathname}`];
+  const outline = (root, maxDepth = 9, maxLines = 220) => {
+    const out = [];
+    const walk = (e, d) => {
+      if (out.length >= maxLines || d > maxDepth || e.id === 'm1-sniper-bot-host') return;
+      const cls = typeof e.className === 'string' ? e.className.trim().split(/\s+/).slice(0, 3).join('.') : '';
+      const own = ownText(e).slice(0, 40);
+      const val = e.matches('input, textarea') ? ` value="${String(e.value).slice(0, 30)}"` : '';
+      out.push(`${'  '.repeat(d)}${e.tagName.toLowerCase()}${cls ? '.' + cls : ''}${own ? ` "${own}"` : ''}${val}`);
+      for (const k of e.children) walk(k, d + 1);
+    };
+    walk(root, 0);
+    return out;
+  };
+  const btn = calib?.call && resolveCalib(calib.call, doc, 'call');
+  if (btn) {
+    let box = btn; for (let i = 0; i < 6 && box.parentElement && box.parentElement !== doc.body; i++) box = box.parentElement;
+    lines.push('--- painel de operação (a partir do botão Comprar) ---', ...outline(box));
+  } else lines.push('botão Comprar não encontrado');
+  const pc = calib?.price ? (() => { try { return JSON.parse(calib.price); } catch { return { sel: calib.price }; } })() : null;
+  lines.push('--- preço calibrado ---', pc ? `tag=${pc.tag} classes=${(pc.cls || []).join('.')} texto="${pc.text}"` : 'não calibrado');
+  const lg = legendClose(doc);
+  lines.push(`legenda Fechamento: ${lg ?? 'não encontrada'}`);
+  return lines.join('\n');
 }
 
 const looksRight = {
