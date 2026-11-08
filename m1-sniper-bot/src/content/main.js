@@ -1,6 +1,6 @@
 // Painel flutuante SOBRE o gráfico + laço de análise M1.
 // Não executa ordens: mostra a confirmação para a PRÓXIMA vela (expiração 1 min).
-import { analyze, REQUIRED_CANDLES } from '../core/engine.js';
+import { analyze, REQUIRED_CANDLES, WARMUP_LONG_EMA, WARMUP_REQUIRED } from '../core/engine.js';
 import { closedOnly, mergeCandles, M1_MS } from '../core/validate.js';
 import { outcomeOf } from '../core/backtest.js';
 import { canSignal, autoArmed, calibComplete, AUTO_ENTRY_WINDOW_MS } from '../core/state.js';
@@ -8,7 +8,8 @@ import { DAILY_GREEN_TARGET, DAILY_LOSS_LIMIT, LOCK_MESSAGES } from '../core/ris
 import { computeStats, realReadiness, REAL_CONFIRM_PHRASE } from '../core/stats.js';
 import { formatTime } from '../core/time.js';
 import { SYMBOLS, SOURCE_ID } from '../data/binance.js';
-import { detectPageMode, detectAsset, assetMatches, assetToSymbol, readAmount, readPayout, panelReadings, makeCalib, calibReading, captureNextClick, clickDirection } from './quotexPage.js';
+import { QuotexFeed, feedKey } from './quotexFeed.js';
+import { detectPageMode, detectAsset, assetMatches, assetToSymbol, readAmount, readPayout, panelReadings, readPrice, makeCalib, calibReading, captureNextClick, clickDirection } from './quotexPage.js';
 
 const POLL_MS = 3000;
 const FAST_POLL_MS = 1000;           // perto da virada do minuto
@@ -18,6 +19,26 @@ const STALE_MS = 2.5 * M1_MS;
 let clockOffset = 0;
 const nowMs = () => Date.now() + clockOffset;
 let state = null;
+// ---- Fonte "Quotex": velas montadas com o preço ao vivo lido da tela
+const feed = new QuotexFeed({ onClose: (k) => feed.persist(k) });
+let qxKey = null;
+const qxLoading = new Set();
+const quotexMode = (s = state) => !!s && s.settings.feed !== 'binance' && !!s.settings.calib?.price;
+const qxSymbol = (key) => (key ? 'QX:' + key : null);
+function qxTick() {
+  if (!quotexMode()) return;
+  const key = feedKey(detectAsset(state.settings.calib));
+  const price = readPrice(state.settings.calib);
+  if (!key || price == null) return;
+  if (!feed.loaded.has(key)) {
+    // carrega o histórico salvo deste ativo ANTES de registrar leituras novas
+    if (!qxLoading.has(key)) { qxLoading.add(key); feed.ensureLoaded(key, nowMs()).finally(() => qxLoading.delete(key)); }
+    qxKey = key;
+    return;
+  }
+  feed.tick(key, price, nowMs());
+  qxKey = key;
+}
 let candles = [];
 let candleSymbol = null;
 let conn = { status: 'connecting', error: null };
@@ -60,14 +81,28 @@ async function poll() {
   clearTimeout(pollTimer);
   try {
     if (!state) return;
-    await followOpenedMarket();
     await syncPayout();
-    const sym = state.settings.symbol;
-    if (sym !== candleSymbol) { candles = []; candleSymbol = sym; lastAnalyzedTime = null; confirmed = preview = null; }
-    const res = await send({ type: 'klines', symbol: sym, limit: candles.length >= REQUIRED_CANDLES ? 5 : 500 });
-    if (res.error) throw new Error(res.error);
-    if (Number.isFinite(res.clockOffset)) clockOffset = res.clockOffset;
-    candles = mergeCandles(candles, res.candles, 600);
+    if (quotexMode()) {
+      // Fonte = preço da tela da Quotex (o mesmo gráfico do usuário, inclusive OTC).
+      const want = qxSymbol(qxKey);
+      if (want && want !== state.settings.symbol && !state.openTrade && !state.activeSignal) {
+        await dispatch({ type: 'SET_SETTINGS', value: { symbol: want } });
+      }
+      if (state.settings.symbol !== candleSymbol) { candleSymbol = state.settings.symbol; lastAnalyzedTime = null; confirmed = preview = null; }
+      candles = qxKey && qxSymbol(qxKey) === state.settings.symbol ? feed.candles(qxKey) : [];
+      if (!qxKey || (feed.loaded.has(qxKey) && nowMs() - feed.lastTickAt(qxKey) > 5000 && feed.lastTickAt(qxKey) > 0) || !readPrice(state.settings.calib)) throw new Error('Preço da Quotex não está sendo lido — recalibre o "Preço ao vivo" em ⚙');
+      // relógio: sincroniza pelo servidor de dados de vez em quando
+      if (nowMs() - lastClockSync > 60_000) { lastClockSync = nowMs(); send({ type: 'klines', symbol: 'BTCUSDT', limit: 1 }).then((r) => { if (Number.isFinite(r.clockOffset)) clockOffset = r.clockOffset; }); }
+    } else {
+      await followOpenedMarket();
+      const sym = state.settings.symbol;
+      if (sym !== candleSymbol || sym.startsWith('QX:')) { candles = []; candleSymbol = sym; lastAnalyzedTime = null; confirmed = preview = null; }
+      if (sym.startsWith('QX:')) { await dispatch({ type: 'SET_SETTINGS', value: { symbol: 'BTCUSDT' } }); return; }
+      const res = await send({ type: 'klines', symbol: sym, limit: candles.length >= REQUIRED_CANDLES ? 5 : 500 });
+      if (res.error) throw new Error(res.error);
+      if (Number.isFinite(res.clockOffset)) clockOffset = res.clockOffset;
+      candles = mergeCandles(candles, res.candles, 600);
+    }
     conn = { status: 'ok', error: null };
     await onData();
     await autoRecordResult();
@@ -82,6 +117,7 @@ async function poll() {
   }
 }
 
+let lastClockSync = 0;
 const isMinuteTurn = () => { const sec = new Date(nowMs()).getSeconds(); return sec >= 1 && sec <= 3 && nowMs() - lastScanAt > 4000; };
 
 /** Se o usuário abriu na Quotex um mercado coberto, o bot passa a analisar esse mercado. */
@@ -121,6 +157,7 @@ async function runScan() {
       const have = scanCandles.get(sym) || [];
       const res = await send({ type: 'klines', symbol: sym, limit: have.length >= REQUIRED_CANDLES ? 3 : 400 });
       if (res.error) continue;
+      if (Number.isFinite(res.clockOffset)) clockOffset = res.clockOffset;
       const cs = mergeCandles(have, res.candles, 450);
       scanCandles.set(sym, cs);
       const now = nowMs();
@@ -151,7 +188,7 @@ async function tryAutoEntry(sig) {
   const asset = detectAsset(calib);
   const res = await dispatch({
     type: 'AUTO_ENTRY', signalId: sig.id, pageMode: detectPageMode(),
-    pageAsset: assetToSymbol(asset), pageAmount: readAmount(calib),
+    pageAsset: quotexMode() ? qxSymbol(feedKey(asset)) : assetToSymbol(asset), pageAmount: readAmount(calib),
     pageExpirySec: panelReadings(calib)?.expirySec ?? null,
   });
   if (res.error) { showToast(`AUTO não entrou: ${res.error}`, 'warn'); return; }
@@ -179,12 +216,25 @@ async function onData() {
   const now = nowMs();
   const closed = closedOnly(candles, now);
   const last = closed.at(-1);
+  if (!last && quotexMode()) {
+    preview = { r: { status: 'invalid', reason: `Aquecendo com o preço da Quotex: 0/${WARMUP_REQUIRED} velas (~${WARMUP_REQUIRED} min). Deixe a página aberta neste ativo.` }, candleTime: now };
+    return;
+  }
   if (!last || now - (last.time + M1_MS) > STALE_MS) { conn.status = 'stale'; preview = null; return; }
   await resolveOutcomes(closed);
   if (!state.active || state.day.locked) { preview = null; confirmed = null; lastAnalyzedTime = last.time; return; }
 
-  const meta = { symbol: state.settings.symbol, source: SOURCE_ID };
-  const cfg = { minScore: state.settings.minScore };
+  const qm = quotexMode();
+  const meta = { symbol: state.settings.symbol, source: qm ? 'quotex-tela' : SOURCE_ID };
+  // Fonte Quotex: EMA 50 como tendência longa até juntar velas para a EMA 200.
+  const longEma = !qm || closed.length >= REQUIRED_CANDLES ? 200 : WARMUP_LONG_EMA;
+  const cfg = { minScore: state.settings.minScore, longEma };
+  if (qm && closed.length < WARMUP_REQUIRED) {
+    const n = closed.length;
+    preview = { r: { status: 'invalid', reason: `Aquecendo com o preço da Quotex: ${n}/${WARMUP_REQUIRED} velas (~${WARMUP_REQUIRED - n} min). Deixe a página aberta neste ativo.` }, candleTime: last.time };
+    lastAnalyzedTime = last.time;
+    return;
+  }
 
   // Prévia: a vela atual tratada como se fechasse agora (pode mudar até o fechamento).
   const forming = candles.find((c) => c.time === last.time + M1_MS);
@@ -197,7 +247,7 @@ async function onData() {
   if (r.status !== 'signal') return;
   if (canSignal(state)) return;
   const asset = detectAsset(state.settings.calib);
-  if (assetMatches(asset, state.settings.symbol) === false) {
+  if (!qm && assetMatches(asset, state.settings.symbol) === false) {
     confirmed = { r: { status: 'no_signal', reason: `Ativo da página (${asset.label}) ≠ ${state.settings.symbol}`, best: r.best }, candleTime: last.time };
     return;
   }
@@ -252,6 +302,7 @@ const TEMPLATE = `
   <div class="body" data-k="main">
     <div class="row small">
       <select data-k="symbol" title="Ativo analisado (fonte: Binance)"></select>
+      <b class="hidden" data-k="qxName" title="Ativo aberto na Quotex"></b>
       <span class="clock" data-k="clock">--:--:--</span>
     </div>
     <div class="small muted" data-k="assetInfo"></div>
@@ -392,13 +443,21 @@ function render() {
   const asset = detectAsset(s.settings.calib);
   const match = assetMatches(asset, s.settings.symbol);
   const warn = [];
-  if (match === false) {
+  const qm = quotexMode(s);
+  if (!qm && match === false) {
     warn.push(asset.otc
       ? `${asset.label}: indicadores do ${s.settings.symbol.replace('USDT', '/USD')} (Binance) só como referência. O preço OTC é da Quotex e pode ser diferente; sinais e AUTO ficam desligados no OTC.`
       : `Quotex em ${asset.label}, bot em ${s.settings.symbol.replace('USDT', '/USD')}: abra o mesmo ativo.`);
   }
   if (pageMode === 'REAL' && s.account.mode === 'DEMO') warn.push('⚠ página parece conta REAL');
-  $('assetInfo').textContent = warn.length ? warn.join(' · ') : `TradingView · BINANCE:${s.settings.symbol} · ${conn.status === 'ok' ? 'ao vivo' : conn.status === 'stale' ? '(atrasado)' : conn.status === 'offline' ? '(offline)' : '(conectando)'}`;
+  const nC = qm && qxKey ? closedOnly(feed.candles(qxKey), nowMs()).length : 0;
+  const live = conn.status === 'ok' ? 'ao vivo' : conn.status === 'stale' ? '(atrasado)' : conn.status === 'offline' ? '(sem leitura)' : '(conectando)';
+  $('assetInfo').textContent = warn.length ? warn.join(' · ')
+    : qm ? `Fonte: Quotex (preço da tela) · ${qxKey ?? 'ativo ?'} · ${nC} velas · EMA ${nC >= REQUIRED_CANDLES ? 200 : WARMUP_LONG_EMA} · ${live}`
+    : `TradingView · BINANCE:${s.settings.symbol} · ${live}` + (s.settings.calib?.price ? '' : ' · calibre o "Preço ao vivo" em ⚙ para usar o gráfico da Quotex (inclui OTC)');
+  $('symbol').classList.toggle('hidden', qm);
+  $('qxName').classList.toggle('hidden', !qm);
+  $('qxName').textContent = qm ? (qxKey ?? '—') : '';
   renderChart(s);
   $('assetInfo').style.color = warn.length || conn.status === 'offline' || conn.status === 'stale' ? '#f59e0b' : '';
 
@@ -440,7 +499,7 @@ function render() {
 
 /** Gráfico TradingView ao vivo (mesmo feed BINANCE:<par> usado nos cálculos). */
 function renderChart(s) {
-  const show = s.settings.panel.chart !== false;
+  const show = s.settings.panel.chart !== false && !quotexMode(s);
   $('tv').classList.toggle('hidden', !show);
   $('chartBtn').classList.toggle('on', show);
   if (!show) return;
@@ -552,6 +611,8 @@ function autoChecks(s) {
       v: pageMode === s.account.mode ? `página ${pageMode} · bot ${s.account.mode}`
         : pageMode === 'REAL' ? `página em conta REAL (${location.pathname}) — bot só opera DEMO; troque para a conta demo`
         : `conta da página não identificada (${location.pathname})` },
+    quotexMode(s) ? { label: 'Mercado aberto', ok: !!asset && qxSymbol(feedKey(asset)) === s.settings.symbol,
+      v: asset ? `${asset.label} (preço da Quotex)` : 'ativo não encontrado no painel de operação' } :
     { label: 'Mercado aberto', ok: !!pageSym && pageSym === s.settings.symbol,
       v: !asset ? (calib.call ? 'ativo não encontrado no painel de operação' : 'calibre Comprar/Vender em ⚙')
         : asset.otc ? `${asset.label}: bot acompanha ${s.settings.symbol.replace('USDT', '/USD')} como referência, mas o AUTO não opera OTC`
@@ -611,12 +672,16 @@ function renderSettings(rebuild) {
   const s = state;
   const form = el('div', 'form');
   const num = (v, min, max, step) => { const i = el('input'); i.type = 'number'; i.min = min; i.max = max; i.step = step; i.value = v; return i; };
+  const feedSel = el('select');
+  for (const [v, t] of [['quotex', 'Quotex (preço da tela, inclui OTC)'], ['binance', 'Binance (só cripto, sem OTC)']]) { const o = el('option', null, t); o.value = v; feedSel.appendChild(o); }
+  feedSel.value = s.settings.feed || 'quotex';
+  feedSel.addEventListener('change', () => dispatch({ type: 'SET_SETTINGS', value: { feed: feedSel.value } }));
   const minScore = num(s.settings.minScore, 80, 100, 1);
   const payout = num(s.settings.payout, 0.1, 1.5, 0.01);
   const ttl = num(s.settings.signalTtlSec, 3, 30, 1);
   const lab = (t, inp) => { const l = el('label'); l.append(el('span', null, t), inp); return l; };
   const clk = Math.abs(clockOffset) > 3000 ? ` · relógio do PC ${Math.round(Math.abs(clockOffset) / 1000)} s ${clockOffset < 0 ? 'adiantado' : 'atrasado'} (o bot já corrige sozinho)` : '';
-  form.append(el('div', 'small muted', `Horário: Brasília (automático) · o dia vira à meia-noite${clk}`), lab('Nota mínima (80–100)', minScore), lab('Payout (ex.: 0.85)', payout), lab('Validade do sinal (s)', ttl));
+  form.append(el('div', 'small muted', `Horário: Brasília (automático) · o dia vira à meia-noite${clk}`), lab('Fonte das velas', feedSel), lab('Nota mínima (80–100)', minScore), lab('Payout (ex.: 0.85)', payout), lab('Validade do sinal (s)', ttl));
   const msg = el('div', 'small');
   const save = button('blue', 'SALVAR', async () => {
     const v = { minScore: Number(minScore.value), payout: Number(payout.value), signalTtlSec: Number(ttl.value) };
@@ -652,6 +717,7 @@ function renderSettings(rebuild) {
 }
 
 const CALIB_ITEMS = [
+  { key: 'price', label: 'Preço ao vivo', hint: 'clique no PREÇO ATUAL (rótulo azul à direita do gráfico)' },
   { key: 'call', label: 'Botão Comprar (CALL)', hint: 'clique no botão COMPRAR (verde)' },
   { key: 'put', label: 'Botão Vender (PUT)', hint: 'clique no botão VENDER (vermelho)' },
   { key: 'asset', label: 'Ativo (opcional)', hint: 'clique no NOME do ativo no painel de operação' },
@@ -671,6 +737,7 @@ function renderCalib() {
       if (!rd.found) test = 'NÃO ENCONTRADO — refaça';
       else if (it.key === 'asset') { const a = detectAsset(c); test = a ? `lido "${a.label}"` : `lido "${rd.text}" (não reconhecido)`; }
       else if (it.key === 'amount') test = `lido "${rd.text}" = ${readAmount(c) ?? '?'}`;
+      else if (it.key === 'price') test = `lido ${readPrice(c) ?? '?'}`;
       else test = 'encontrado';
     }
     r.append(el('span', c[it.key] ? 'ok' : 'no', `${c[it.key] ? '✓' : '✗'} ${it.label}${test ? ' · ' + test : ''}`),
@@ -740,5 +807,6 @@ export async function start() {
   window.addEventListener('online', () => poll());
   window.addEventListener('resize', () => { const r = panel.getBoundingClientRect(); place(r.left, r.top); });
   setInterval(everySecond, 250);
+  setInterval(qxTick, 250);
   poll();
 }

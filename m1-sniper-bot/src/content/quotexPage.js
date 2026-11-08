@@ -285,7 +285,28 @@ function parseCalib(rec) {
   return { sel: rec }; // formato antigo (só seletor)
 }
 
+/** Preço de cotação (ex.: "75135.26", "1.08523", "75,135.26"). */
+export function parsePrice(text) {
+  const m = String(text || '').replace(/\s/g, '').match(/\d[\d.,]*/);
+  if (!m) return null;
+  let t = m[0].replace(/[.,]$/, '');
+  const dots = (t.match(/\./g) || []).length, commas = (t.match(/,/g) || []).length;
+  if (dots && commas) { const dec = t.lastIndexOf('.') > t.lastIndexOf(',') ? '.' : ','; t = t.split(dec === '.' ? ',' : '.').join('').replace(',', '.'); }
+  else if (dots > 1) t = t.split('.').join('');
+  else if (commas > 1) t = t.split(',').join('');
+  else if (commas === 1) t = /,\d{3}$/.test(t) && t.length > 5 ? t.replace(',', '') : t.replace(',', '.');
+  const v = Number(t);
+  return Number.isFinite(v) && v > 0 ? v : null;
+}
+
+/** Preço ao vivo no elemento calibrado. */
+export function readPrice(calib, doc = document) {
+  const el = calib?.price && resolveCalib(calib.price, doc, 'price');
+  return el ? parsePrice(readText(el)) : null;
+}
+
 const looksRight = {
+  price: (el) => parsePrice(readText(el)) != null && !/%|:/.test(readText(el)),
   asset: (el) => !!parseAsset(el.textContent) || !!el.querySelector?.('*'),
   amount: (el) => parseMoney(readText(el)) != null && !/%/.test(readText(el)),
   call: (el) => el.getBoundingClientRect().width > 0,
@@ -306,11 +327,12 @@ export function resolveCalib(rec, doc = document, kind) {
     const q = c.tag + c.cls.map((x) => '.' + (window.CSS?.escape ? CSS.escape(x) : x)).join('');
     const cands = [...doc.querySelectorAll(q)].filter(ok);
     if (cands.length === 1) return cands[0];
+    if (k === 'price') return null; // preço: nunca "chuta" entre vários rótulos do eixo
     if (cands.length > 1 && c.text) { const t = cands.find((e) => readText(e).includes(c.text.slice(0, 8))); if (t) return t; }
     if (cands.length && c.pos) return nearest(cands, c.pos);
   }
-  // 3) posição na tela
-  if (c.pos && doc.elementsFromPoint) {
+  // 3) posição na tela (não vale para o preço, que se move no eixo)
+  if (c.pos && doc.elementsFromPoint && k !== 'price') {
     const x = c.pos.fromRight ? innerWidth - c.pos.dx : c.pos.dx;
     for (const e of doc.elementsFromPoint(x, c.pos.y)) {
       if (e.closest('#m1-sniper-bot-host')) continue;

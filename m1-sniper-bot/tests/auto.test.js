@@ -84,3 +84,14 @@ test('tempo da Quotex diferente de 1 minuto bloqueia a entrada automática', () 
   assert.match(reduce(s, { type: 'AUTO_ENTRY', signalId: sig.id, ...page, pageExpirySec: 120 }, T0 + 1500).error, /1 minuto/);
   assert.equal(reduce(s, { type: 'AUTO_ENTRY', signalId: sig.id, ...page, pageExpirySec: 60 }, T0 + 1500).error, undefined);
 });
+
+test('fonte Quotex: AUTO entra no ativo OTC aberto (mesmo gráfico do usuário)', () => {
+  const qsig = { ...sig, id: `QX:Bitcoin (OTC)-${ENTRY - 60000}`, symbol: 'QX:Bitcoin (OTC)' };
+  let s = ok(reduce(calibrated(), { type: 'SET_SETTINGS', value: { symbol: 'QX:Bitcoin (OTC)', feed: 'quotex' } }, T0));
+  s = ok(reduce(s, { type: 'SET_AUTO', armed: true, expiryConfirmed: true }, T0));
+  s = ok(reduce(s, { type: 'PROPOSE_SIGNAL', signal: qsig }, T0 + 1000));
+  assert.match(reduce(s, { type: 'AUTO_ENTRY', signalId: qsig.id, ...page, pageAsset: 'QX:Solana (OTC)' }, T0 + 1500).error, /não é o indicado/);
+  const t = ok(reduce(s, { type: 'AUTO_ENTRY', signalId: qsig.id, ...page, pageAsset: 'QX:Bitcoin (OTC)', pageExpirySec: 60 }, T0 + 1500));
+  assert.equal(t.openTrade.symbol, 'QX:Bitcoin (OTC)');
+  assert.ok(reduce(calibrated(), { type: 'SET_SETTINGS', value: { symbol: 'QX:<script>' } }, T0).error);
+});

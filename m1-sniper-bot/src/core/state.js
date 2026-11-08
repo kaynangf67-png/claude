@@ -17,7 +17,9 @@ export const DEFAULT_SETTINGS = Object.freeze({
   signalTtlSec: 15,      // segundos após a abertura do candle de entrada em que o sinal ainda vale
   panel: { x: null, y: 16, minimized: false, chart: true },
   // Calibração dos elementos da Quotex (seletores CSS gravados pelo usuário).
-  calib: { asset: null, amount: null, call: null, put: null },
+  calib: { price: null, asset: null, amount: null, call: null, put: null },
+  // Fonte das velas: 'quotex' = preço lido da tela da Quotex (inclui OTC); 'binance' = API pública.
+  feed: 'quotex',
   // Execução automática: só vale no dia em que foi armada.
   auto: { armedDay: null, expiryConfirmed: false },
 });
@@ -174,8 +176,13 @@ export function reduce(prev, action, now = Date.now()) {
       }
       if (v.symbol !== undefined) {
         if (s.openTrade || s.activeSignal) return fail('Troque o ativo sem sinal ou operação em aberto');
-        if (!/^[A-Z0-9]{5,20}$/.test(v.symbol)) return fail('Símbolo inválido');
+        if (!/^([A-Z0-9]{5,20}|QX:[^<>]{2,40})$/.test(v.symbol)) return fail('Símbolo inválido');
         s.settings.symbol = v.symbol;
+      }
+      if (v.feed !== undefined) {
+        if (!['quotex', 'binance'].includes(v.feed)) return fail('Fonte inválida');
+        if (s.openTrade || s.activeSignal) return fail('Troque a fonte sem sinal ou operação em aberto');
+        s.settings.feed = v.feed;
       }
       if (v.payout !== undefined) {
         const p = Number(v.payout);
@@ -239,7 +246,7 @@ export function reduce(prev, action, now = Date.now()) {
 
     case 'SET_CALIB': {
       const { key, selector } = action;
-      if (!['asset', 'amount', 'call', 'put'].includes(key)) return fail('Item de calibração inválido');
+      if (!['price', 'asset', 'amount', 'call', 'put'].includes(key)) return fail('Item de calibração inválido');
       if (selector !== null && (typeof selector !== 'string' || !selector || selector.length > 3000)) return fail('Seletor inválido');
       if (s.openTrade) return fail('Calibre sem operação aberta');
       s.settings.calib = { ...s.settings.calib, [key]: selector };

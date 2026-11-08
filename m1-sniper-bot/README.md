@@ -60,6 +60,17 @@ Não há build: o código roda direto no Chrome. Node 20+ só é necessário par
 
 Os ajustes (nota mínima, payout, validade do sinal; o horário é sempre o de Brasília), as estatísticas da DEMO, os critérios do modo REAL e a exportação do histórico ficam no botão **⚙** do próprio painel. O relatório completo continua disponível em `chrome://extensions` → M1 SNIPER BOT → **Detalhes → Opções da extensão**.
 
+### Fonte "Quotex": o bot acompanha o gráfico da própria Quotex (v1.5)
+
+Com a fonte **Quotex** (padrão), o bot lê o **preço ao vivo da tela** e monta as velas M1 sozinho. Assim ele analisa exatamente o gráfico que você vê, **inclusive OTC**, e sinais e AUTO funcionam também no OTC.
+
+1. Em ⚙ → Calibração, clique em **CALIBRAR** em **Preço ao vivo** e depois no **rótulo azul do preço atual**, à direita do gráfico. Calibre também **Comprar** e **Vender**.
+2. **Aquecimento**: a Quotex não fornece histórico, então o bot junta as velas enquanto a página fica aberta no ativo. Com **60 velas (~1 h)** ele já sinaliza, usando a **EMA 50** como tendência longa. Com **260 velas**, passa para a **EMA 200** da regra original.
+3. As velas ficam salvas por ativo: recarregar a página ou trocar de aba rapidamente não perde o aquecimento. Uma pausa maior que 2 minutos recomeça a contagem, porque velas faltando distorceriam os indicadores.
+4. Limitações: máximas e mínimas vêm de leituras a cada 250 ms, então podem diferir levemente das velas da Quotex. A lista de "Mercados indicados" continua usando a Binance como referência.
+
+Para voltar a usar a Binance (só cripto, sem OTC), mude **Fonte das velas** em ⚙.
+
 ### Sincronização com a Quotex
 
 O bot acompanha o que você muda na Quotex, sem precisar mexer no painel:
@@ -134,7 +145,7 @@ Mesmo no modo REAL, o bot continua sem executar ordens.
 
 ```bash
 cd m1-sniper-bot
-npm test                                    # 31 testes: indicadores, padrões, motor, travas, REAL, AUTO
+npm test                                    # 41 testes: indicadores, padrões, motor, travas, REAL, AUTO, leitura da Quotex
 node scripts/backtest.mjs --symbol BTCUSDT,ETHUSDT,SOLUSDT --days 7 --tz America/Sao_Paulo
 node scripts/backtest.mjs --csv meus_candles.csv --symbol EURUSD   # CSV: time,open,high,low,close
 ```

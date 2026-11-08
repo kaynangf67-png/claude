@@ -18,16 +18,22 @@ export const DEFAULT_ENGINE_CONFIG = Object.freeze({
 
 // EMA200 precisa de 200 candles; usamos folga para estabilizar EMA/ADX.
 export const REQUIRED_CANDLES = 260;
+// Com velas montadas da tela da Quotex (sem histórico), começa com EMA 50
+// como tendência longa e passa para a EMA 200 quando houver 260 velas.
+export const WARMUP_LONG_EMA = 50;
+export const WARMUP_REQUIRED = 60;
+export const requiredFor = (longEma) => (longEma >= 200 ? REQUIRED_CANDLES : longEma + 10);
 
 const fmt = (v, d = 2) => (v == null ? '—' : Number(v).toFixed(d));
 
 /** Calcula todos os indicadores para a série (uma vez). */
-export function computeIndicators(candles) {
+export function computeIndicators(candles, longEma = 200) {
   const closes = candles.map((c) => c.close);
   return {
+    longEma,
     ema9: ema(closes, 9),
     ema21: ema(closes, 21),
-    ema200: ema(closes, 200),
+    ema200: ema(closes, longEma), // EMA longa (200; 50 durante o aquecimento)
     rsi: rsi(closes, 14),
     adx: adx(candles, 14),
     bb: bollinger(closes, 20, 2),
@@ -55,11 +61,12 @@ export function scoreDirection(candles, ind, i, dir, cfg) {
   const longTrend = call ? x.close > e200 && e21 > e200 : x.close < e200 && e21 < e200;
   const slope = call ? e9 > e9prev : e9 < e9prev;
   if (!emaAligned) vetoes.push(`EMA 9 ${call ? 'abaixo' : 'acima'} da EMA 21`);
-  if (!longTrend) vetoes.push(`Preço/EMA 21 do lado errado da EMA 200`);
+  const L = ind.longEma ?? 200;
+  if (!longTrend) vetoes.push(`Preço/EMA 21 do lado errado da EMA ${L}`);
   if (emaAligned) { bd.trend += 10; confirmed.push('EMA 9/21'); }
-  if (longTrend) { bd.trend += 10; confirmed.push('EMA 200'); }
+  if (longTrend) { bd.trend += 10; confirmed.push(`EMA ${L}`); }
   if (slope) bd.trend += 5;
-  if (emaAligned && longTrend) reasons.push(`Tendência de ${call ? 'alta' : 'baixa'} confirmada (EMA9 ${fmt(e9, 5)} ${call ? '>' : '<'} EMA21 ${fmt(e21, 5)}, preço ${call ? 'acima' : 'abaixo'} da EMA200)`);
+  if (emaAligned && longTrend) reasons.push(`Tendência de ${call ? 'alta' : 'baixa'} confirmada (EMA9 ${fmt(e9, 5)} ${call ? '>' : '<'} EMA21 ${fmt(e21, 5)}, preço ${call ? 'acima' : 'abaixo'} da EMA${L})`);
 
   // --- RSI (15)
   const [rMin, rMax] = call ? [cfg.rsiCallMin, cfg.rsiCallMax] : [cfg.rsiPutMin, cfg.rsiPutMax];
@@ -129,7 +136,7 @@ export function scoreDirection(candles, ind, i, dir, cfg) {
   const has = (txt) => vetoes.some((v) => v.includes(txt));
   const checks = [
     { id: 'trend', label: 'Tendência (EMAs)', status: emaAligned && longTrend ? 'ok' : emaAligned || longTrend ? 'partial' : 'no',
-      detail: `EMA9 ${call ? (e9 > e21 ? '>' : '<') : (e9 < e21 ? '<' : '>')} EMA21 · preço ${x.close > e200 ? 'acima' : 'abaixo'} da EMA200` },
+      detail: `EMA9 ${call ? (e9 > e21 ? '>' : '<') : (e9 < e21 ? '<' : '>')} EMA21 · preço ${x.close > e200 ? 'acima' : 'abaixo'} da EMA${L}` },
     { id: 'rsi', label: 'RSI 14', status: st(bd.rsi, 15, has('RSI')), detail: fmt(r, 1) },
     { id: 'adx', label: 'ADX 14', status: st(bd.adx, 15, has('ADX') || has('DI')), detail: `${fmt(a, 1)} · +DI ${fmt(pdi, 0)} / −DI ${fmt(mdi, 0)}` },
     { id: 'bb', label: 'Bollinger 20/2', status: st(bd.bollinger, 10, has('Bollinger') || has('banda')), detail: x.close > up ? 'acima da banda sup.' : x.close < lo ? 'abaixo da banda inf.' : x.close > mid ? 'acima da média' : 'abaixo da média' },
@@ -149,10 +156,11 @@ export function scoreDirection(candles, ind, i, dir, cfg) {
  */
 export function analyze(candles, config = {}, meta = {}) {
   const cfg = { ...DEFAULT_ENGINE_CONFIG, ...config };
-  const v = validateSeries(candles, REQUIRED_CANDLES);
+  const longEma = cfg.longEma ?? 200;
+  const v = validateSeries(candles, requiredFor(longEma));
   if (!v.ok) return { status: 'invalid', reason: v.reason };
 
-  const ind = computeIndicators(candles);
+  const ind = computeIndicators(candles, longEma);
   return analyzeAt(candles, ind, candles.length - 1, cfg, meta);
 }
 
