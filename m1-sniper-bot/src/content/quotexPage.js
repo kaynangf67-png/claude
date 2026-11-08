@@ -670,5 +670,33 @@ export function clickDirection(calib, direction, doc = document) {
   const r = el.getBoundingClientRect();
   if (r.width === 0 || r.height === 0) return { ok: false, error: `Botão ${direction} invisível` };
   el.click();
-  return { ok: true };
+  return { ok: true, el };
+}
+
+/** Centro do botão CALL/PUT na tela (para o clique "real" via Chrome). */
+export function directionButtonCenter(calib, direction, doc = document) {
+  const rec = direction === 'CALL' ? calib?.call : calib?.put;
+  const el = rec && resolveCalib(rec, doc, direction === 'CALL' ? 'call' : 'put');
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  return r.width ? { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) } : null;
+}
+
+/**
+ * Contador de operações abertas da Quotex (aba "Operações  0" do painel da direita).
+ * Retorna número ou null se não encontrado.
+ */
+export function readOpenTradesCount(doc = document) {
+  for (const e of doc.querySelectorAll('body *')) {
+    if (e.children.length || e.closest('#m1-sniper-bot-host')) continue;
+    if (!/^\s*(opera[çc][õo]es|trades|deals)\s*$/i.test(e.textContent) || !isVisible(e)) continue;
+    // número logo depois do rótulo (irmão seguinte ou dentro do pai)
+    const cands = [e.nextElementSibling, ...(e.parentElement ? [...e.parentElement.children] : [])].filter(Boolean);
+    for (const c of cands) {
+      if (c === e) continue;
+      const t = c.textContent.trim();
+      if (/^\d{1,3}$/.test(t)) return Number(t);
+    }
+  }
+  return null;
 }

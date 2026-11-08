@@ -11,7 +11,7 @@ import { SYMBOLS, SOURCE_ID } from '../data/binance.js';
 import { QuotexFeed, feedKey } from './quotexFeed.js';
 import { readChartHistory, syntheticMover, trustedMover } from './chartHistory.js';
 import { canvasStatus, canvasCandidates, selectCanvasKey, resetCanvasSelection } from './canvasText.js';
-import { detectPageMode, detectAsset, assetMatches, assetToSymbol, readAmount, readPayout, panelReadings, readPrice, readPriceInfo, parseCanvasPref, diagnostics, clearCaches, assetTargetFromClick, makeCalib, calibReading, captureNextClick, clickDirection } from './quotexPage.js';
+import { detectPageMode, detectAsset, assetMatches, assetToSymbol, readAmount, readPayout, panelReadings, readPrice, readPriceInfo, parseCanvasPref, diagnostics, readOpenTradesCount, directionButtonCenter, clearCaches, assetTargetFromClick, makeCalib, calibReading, captureNextClick, clickDirection } from './quotexPage.js';
 
 const POLL_MS = 3000;
 const FAST_POLL_MS = 1000;           // perto da virada do minuto
@@ -280,13 +280,39 @@ async function tryAutoEntry(sig) {
   });
   if (res.error) { showToast(`AUTO não entrou: ${res.error}`, 'warn'); return; }
   const t = state.openTrade;
+  const before = readOpenTradesCount();
   const click = clickDirection(calib, sig.direction);
   if (!click.ok) {
     await dispatch({ type: 'ABORT_AUTO_TRADE', tradeId: t.id, reason: click.error });
     showToast(`AUTO falhou: ${click.error}. Automático desarmado.`, 'err');
     return;
   }
-  showToast(`AUTO: ${sig.direction} ${sig.symbol} clicado (${t.amount.toFixed(2)})`, 'ok');
+  // Confere se a Quotex abriu a operação (contador "Operações" sobe).
+  let opened = await waitTradeOpened(before, 2500);
+  if (opened === false) {
+    // A Quotex ignorou o clique simulado: clique "real" com o mouse do Chrome.
+    const pt = directionButtonCenter(calib, sig.direction);
+    const r = pt ? await send({ type: 'dbg', op: 'click', x: pt.x, y: pt.y }) : { error: 'botão não encontrado' };
+    opened = r?.error ? false : await waitTradeOpened(before, 2500);
+    if (opened === false) {
+      await dispatch({ type: 'ABORT_AUTO_TRADE', tradeId: t.id, reason: r?.error || 'a Quotex não abriu a operação' });
+      showToast(`AUTO: a Quotex não abriu a operação${r?.error ? ' (' + r.error + ')' : ''}. Automático desarmado.`, 'err');
+      return;
+    }
+  }
+  showToast(`AUTO: ${sig.direction} ${sig.symbol} ${t.amount.toFixed(2)} — ${opened ? 'operação aberta na Quotex ✓' : 'clicado (não deu para confirmar pelo contador)'}`, opened ? 'ok' : 'warn');
+}
+
+/** true = contador subiu; false = contador lido e não subiu; null = contador não encontrado. */
+async function waitTradeOpened(before, ms) {
+  if (before == null) { await new Promise((r) => setTimeout(r, 300)); return null; }
+  const end = Date.now() + ms;
+  while (Date.now() < end) {
+    await new Promise((r) => setTimeout(r, 150));
+    const n = readOpenTradesCount();
+    if (n != null && n > before) return true;
+  }
+  return false;
 }
 
 /** Em operações automáticas, registra o resultado da fonte se o usuário não registrar. */

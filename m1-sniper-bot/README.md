@@ -106,6 +106,8 @@ O bot acompanha o que você muda na Quotex, sem precisar mexer no painel:
 5. Quando uma vela fecha com sinal ≥ 80 nesse mercado, o bot clica CALL/PUT em até 6 s da abertura da vela seguinte. Depois disso, não entra mais.
 6. Depois da expiração, confira na Quotex e registre GREEN/LOSS. Se você não registrar em 45 s, o bot registra o resultado medido na fonte (Binance).
 
+**Confirmação da operação (v1.10):** depois de clicar, o bot confere o contador **"Operações"** da Quotex. Se ele não subir em 2,5 s (a Quotex ignorou o clique simulado), o bot repete com um **clique real do Chrome** (`chrome.debugger`; a faixa de depuração aparece por um instante) e confere de novo. Se mesmo assim não abrir, cancela o registro, desarma o AUTO e avisa. A segunda tentativa só acontece quando o contador foi lido e não subiu, para evitar operação duplicada. Testado de ponta a ponta numa imitação com botões que só aceitam clique real: sinal → clique simulado ignorado → clique real → 1 operação aberta.
+
 Regras de segurança do AUTO:
 - Ele desarma sozinho ao **DESLIGAR**, ao bater a meta de 10 GREEN ou o limite de 3 LOSS, na **virada do dia**, se a **calibração mudar** ou se o **clique falhar** (botão sumiu ou desabilitado).
 - Uma operação por vez, sem Martingale.

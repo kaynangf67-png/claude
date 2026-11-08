@@ -96,6 +96,20 @@ async function debuggerOp(tabId, msg) {
       await chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent', { type: 'mouseMoved', x: msg.x, y: msg.y, button: 'none', buttons: 0, pointerType: 'mouse' });
       return { ok: true };
     }
+    if (msg.op === 'click') {
+      // clique "real" (confiável) num ponto da tela; conecta e desconecta na hora
+      const was = attachedTabs.has(tabId);
+      if (!was) { await chrome.debugger.attach(target, '1.3'); attachedTabs.add(tabId); }
+      try {
+        const base = { x: msg.x, y: msg.y, button: 'left', clickCount: 1, pointerType: 'mouse' };
+        await chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent', { ...base, type: 'mouseMoved', button: 'none' });
+        await chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent', { ...base, type: 'mousePressed', buttons: 1 });
+        await chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent', { ...base, type: 'mouseReleased', buttons: 0 });
+      } finally {
+        if (!was) { attachedTabs.delete(tabId); await chrome.debugger.detach(target).catch(() => {}); }
+      }
+      return { ok: true };
+    }
     if (msg.op === 'detach') {
       if (attachedTabs.has(tabId)) { attachedTabs.delete(tabId); await chrome.debugger.detach(target); }
       return { ok: true };
