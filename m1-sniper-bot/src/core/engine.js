@@ -230,3 +230,16 @@ export function analyzeAt(candles, ind, i, cfg, meta = {}) {
     },
   };
 }
+
+// ------------------------------------------------------------------ estratégias
+import { analyzeSniperPro, sniperProRequired } from './strategies/sniperPro.js';
+export const STRATEGIES = Object.freeze({
+  sniperPro: { name: 'M1 SNIPER PRO (seu script)', required: () => sniperProRequired() },
+  padrao: { name: 'Padrão (pontuação 0–100)', required: null },
+});
+
+/** Analisa com a estratégia escolhida. ctx.lastSignalTime = vela do último sinal (intervalo do script). */
+export function analyzeStrategy(candles, cfg = {}, meta = {}, ctx = {}) {
+  if (cfg.strategy === 'sniperPro') return analyzeSniperPro(candles, meta, ctx.lastSignalTime ?? null);
+  return analyze(candles, cfg, meta);
+}

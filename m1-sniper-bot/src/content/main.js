@@ -1,6 +1,7 @@
 // Painel flutuante SOBRE o gráfico + laço de análise M1.
 // Não executa ordens: mostra a confirmação para a PRÓXIMA vela (expiração 1 min).
-import { analyze, REQUIRED_CANDLES, WARMUP_LONG_EMA, WARMUP_REQUIRED, QUICK_REQUIRED, profileForCount } from '../core/engine.js';
+import { analyze, analyzeStrategy, STRATEGIES, REQUIRED_CANDLES, WARMUP_LONG_EMA, WARMUP_REQUIRED, QUICK_REQUIRED, profileForCount } from '../core/engine.js';
+import { sniperProRequired } from '../core/strategies/sniperPro.js';
 import { closedOnly, mergeCandles, M1_MS } from '../core/validate.js';
 import { outcomeOf } from '../core/backtest.js';
 import { canSignal, autoArmed, calibComplete, AUTO_ENTRY_WINDOW_MS } from '../core/state.js';
@@ -249,8 +250,9 @@ async function runScan() {
       const last = closed.at(-1);
       if (!last) continue;
       const forming = cs.find((c) => c.time === last.time + M1_MS);
-      const rc = analyze(closed, cfg, { symbol: sym });
-      const rp = forming ? analyze([...closed, forming], cfg, { symbol: sym }) : rc;
+      const scfg = state.settings.strategy === 'sniperPro' ? { ...cfg, strategy: 'sniperPro' } : cfg;
+      const rc = analyzeStrategy(closed, scfg, { symbol: sym });
+      const rp = forming ? analyzeStrategy([...closed, forming], scfg, { symbol: sym }) : rc;
       const pick = (r) => (r.status === 'signal' ? { dir: r.signal.direction, score: r.signal.score, signal: true } : r.best ? { dir: r.best.dir, score: r.best.score, signal: false } : null);
       const c = pick(rc), p = pick(rp);
       const best = c?.signal && now - (last.time + M1_MS) < 15_000 ? c : p;
@@ -337,10 +339,20 @@ async function onData() {
   const qm = quotexMode();
   const meta = { symbol: state.settings.symbol, source: qm ? 'quotex-tela' : SOURCE_ID };
   // Fonte Quotex (sem histórico): modo rápido com 12 velas; completo com 60; EMA 200 com 260.
-  const prof = qm ? profileForCount(closed.length) : null;
-  const cfg = qm ? { minScore: state.settings.minScore, profile: prof || undefined, longEma: prof?.long }
+  const strat = state.settings.strategy || 'sniperPro';
+  const prof = qm && strat !== 'sniperPro' ? profileForCount(closed.length) : null;
+  const cfg = strat === 'sniperPro' ? { strategy: 'sniperPro', minScore: state.settings.minScore }
+    : qm ? { minScore: state.settings.minScore, profile: prof || undefined, longEma: prof?.long }
     : { minScore: state.settings.minScore, longEma: 200 };
-  if (qm && !prof) {
+  const lastSig = [...state.signalLog].reverse().find((x) => x.symbol === state.settings.symbol);
+  const ctx = { lastSignalTime: lastSig?.confirmCandleTime ?? null };
+  if (strat === 'sniperPro' && closed.length < sniperProRequired()) {
+    const n = closed.length, req = sniperProRequired();
+    preview = { r: { status: 'invalid', reason: `Seu script usa EMA 200: juntando velas ao vivo ${n}/${req} (~${Math.ceil((req - n) / 60 * 10) / 10} h). Com a fonte Binance (cripto sem OTC) o histórico vem na hora.` }, candleTime: last.time };
+    lastAnalyzedTime = last.time;
+    return;
+  }
+  if (qm && strat !== 'sniperPro' && !prof) {
     const n = closed.length;
     preview = { r: { status: 'invalid', reason: historyStatus || `Juntando velas ao vivo: ${n}/${QUICK_REQUIRED} (~${QUICK_REQUIRED - n} min). Com ${QUICK_REQUIRED} velas o bot já analisa e opera (modo rápido).` }, candleTime: last.time };
     lastAnalyzedTime = last.time;
@@ -350,11 +362,11 @@ async function onData() {
 
   // Prévia: a vela atual tratada como se fechasse agora (pode mudar até o fechamento).
   const forming = candles.find((c) => c.time === last.time + M1_MS);
-  preview = forming ? { r: analyze([...closed, forming], cfg, meta), candleTime: forming.time } : null;
+  preview = forming ? { r: analyzeStrategy([...closed, forming], cfg, meta, ctx), candleTime: forming.time } : null;
 
   if (last.time === lastAnalyzedTime) return; // confirmação: uma vez por vela fechada
   lastAnalyzedTime = last.time;
-  const r = analyze(closed, cfg, meta);
+  const r = analyzeStrategy(closed, cfg, meta, ctx);
   confirmed = { r, candleTime: last.time };
   if (r.status !== 'signal') return;
   if (canSignal(state)) return;
@@ -560,7 +572,7 @@ function render() {
   const nC = qm && qxKey ? closedOnly(feed.candles(qxKey), nowMs()).length : 0;
   const live = conn.status === 'ok' ? 'ao vivo' : conn.status === 'stale' ? '(atrasado)' : conn.status === 'offline' ? '(sem leitura)' : '(conectando)';
   $('assetInfo').textContent = warn.length ? warn.join(' · ')
-    : qm ? `Preço lido: ${readPrice(s.settings.calib) ?? '—'} · ${qxKey ?? 'ativo ?'} · ${nC} velas · ${nC >= WARMUP_REQUIRED ? 'modo completo' : nC >= QUICK_REQUIRED ? `modo rápido (completo com ${WARMUP_REQUIRED})` : `operando com ${QUICK_REQUIRED}`} · ${live}`
+    : qm ? `Preço lido: ${readPrice(s.settings.calib) ?? '—'} · ${qxKey ?? 'ativo ?'} · ${nC} velas · ${(s.settings.strategy || 'sniperPro') === 'sniperPro' ? `script SNIPER PRO${nC < sniperProRequired() ? ` (opera com ${sniperProRequired()})` : ''}` : nC >= WARMUP_REQUIRED ? 'modo completo' : nC >= QUICK_REQUIRED ? `modo rápido (completo com ${WARMUP_REQUIRED})` : `operando com ${QUICK_REQUIRED}`} · ${live}`
     : `Fonte: Binance · ${s.settings.symbol} · ${live}`;
   $('symbol').classList.toggle('hidden', qm);
   $('qxName').classList.toggle('hidden', !qm);
@@ -771,12 +783,16 @@ function renderSettings(rebuild) {
   for (const [v, t] of [['quotex', 'Quotex (preço da tela, inclui OTC)'], ['binance', 'Binance (só cripto, sem OTC)']]) { const o = el('option', null, t); o.value = v; feedSel.appendChild(o); }
   feedSel.value = s.settings.feed || 'quotex';
   feedSel.addEventListener('change', () => dispatch({ type: 'SET_SETTINGS', value: { feed: feedSel.value } }));
+  const stratSel = el('select');
+  for (const [v, d] of Object.entries(STRATEGIES)) { const o = el('option', null, d.name); o.value = v; stratSel.appendChild(o); }
+  stratSel.value = s.settings.strategy || 'sniperPro';
+  stratSel.addEventListener('change', () => dispatch({ type: 'SET_SETTINGS', value: { strategy: stratSel.value } }));
   const minScore = num(s.settings.minScore, 80, 100, 1);
   const payout = num(s.settings.payout, 0.1, 1.5, 0.01);
   const ttl = num(s.settings.signalTtlSec, 3, 30, 1);
   const lab = (t, inp) => { const l = el('label'); l.append(el('span', null, t), inp); return l; };
   const clk = Math.abs(clockOffset) > 3000 ? ` · relógio do PC ${Math.round(Math.abs(clockOffset) / 1000)} s ${clockOffset < 0 ? 'adiantado' : 'atrasado'} (o bot já corrige sozinho)` : '';
-  form.append(el('div', 'small muted', `Horário: Brasília (automático) · o dia vira à meia-noite${clk}`), lab('Fonte das velas', feedSel), lab('Nota mínima (80–100)', minScore), lab('Payout (ex.: 0.85)', payout), lab('Validade do sinal (s)', ttl));
+  form.append(el('div', 'small muted', `Horário: Brasília (automático) · o dia vira à meia-noite${clk}`), lab('Estratégia', stratSel), lab('Fonte das velas', feedSel), lab('Nota mínima (80–100)', minScore), lab('Payout (ex.: 0.85)', payout), lab('Validade do sinal (s)', ttl));
   const msg = el('div', 'small');
   const save = button('blue', 'SALVAR', async () => {
     const v = { minScore: Number(minScore.value), payout: Number(payout.value), signalTtlSec: Number(ttl.value) };

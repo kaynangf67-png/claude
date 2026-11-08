@@ -20,6 +20,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
   calib: { price: null, asset: null, amount: null, call: null, put: null },
   // Fonte das velas: 'quotex' = preço lido da tela da Quotex (inclui OTC); 'binance' = API pública.
   feed: 'quotex',
+  // Estratégia de sinais: 'sniperPro' (script Pine do usuário) ou 'padrao' (pontuação 0–100).
+  strategy: 'sniperPro',
   // Execução automática: só vale no dia em que foi armada.
   auto: { armedDay: null, expiryConfirmed: false },
 });
@@ -183,6 +185,11 @@ export function reduce(prev, action, now = Date.now()) {
         if (s.openTrade || s.activeSignal) return fail('Troque o ativo sem sinal ou operação em aberto');
         if (!/^([A-Z0-9]{5,20}|QX:[^<>]{2,40})$/.test(v.symbol)) return fail('Símbolo inválido');
         s.settings.symbol = v.symbol;
+      }
+      if (v.strategy !== undefined) {
+        if (!['sniperPro', 'padrao'].includes(v.strategy)) return fail('Estratégia inválida');
+        if (s.openTrade || s.activeSignal) return fail('Troque a estratégia sem sinal ou operação em aberto');
+        s.settings.strategy = v.strategy;
       }
       if (v.feed !== undefined) {
         if (!['quotex', 'binance'].includes(v.feed)) return fail('Fonte inválida');

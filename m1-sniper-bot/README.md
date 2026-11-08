@@ -130,6 +130,28 @@ Análise **somente no fechamento** do candle. A entrada é na abertura do candle
 
 A nota mínima é **80** e só pode ser aumentada (até 100). Se CALL e PUT se qualificarem ao mesmo tempo, não há sinal.
 
+## 4b. Estratégia "M1 SNIPER PRO" (script Pine do usuário) — padrão desde a v1.12
+
+Tradução fiel do script Pine v6 do usuário (`src/core/strategies/sniperPro.js`), com os indicadores no padrão do TradingView (EMA semeada com SMA; RSI/ATR/DMI com RMA). **COMPRA** quando todas as condições abaixo valem na vela **fechada** (VENDA: o inverso):
+- tendência: preço > EMA 200, EMA 9 > EMA 21 e EMA 200 subindo (vs. 3 velas atrás);
+- força: ADX(14,14) ≥ 18 e +DI > −DI;
+- RSI 14 entre 52 e 72 (venda: 28 a 48);
+- MACD 12/26/9: histograma > 0 e subindo;
+- pullback: a vela anterior tocou a EMA 9 ou a EMA 21;
+- vela de alta, fechando acima da EMA 9, com corpo ≥ 0,15 × ATR 14;
+- pelo menos 3 velas desde o último sinal.
+
+Trocar em **⚙ → Estratégia**. Precisa de **204 velas** (EMA 200 + 3): com a fonte Binance o histórico vem na hora; no OTC da Quotex, o bot junta as velas ao vivo (~3,4 h).
+
+**Backtest honesto (dados reais, sem olhar o futuro, entrada na vela seguinte):**
+
+| Teste | Sinais | Acerto | Resultado (payout 85%) |
+|---|---|---|---|
+| M1, 7 dias, BTC/ETH/SOL/BNB/XRP | 919 | **46,8%** | −118 entradas |
+| M5, 20 dias, mesmos ativos | 623 | **48,6%** | −62 entradas |
+
+O break-even é 54,1%. **Por que o script parece 100% certeiro no TradingView:** ele só dá COMPRA em vela de alta e VENDA em vela de baixa, então a **vela onde a seta aparece** vai na direção da seta em ~98% dos sinais (medido). Mas a operação abre **na vela seguinte**, e é essa que decide o resultado. Para conferir de verdade, anote o resultado da **vela depois da seta**.
+
 ## 5. Gerenciamento de risco (fixo, não configurável)
 
 - **10 GREEN/dia** ou **3 LOSS/dia** bloqueiam o dia. O painel desliga e não religa até a virada do dia local.
@@ -155,9 +177,10 @@ Mesmo no modo REAL, o bot continua sem executar ordens.
 
 ```bash
 cd m1-sniper-bot
-npm test                                    # 45 testes: indicadores, padrões, motor, travas, REAL, AUTO, leitura da Quotex
+npm test                                    # 51 testes: indicadores, padrões, motor, travas, REAL, AUTO, leitura da Quotex
 node scripts/backtest.mjs --symbol BTCUSDT,ETHUSDT,SOLUSDT --days 7 --tz America/Sao_Paulo
 node scripts/backtest.mjs --csv meus_candles.csv --symbol EURUSD   # CSV: time,open,high,low,close
+node scripts/backtest.mjs --symbol BTCUSDT,ETHUSDT --days 7 --strategy sniperPro   # seu script
 ```
 
 O backtest é walk-forward **sem antecipação**: no candle *i* o motor só vê os candles 0..*i*, e o resultado vem do candle *i+1*. Um teste garante que truncar a série não muda os sinais anteriores. As travas diárias de 10/3 também são aplicadas.
