@@ -77,14 +77,14 @@ export function tradePanel(calib, doc = document) {
 function fieldNear(panel, labelRe, test) {
   const lv = leaves(panel);
   for (const lab of lv.filter((l) => labelRe.test(l.text) && l.text.length < 30 && !l.el.matches('input'))) {
+    // Sobe até 3 níveis a partir do rótulo; em cada nível (caixa do campo):
+    // 1º <input>, 2º texto DEPOIS do rótulo, 3º texto ANTES (rótulo flutuante
+    // costuma vir depois do valor no HTML).
     for (let box = lab.el.parentElement, d = 0; box && d < 3 && panel.contains(box); box = box.parentElement, d++) {
-      // só campos que vêm DEPOIS do rótulo (o relógio do topo, por exemplo, fica antes)
+      const inner = leaves(box).filter((l) => l.el !== lab.el && test(l.text));
       const after = (l) => !!(lab.el.compareDocumentPosition(l.el) & Node.DOCUMENT_POSITION_FOLLOWING);
-      const inner = leaves(box).filter((l) => l.el !== lab.el && after(l));
-      const inp = inner.find((l) => l.el.matches('input') && test(l.text));
-      if (inp) return inp;
-      const txt = inner.find((l) => test(l.text));
-      if (txt) return txt;
+      const pick = inner.find((l) => l.el.matches('input')) || inner.find(after) || inner.filter((l) => !after(l)).at(-1);
+      if (pick) return pick;
     }
   }
   return null;

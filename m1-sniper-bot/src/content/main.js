@@ -315,7 +315,7 @@ const TEMPLATE = `
     <div class="lockbox hidden" data-k="lock"></div>
     <div class="ctl">
       <button class="toggle off" data-k="toggle">LIGAR</button>
-      <input class="amount" data-k="amount" type="number" min="0.01" step="0.01" inputmode="decimal" title="Valor por operação">
+      <div class="amount ro" data-k="amount" title="Valor lido do Investimento da Quotex (automático)">—</div>
     </div>
     <div class="small" data-k="payoutInfo"></div>
     <div class="stats small">
@@ -350,8 +350,6 @@ async function mountPanel() {
   }
   sel.addEventListener('change', () => dispatch({ type: 'SET_SETTINGS', value: { symbol: sel.value } }));
   $('toggle').addEventListener('click', () => dispatch({ type: 'SET_ACTIVE', value: !state.active }));
-  const amt = $('amount');
-  amt.addEventListener('change', () => dispatch({ type: 'SET_AMOUNT', value: Number(String(amt.value).replace(',', '.')) }));
   root.addEventListener('keydown', (e) => e.stopPropagation()); // não dispara atalhos da Quotex
   $('minBtn').addEventListener('click', () => dispatch({ type: 'SET_SETTINGS', value: { panel: { minimized: !state.settings.panel.minimized } } }));
   $('gear').addEventListener('click', () => { view = view === 'main' ? 'settings' : 'main'; renderSettings(true); render(); });
@@ -436,9 +434,9 @@ function render() {
   const sel = $('symbol');
   if (root.activeElement !== sel) sel.value = s.settings.symbol;
   sel.disabled = !!(s.openTrade || s.activeSignal);
-  const amt = $('amount');
-  if (root.activeElement !== amt) amt.value = s.settings.amount.toFixed(2);
-  amt.disabled = !!s.openTrade;
+  const pageAmt = readAmount(s.settings.calib);
+  $('amount').textContent = pageAmt != null ? `${s.settings.amount.toFixed(2)}` : '— valor ?';
+  $('amount').title = pageAmt != null ? 'Valor lido do Investimento da Quotex (automático)' : 'Calibre Comprar/Vender em ⚙ para o bot ler o Investimento da Quotex';
 
   const asset = detectAsset(s.settings.calib);
   const match = assetMatches(asset, s.settings.symbol);
@@ -615,7 +613,7 @@ function autoChecks(s) {
       v: asset ? `${asset.label} (preço da Quotex)` : 'ativo não encontrado no painel de operação' } :
     { label: 'Mercado aberto', ok: !!pageSym && pageSym === s.settings.symbol,
       v: !asset ? (calib.call ? 'ativo não encontrado no painel de operação' : 'calibre Comprar/Vender em ⚙')
-        : asset.otc ? `${asset.label}: bot acompanha ${s.settings.symbol.replace('USDT', '/USD')} como referência, mas o AUTO não opera OTC`
+        : asset.otc ? `${asset.label}: calibre o "Preço ao vivo" em ⚙ para operar OTC`
         : !pageSym ? `${asset.label}: sem dados de cripto`
         : pageSym !== s.settings.symbol ? `${asset.label} ≠ ${s.settings.symbol}` : asset.label },
     { label: 'Valor', ok: amt != null && Math.abs(amt - s.settings.amount) < 0.001,
