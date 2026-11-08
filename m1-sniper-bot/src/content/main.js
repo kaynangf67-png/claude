@@ -3,12 +3,12 @@
 import { analyze, REQUIRED_CANDLES } from '../core/engine.js';
 import { closedOnly, mergeCandles, M1_MS } from '../core/validate.js';
 import { outcomeOf } from '../core/backtest.js';
-import { canSignal } from '../core/state.js';
+import { canSignal, autoArmed, calibComplete, AUTO_ENTRY_WINDOW_MS } from '../core/state.js';
 import { DAILY_GREEN_TARGET, DAILY_LOSS_LIMIT, LOCK_MESSAGES } from '../core/risk.js';
 import { computeStats, realReadiness, REAL_CONFIRM_PHRASE } from '../core/stats.js';
 import { formatTime } from '../core/time.js';
 import { SYMBOLS, SOURCE_ID } from '../data/binance.js';
-import { detectPageMode, detectAsset, assetMatches } from './quotexPage.js';
+import { detectPageMode, detectAsset, assetMatches, assetToSymbol, readAmount, cssPath, captureNextClick, clickDirection } from './quotexPage.js';
 
 const POLL_MS = 3000;
 const FAST_POLL_MS = 1000;           // perto da virada do minuto
@@ -25,6 +25,15 @@ let uiError = null;
 let pollTimer = null;
 let view = 'main';
 let visible = true;
+let hostEl = null;
+let toast = null;             // { text, kind, until }
+const AUTO_RECORD_AFTER_MS = 45_000; // sem resposta do usuário, o AUTO registra o resultado da fonte
+// Varredura de mercados (para indicar qual abrir na Quotex)
+const SCAN_SYMBOLS = Object.keys(SYMBOLS).filter((k) => k !== 'EURUSDT');
+const scanCandles = new Map();
+const scan = new Map();       // symbol -> { dir, score, signal, at }
+let scanBusy = false, lastScanAt = 0;
+const SCAN_EVERY_MS = 15_000;
 
 const send = (msg) => new Promise((resolve) => {
   try {
@@ -48,6 +57,7 @@ async function poll() {
   clearTimeout(pollTimer);
   try {
     if (!state) return;
+    await followOpenedMarket();
     const sym = state.settings.symbol;
     if (sym !== candleSymbol) { candles = []; candleSymbol = sym; lastAnalyzedTime = null; confirmed = preview = null; }
     const res = await send({ type: 'klines', symbol: sym, limit: candles.length >= REQUIRED_CANDLES ? 5 : 500 });
@@ -55,6 +65,8 @@ async function poll() {
     candles = mergeCandles(candles, res.candles, 600);
     conn = { status: 'ok', error: null };
     await onData();
+    await autoRecordResult();
+    if (Date.now() - lastScanAt > SCAN_EVERY_MS || isMinuteTurn()) runScan();
   } catch (e) {
     conn = { status: 'offline', error: String(e.message || e) };
     preview = null;
@@ -64,6 +76,79 @@ async function poll() {
     pollTimer = setTimeout(poll, sec >= 55 || sec < 6 ? FAST_POLL_MS : POLL_MS);
   }
 }
+
+const isMinuteTurn = () => { const sec = new Date().getSeconds(); return sec >= 1 && sec <= 3 && Date.now() - lastScanAt > 4000; };
+
+/** Se o usuário abriu na Quotex um mercado coberto, o bot passa a analisar esse mercado. */
+async function followOpenedMarket() {
+  const sym = assetToSymbol(detectAsset(state.settings.calib));
+  if (sym && sym !== state.settings.symbol && !state.openTrade && !state.activeSignal) {
+    await dispatch({ type: 'SET_SETTINGS', value: { symbol: sym } });
+  }
+}
+
+/** Varre os outros mercados e calcula a leitura de cada um (prévia da vela atual). */
+async function runScan() {
+  if (scanBusy || !state?.active) return;
+  scanBusy = true; lastScanAt = Date.now();
+  try {
+    const cfg = { minScore: state.settings.minScore };
+    for (const sym of SCAN_SYMBOLS) {
+      const have = scanCandles.get(sym) || [];
+      const res = await send({ type: 'klines', symbol: sym, limit: have.length >= REQUIRED_CANDLES ? 3 : 400 });
+      if (res.error) continue;
+      const cs = mergeCandles(have, res.candles, 450);
+      scanCandles.set(sym, cs);
+      const now = Date.now();
+      const closed = closedOnly(cs, now);
+      const last = closed.at(-1);
+      if (!last) continue;
+      const forming = cs.find((c) => c.time === last.time + M1_MS);
+      const rc = analyze(closed, cfg, { symbol: sym });
+      const rp = forming ? analyze([...closed, forming], cfg, { symbol: sym }) : rc;
+      const pick = (r) => (r.status === 'signal' ? { dir: r.signal.direction, score: r.signal.score, signal: true } : r.best ? { dir: r.best.dir, score: r.best.score, signal: false } : null);
+      const c = pick(rc), p = pick(rp);
+      const best = c?.signal && now - (last.time + M1_MS) < 15_000 ? c : p;
+      if (best) scan.set(sym, { ...best, at: now, fresh: c?.signal && best === c });
+    }
+  } finally { scanBusy = false; render(); }
+}
+
+function indicatedMarkets() {
+  const now = Date.now();
+  return [...scan.entries()].filter(([, v]) => now - v.at < 90_000)
+    .sort((a, b) => (b[1].signal - a[1].signal) || b[1].score - a[1].score).slice(0, 3);
+}
+
+/** Execução automática do sinal (só se armado e com todas as verificações). */
+async function tryAutoEntry(sig) {
+  if (!autoArmed(state)) return;
+  const calib = state.settings.calib;
+  const asset = detectAsset(calib);
+  const res = await dispatch({
+    type: 'AUTO_ENTRY', signalId: sig.id, pageMode: detectPageMode(),
+    pageAsset: assetToSymbol(asset), pageAmount: readAmount(calib),
+  });
+  if (res.error) { showToast(`AUTO não entrou: ${res.error}`, 'warn'); return; }
+  const t = state.openTrade;
+  const click = clickDirection(calib, sig.direction);
+  if (!click.ok) {
+    await dispatch({ type: 'ABORT_AUTO_TRADE', tradeId: t.id, reason: click.error });
+    showToast(`AUTO falhou: ${click.error}. Automático desarmado.`, 'err');
+    return;
+  }
+  showToast(`AUTO: ${sig.direction} ${sig.symbol} clicado (${t.amount.toFixed(2)})`, 'ok');
+}
+
+/** Em operações automáticas, registra o resultado da fonte se o usuário não registrar. */
+async function autoRecordResult() {
+  const t = state.openTrade;
+  if (!t?.auto || !t.suggested) return;
+  if (Date.now() < t.expiryTime + AUTO_RECORD_AFTER_MS) return;
+  await dispatch({ type: 'RECORD_RESULT', tradeId: t.id, result: t.suggested.result, by: 'auto' });
+}
+
+function showToast(text, kind = 'ok') { toast = { text, kind, until: Date.now() + 8000 }; render(); }
 
 async function onData() {
   const now = Date.now();
@@ -86,13 +171,15 @@ async function onData() {
   confirmed = { r, candleTime: last.time };
   if (r.status !== 'signal') return;
   if (canSignal(state)) return;
-  const asset = detectAsset();
+  const asset = detectAsset(state.settings.calib);
   if (assetMatches(asset, state.settings.symbol) === false) {
     confirmed = { r: { status: 'no_signal', reason: `Ativo da página (${asset.label}) ≠ ${state.settings.symbol}`, best: r.best }, candleTime: last.time };
     return;
   }
   const res = await dispatch({ type: 'PROPOSE_SIGNAL', signal: r.signal, pageMode: detectPageMode() });
-  if (!res.error) beep(r.signal.direction);
+  if (res.error) return;
+  beep(r.signal.direction);
+  if (state.activeSignal && Date.now() <= r.signal.entryTime + AUTO_ENTRY_WINDOW_MS) await tryAutoEntry(state.activeSignal);
 }
 
 async function resolveOutcomes(closed) {
@@ -144,6 +231,8 @@ const TEMPLATE = `
     <div class="small muted" data-k="assetInfo"></div>
     <div class="next" data-k="next"></div>
     <div class="checks" data-k="checks"></div>
+    <div class="auto" data-k="autoBox"></div>
+    <div class="toast hidden" data-k="toast"></div>
     <div data-k="tradeBox" class="hidden"></div>
     <div class="lockbox hidden" data-k="lock"></div>
     <div class="ctl">
@@ -155,6 +244,7 @@ const TEMPLATE = `
       <span>LOSS <span class="cnt l" data-k="losses">0</span>/${DAILY_LOSS_LIMIT}</span>
       <div class="history" data-k="history"></div>
     </div>
+    <div class="markets" data-k="markets"></div>
     <div class="small"><span class="muted">Último sinal: </span><span data-k="lastSignal">—</span></div>
     <div class="err hidden" data-k="err"></div>
   </div>
@@ -165,7 +255,8 @@ async function mountPanel() {
   const host = document.createElement('div');
   host.id = 'm1-sniper-bot-host';
   document.documentElement.appendChild(host);
-  root = host.attachShadow({ mode: 'closed' });
+  hostEl = host;
+  root = host.attachShadow({ mode: 'open' });
   const css = await (await fetch(chrome.runtime.getURL('src/content/panel.css'))).text();
   const sheet = new CSSStyleSheet(); sheet.replaceSync(css);
   root.adoptedStyleSheets = [sheet];
@@ -187,6 +278,9 @@ async function mountPanel() {
   $('gear').addEventListener('click', () => { view = view === 'main' ? 'settings' : 'main'; renderSettings(true); render(); });
   $('close').addEventListener('click', () => setVisible(false));
   enableDrag();
+  root.addEventListener('pointerdown', () => { pressing = true; });
+  window.addEventListener('pointerup', () => { if (pressing) { pressing = false; setTimeout(render, 0); } }, true);
+  window.addEventListener('pointercancel', () => { pressing = false; }, true);
 }
 
 function setVisible(v) { visible = v; panel.classList.toggle('hidden', !v); }
@@ -225,8 +319,13 @@ function nextReading(s, now) {
   return { kind: 'blocked', text: 'Carregando candles…' };
 }
 
+// Não recria botões enquanto o usuário está com o mouse pressionado
+// (senão o clique se perde entre mousedown e mouseup).
+let pressing = false;
+
 function render() {
   if (!root || !state) return;
+  if (pressing) { tick(); return; }
   const s = state, tz = s.settings.timeZone, now = Date.now();
   panel.classList.toggle('min', !!s.settings.panel.minimized);
   $('minBtn').textContent = s.settings.panel.minimized ? '+' : '–';
@@ -256,7 +355,7 @@ function render() {
   if (root.activeElement !== amt) amt.value = s.settings.amount.toFixed(2);
   amt.disabled = !!s.openTrade;
 
-  const asset = detectAsset();
+  const asset = detectAsset(s.settings.calib);
   const match = assetMatches(asset, s.settings.symbol);
   const warn = [];
   if (match === false) warn.push(`⚠ página mostra ${asset.label}`);
@@ -281,6 +380,12 @@ function render() {
     const h = el('span', 'h ' + t.result); h.title = `${t.result} · ${t.direction} ${t.symbol} ${formatTime(t.entryTime, tz, false)}`; hist.appendChild(h);
   }
   renderTrade(s, now);
+  renderAuto(s);
+  renderMarkets(s);
+  const tEl = $('toast');
+  const showT = toast && toast.until > now;
+  tEl.classList.toggle('hidden', !showT);
+  if (showT) { tEl.textContent = toast.text; tEl.className = 'toast ' + toast.kind; }
   const last = s.signalLog.at(-1);
   $('lastSignal').textContent = last ? `${last.direction} ${last.symbol} ${last.score} pts · ${formatTime(last.entryTime, tz, false)}${last.outcome ? ' · ' + last.outcome : ''}` : '—';
 
@@ -364,18 +469,74 @@ function renderTrade(s, now) {
   if (!t) { box.replaceChildren(); return; }
   const card = el('div', 'card');
   const left = Math.ceil((t.expiryTime - now) / 1000);
-  const top = el('div', 'row'); top.append(el('b', t.direction === 'CALL' ? 'ok' : 'no', `${t.direction} em andamento`), el('span', 'small', `${t.amount.toFixed(2)} · ${t.mode}`));
+  const top = el('div', 'row'); top.append(el('b', t.direction === 'CALL' ? 'ok' : 'no', `${t.auto ? 'AUTO ' : ''}${t.direction} em andamento`), el('span', 'small', `${t.amount.toFixed(2)} · ${t.mode}`));
   card.append(top);
   if (left > 0) card.append(el('div', 'small', `Expira em ${left}s`));
   else {
     const sg = t.suggested;
-    card.append(el('div', 'small', sg ? `Binance indica ${sg.result}. Registre o resultado da Quotex:` : 'Registre o resultado da Quotex:'));
+    const autoLeft = t.auto && sg ? Math.max(0, Math.ceil((t.expiryTime + AUTO_RECORD_AFTER_MS - now) / 1000)) : null;
+    card.append(el('div', 'small', (sg ? `Binance indica ${sg.result}. Confira na Quotex e registre:` : 'Registre o resultado da Quotex:')
+      + (autoLeft != null ? ` (sem resposta, o AUTO registra ${sg.result} em ${autoLeft}s)` : '')));
     const btns = el('div', 'btns');
     const mk = (r, cls, label) => button(cls + (sg?.result === r ? ' sugg' : ''), label, () => dispatch({ type: 'RECORD_RESULT', tradeId: t.id, result: r }));
     btns.append(mk('GREEN', 'green', 'GREEN'), mk('LOSS', 'red', 'LOSS'), mk('DRAW', '', 'EMPATE'));
     card.append(btns);
   }
   box.replaceChildren(card);
+}
+
+function autoChecks(s) {
+  const calib = s.settings.calib;
+  const pageMode = detectPageMode();
+  const asset = detectAsset(calib);
+  const pageSym = assetToSymbol(asset);
+  const amt = readAmount(calib);
+  return [
+    { label: 'Calibrado', ok: calibComplete(s), v: calibComplete(s) ? 'ok' : 'abra ⚙' },
+    { label: 'Conta', ok: pageMode === s.account.mode, v: `página ${pageMode} · bot ${s.account.mode}` },
+    { label: 'Mercado aberto', ok: !!pageSym && pageSym === s.settings.symbol, v: asset ? asset.label + (pageSym ? '' : ' (sem dados)') : 'não detectado' },
+    { label: 'Valor', ok: amt != null && Math.abs(amt - s.settings.amount) < 0.001, v: `Quotex ${amt ?? '?'} · bot ${s.settings.amount.toFixed(2)}` },
+  ];
+}
+
+function renderAuto(s) {
+  const box = $('autoBox');
+  const armed = autoArmed(s);
+  const row = el('div', 'row');
+  const btn = el('button', 'toggle ' + (armed ? 'auto-on' : 'off'), armed ? '🤖 AUTO ARMADO' : '🤖 AUTO DESLIGADO');
+  btn.disabled = !!s.day.locked || !s.active;
+  btn.title = 'Quando armado, o bot clica CALL/PUT sozinho no mercado aberto, se tudo conferir.';
+  btn.addEventListener('click', async () => {
+    if (armed) return dispatch({ type: 'SET_AUTO', armed: false });
+    if (!calibComplete(state)) { view = 'settings'; renderSettings(true); render(); showToast('Calibre os 4 itens antes de armar o AUTO', 'warn'); return; }
+    const ok = window.confirm('ARMAR AUTOMÁTICO\n\n• O bot vai CLICAR em CALL/PUT sozinho na Quotex quando sair sinal no mercado aberto.\n• Confirme que a EXPIRAÇÃO na Quotex está em 1 MINUTO.\n• Resultados passados não garantem resultados futuros.\n\nArmar agora?');
+    if (ok) dispatch({ type: 'SET_AUTO', armed: true, expiryConfirmed: true });
+  });
+  row.append(btn);
+  const list = el('div', 'autochk');
+  if (s.active) {
+    for (const c of autoChecks(s)) {
+      const r = el('div', 'chk ' + (c.ok ? 'ok' : 'no'));
+      r.append(el('span', 'ic', c.ok ? '✓' : '✗'), el('span', null, c.label), el('span', 'v', c.v));
+      list.append(r);
+    }
+  }
+  box.replaceChildren(row, list);
+}
+
+function renderMarkets(s) {
+  const box = $('markets');
+  const top = indicatedMarkets();
+  if (!s.active || !top.length) { box.replaceChildren(); return; }
+  const head = el('div', 'small muted', 'Mercados indicados (abra na Quotex):');
+  const rows = top.map(([sym, v]) => {
+    const r = el('div', 'mkt' + (v.signal ? ' ' + v.dir : '') + (sym === s.settings.symbol ? ' cur' : ''));
+    r.append(el('span', null, SYMBOLS[sym].replace(/^.*\((.*)\).*$/, '$1')),
+      el('span', 'v', `${v.signal ? '✔ ' : ''}${v.dir === 'CALL' ? '▲' : '▼'} ${v.dir} ${v.score}`));
+    r.title = sym === s.settings.symbol ? 'Mercado em análise' : 'Abra este ativo na Quotex (M1, expiração 1 min)';
+    return r;
+  });
+  box.replaceChildren(head, ...rows);
 }
 
 // ---------------------------------------------------------------- Ajustes (dentro do painel)
@@ -417,17 +578,63 @@ function renderSettings(rebuild) {
   const rb = el('div', 'btns'); rb.append(goReal, goDemo);
   real.append(el('div', 'small muted', `Para liberar o REAL, cumpra todos os critérios e digite: ${REAL_CONFIRM_PHRASE}`), phrase, rb, rmsg);
 
+  const cal = el('div', 'form');
+  cal.dataset.k = 'calibBox';
+
   const exp = button('', 'EXPORTAR HISTÓRICO (JSON)', () => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([JSON.stringify(state, null, 2)], { type: 'application/json' }));
     a.download = 'm1-sniper-historico.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   });
   const back = button('', '← VOLTAR AO PAINEL', () => { view = 'main'; render(); });
-  box.replaceChildren(el('b', null, 'Ajustes'), form, el('b', null, 'Validação DEMO'), stats, real, exp, back);
+  box.replaceChildren(el('b', null, 'Calibração do automático'), cal, el('b', null, 'Ajustes'), form, el('b', null, 'Validação DEMO'), stats, real, exp, back);
   updateSettingsStats();
+  renderCalib();
+}
+
+const CALIB_ITEMS = [
+  { key: 'asset', label: 'Nome do ativo', hint: 'clique no NOME do ativo aberto (ex.: BTC/USD)' },
+  { key: 'amount', label: 'Campo de valor', hint: 'clique no campo do VALOR da operação' },
+  { key: 'call', label: 'Botão CALL', hint: 'clique no botão PARA CIMA / COMPRA (verde)' },
+  { key: 'put', label: 'Botão PUT', hint: 'clique no botão PARA BAIXO / VENDA (vermelho)' },
+];
+let calibrating = null;
+
+function renderCalib() {
+  const box = root.querySelector('[data-k="calibBox"]');
+  if (!box) return;
+  const c = state.settings.calib;
+  const rows = CALIB_ITEMS.map((it) => {
+    const r = el('div', 'row small');
+    let test = '';
+    if (c[it.key]) {
+      if (it.key === 'asset') test = detectAsset(c)?.label ?? 'não lido';
+      else if (it.key === 'amount') test = String(readAmount(c) ?? 'não lido');
+      else test = document.querySelector(c[it.key]) ? 'encontrado' : 'não encontrado';
+    }
+    r.append(el('span', c[it.key] ? 'ok' : 'no', `${c[it.key] ? '✓' : '✗'} ${it.label}${test ? ' · ' + test : ''}`),
+      button(calibrating === it.key ? 'blue' : '', calibrating === it.key ? 'CLIQUE NA QUOTEX…' : (c[it.key] ? 'REFAZER' : 'CALIBRAR'), () => startCalib(it)));
+    return r;
+  });
+  box.replaceChildren(el('div', 'small muted', 'Clique em CALIBRAR e depois no item da Quotex. O clique é bloqueado: nada é operado. Esc cancela.'), ...rows);
+}
+
+async function startCalib(it) {
+  if (calibrating) return;
+  calibrating = it.key; renderCalib();
+  showToast(`Calibrando: ${it.hint}`, 'warn');
+  const target = await captureNextClick((e) => e.composedPath().includes(hostEl));
+  calibrating = null;
+  if (target) {
+    const sel = cssPath(target);
+    const r = await dispatch({ type: 'SET_CALIB', key: it.key, selector: sel });
+    showToast(r.error ? `Erro: ${r.error}` : `${it.label} calibrado`, r.error ? 'err' : 'ok');
+  } else showToast('Calibração cancelada', 'warn');
+  renderCalib();
 }
 
 function updateSettingsStats() {
+  renderCalib();
   const box = root.querySelector('[data-k="statsBox"]');
   if (!box) return;
   const s = state;

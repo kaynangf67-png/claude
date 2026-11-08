@@ -85,3 +85,18 @@ input:focus, select:focus { outline: 1px solid #3b82f6; }
 .ok { color: #22c55e; } .no { color: #ef4444; }
 ul.crit { margin: 0; padding-left: 0; list-style: none; font-size: 10.5px; }
 [data-k="settings"] { max-height: 75vh; overflow-y: auto; }
+.toggle.auto-on { background: #7c3aed; box-shadow: 0 0 10px rgba(124, 58, 237, .6); }
+.auto { display: grid; gap: 4px; }
+.auto .toggle { flex: 1; font-size: 11px; padding: 5px; }
+.autochk { display: grid; gap: 2px; }
+.autochk .chk { padding: 2px 5px; font-size: 10.5px; }
+.toast { font-size: 11px; padding: 5px 7px; border-radius: 7px; background: #1e293b; }
+.toast.ok { background: rgba(22, 163, 74, .2); color: #86efac; }
+.toast.warn { background: rgba(234, 179, 8, .18); color: #fde68a; }
+.toast.err { background: rgba(220, 38, 38, .2); color: #fca5a5; }
+.markets { display: grid; gap: 2px; }
+.mkt { display: flex; justify-content: space-between; padding: 3px 6px; border-radius: 6px; background: #0b1530; font-size: 11px; }
+.mkt.cur { outline: 1px solid #3b82f6; }
+.mkt.CALL .v { color: #22c55e; font-weight: 800; } .mkt.PUT .v { color: #ef4444; font-weight: 800; }
+.mkt .v { color: #94a3b8; }
+.form .row .btn { flex: 0 0 92px; }

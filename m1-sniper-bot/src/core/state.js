@@ -16,13 +16,29 @@ export const DEFAULT_SETTINGS = Object.freeze({
   payout: 0.85,          // payout informado pelo usuário (usado só nas estatísticas)
   signalTtlSec: 15,      // segundos após a abertura do candle de entrada em que o sinal ainda vale
   panel: { x: null, y: 16, minimized: false },
+  // Calibração dos elementos da Quotex (seletores CSS gravados pelo usuário).
+  calib: { asset: null, amount: null, call: null, put: null },
+  // Execução automática: só vale no dia em que foi armada.
+  auto: { armedDay: null, expiryConfirmed: false },
 });
+
+export const AUTO_ENTRY_WINDOW_MS = 6000; // auto só entra nos primeiros 6 s da vela de entrada
+export const AUTO_ABORT_WINDOW_MS = 15000;
+
+export function calibComplete(s) {
+  const c = s.settings.calib || {};
+  return !!(c.asset && c.amount && c.call && c.put);
+}
+
+export function autoArmed(s) {
+  return s.settings.auto?.armedDay === s.day.key && !!s.settings.auto?.expiryConfirmed && calibComplete(s);
+}
 
 export function initialState(now = Date.now(), tz = browserTimeZone()) {
   const timeZone = isValidTimeZone(tz) ? tz : 'UTC';
   return {
     version: STATE_VERSION,
-    settings: { ...DEFAULT_SETTINGS, timeZone, panel: { ...DEFAULT_SETTINGS.panel } },
+    settings: { ...DEFAULT_SETTINGS, timeZone, panel: { ...DEFAULT_SETTINGS.panel }, calib: { ...DEFAULT_SETTINGS.calib }, auto: { ...DEFAULT_SETTINGS.auto } },
     account: { mode: 'DEMO', realUnlockedAt: null },
     day: newDay(dayKey(now, timeZone)),
     active: false,
@@ -41,7 +57,12 @@ export function hydrate(saved, now = Date.now()) {
   if (!saved || typeof saved !== 'object') return base;
   const s = {
     ...base, ...saved,
-    settings: { ...base.settings, ...(saved.settings || {}), panel: { ...base.settings.panel, ...(saved.settings?.panel || {}) } },
+    settings: {
+      ...base.settings, ...(saved.settings || {}),
+      panel: { ...base.settings.panel, ...(saved.settings?.panel || {}) },
+      calib: { ...base.settings.calib, ...(saved.settings?.calib || {}) },
+      auto: { ...base.settings.auto, ...(saved.settings?.auto || {}) },
+    },
     account: { ...base.account, ...(saved.account || {}) },
     day: saved.day && typeof saved.day.key === 'string' ? { ...newDay(saved.day.key), ...saved.day } : base.day,
     trades: Array.isArray(saved.trades) ? saved.trades : [],
@@ -115,8 +136,9 @@ export function reduce(prev, action, now = Date.now()) {
         log(s, now, 'info', 'Painel ATIVADO');
       } else {
         s.active = false;
+        s.settings.auto = { ...s.settings.auto, armedDay: null };
         if (s.activeSignal) { markSignal(s, s.activeSignal.id, { userAction: 'cancelled' }); s.activeSignal = null; }
-        log(s, now, 'info', 'Painel DESATIVADO (novos sinais interrompidos)');
+        log(s, now, 'info', 'Painel DESATIVADO (novos sinais e automático interrompidos)');
       }
       return { state: s };
     }
@@ -212,6 +234,67 @@ export function reduce(prev, action, now = Date.now()) {
       return { state: s };
     }
 
+    case 'SET_CALIB': {
+      const { key, selector } = action;
+      if (!['asset', 'amount', 'call', 'put'].includes(key)) return fail('Item de calibração inválido');
+      if (selector !== null && (typeof selector !== 'string' || !selector || selector.length > 600)) return fail('Seletor inválido');
+      if (s.openTrade) return fail('Calibre sem operação aberta');
+      s.settings.calib = { ...s.settings.calib, [key]: selector };
+      s.settings.auto = { ...s.settings.auto, armedDay: null }; // mudou calibração → precisa armar de novo
+      log(s, now, 'info', `Calibração ${key}: ${selector ? 'gravada' : 'apagada'}`);
+      return { state: s };
+    }
+
+    case 'SET_AUTO': {
+      if (!action.armed) {
+        s.settings.auto = { ...s.settings.auto, armedDay: null };
+        log(s, now, 'info', 'Automático DESARMADO');
+        return { state: s };
+      }
+      if (s.day.locked) return fail(LOCK_MESSAGES[s.day.locked]);
+      if (!s.active) return fail('Ligue o painel antes de armar o automático');
+      if (!calibComplete(s)) return fail('Calibre ativo, valor, botão CALL e botão PUT antes de armar');
+      if (!action.expiryConfirmed) return fail('Confirme que a expiração na Quotex está em 1 minuto');
+      s.settings.auto = { armedDay: s.day.key, expiryConfirmed: true };
+      log(s, now, 'warn', `Automático ARMADO (${s.account.mode}) — o bot vai clicar CALL/PUT sozinho`);
+      return { state: s };
+    }
+
+    case 'AUTO_ENTRY': {
+      const sig = s.activeSignal;
+      if (!autoArmed(s)) return fail('Automático não está armado');
+      if (!sig || sig.id !== action.signalId) return fail('Sinal não está mais disponível');
+      if (!s.active) return fail('Painel desativado');
+      if (s.day.locked) return fail(LOCK_MESSAGES[s.day.locked]);
+      if (s.openTrade) return fail('Já existe operação aberta');
+      if (now > sig.entryTime + AUTO_ENTRY_WINDOW_MS) return fail('Tarde demais para entrada automática');
+      if (action.pageMode !== s.account.mode) return fail(`Conta da página (${action.pageMode}) ≠ modo do bot (${s.account.mode})`);
+      if (action.pageAsset !== sig.symbol) return fail('Mercado aberto na Quotex não é o indicado');
+      if (Math.abs(Number(action.pageAmount) - s.settings.amount) > 0.001) return fail(`Valor na Quotex (${action.pageAmount}) ≠ valor do bot (${s.settings.amount.toFixed(2)})`);
+      const amtErr = checkAmount(s.settings.amount, s.day);
+      if (amtErr) return fail(amtErr);
+      s.openTrade = {
+        id: `T-${sig.id}`, signalId: sig.id, symbol: sig.symbol, direction: sig.direction, score: sig.score,
+        amount: s.settings.amount, mode: s.account.mode, confirmedAt: now, auto: true,
+        entryTime: sig.entryTime, expiryTime: now + 60_000, suggested: null,
+      };
+      markSignal(s, sig.id, { userAction: 'auto' });
+      s.activeSignal = null;
+      log(s, now, 'trade', `AUTO: clicando ${sig.direction} ${sig.symbol} valor ${s.settings.amount.toFixed(2)} (${s.account.mode})`);
+      return { state: s };
+    }
+
+    case 'ABORT_AUTO_TRADE': {
+      const t = s.openTrade;
+      if (!t || t.id !== action.tradeId || !t.auto) return fail('Nenhuma operação automática correspondente');
+      if (now > t.confirmedAt + AUTO_ABORT_WINDOW_MS) return fail('Janela para cancelar expirou');
+      s.openTrade = null;
+      markSignal(s, t.signalId, { userAction: 'auto_failed' });
+      s.settings.auto = { ...s.settings.auto, armedDay: null };
+      log(s, now, 'warn', `AUTO falhou ao clicar (${String(action.reason || '').slice(0, 120)}). Automático desarmado.`);
+      return { state: s };
+    }
+
     case 'SUGGEST_RESULT': {
       if (!s.openTrade || s.openTrade.id !== action.tradeId) return { state: s };
       s.openTrade.suggested = action.suggested; // { result, entryPrice, exitPrice }
@@ -223,7 +306,7 @@ export function reduce(prev, action, now = Date.now()) {
       if (!t || t.id !== action.tradeId) return fail('Nenhuma operação aberta correspondente');
       if (!['GREEN', 'LOSS', 'DRAW'].includes(action.result)) return fail('Resultado inválido');
       if (now < t.expiryTime) return fail('A operação ainda não expirou');
-      const rec = { ...t, result: action.result, time: t.entryTime, recordedAt: now, dayKey: s.day.key };
+      const rec = { ...t, result: action.result, time: t.entryTime, recordedAt: now, dayKey: s.day.key, recordedBy: action.by === 'auto' ? 'auto' : 'user' };
       s.trades = [...s.trades, rec].slice(-MAX_TRADES);
       s.openTrade = null;
       if (action.result === 'GREEN') s.day.greens++;
@@ -235,6 +318,7 @@ export function reduce(prev, action, now = Date.now()) {
       const lock = lockFor(s.day);
       if (lock) {
         s.day.locked = lock; s.day.lockedAt = now; s.active = false;
+        s.settings.auto = { ...s.settings.auto, armedDay: null };
         if (s.activeSignal) { markSignal(s, s.activeSignal.id, { userAction: 'cancelled' }); s.activeSignal = null; }
         log(s, now, 'lock', `${LOCK_MESSAGES[lock]} — bloqueado até o próximo dia`);
       }

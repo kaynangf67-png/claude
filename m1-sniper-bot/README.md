@@ -2,7 +2,9 @@
 
 Extensão do Google Chrome (Manifest V3) que mostra um painel pequeno, flutuante e arrastável sobre a Quotex. O painel analisa candles de 1 minuto com EMA 9/21/200, RSI 14, ADX 14, Bollinger 20/2 e Price Action, sugere entradas **CALL/PUT** com expiração de 1 minuto e aplica uma gestão de risco obrigatória.
 
-> **O bot não executa ordens.** Ele não clica na Quotex, não usa APIs privadas e não envia nada para a corretora. Você abre a operação manualmente e registra o resultado no painel.
+> **Execução:** por padrão o bot só indica. Existe um **modo AUTO opcional** (versão 1.2): depois que você **calibra** os elementos da Quotex e **arma** o automático, o bot **clica CALL/PUT sozinho**, mas só no mercado aberto na Quotex e só se a conta, o ativo e o valor conferirem. Ele não usa APIs privadas: apenas clica no botão que você mesmo indicou.
+>
+> **Atenção:** a Quotex pode proibir automação nos termos de uso e bloquear a conta. Use primeiro na DEMO. A responsabilidade pelo uso é sua.
 >
 > **A pontuação não é probabilidade de acerto.** Opções binárias têm alto risco e são restritas ou proibidas em vários países. Não existe 100% de acerto.
 
@@ -26,7 +28,8 @@ Extensão do Google Chrome (Manifest V3) que mostra um painel pequeno, flutuante
 | Detecção do ativo da Quotex (pelo título da aba) | **Best-effort, NÃO verificada** na Quotex real. Se detectar um ativo diferente do analisado, ou um ativo OTC, os sinais são suspensos. |
 | Detecção DEMO/REAL da página (pela URL `demo-trade` vs `trade`) | **Best-effort, NÃO verificada** na Quotex real. Se a página parecer REAL com o bot em DEMO, os sinais são bloqueados. |
 | Resultado GREEN/LOSS | O bot **sugere** o resultado pelo candle da Binance, mas **você registra** o resultado que a Quotex mostrou. |
-| Execução de ordens na Quotex | **Fora do escopo, de propósito.** Toda entrada é manual. |
+| **Modo AUTO** (clique automático em CALL/PUT) | **Funcionando e testado** numa página que imita a Quotex, com elementos calibrados e candles sintéticos que forçam um sinal: o clique saiu 0,3 s após a abertura da vela de entrada. **Não foi testado na Quotex real.** A calibração depende do HTML da Quotex, e se o site mudar é preciso calibrar de novo. |
+| Mercados indicados (varredura de 12 ativos de cripto a cada 15 s) | **Funcionando.** Ao abrir na Quotex um dos mercados, o bot passa a analisar esse mercado automaticamente. |
 
 ## 2. Instalação (modo desenvolvedor)
 
@@ -55,6 +58,23 @@ Não há build: o código roda direto no Chrome. Node 20+ só é necessário par
 7. Os contadores se atualizam. Com **10 GREEN** aparece **META DIÁRIA ATINGIDA**, com **3 LOSS** aparece **LIMITE DE LOSS ATINGIDO**. O painel desliga e só volta na virada do dia local.
 
 Os ajustes (fuso, nota mínima, payout, validade do sinal), as estatísticas da DEMO, os critérios do modo REAL e a exportação do histórico ficam no botão **⚙** do próprio painel. O relatório completo continua disponível em `chrome://extensions` → M1 SNIPER BOT → **Detalhes → Opções da extensão**.
+
+### Modo AUTO (opcional)
+
+1. No painel, clique em **⚙ → Calibração do automático** e calibre os 4 itens. Clique em **CALIBRAR** e depois no item da Quotex: o **nome do ativo**, o **campo de valor**, o botão **Para cima (CALL)** e o botão **Para baixo (PUT)**. Durante a calibração, o clique é **bloqueado** e não abre operação. **Esc** cancela.
+2. Na Quotex, deixe a **expiração em 1 minuto** e o **valor igual** ao do painel.
+3. Clique em **🤖 AUTO DESLIGADO**, leia o aviso e confirme. O botão fica roxo: **AUTO ARMADO**.
+4. O painel mostra, ao vivo, as condições exigidas, e **todas** precisam estar ✓ para o bot clicar:
+   - **Calibrado**;
+   - **Conta**: a página DEMO/REAL precisa ser igual ao modo do bot (REAL só depois da validação);
+   - **Mercado aberto**: o ativo aberto na Quotex é o analisado (OTC nunca entra);
+   - **Valor**: o valor no campo da Quotex é igual ao do painel.
+5. Quando uma vela fecha com sinal ≥ 80 nesse mercado, o bot clica CALL/PUT em até 6 s da abertura da vela seguinte. Depois disso, não entra mais.
+6. Depois da expiração, confira na Quotex e registre GREEN/LOSS. Se você não registrar em 45 s, o bot registra o resultado medido na fonte (Binance).
+
+Regras de segurança do AUTO:
+- Ele desarma sozinho ao **DESLIGAR**, ao bater a meta de 10 GREEN ou o limite de 3 LOSS, na **virada do dia**, se a **calibração mudar** ou se o **clique falhar** (botão sumiu ou desabilitado).
+- Uma operação por vez, sem Martingale.
 
 **DESLIGAR** interrompe novos sinais na hora. Uma operação já aberta continua esperando o registro do resultado.
 
@@ -98,7 +118,7 @@ Mesmo no modo REAL, o bot continua sem executar ordens.
 
 ```bash
 cd m1-sniper-bot
-npm test                                    # 24 testes: indicadores, padrões, motor, travas, REAL
+npm test                                    # 31 testes: indicadores, padrões, motor, travas, REAL, AUTO
 node scripts/backtest.mjs --symbol BTCUSDT,ETHUSDT,SOLUSDT --days 7 --tz America/Sao_Paulo
 node scripts/backtest.mjs --csv meus_candles.csv --symbol EURUSD   # CSV: time,open,high,low,close
 ```

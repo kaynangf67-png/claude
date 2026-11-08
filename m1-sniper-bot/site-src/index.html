@@ -19,13 +19,13 @@
       <h2>Análise de candles M1 com gestão de risco obrigatória</h2>
       <p>É uma extensão do Chrome que coloca um painel pequeno e arrastável sobre a Quotex. O painel combina EMA 9/21/200, RSI 14, ADX 14, Bollinger 20/2 e Price Action, dá uma nota de 0 a 100 e sugere CALL ou PUT com expiração de 1 minuto. <b>Quem abre a operação é sempre você.</b></p>
       <a class="cta" href="m1-sniper-bot.zip" download>Baixar extensão (.zip)</a>
-      <p class="small muted">Versão 1.1.0 · Chrome / Edge / Brave (Manifest V3)</p>
+      <p class="small muted">Versão 1.2.0 · Chrome / Edge / Brave (Manifest V3)</p>
     </div>
-    <figure class="shot-wrap"><img class="shot" src="img/painel.png" alt="Painel do M1 SNIPER BOT com a confirmação da próxima vela"><figcaption class="small muted">Painel ao vivo sobre o gráfico (captura de teste)</figcaption></figure>
+    <figure class="shot-wrap"><img class="shot" src="img/painel.png" alt="Painel do M1 SNIPER BOT com a confirmação da próxima vela"><figcaption class="small muted">Painel com AUTO armado (captura de teste)</figcaption></figure>
   </section>
 
   <section class="card warn">
-    <b>Avisos.</b> O bot não executa ordens, não clica na Quotex e não usa APIs privadas. Os candles vêm da API pública da Binance, não da Quotex, e só cobrem criptomoedas (OTC e Forex não). A nota <b>não é probabilidade de acerto</b>. Opções binárias têm alto risco e são restritas ou proibidas em vários países.
+    <b>Avisos.</b> Por padrão o bot só indica. O modo AUTO é opcional e só clica nos botões que você calibrar. A Quotex pode proibir automação e bloquear a conta, então use primeiro na DEMO. Os candles vêm da API pública da Binance, não da Quotex, e só cobrem criptomoedas (OTC e Forex não). A nota <b>não é probabilidade de acerto</b>. Opções binárias têm alto risco e são restritas ou proibidas em vários países.
   </section>
 
   <section id="monitor" class="card">
@@ -56,7 +56,7 @@
       <li>Abra a Quotex em <b>conta DEMO</b>, M1, no mesmo ativo escolhido no painel (ex.: BTC/USD ↔ BTCUSDT).</li>
       <li>O painel aparece <b>em cima do gráfico</b>. Se não aparecer, ou para mostrar e esconder, <b>clique no ícone da extensão</b> (funciona em qualquer endereço da Quotex).</li>
       <li>Clique em <b>LIGAR</b>. A caixa <b>PRÓXIMA VELA</b> mostra cada indicador M1 com ✓/✗ e a prévia da vela em formação. Quando a vela fecha e tudo confirma, aparece <b>✔ CONFIRMADO CALL/PUT</b> para a vela seguinte, com expiração de 1 minuto.</li>
-      <li>O bot não opera sozinho: se decidir entrar, abra a operação você mesmo na Quotex e clique em <b>ENTREI</b>.</li>
+      <li>Manual: abra a operação você mesmo e clique em <b>ENTREI</b>. <b>Automático (opcional):</b> em ⚙ calibre o nome do ativo, o campo de valor e os botões Para cima/Para baixo da Quotex (o clique da calibração é bloqueado), deixe a expiração em 1 min e clique em <b>🤖 AUTO</b>. O bot só clica no mercado aberto, na conta e no valor conferidos, e desarma sozinho na trava diária, na virada do dia ou se algo falhar.</li>
       <li>Depois de 1 minuto, registre <b>GREEN</b>, <b>LOSS</b> ou <b>EMPATE</b> conforme o resultado na Quotex.</li>
     </ol>
   </section>
