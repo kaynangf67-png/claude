@@ -111,6 +111,8 @@ function fieldNear(panel, labelRe, test) {
 }
 
 let prCache = { at: 0, key: '', val: null };
+/** Esquece leituras guardadas (botão ⟳ do painel). */
+export function clearCaches() { prCache = { at: 0, key: '', val: null }; legendCache = null; legendScanAt = 0; }
 export function panelReadings(calib, doc = document) {
   const key = (calib?.call || '') + '|' + (calib?.asset || '');
   if (doc === document && Date.now() - prCache.at < 400 && prCache.key === key) return prCache.val;

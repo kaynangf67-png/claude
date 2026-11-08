@@ -9,7 +9,7 @@ import { computeStats, realReadiness, REAL_CONFIRM_PHRASE } from '../core/stats.
 import { formatTime } from '../core/time.js';
 import { SYMBOLS, SOURCE_ID } from '../data/binance.js';
 import { QuotexFeed, feedKey } from './quotexFeed.js';
-import { detectPageMode, detectAsset, assetMatches, assetToSymbol, readAmount, readPayout, panelReadings, readPrice, readPriceInfo, diagnostics, makeCalib, calibReading, captureNextClick, clickDirection } from './quotexPage.js';
+import { detectPageMode, detectAsset, assetMatches, assetToSymbol, readAmount, readPayout, panelReadings, readPrice, readPriceInfo, diagnostics, clearCaches, makeCalib, calibReading, captureNextClick, clickDirection } from './quotexPage.js';
 
 const POLL_MS = 3000;
 const FAST_POLL_MS = 1000;           // perto da virada do minuto
@@ -162,6 +162,29 @@ async function syncPayout() {
   }
 }
 
+/** Botão ⟳: relê a Quotex do zero e troca o bot para o ativo aberto. */
+async function refreshMarket() {
+  clearCaches();
+  const calib = state.settings.calib;
+  const asset = detectAsset(calib);
+  if (!asset) { showToast('Ativo não encontrado na tela. Use ⚙ → COPIAR DIAGNÓSTICO e envie.', 'err'); return; }
+  if (state.openTrade || state.activeSignal) { showToast('Há sinal ou operação em aberto: troque de ativo depois.', 'warn'); return; }
+  let target;
+  if (quotexMode()) {
+    const key = feedKey(asset);
+    qxKey = key; lastSeenKey = key; keyChangedAt = Date.now(); // ignora o preço por 1,5 s (pode ser do ativo anterior)
+    target = qxSymbol(key);
+  } else {
+    target = assetToSymbol(asset, { allowOtc: true });
+    if (!target) { showToast(`${asset.label}: sem dados na Binance. Use a fonte Quotex em ⚙.`, 'warn'); return; }
+  }
+  if (target !== state.settings.symbol) await dispatch({ type: 'SET_SETTINGS', value: { symbol: target } });
+  candleSymbol = null; lastAnalyzedTime = null; confirmed = preview = null;
+  syncPayout();
+  showToast(`⟳ Ativo: ${asset.label} (lido do ${asset.from})`, 'ok');
+  poll();
+}
+
 /** Varre os outros mercados e calcula a leitura de cada um (prévia da vela atual). */
 async function runScan() {
   if (scanBusy || !state?.active) return;
@@ -309,6 +332,7 @@ const TEMPLATE = `
     <span class="dot" data-k="dot"></span>
     <span class="title">M1 <b>SNIPER</b> BOT</span>
     <span class="badge demo" data-k="mode">DEMO</span>
+    <button class="iconbtn" data-k="refresh" title="Atualizar: reler o ativo aberto na Quotex">⟳</button>
     <button class="iconbtn" data-k="chartBtn" title="Gráfico TradingView ao vivo">📈</button>
     <button class="iconbtn" data-k="gear" title="Ajustes e estatísticas">⚙</button>
     <button class="iconbtn" data-k="minBtn" title="Minimizar">–</button>
@@ -369,6 +393,7 @@ async function mountPanel() {
   $('minBtn').addEventListener('click', () => dispatch({ type: 'SET_SETTINGS', value: { panel: { minimized: !state.settings.panel.minimized } } }));
   $('gear').addEventListener('click', () => { view = view === 'main' ? 'settings' : 'main'; renderSettings(true); render(); });
   $('close').addEventListener('click', () => setVisible(false));
+  $('refresh').addEventListener('click', () => refreshMarket());
   $('chartBtn').addEventListener('click', () => dispatch({ type: 'SET_SETTINGS', value: { panel: { chart: !state.settings.panel.chart } } }));
   enableDrag();
   root.addEventListener('pointerdown', () => { pressing = true; });
