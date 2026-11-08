@@ -65,9 +65,10 @@ Com a fonte **Quotex** (padrão), o bot lê o **preço ao vivo da tela** e monta
 
 1. Em ⚙ → Calibração, calibre **Comprar** e **Vender**. O preço é lido sozinho: se o rótulo azul do eixo for texto, ele é usado (calibre em **Preço ao vivo**); se for desenhado no gráfico (canvas), o bot usa a **legenda do gráfico** ("Fechamento: …"). Enquanto o mouse está sobre o gráfico, a leitura pausa, porque a legenda mostra a vela apontada.
    Se algo não for lido, use **⚙ → COPIAR DIAGNÓSTICO** e envie o texto: ele mostra só a estrutura do painel (nomes de elementos e textos visíveis).
-2. **Aquecimento**: a Quotex não fornece histórico, então o bot junta as velas enquanto a página fica aberta no ativo. Com **60 velas (~1 h)** ele já sinaliza, usando a **EMA 50** como tendência longa. Com **260 velas**, passa para a **EMA 200** da regra original.
-3. As velas ficam salvas por ativo: recarregar a página ou trocar de aba rapidamente não perde o aquecimento. Uma pausa maior que 2 minutos recomeça a contagem, porque velas faltando distorceriam os indicadores.
-4. Limitações: máximas e mínimas vêm de leituras a cada 250 ms, então podem diferir levemente das velas da Quotex. A lista de "Mercados indicados" continua usando a Binance como referência.
+2. **Histórico pelo gráfico (v1.7)**: quando um ativo precisa de aquecimento, o bot tenta ler o histórico do **próprio gráfico**. Ele passa um "mouse virtual" sobre as velas e lê a legenda Abertura/Fechamento/Alto/Baixo de cada uma (~10–15 s, sem mexer o mouse no gráfico). Só aceita o resultado se a vela atual bater com o preço ao vivo, o espaçamento for regular (vela faltando = usa só o trecho contínuo) e Alto/Baixo forem coerentes. Para mais velas, afaste o zoom do gráfico (60+ visíveis). Para repetir: **⚙ → LER HISTÓRICO DO GRÁFICO**. Testado numa imitação da Quotex (150 velas, 100% iguais ao gráfico); na Quotex real depende de o gráfico responder ao mouse simulado.
+3. **Aquecimento (se o histórico não puder ser lido)**: a Quotex não fornece histórico, então o bot junta as velas enquanto a página fica aberta no ativo. Com **60 velas (~1 h)** ele já sinaliza, usando a **EMA 50** como tendência longa. Com **260 velas**, passa para a **EMA 200** da regra original.
+4. As velas ficam salvas por ativo: recarregar a página ou trocar de aba rapidamente não perde o aquecimento. Uma pausa maior que 2 minutos recomeça a contagem, porque velas faltando distorceriam os indicadores.
+5. Limitações: máximas e mínimas vêm de leituras a cada 250 ms, então podem diferir levemente das velas da Quotex. A lista de "Mercados indicados" continua usando a Binance como referência.
 
 Para voltar a usar a Binance (só cripto, sem OTC), mude **Fonte das velas** em ⚙.
 
@@ -145,7 +146,7 @@ Mesmo no modo REAL, o bot continua sem executar ordens.
 
 ```bash
 cd m1-sniper-bot
-npm test                                    # 41 testes: indicadores, padrões, motor, travas, REAL, AUTO, leitura da Quotex
+npm test                                    # 45 testes: indicadores, padrões, motor, travas, REAL, AUTO, leitura da Quotex
 node scripts/backtest.mjs --symbol BTCUSDT,ETHUSDT,SOLUSDT --days 7 --tz America/Sao_Paulo
 node scripts/backtest.mjs --csv meus_candles.csv --symbol EURUSD   # CSV: time,open,high,low,close
 ```

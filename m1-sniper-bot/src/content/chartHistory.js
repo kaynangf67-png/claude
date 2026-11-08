@@ -1,0 +1,136 @@
+// Lê o HISTÓRICO de velas do próprio gráfico da Quotex passando um "mouse
+// virtual" sobre o gráfico e lendo a legenda OHLC (Abertura/Fechamento/
+// Alto/Baixo) de cada vela. Não usa API: só o que o gráfico já mostra.
+// Pode não funcionar se o gráfico ignorar eventos de mouse simulados; nesse
+// caso o bot volta ao aquecimento normal.
+
+import { parsePrice } from './quotexPage.js';
+
+const LABELS = {
+  open: /^(abertura|abert\.?|open|o)$/i,
+  close: /^(fechamento|fech\.?|close|c)$/i,
+  high: /^(alto|alta|máxima|maxima|máx\.?|max\.?|high|h)$/i,
+  low: /^(baixo|baixa|mínima|minima|mín\.?|min\.?|low|l)$/i,
+};
+const M1 = 60_000;
+
+function ownText(e) {
+  return [...e.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join(' ').trim();
+}
+
+/** Acha os elementos da legenda OHLC (rótulo → elemento com o valor). */
+export function findLegend(doc = document) {
+  const found = {};
+  for (const e of doc.querySelectorAll('body *')) {
+    if (e.closest('#m1-sniper-bot-host')) continue;
+    const t = ownText(e);
+    if (!t || t.length > 30) continue;
+    const m = t.match(/^([^\d:]+?)\s*:?\s*([\d.,]+)?$/);
+    if (!m) continue;
+    for (const [k, re] of Object.entries(LABELS)) {
+      if (found[k] || !re.test(m[1].trim())) continue;
+      if (m[2]) found[k] = { el: e, inline: true };
+      else {
+        const v = e.nextElementSibling || e.parentElement?.nextElementSibling;
+        if (v && parsePrice(v.textContent) != null) found[k] = { el: v, inline: false };
+      }
+    }
+  }
+  return found.open && found.close && found.high && found.low ? found : null;
+}
+
+export function readLegend(legend) {
+  if (!legend) return null;
+  const val = (f) => parsePrice(f.inline ? (ownText(f.el).match(/[\d.,]+$/)?.[0] ?? '') : f.el.textContent);
+  const o = { open: val(legend.open), high: val(legend.high), low: val(legend.low), close: val(legend.close) };
+  return Object.values(o).every((v) => v != null) ? o : null;
+}
+
+export function biggestCanvas(doc = document) {
+  let best = null, area = 0;
+  for (const c of doc.querySelectorAll('canvas')) {
+    if (c.closest('#m1-sniper-bot-host')) continue;
+    const r = c.getBoundingClientRect();
+    if (r.width * r.height > area) { area = r.width * r.height; best = c; }
+  }
+  return area > 40_000 ? best : null;
+}
+
+const frame = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 8)));
+
+let lastTarget = null;
+function fire(x, y, type = 'mousemove', forced = null) {
+  const target = forced || document.elementFromPoint(x, y);
+  if (!target || target.closest('#m1-sniper-bot-host')) return;
+  if (type === 'mousemove') lastTarget = target;
+  const init = { bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, view: window };
+  if (type === 'mousemove') {
+    target.dispatchEvent(new PointerEvent('pointermove', { ...init, pointerType: 'mouse' }));
+    target.dispatchEvent(new MouseEvent('mousemove', init));
+  } else target.dispatchEvent(new MouseEvent(type, init));
+}
+
+/**
+ * Varre o gráfico da direita para a esquerda.
+ * @returns {{ok:boolean, candles?:Array, error?:string, read?:number}}
+ */
+export async function readChartHistory({ livePrice, now = Date.now(), step = 2, maxCandles = 300, onProgress } = {}) {
+  const canvas = biggestCanvas();
+  if (!canvas) return { ok: false, error: 'gráfico (canvas) não encontrado' };
+  const legend = findLegend();
+  if (!legend) return { ok: false, error: 'legenda Abertura/Fechamento/Alto/Baixo não encontrada' };
+  const r = canvas.getBoundingClientRect();
+  const y = r.top + r.height * 0.55;
+  const seq = [];
+  let lastOpen = null;
+  fire(r.right - 4, y, 'mouseover'); fire(r.right - 4, y, 'mouseenter');
+  try {
+    for (let x = r.right - 4; x > r.left + 4 && seq.length < maxCandles; x -= step) {
+      fire(x, y);
+      await frame();
+      const o = readLegend(legend);
+      if (!o) continue;
+      // A vela só muda quando a ABERTURA muda (a vela atual muda fechamento/extremos ao vivo).
+      if (o.open !== lastOpen) { seq.push({ ...o, x }); lastOpen = o.open; onProgress?.(seq.length); }
+      else seq[seq.length - 1] = { ...o, x: seq[seq.length - 1].x }; // atualiza a mesma vela (mantém o x onde começou)
+    }
+  } finally {
+    // devolve a legenda para a vela atual e sai do gráfico pelo mesmo elemento
+    fire(r.right - 4, y);
+    await frame();
+    const t = lastTarget;
+    for (const type of ['mouseout', 'mouseleave']) fire(r.right - 4, y, type, t);
+    if (t) t.dispatchEvent(new PointerEvent('pointerleave', { bubbles: false, pointerType: 'mouse', clientX: r.right + 50, clientY: y }));
+  }
+  return buildHistory(seq, { livePrice, now });
+}
+
+/**
+ * Converte a sequência lida (da direita para a esquerda) em velas M1 com horário.
+ * Exige: vela atual compatível com o preço ao vivo, espaçamento regular e OHLC coerente.
+ */
+export function buildHistory(seq, { livePrice, now }) {
+  if (seq.length < 10) return { ok: false, error: `poucas velas lidas (${seq.length}) — o gráfico não respondeu ao mouse virtual`, read: seq.length };
+  // vela mais à direita = vela atual
+  if (Number.isFinite(livePrice) && Math.abs(seq[0].close - livePrice) / livePrice > 0.002) {
+    return { ok: false, error: 'a última vela lida não bate com o preço ao vivo (legenda não segue o mouse?)', read: seq.length };
+  }
+  // espaçamento: mediana dos passos; corta no primeiro buraco (vela faltando)
+  const dx = seq.slice(1).map((s, i) => seq[i].x - s.x).filter((d) => d > 0);
+  const med = [...dx].sort((a, b) => a - b)[Math.floor(dx.length / 2)] || 0;
+  let n = seq.length;
+  for (let i = 1; i < seq.length; i++) {
+    const d = seq[i - 1].x - seq[i].x;
+    if (med && i > 1 && d > med * 1.7) { n = i; break; }   // pulou uma vela: usa só o trecho contínuo
+  }
+  const m0 = Math.floor(now / M1) * M1;
+  const candles = [];
+  for (let i = 0; i < n; i++) {
+    const s = seq[i];
+    if (!(s.high >= Math.max(s.open, s.close) - 1e-9 && s.low <= Math.min(s.open, s.close) + 1e-9)) {
+      return { ok: false, error: 'valores incoerentes na legenda (Alto/Baixo)', read: seq.length };
+    }
+    candles.unshift({ time: m0 - i * M1, open: s.open, high: s.high, low: s.low, close: s.close });
+  }
+  return { ok: true, candles, read: seq.length, used: n };
+}

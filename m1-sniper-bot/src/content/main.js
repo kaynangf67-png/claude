@@ -9,6 +9,7 @@ import { computeStats, realReadiness, REAL_CONFIRM_PHRASE } from '../core/stats.
 import { formatTime } from '../core/time.js';
 import { SYMBOLS, SOURCE_ID } from '../data/binance.js';
 import { QuotexFeed, feedKey } from './quotexFeed.js';
+import { readChartHistory } from './chartHistory.js';
 import { detectPageMode, detectAsset, assetMatches, assetToSymbol, readAmount, readPayout, panelReadings, readPrice, readPriceInfo, diagnostics, clearCaches, assetTargetFromClick, makeCalib, calibReading, captureNextClick, clickDirection } from './quotexPage.js';
 
 const POLL_MS = 3000;
@@ -34,8 +35,39 @@ window.addEventListener('pointermove', (e) => {
 }, true);
 let lastPriceFrom = null;
 let lastSeenKey = null, keyChangedAt = 0;
+// ---- Histórico pelo gráfico (mouse virtual sobre a legenda OHLC)
+let historyBusy = false;
+const historyTried = new Set();
+let historyStatus = null; // texto exibido durante/depois da leitura
+
+async function loadChartHistory(key, manual = false) {
+  if (historyBusy || !key) return;
+  historyBusy = true; historyTried.add(key);
+  historyStatus = 'Lendo o histórico do gráfico… (não mexa o mouse no gráfico)'; render();
+  try {
+    const live = readPrice(state.settings.calib);
+    const r = await readChartHistory({ livePrice: live, now: nowMs(), onProgress: (n) => { historyStatus = `Lendo o histórico do gráfico… ${n} velas`; } });
+    if (r.ok) {
+      const n = feed.setHistory(key, r.candles);
+      if (Number.isFinite(live)) feed.lastTick.set(key, { t: nowMs(), price: live }); // evita "sem leitura" logo após
+      feed.persist(key);
+      historyStatus = null;
+      showToast(`Histórico lido do gráfico: ${r.used} velas (${n} contínuas).${n < WARMUP_REQUIRED ? ' Afaste o zoom do gráfico para ver mais velas.' : ''}`, 'ok');
+      lastAnalyzedTime = null;
+    } else {
+      historyStatus = null;
+      showToast(`Não deu para ler o histórico: ${r.error}. Seguindo com o aquecimento normal.`, manual ? 'err' : 'warn');
+    }
+  } catch (e) {
+    historyStatus = null;
+    showToast('Erro ao ler o histórico: ' + (e.message || e), 'err');
+  } finally {
+    historyBusy = false; render();
+  }
+}
+
 function qxTick() {
-  if (!quotexMode()) return;
+  if (!quotexMode() || historyBusy) return;
   const key = feedKey(detectAsset(state.settings.calib));
   const info = readPriceInfo(state.settings.calib);
   if (!key || !info) return;
@@ -105,6 +137,11 @@ async function poll() {
       }
       if (state.settings.symbol !== candleSymbol) { candleSymbol = state.settings.symbol; lastAnalyzedTime = null; confirmed = preview = null; }
       candles = qxKey && qxSymbol(qxKey) === state.settings.symbol ? feed.candles(qxKey) : [];
+      // Aquecendo? Tenta uma vez por ativo ler o histórico do próprio gráfico.
+      if (qxKey && !historyTried.has(qxKey) && !historyBusy && feed.lastTickAt(qxKey) > 0
+          && closedOnly(candles, nowMs()).length < WARMUP_REQUIRED && nowMs() - keyChangedAt > 3000) {
+        loadChartHistory(qxKey);
+      }
       if (!qxKey || (feed.loaded.has(qxKey) && nowMs() - feed.lastTickAt(qxKey) > 5000 && feed.lastTickAt(qxKey) > 0) || (!readPrice(state.settings.calib) && Date.now() - pointerOverChartAt > 1500)) throw new Error('Preço da Quotex não está sendo lido. Deixe a legenda do gráfico (Abertura/Fechamento) visível ou use ⚙ → COPIAR DIAGNÓSTICO e envie ao suporte.');
       // relógio: sincroniza pelo servidor de dados de vez em quando
       if (nowMs() - lastClockSync > 60_000) { lastClockSync = nowMs(); send({ type: 'klines', symbol: 'BTCUSDT', limit: 1 }).then((r) => { if (Number.isFinite(r.clockOffset)) clockOffset = r.clockOffset; }); }
@@ -244,7 +281,7 @@ async function onData() {
   const closed = closedOnly(candles, now);
   const last = closed.at(-1);
   if (!last && quotexMode()) {
-    preview = { r: { status: 'invalid', reason: `Aquecendo com o preço da Quotex: 0/${WARMUP_REQUIRED} velas (~${WARMUP_REQUIRED} min). Deixe a página aberta neste ativo.` }, candleTime: now };
+    preview = { r: { status: 'invalid', reason: historyStatus || `Aquecendo com o preço da Quotex: 0/${WARMUP_REQUIRED} velas (~${WARMUP_REQUIRED} min). Deixe a página aberta neste ativo.` }, candleTime: now };
     return;
   }
   if (!last || now - (last.time + M1_MS) > STALE_MS) { conn.status = 'stale'; preview = null; return; }
@@ -258,7 +295,7 @@ async function onData() {
   const cfg = { minScore: state.settings.minScore, longEma };
   if (qm && closed.length < WARMUP_REQUIRED) {
     const n = closed.length;
-    preview = { r: { status: 'invalid', reason: `Aquecendo com o preço da Quotex: ${n}/${WARMUP_REQUIRED} velas (~${WARMUP_REQUIRED - n} min). Deixe a página aberta neste ativo.` }, candleTime: last.time };
+    preview = { r: { status: 'invalid', reason: historyStatus || `Aquecendo com o preço da Quotex: ${n}/${WARMUP_REQUIRED} velas (~${WARMUP_REQUIRED - n} min). Deixe a página aberta neste ativo, ou use ⚙ → LER HISTÓRICO DO GRÁFICO.` }, candleTime: last.time };
     lastAnalyzedTime = last.time;
     return;
   }
@@ -725,8 +762,12 @@ function renderSettings(rebuild) {
     try { await navigator.clipboard.writeText(txt); showToast('Diagnóstico copiado: cole na conversa com o suporte', 'ok'); }
     catch { window.prompt('Copie o diagnóstico (Ctrl+C):', txt); }
   });
+  const hist = button('', 'LER HISTÓRICO DO GRÁFICO', () => {
+    if (!qxKey) { showToast('Ativo/preço da Quotex ainda não lido.', 'warn'); return; }
+    view = 'main'; render(); loadChartHistory(qxKey, true);
+  });
   const back = button('', '← VOLTAR AO PAINEL', () => { view = 'main'; render(); });
-  box.replaceChildren(el('b', null, 'Calibração do automático'), cal, diag, el('b', null, 'Ajustes'), form, el('b', null, 'Validação DEMO'), stats, real, exp, back);
+  box.replaceChildren(el('b', null, 'Calibração do automático'), cal, diag, hist, el('b', null, 'Ajustes'), form, el('b', null, 'Validação DEMO'), stats, real, exp, back);
   updateSettingsStats();
   renderCalib();
 }

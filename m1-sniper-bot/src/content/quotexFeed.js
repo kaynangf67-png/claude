@@ -79,6 +79,24 @@ export class QuotexFeed {
     return arr.filter((c) => !c.partial).map(({ filled, partial, ...c }) => c);
   }
 
+  /** Junta o histórico lido do gráfico com as velas ao vivo (ao vivo prevalece, exceto vela incompleta). */
+  setHistory(key, hist) {
+    const map = new Map(hist.map((c) => [c.time, { ...c }]));
+    for (const c of this.series.get(key) || []) {
+      if (!c.partial && !c.filled) map.set(c.time, { ...c });
+      else if (c.partial && map.has(c.time)) { // vela atual: mantém abertura/extremos do gráfico e atualiza com o ao vivo
+        const h = map.get(c.time); h.high = Math.max(h.high, c.high); h.low = Math.min(h.low, c.low); h.close = c.close;
+      }
+    }
+    const arr = [...map.values()].sort((a, b) => a.time - b.time);
+    // mantém só o trecho contínuo final
+    let start = 0;
+    for (let i = 1; i < arr.length; i++) if (arr[i].time - arr[i - 1].time !== M1) start = i;
+    this.series.set(key, arr.slice(Math.max(start, arr.length - MAX_CANDLES)));
+    this.loaded.add(key);
+    return this.series.get(key).length;
+  }
+
   lastTickAt(key) { return this.lastTick.get(key)?.t ?? 0; }
 
   async persist(key) {

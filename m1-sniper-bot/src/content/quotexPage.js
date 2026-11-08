@@ -413,7 +413,7 @@ let legendCache = null; let legendScanAt = 0;
 /** Valor de "Fechamento" na legenda OHLC do gráfico (sem depender de calibração). */
 export function legendClose(doc = document) {
   const fromCache = () => {
-    const c = legendCache?.deref?.();
+    const c = legendCache;
     if (!c || !c.label.isConnected) return null;
     const own = ownText(c.label).match(CLOSE_RE);
     if (own?.[2]) return parsePrice(own[2]);
@@ -433,7 +433,7 @@ export function legendClose(doc = document) {
       valueEl = e.nextElementSibling || e.parentElement?.nextElementSibling || null;
       if (!valueEl || parsePrice(readText(valueEl)) == null) continue;
     }
-    legendCache = new WeakRef({ label: e, value: valueEl });
+    legendCache = { label: e, value: valueEl }; // referência forte (isConnected é conferido a cada leitura)
     v = fromCache();
     if (v != null) return v;
   }
