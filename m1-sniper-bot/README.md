@@ -59,6 +59,14 @@ Não há build: o código roda direto no Chrome. Node 20+ só é necessário par
 
 Os ajustes (nota mínima, payout, validade do sinal; o horário é sempre o de Brasília), as estatísticas da DEMO, os critérios do modo REAL e a exportação do histórico ficam no botão **⚙** do próprio painel. O relatório completo continua disponível em `chrome://extensions` → M1 SNIPER BOT → **Detalhes → Opções da extensão**.
 
+### Histórico sem espera pela conexão da página (v1.14)
+
+Quando você abre um ativo, a Quotex baixa o histórico de velas pela conexão ao vivo da página (WebSocket), e o gráfico só desenha o que chegou. A extensão **observa essas mensagens recebidas, sem enviar nada** (`canvasTap.js` no mundo da página + `wsFeed.js`). Ela reconhece listas de velas (tempo + OHLC em ordens comuns, ou objetos), ticks (convertidos em velas de 1 minuto), o nome do ativo (ex.: `AUDCHF_otc` ↔ "AUD/CHF (OTC)") e as cotações ao vivo. Assim:
+- o histórico entra direto nas velas do ativo: **sem aquecimento**, inclusive para estratégias com EMA 200, e também no **OTC**;
+- a cotação recebida passa a ser a fonte preferida do **preço ao vivo** (mais exata que a leitura do gráfico).
+
+Testado com uma conexão simulada no estilo socket.io (histórico binário + `quotes/stream`): 260 velas reconhecidas em ~2 s e preço ao vivo igual à cotação. O formato real da Quotex não é documentado nem pôde ser verificado daqui. Se não for reconhecido, **⚙ → COPIAR DIAGNÓSTICO** mostra a seção "conexão da página (WebSocket)" com os tipos de mensagem recebidos, para ajustar o leitor.
+
 ### Fonte "Quotex": o bot acompanha o gráfico da própria Quotex (v1.5 / v1.9)
 
 **v1.9 — leitura do que o gráfico DESENHA:** a Quotex desenha o preço e a legenda OHLC dentro do canvas (não há texto na página). A extensão observa os textos que a página desenha (`fillText`) por um script no mundo da página (`src/content/canvasTap.js`), **sem alterar** o desenho, e extrai:
@@ -189,7 +197,7 @@ Mesmo no modo REAL, o bot continua sem executar ordens.
 
 ```bash
 cd m1-sniper-bot
-npm test                                    # 51 testes: indicadores, padrões, motor, travas, REAL, AUTO, leitura da Quotex
+npm test                                    # 56 testes: indicadores, padrões, motor, travas, REAL, AUTO, leitura da Quotex
 node scripts/backtest.mjs --symbol BTCUSDT,ETHUSDT,SOLUSDT --days 7 --tz America/Sao_Paulo
 node scripts/backtest.mjs --csv meus_candles.csv --symbol EURUSD   # CSV: time,open,high,low,close
 node scripts/backtest.mjs --symbol BTCUSDT,ETHUSDT --days 7 --strategy sniperPro   # seu script
