@@ -85,15 +85,23 @@ if (typeof window !== 'undefined') {
 export function canvasCandidates(maxAgeMs = 60_000) {
   const now = Date.now();
   return [...groups.entries()]
-    .filter(([, g]) => now - g.lastAt < maxAgeMs && g.perBatch <= 3 && g.last)
+    .filter(([, g]) => now - g.lastAt < maxAgeMs && g.lastAt > resetAt && g.perBatch <= 3 && g.last)
     .map(([key, g]) => {
-      const seenS = Math.max(1, Math.min(20, (now - g.firstAt) / 1000));
+      const seenS = Math.max(1, Math.min(20, (now - Math.max(g.firstAt, resetAt)) / 1000));
       return { key, color: g.last.f, value: parsePrice(g.last.t), text: g.last.t, rate: g.changes.length / seenS, seenS, ageMs: now - g.lastAt };
     })
     .sort((a, b) => b.rate - a.rate);
 }
 
 let selectedKey = null;
+let resetAt = 0; // após trocar de ativo, só valem números redesenhados depois da troca
+
+/** Troca de ativo: esquece o rótulo escolhido e procura o novo (mesma cor e ritmo). */
+export function resetCanvasSelection() {
+  selectedKey = null;
+  resetAt = Date.now();
+  for (const g of groups.values()) g.changes = []; // ritmo recomeça a contar
+}
 
 /**
  * Preço ao vivo pela escolha do usuário (pref = { key, color, rate }).

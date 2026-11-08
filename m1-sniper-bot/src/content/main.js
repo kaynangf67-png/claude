@@ -10,7 +10,7 @@ import { formatTime } from '../core/time.js';
 import { SYMBOLS, SOURCE_ID } from '../data/binance.js';
 import { QuotexFeed, feedKey } from './quotexFeed.js';
 import { readChartHistory, syntheticMover, trustedMover } from './chartHistory.js';
-import { canvasStatus, canvasCandidates, selectCanvasKey } from './canvasText.js';
+import { canvasStatus, canvasCandidates, selectCanvasKey, resetCanvasSelection } from './canvasText.js';
 import { detectPageMode, detectAsset, assetMatches, assetToSymbol, readAmount, readPayout, panelReadings, readPrice, readPriceInfo, parseCanvasPref, diagnostics, clearCaches, assetTargetFromClick, makeCalib, calibReading, captureNextClick, clickDirection } from './quotexPage.js';
 
 const POLL_MS = 3000;
@@ -85,12 +85,19 @@ async function loadChartHistory(key, manual = false) {
 function qxTick() {
   if (!quotexMode() || historyBusy) return;
   const key = feedKey(detectAsset(state.settings.calib));
+  if (!key) return;
+  // Troca de ativo: acompanha SEMPRE (mesmo sem preço) e procura de novo o rótulo
+  // de preço (a Quotex cria um rótulo novo para cada ativo).
+  if (key !== lastSeenKey) {
+    const first = lastSeenKey === null;
+    lastSeenKey = key; keyChangedAt = Date.now(); qxKey = key;
+    if (!first) resetCanvasSelection();
+  }
+  qxKey = key;
+  if (Date.now() - keyChangedAt < 1500) return; // preço na tela ainda pode ser do ativo anterior
   const info = readPriceInfo(state.settings.calib);
-  if (!key || !info) return;
+  if (!info) return;
   if (info.from === 'legenda' && Date.now() - pointerOverChartAt < 1500) return; // pausa durante o hover
-  // Logo após trocar de ativo, o preço na tela ainda pode ser o do ativo anterior.
-  if (key !== lastSeenKey) { lastSeenKey = key; keyChangedAt = Date.now(); }
-  if (Date.now() - keyChangedAt < 1500) { qxKey = key; return; }
   lastPriceFrom = info.from;
   const price = info.price;
   if (!feed.loaded.has(key)) {
