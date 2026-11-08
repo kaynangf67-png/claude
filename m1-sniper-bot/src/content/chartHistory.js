@@ -59,15 +59,25 @@ export function biggestCanvas(doc = document) {
 const frame = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 8)));
 
 let lastTarget = null;
+let chartCanvas = null;
 function fire(x, y, type = 'mousemove', forced = null) {
   const target = forced || document.elementFromPoint(x, y);
   if (!target || target.closest('#m1-sniper-bot-host')) return;
   if (type === 'mousemove') lastTarget = target;
-  const init = { bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, view: window };
-  if (type === 'mousemove') {
-    target.dispatchEvent(new PointerEvent('pointermove', { ...init, pointerType: 'mouse' }));
-    target.dispatchEvent(new MouseEvent('mousemove', init));
-  } else target.dispatchEvent(new MouseEvent(type, init));
+  const init = { bubbles: true, cancelable: true, composed: true, clientX: x, clientY: y, screenX: x, screenY: y + 80, view: window, buttons: 0 };
+  const pinit = { ...init, pointerType: 'mouse', pointerId: 1, isPrimary: true, width: 1, height: 1 };
+  // envia ao elemento sob o ponto e, se houver, também ao canvas do gráfico
+  const targets = [target];
+  if (chartCanvas && chartCanvas !== target && !target.contains?.(chartCanvas)) targets.push(chartCanvas);
+  for (const t of targets) {
+    if (type === 'mousemove') {
+      t.dispatchEvent(new PointerEvent('pointermove', pinit));
+      t.dispatchEvent(new MouseEvent('mousemove', init));
+    } else if (type === 'mouseover' || type === 'mouseenter') {
+      t.dispatchEvent(new PointerEvent(type === 'mouseover' ? 'pointerover' : 'pointerenter', { ...pinit, bubbles: type === 'mouseover' }));
+      t.dispatchEvent(new MouseEvent(type, { ...init, bubbles: type === 'mouseover' }));
+    } else t.dispatchEvent(new MouseEvent(type, init));
+  }
 }
 
 /**
@@ -76,10 +86,12 @@ function fire(x, y, type = 'mousemove', forced = null) {
  */
 export async function readChartHistory({ livePrice, now = Date.now(), step = 2, maxCandles = 300, onProgress } = {}) {
   const canvas = biggestCanvas();
-  if (!canvas) return { ok: false, error: 'gráfico (canvas) não encontrado' };
+  if (!canvas) return { ok: false, error: 'gráfico (canvas) não encontrado', info: canvasInfo() };
+  chartCanvas = canvas;
   const legend = findLegend();
-  if (!legend) return { ok: false, error: 'legenda Abertura/Fechamento/Alto/Baixo não encontrada' };
+  if (!legend) return { ok: false, error: 'legenda Abertura/Fechamento/Alto/Baixo não encontrada', info: canvasInfo() };
   const r = canvas.getBoundingClientRect();
+  const legendStart = readLegend(legend);
   const y = r.top + r.height * 0.55;
   const seq = [];
   let lastOpen = null;
@@ -102,7 +114,15 @@ export async function readChartHistory({ livePrice, now = Date.now(), step = 2, 
     for (const type of ['mouseout', 'mouseleave']) fire(r.right - 4, y, type, t);
     if (t) t.dispatchEvent(new PointerEvent('pointerleave', { bubbles: false, pointerType: 'mouse', clientX: r.right + 50, clientY: y }));
   }
-  return buildHistory(seq, { livePrice, now });
+  const res = buildHistory(seq, { livePrice, now });
+  res.info = `${canvasInfo()} · legenda inicial ${JSON.stringify(legendStart)} · mudanças lidas ${seq.length} · preço ao vivo ${livePrice}`;
+  return res;
+}
+
+function canvasInfo() {
+  const cs = [...document.querySelectorAll('canvas')].filter((c) => !c.closest('#m1-sniper-bot-host'))
+    .map((c) => { const r = c.getBoundingClientRect(); return `${Math.round(r.width)}x${Math.round(r.height)}`; });
+  return `canvas: ${cs.join(', ') || 'nenhum'}`;
 }
 
 /**

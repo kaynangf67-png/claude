@@ -39,6 +39,7 @@ let lastSeenKey = null, keyChangedAt = 0;
 let historyBusy = false;
 const historyTried = new Set();
 let historyStatus = null; // texto exibido durante/depois da leitura
+let lastHistory = null;    // resultado da última tentativa (exibido no ⚙ e no diagnóstico)
 
 async function loadChartHistory(key, manual = false) {
   if (historyBusy || !key) return;
@@ -47,6 +48,7 @@ async function loadChartHistory(key, manual = false) {
   try {
     const live = readPrice(state.settings.calib);
     const r = await readChartHistory({ livePrice: live, now: nowMs(), onProgress: (n) => { historyStatus = `Lendo o histórico do gráfico… ${n} velas`; } });
+    lastHistory = { at: nowMs(), key, ok: r.ok, text: r.ok ? `ok: ${r.used} velas` : r.error, info: r.info || '' };
     if (r.ok) {
       const n = feed.setHistory(key, r.candles);
       if (Number.isFinite(live)) feed.lastTick.set(key, { t: nowMs(), price: live }); // evita "sem leitura" logo após
@@ -758,7 +760,8 @@ function renderSettings(rebuild) {
     a.download = 'm1-sniper-historico.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   });
   const diag = button('blue', 'COPIAR DIAGNÓSTICO', async () => {
-    const txt = diagnostics(state.settings.calib);
+    const txt = diagnostics(state.settings.calib) + '\n--- histórico do gráfico ---\n'
+      + (lastHistory ? `${lastHistory.key}: ${lastHistory.ok ? 'OK' : 'FALHOU'} — ${lastHistory.text}\n${lastHistory.info}` : 'ainda não tentado');
     try { await navigator.clipboard.writeText(txt); showToast('Diagnóstico copiado: cole na conversa com o suporte', 'ok'); }
     catch { window.prompt('Copie o diagnóstico (Ctrl+C):', txt); }
   });
@@ -767,7 +770,9 @@ function renderSettings(rebuild) {
     view = 'main'; render(); loadChartHistory(qxKey, true);
   });
   const back = button('', '← VOLTAR AO PAINEL', () => { view = 'main'; render(); });
-  box.replaceChildren(el('b', null, 'Calibração do automático'), cal, diag, hist, el('b', null, 'Ajustes'), form, el('b', null, 'Validação DEMO'), stats, real, exp, back);
+  const histInfo = el('div', 'small ' + (lastHistory ? (lastHistory.ok ? 'ok' : 'no') : 'muted'),
+    lastHistory ? `Última leitura do histórico (${lastHistory.key}): ${lastHistory.ok ? '' : 'falhou — '}${lastHistory.text}` : 'Histórico do gráfico: ainda não tentado');
+  box.replaceChildren(el('b', null, 'Calibração do automático'), cal, diag, hist, histInfo, el('b', null, 'Ajustes'), form, el('b', null, 'Validação DEMO'), stats, real, exp, back);
   updateSettingsStats();
   renderCalib();
 }
