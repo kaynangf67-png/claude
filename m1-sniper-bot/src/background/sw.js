@@ -79,11 +79,40 @@ chrome.action.onClicked.addListener(async (tab) => {
   }
 });
 
+// Mouse "de verdade" (eventos confiáveis) via chrome.debugger, usado SÓ durante
+// a leitura do histórico do gráfico. O Chrome mostra uma faixa de aviso enquanto
+// estiver conectado; desconecta ao terminar ou em caso de erro.
+const attachedTabs = new Set();
+async function debuggerOp(tabId, msg) {
+  if (!tabId) return { error: 'aba desconhecida' };
+  const target = { tabId };
+  try {
+    if (msg.op === 'attach') {
+      if (!attachedTabs.has(tabId)) { await chrome.debugger.attach(target, '1.3'); attachedTabs.add(tabId); }
+      return { ok: true };
+    }
+    if (msg.op === 'move') {
+      await chrome.debugger.sendCommand(target, 'Input.dispatchMouseEvent', { type: 'mouseMoved', x: msg.x, y: msg.y, button: 'none', buttons: 0, pointerType: 'mouse' });
+      return { ok: true };
+    }
+    if (msg.op === 'detach') {
+      if (attachedTabs.has(tabId)) { attachedTabs.delete(tabId); await chrome.debugger.detach(target); }
+      return { ok: true };
+    }
+    return { error: 'operação inválida' };
+  } catch (e) {
+    if (msg.op !== 'detach' && attachedTabs.has(tabId)) { attachedTabs.delete(tabId); chrome.debugger.detach(target).catch(() => {}); }
+    return { error: String(e?.message || e) };
+  }
+}
+chrome.debugger.onDetach.addListener((src) => attachedTabs.delete(src.tabId));
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   (async () => {
     try {
       if (msg?.type === 'getState') return sendResponse({ state: (await dispatch({ type: 'TICK' })).state });
       if (msg?.type === 'dispatch') return sendResponse(await dispatch(msg.action));
+      if (msg?.type === 'dbg') return sendResponse(await debuggerOp(_sender.tab?.id, msg));
       if (msg?.type === 'openOptions') { chrome.runtime.openOptionsPage(); return sendResponse({ ok: true }); }
       if (msg?.type === 'klines') {
         const r = await fetchKlinesTimed(msg.symbol, { limit: msg.limit ?? 500 });

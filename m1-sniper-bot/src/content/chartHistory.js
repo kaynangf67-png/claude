@@ -61,6 +61,32 @@ export function biggestCanvas(doc = document) {
 
 const frame = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 8)));
 
+/** Mouse simulado comum (eventos do próprio script). */
+export const syntheticMover = {
+  name: 'simulado',
+  async begin(x, y) { fire(x, y, 'mouseover'); fire(x, y, 'mouseenter'); fire(x, y); },
+  async move(x, y) { fire(x, y); },
+  async end(r) { leaveChart(r); },
+};
+
+/** Mouse do Chrome via chrome.debugger (eventos confiáveis). `send` = mensagem ao service worker. */
+export function trustedMover(send) {
+  return {
+    name: 'Chrome',
+    async begin(x, y) {
+      const a = await send({ type: 'dbg', op: 'attach' });
+      if (a?.error) throw new Error('não foi possível usar o mouse do Chrome: ' + a.error);
+      await send({ type: 'dbg', op: 'move', x, y });
+    },
+    async move(x, y) { const r = await send({ type: 'dbg', op: 'move', x, y }); if (r?.error) throw new Error(r.error); },
+    async end(r) {
+      // sai do gráfico (canto superior esquerdo da página) e desconecta
+      await send({ type: 'dbg', op: 'move', x: 2, y: 2 }).catch(() => {});
+      await send({ type: 'dbg', op: 'detach' }).catch(() => {});
+    },
+  };
+}
+
 let lastTarget = null;
 let chartCanvas = null;
 function fire(x, y, type = 'mousemove', forced = null) {
@@ -87,33 +113,32 @@ function fire(x, y, type = 'mousemove', forced = null) {
  * Varre o gráfico da direita para a esquerda.
  * @returns {{ok:boolean, candles?:Array, error?:string, read?:number}}
  */
-export async function readChartHistory({ livePrice, now = Date.now(), step = 2, maxCandles = 300, onProgress } = {}) {
+export async function readChartHistory({ livePrice, now = Date.now(), step = 2, maxCandles = 300, onProgress, mover = syntheticMover } = {}) {
   const canvas = biggestCanvas();
   if (!canvas) return { ok: false, error: 'gráfico (canvas) não encontrado', info: canvasInfo() };
   chartCanvas = canvas;
   const r = canvas.getBoundingClientRect();
   // Na Quotex a legenda OHLC só aparece com o mouse SOBRE o gráfico: entra primeiro, depois procura.
   let legend = findLegend();
+  await mover.begin(r.left + r.width * 0.6, r.top + r.height * 0.55);
   if (!legend) {
     for (const fx of [0.6, 0.4, 0.75, 0.25]) {
       const px = r.left + r.width * fx, py = r.top + r.height * 0.55;
-      fire(px, py, 'mouseover'); fire(px, py, 'mouseenter'); fire(px, py);
-      for (let k = 0; k < 6 && !legend; k++) { await frame(); fire(px + k, py); legend = findLegend(); }
+      for (let k = 0; k < 6 && !legend; k++) { await mover.move(px + k * 3, py); await frame(); await frame(); legend = findLegend(); }
       if (legend) break;
     }
   }
   if (!legend) {
-    leaveChart(r);
+    await mover.end(r);
     return { ok: false, error: 'legenda Abertura/Fechamento/Alto/Baixo não apareceu nem com o mouse virtual sobre o gráfico', info: canvasInfo() + ' · textos com rótulos OHLC: ' + ohlcTextsInfo() };
   }
   const legendStart = readLegend(legend);
   const y = r.top + r.height * 0.55;
   const seq = [];
   let lastOpen = null;
-  fire(r.right - 4, y, 'mouseover'); fire(r.right - 4, y, 'mouseenter');
   try {
     for (let x = r.right - 4; x > r.left + 4 && seq.length < maxCandles; x -= step) {
-      fire(x, y);
+      await mover.move(x, y);
       await frame();
       const o = readLegend(legend);
       if (!o) continue;
@@ -122,13 +147,13 @@ export async function readChartHistory({ livePrice, now = Date.now(), step = 2, 
       else seq[seq.length - 1] = { ...o, x: seq[seq.length - 1].x }; // atualiza a mesma vela (mantém o x onde começou)
     }
   } finally {
-    // devolve a legenda para a vela atual e sai do gráfico pelo mesmo elemento
-    fire(r.right - 4, y);
+    // devolve a legenda para a vela atual e sai do gráfico
+    await mover.move(r.right - 4, y).catch(() => {});
     await frame();
-    leaveChart(r);
+    await mover.end(r);
   }
   const res = buildHistory(seq, { livePrice, now });
-  res.info = `${canvasInfo()} · legenda inicial ${JSON.stringify(legendStart)} · mudanças lidas ${seq.length} · preço ao vivo ${livePrice}`;
+  res.info = `mouse ${mover.name} · ${canvasInfo()} · legenda inicial ${JSON.stringify(legendStart)} · mudanças lidas ${seq.length} · preço ao vivo ${livePrice}`;
   return res;
 }
 

@@ -9,7 +9,7 @@ import { computeStats, realReadiness, REAL_CONFIRM_PHRASE } from '../core/stats.
 import { formatTime } from '../core/time.js';
 import { SYMBOLS, SOURCE_ID } from '../data/binance.js';
 import { QuotexFeed, feedKey } from './quotexFeed.js';
-import { readChartHistory } from './chartHistory.js';
+import { readChartHistory, syntheticMover, trustedMover } from './chartHistory.js';
 import { detectPageMode, detectAsset, assetMatches, assetToSymbol, readAmount, readPayout, panelReadings, readPrice, readPriceInfo, diagnostics, clearCaches, assetTargetFromClick, makeCalib, calibReading, captureNextClick, clickDirection } from './quotexPage.js';
 
 const POLL_MS = 3000;
@@ -39,7 +39,8 @@ let lastSeenKey = null, keyChangedAt = 0;
 let historyBusy = false;
 const historyTried = new Set();
 let historyStatus = null; // texto exibido durante/depois da leitura
-let lastHistory = null;    // resultado da última tentativa (exibido no ⚙ e no diagnóstico)
+let lastHistory = null;
+let syntheticFailed = false; // gráfico ignora mouse simulado: vai direto ao mouse do Chrome    // resultado da última tentativa (exibido no ⚙ e no diagnóstico)
 
 async function loadChartHistory(key, manual = false) {
   if (historyBusy || !key) return;
@@ -47,7 +48,17 @@ async function loadChartHistory(key, manual = false) {
   historyStatus = 'Lendo o histórico do gráfico… (não mexa o mouse no gráfico)'; render();
   try {
     const live = readPrice(state.settings.calib);
-    const r = await readChartHistory({ livePrice: live, now: nowMs(), onProgress: (n) => { historyStatus = `Lendo o histórico do gráfico… ${n} velas`; } });
+    const progress = (n) => { historyStatus = `Lendo o histórico do gráfico… ${n} velas`; };
+    let r = syntheticFailed ? { ok: false, error: 'legenda (mouse simulado já falhou nesta página)' }
+      : await readChartHistory({ livePrice: live, now: nowMs(), onProgress: progress, mover: syntheticMover });
+    if (!r.ok && /legenda|poucas velas|não bate/.test(r.error || '')) {
+      syntheticFailed = true;
+      // O gráfico ignora mouse simulado: tenta com o mouse do Chrome (faixa amarela de aviso por ~15 s).
+      historyStatus = 'Lendo o histórico com o mouse do Chrome… (o Chrome mostra uma faixa amarela de aviso; ela some ao terminar)'; render();
+      try {
+        r = await readChartHistory({ livePrice: readPrice(state.settings.calib) ?? live, now: nowMs(), onProgress: progress, mover: trustedMover(send) });
+      } catch (e) { r = { ok: false, error: String(e.message || e), info: 'mouse Chrome' }; }
+    }
     lastHistory = { at: nowMs(), key, ok: r.ok, text: r.ok ? `ok: ${r.used} velas` : r.error, info: r.info || '' };
     if (r.ok) {
       const n = feed.setHistory(key, r.candles);
