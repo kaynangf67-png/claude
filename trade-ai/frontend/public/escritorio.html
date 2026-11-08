@@ -22,6 +22,20 @@
   .hint { position: fixed; right: max(16px, env(safe-area-inset-right)); top: max(22px, env(safe-area-inset-top)); font-size: 12px; color: #63636b; pointer-events: none; text-align: right; }
   .news { position: fixed; inset: 0; display: none; place-items: center; padding: 16px; background: #000a; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); z-index: 5; }
   .news.open { display: grid; }
+  .zy-strip { position: fixed; top: max(16px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: flex; gap: 4px; align-items: stretch; padding: 5px; border-radius: 14px; background: #0a0a0acc; border: 1px solid #7c3aed55; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); cursor: pointer; z-index: 3; max-width: calc(100vw - 32px); flex-wrap: wrap; justify-content: center; }
+  .zy-strip[hidden] { display: none; }
+  .zy-strip em { font-style: normal; font: 800 10.5px/1 inherit; letter-spacing: .08em; color: #c4b5fd; align-self: center; padding: 0 8px; }
+  .zy-strip span { padding: 4px 9px; border-radius: 9px; background: #ffffff08; min-width: 54px; text-align: center; }
+  .zy-strip small { display: block; font-size: 10px; color: #71717a; } .zy-strip b { font-size: 12.5px; }
+  .zy-strip .up b { color: #4ade80; } .zy-strip .down b { color: #f87171; }
+  @media (max-width: 760px) { .zy-strip { top: auto; bottom: calc(max(18px, env(safe-area-inset-bottom)) + 108px); } .zy-strip span { min-width: 44px; padding: 3px 6px; } }
+  .brainbox { position: fixed; inset: 0; display: none; place-items: center; padding: 16px; background: #000c; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); z-index: 6; }
+  .brainbox.open { display: grid; }
+  .brainbox .card { width: min(760px, 100%); box-sizing: border-box; background: #07070a; border: 1px solid #7c3aed66; border-radius: 20px; padding: 18px; }
+  .brainbox h2 { margin: 0 0 4px; font-size: 18px; letter-spacing: .06em; } .brainbox p { margin: 0; font-size: 12.5px; color: var(--mute); }
+  .brainbox canvas { width: 100%; height: min(58vh, 460px); display: block; margin: 10px 0; }
+  .brainbox .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; } .brainbox .row button { margin-left: auto; appearance: none; border: 0; border-radius: 12px; padding: 11px 16px; font: 800 13px/1 inherit; font-family: inherit; cursor: pointer; background: #1a1a1a; color: var(--ink); }
+  .brainbox .leg { font-size: 11.5px; color: #a1a1aa; } .brainbox .leg i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin: 0 4px 0 10px; vertical-align: -1px; }
   .news .card { width: min(520px, 100%); box-sizing: border-box; background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 20px; padding: 22px; box-shadow: 0 30px 80px -20px #000; }
   .news .tag { font-size: 11px; font-weight: 800; letter-spacing: .12em; color: #63636b; }
   .news h2 { margin: 10px 0 8px; font-size: 20px; line-height: 1.3; }
@@ -159,6 +173,7 @@
     <div><b>TRADE <span>AI</span></b><small>Escritório · prévia 3D</small></div>
   </div>
 </div>
+<div class="zy-strip" id="zy-strip" hidden role="button" tabindex="0" aria-label="Resumo do dia da mesa Zyon (simulado). Clique para abrir a mesa."></div>
 <div class="hint">Arraste para girar 360°<br>Role ou faça pinça para aproximar</div>
 
 <nav class="bar" aria-label="Câmera">
@@ -168,8 +183,18 @@
   <button id="tela1" type="button">Tela 1</button>
   <button id="tela2" type="button">Tela 2</button>
   <button id="reset" type="button">Visão ampla</button>
+  <button id="brain-btn" type="button">🧠 Cérebro</button>
 </nav>
 
+<div class="brainbox" id="brain" role="dialog" aria-modal="true" aria-labelledby="brain-title">
+  <div class="card">
+    <h2 id="brain-title">ZYON BRAIN</h2>
+    <p>Grafo feito só com operações SIMULADAS registradas pela mesa: tamanho = número de operações; cor = resultado médio em R, com custos.</p>
+    <canvas id="brain-cv" aria-label="Grafo do aprendizado da mesa Zyon"></canvas>
+    <p id="brain-info"></p>
+    <div class="row"><span class="leg"><i style="background:#22c55e"></i>positivo<i style="background:#ef4444"></i>negativo<i style="background:#52525b"></i>sem dados</span><button id="brain-close" type="button">Fechar</button></div>
+  </div>
+</div>
 <div class="news" id="news" role="dialog" aria-modal="true" aria-labelledby="news-title">
   <div class="card">
     <div class="tag">NOTÍCIA · MERCADO FINANCEIRO</div>
@@ -2011,9 +2036,9 @@
         const P = ZP[pose] || ZP.dormindo; a.scr.forEach((s) => s.material.color.setHex(P.scr));
       }
     }
-    const poll = async () => { try { const r = await fetch("/api/agent?action=zyon"); if (r.ok) apply(await r.json()); } catch { /* sem servidor: ficam dormindo */ } };
+    const poll = async () => { try { const r = await fetch("/api/agent?action=zyon"); if (r.ok) window.__zyApply(await r.json()); } catch { /* sem servidor: ficam dormindo */ } };
     poll(); setInterval(poll, 60000);
-    window.__zyApply = apply; // usado pela mesa Zyon do painel para atualizar os bonecos na hora
+    window.__zyApply = (d) => { apply(d); if (window.__zyHud) window.__zyHud(d); }; // painel e bonecos atualizam juntos
   })();
 
   // ---------- outros móveis ----------
@@ -2453,6 +2478,80 @@
     zyonTimer = setInterval(() => { if (!aiOut.querySelector(".zy-root")) { clearInterval(zyonTimer); return; } renderZyon(false); }, 30000);
   }
   document.getElementById("ai-zyon").onclick = () => renderZyon(false);
+
+  // ---------- ZYON: faixa do dia (topo) e Cérebro (grafo com os dados reais do Brain) ----------
+  const zyStrip = document.getElementById("zy-strip"), brainBox = document.getElementById("brain");
+  let zyLast = null;
+  const brtDay = (sec) => new Date(sec * 1000).toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+  function zyHud(d) {
+    zyLast = d;
+    const today = brtDay(d.now || Math.floor(Date.now() / 1000));
+    const closedToday = (d.closed || []).filter((p) => brtDay(p.at) === today);
+    const r = closedToday.reduce((s, p) => s + p.rNet, 0);
+    const vetos = (d.events || []).filter((e) => e.who === "RISK" && e.kind === "vetada" && brtDay(e.at) === today).length;
+    const asleep = !(d.agents || []).length || d.agents.every((a) => a.status === "dormindo");
+    zyStrip.innerHTML = "";
+    const add = (k, v, cls) => { const s = el("span", cls || ""); s.append(el("small", "", k), el("b", "", v)); zyStrip.append(s); };
+    zyStrip.append(el("em", "", "ZYON · SIMULADO"));
+    add("Hoje", `${r >= 0 ? "+" : ""}${r.toFixed(2)}R`, closedToday.length ? (r >= 0 ? "up" : "down") : "");
+    add("Operações", String(closedToday.length));
+    add("Abertas", String((d.open || []).length));
+    add("Vetadas", String(vetos), vetos ? "down" : "");
+    add("Mesa", !d.lastCycle ? "sem ciclo" : asleep ? "dormindo" : `ativa · ${zhm(d.lastCycle)}`);
+    zyStrip.hidden = false;
+    if (brainBox.classList.contains("open")) drawBrain();
+  }
+  window.__zyHud = zyHud;
+  zyStrip.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); zyStrip.onclick(); } };
+  zyStrip.onclick = () => { const i = picks.findIndex((x) => isForex(x)); openPc(i >= 0 ? i : 0); renderZyon(false); };
+  // Grafo: Brain no centro → agentes (pares) → estratégias. Tamanho = nº de operações; cor = R médio (com custos). Sem dados: cinza.
+  function drawBrain() {
+    const cv = document.getElementById("brain-cv"), info = document.getElementById("brain-info");
+    const w = cv.clientWidth, h = cv.clientHeight, dpr = Math.min(2, window.devicePixelRatio || 1);
+    cv.width = w * dpr; cv.height = h * dpr; const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+    const d = zyLast || {}, ex = d.closed || [], sh = d.shadowClosed || [];
+    const groups = {};
+    for (const p of ex) { const k = p.symbol; (groups[k] ??= { n: 0, r: 0, strat: {} }); groups[k].n++; groups[k].r += p.rNet; const s = (groups[k].strat[p.strategy] ??= { n: 0, r: 0 }); s.n++; s.r += p.rNet; }
+    const syms = (d.pairs && d.pairs.length ? d.pairs : ["EURUSD", "GBPUSD", "USDJPY"]);
+    const col = (n, r) => (!n ? "#52525b" : r / n > 0.05 ? "#22c55e" : r / n < -0.05 ? "#ef4444" : "#a1a1aa");
+    const cx = w / 2, cy = h / 2 - 8, R1 = Math.min(w, h) * 0.22, R2 = Math.min(w, h) * 0.37;
+    const node = (x, y, rad, c, label, sub) => {
+      g.beginPath(); g.arc(x, y, rad, 0, Math.PI * 2); g.fillStyle = c + "33"; g.fill(); g.lineWidth = 2; g.strokeStyle = c; g.stroke();
+      g.fillStyle = "#e5e7eb"; g.font = "700 12px Inter, system-ui, sans-serif"; g.textAlign = "center"; g.fillText(label, x, y + rad + 14);
+      if (sub) { g.fillStyle = "#a1a1aa"; g.font = "600 11px Inter, system-ui, sans-serif"; g.fillText(sub, x, y + rad + 28); }
+    };
+    const items = [...syms.map((s) => ({ kind: "sym", key: s })), { kind: "veto" }];
+    items.forEach((it, i) => {
+      const a = -Math.PI / 2 + (i / items.length) * Math.PI * 2, x = cx + Math.cos(a) * R1, y = cy + Math.sin(a) * R1;
+      g.strokeStyle = "#ffffff22"; g.lineWidth = 1.5; g.beginPath(); g.moveTo(cx, cy); g.lineTo(x, y); g.stroke();
+      if (it.kind === "veto") {
+        const n = sh.length, r = sh.reduce((s, p) => s + p.rNet, 0);
+        node(x, y, 12 + Math.sqrt(n) * 4, n ? (r < 0 ? "#22c55e" : "#ef4444") : "#52525b", "Risk Guard (vetos)", n ? `${n} vetadas · teriam dado ${r >= 0 ? "+" : ""}${r.toFixed(1)}R` : "nenhuma vetada fechada");
+        return;
+      }
+      const G = groups[it.key] || { n: 0, r: 0, strat: {} };
+      const strats = Object.entries(G.strat);
+      strats.forEach(([name, s], j) => {
+        const b = a + ((j - (strats.length - 1) / 2) * 0.75), sx = cx + Math.cos(b) * R2, sy = cy + Math.sin(b) * R2;
+        g.strokeStyle = "#ffffff18"; g.beginPath(); g.moveTo(x, y); g.lineTo(sx, sy); g.stroke();
+        node(sx, sy, 6 + Math.sqrt(s.n) * 3, col(s.n, s.r), name.length > 18 ? name.slice(0, 17) + "…" : name, `${s.n} · ${(s.r / s.n).toFixed(2)}R`);
+      });
+      node(x, y, 12 + Math.sqrt(G.n) * 4, col(G.n, G.r), it.key.slice(0, 3) + "/" + it.key.slice(3), G.n ? `${G.n} op · ${(G.r / G.n).toFixed(2)}R/op` : "sem operações");
+    });
+    g.beginPath(); g.arc(cx, cy, 42, 0, Math.PI * 2); g.fillStyle = "#a78bfa33"; g.fill(); g.lineWidth = 2; g.strokeStyle = "#a78bfa"; g.stroke();
+    g.fillStyle = "#e5e7eb"; g.textAlign = "center"; g.font = "800 12px Inter, system-ui, sans-serif"; g.fillText("ZYON BRAIN", cx, cy - 2);
+    g.fillStyle = "#c4b5fd"; g.font = "600 11px Inter, system-ui, sans-serif"; g.fillText(`${ex.length} operações`, cx, cy + 13);
+    const b = d.brain;
+    info.textContent = b ? `${b.verdict} ${b.suggestions && b.suggestions[0] ? "Sugestão: " + b.suggestions[0] : ""}` : "Sem dados da mesa Zyon ainda.";
+  }
+  document.getElementById("brain-btn").onclick = async () => {
+    brainBox.classList.add("open");
+    if (!zyLast) { try { const r = await fetch("/api/agent?action=zyon"); if (r.ok) zyLast = await r.json(); } catch { /* sem servidor */ } }
+    drawBrain(); document.getElementById("brain-close").focus();
+  };
+  document.getElementById("brain-close").onclick = () => brainBox.classList.remove("open");
+  brainBox.addEventListener("click", (e) => { if (e.target === brainBox) brainBox.classList.remove("open"); });
+  window.addEventListener("resize", () => { if (brainBox.classList.contains("open")) drawBrain(); });
 
   async function agentApi(action, opts) {
     const r = await fetch("/api/agent?action=" + action, opts); const j = await r.json().catch(() => ({ error: "Erro " + r.status }));
