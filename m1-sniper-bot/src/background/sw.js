@@ -2,16 +2,26 @@
 // numa fila, aplica as regras de risco (reduce) e persiste em chrome.storage.
 // Também busca candles na fonte independente (evita CORS/CSP da página).
 import { hydrate, reduce } from '../core/state.js';
-import { fetchKlines } from '../data/binance.js';
+import { fetchKlinesTimed } from '../data/binance.js';
 
 const KEY = 'm1state';
 let cache = null;
 let queue = Promise.resolve();
+// Diferença entre o relógio do servidor de dados e o do PC (ms). Corrige PCs
+// com relógio adiantado/atrasado, que faziam os candles parecerem "atrasados".
+let clockOffset = 0;
+const now = () => Date.now() + clockOffset;
+function updateOffset(serverNow, localNow) {
+  if (!Number.isFinite(serverNow)) return;
+  const off = serverNow - localNow;
+  // Só ajusta quando a diferença é relevante (resolução do cabeçalho Date = 1 s).
+  if (Math.abs(off - clockOffset) > 1500) clockOffset = Math.round(off);
+}
 
 async function load() {
   if (cache) return cache;
   const got = await chrome.storage.local.get(KEY);
-  cache = hydrate(got[KEY], Date.now());
+  cache = hydrate(got[KEY], now());
   return cache;
 }
 
@@ -23,7 +33,7 @@ async function save(s) {
 function dispatch(action) {
   const run = queue.then(async () => {
     const s = await load();
-    const { state, error } = reduce(s, action, Date.now());
+    const { state, error } = reduce(s, action, now());
     // Grava sempre que o estado mudou (inclui TICK de virada de dia).
     if (JSON.stringify(state) !== JSON.stringify(s)) await save(state);
     return { state, error };
@@ -76,8 +86,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       if (msg?.type === 'dispatch') return sendResponse(await dispatch(msg.action));
       if (msg?.type === 'openOptions') { chrome.runtime.openOptionsPage(); return sendResponse({ ok: true }); }
       if (msg?.type === 'klines') {
-        const candles = await fetchKlines(msg.symbol, { limit: msg.limit ?? 500 });
-        return sendResponse({ candles, serverNow: Date.now() });
+        const r = await fetchKlinesTimed(msg.symbol, { limit: msg.limit ?? 500 });
+        updateOffset(r.serverNow, r.localNow);
+        return sendResponse({ candles: r.candles, clockOffset });
       }
       sendResponse({ error: 'Mensagem desconhecida' });
     } catch (e) {

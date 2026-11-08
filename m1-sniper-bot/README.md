@@ -161,7 +161,18 @@ m1-sniper-bot/
 └── tests/                  # node --test
 ```
 
-## 9. Limitações conhecidas
+## 9. Problemas comuns
+
+| O painel mostra | Causa e solução |
+|---|---|
+| **Dados atrasados** | Na versão 1.3.1, o horário é corrigido pelo servidor de dados. Se o relógio do PC estiver errado, o painel avisa "⏱ relógio do PC adiantado/atrasado X s (corrigido)". Se continuar atrasado, verifique a internet. |
+| **Valor ✗ "não lido"** | Refaça a calibração do valor em ⚙, clicando no **número** do Investimento. Valores como `5,000 R$` são lidos como 5000; `2,50 R$`, como 2,50. |
+| **Mercado aberto ✗ "não lido"** | Refaça a calibração clicando no **nome do ativo** no topo do gráfico. São aceitos pares ("BTC/USD") e nomes ("Bitcoin"). |
+| **Mercado aberto ✗ "OTC não tem fonte externa"** | Ativos **OTC** têm preço gerado pela própria corretora (comum nos fins de semana). O bot não tem como analisá-los e nunca opera neles. Abra um ativo de cripto sem OTC. |
+
+A calibração guarda o caminho do elemento, as classes, o texto e a posição na tela. Se a Quotex redesenhar a página, o bot procura o elemento por esses dados. Testado com a página redesenhada (outro aninhamento).
+
+## 10. Limitações conhecidas
 
 - Os preços vêm da Binance, não da Quotex, e a diferença pode mudar o resultado de operações de 1 minuto.
 - A detecção de ativo e de conta na página da Quotex depende do título e da URL, que a Quotex pode mudar sem aviso. Esses pontos não foram verificados na Quotex real porque não há acesso a ela neste ambiente.

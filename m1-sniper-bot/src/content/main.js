@@ -8,12 +8,15 @@ import { DAILY_GREEN_TARGET, DAILY_LOSS_LIMIT, LOCK_MESSAGES } from '../core/ris
 import { computeStats, realReadiness, REAL_CONFIRM_PHRASE } from '../core/stats.js';
 import { formatTime } from '../core/time.js';
 import { SYMBOLS, SOURCE_ID } from '../data/binance.js';
-import { detectPageMode, detectAsset, assetMatches, assetToSymbol, readAmount, cssPath, captureNextClick, clickDirection } from './quotexPage.js';
+import { detectPageMode, detectAsset, assetMatches, assetToSymbol, readAmount, makeCalib, calibReading, captureNextClick, clickDirection } from './quotexPage.js';
 
 const POLL_MS = 3000;
 const FAST_POLL_MS = 1000;           // perto da virada do minuto
 const STALE_MS = 2.5 * M1_MS;
 
+// Relógio corrigido pelo horário do servidor de dados (PC adiantado/atrasado).
+let clockOffset = 0;
+const nowMs = () => Date.now() + clockOffset;
 let state = null;
 let candles = [];
 let candleSymbol = null;
@@ -62,22 +65,23 @@ async function poll() {
     if (sym !== candleSymbol) { candles = []; candleSymbol = sym; lastAnalyzedTime = null; confirmed = preview = null; }
     const res = await send({ type: 'klines', symbol: sym, limit: candles.length >= REQUIRED_CANDLES ? 5 : 500 });
     if (res.error) throw new Error(res.error);
+    if (Number.isFinite(res.clockOffset)) clockOffset = res.clockOffset;
     candles = mergeCandles(candles, res.candles, 600);
     conn = { status: 'ok', error: null };
     await onData();
     await autoRecordResult();
-    if (Date.now() - lastScanAt > SCAN_EVERY_MS || isMinuteTurn()) runScan();
+    if (nowMs() - lastScanAt > SCAN_EVERY_MS || isMinuteTurn()) runScan();
   } catch (e) {
     conn = { status: 'offline', error: String(e.message || e) };
     preview = null;
   } finally {
     render();
-    const sec = new Date().getSeconds();
+    const sec = new Date(nowMs()).getSeconds();
     pollTimer = setTimeout(poll, sec >= 55 || sec < 6 ? FAST_POLL_MS : POLL_MS);
   }
 }
 
-const isMinuteTurn = () => { const sec = new Date().getSeconds(); return sec >= 1 && sec <= 3 && Date.now() - lastScanAt > 4000; };
+const isMinuteTurn = () => { const sec = new Date(nowMs()).getSeconds(); return sec >= 1 && sec <= 3 && nowMs() - lastScanAt > 4000; };
 
 /** Se o usuário abriu na Quotex um mercado coberto, o bot passa a analisar esse mercado. */
 async function followOpenedMarket() {
@@ -90,7 +94,7 @@ async function followOpenedMarket() {
 /** Varre os outros mercados e calcula a leitura de cada um (prévia da vela atual). */
 async function runScan() {
   if (scanBusy || !state?.active) return;
-  scanBusy = true; lastScanAt = Date.now();
+  scanBusy = true; lastScanAt = nowMs();
   try {
     const cfg = { minScore: state.settings.minScore };
     for (const sym of SCAN_SYMBOLS) {
@@ -99,7 +103,7 @@ async function runScan() {
       if (res.error) continue;
       const cs = mergeCandles(have, res.candles, 450);
       scanCandles.set(sym, cs);
-      const now = Date.now();
+      const now = nowMs();
       const closed = closedOnly(cs, now);
       const last = closed.at(-1);
       if (!last) continue;
@@ -115,7 +119,7 @@ async function runScan() {
 }
 
 function indicatedMarkets() {
-  const now = Date.now();
+  const now = nowMs();
   return [...scan.entries()].filter(([, v]) => now - v.at < 90_000)
     .sort((a, b) => (b[1].signal - a[1].signal) || b[1].score - a[1].score).slice(0, 3);
 }
@@ -144,14 +148,14 @@ async function tryAutoEntry(sig) {
 async function autoRecordResult() {
   const t = state.openTrade;
   if (!t?.auto || !t.suggested) return;
-  if (Date.now() < t.expiryTime + AUTO_RECORD_AFTER_MS) return;
+  if (nowMs() < t.expiryTime + AUTO_RECORD_AFTER_MS) return;
   await dispatch({ type: 'RECORD_RESULT', tradeId: t.id, result: t.suggested.result, by: 'auto' });
 }
 
-function showToast(text, kind = 'ok') { toast = { text, kind, until: Date.now() + 8000 }; render(); }
+function showToast(text, kind = 'ok') { toast = { text, kind, until: nowMs() + 8000 }; render(); }
 
 async function onData() {
-  const now = Date.now();
+  const now = nowMs();
   const closed = closedOnly(candles, now);
   const last = closed.at(-1);
   if (!last || now - (last.time + M1_MS) > STALE_MS) { conn.status = 'stale'; preview = null; return; }
@@ -179,7 +183,7 @@ async function onData() {
   const res = await dispatch({ type: 'PROPOSE_SIGNAL', signal: r.signal, pageMode: detectPageMode() });
   if (res.error) return;
   beep(r.signal.direction);
-  if (state.activeSignal && Date.now() <= r.signal.entryTime + AUTO_ENTRY_WINDOW_MS) await tryAutoEntry(state.activeSignal);
+  if (state.activeSignal && nowMs() <= r.signal.entryTime + AUTO_ENTRY_WINDOW_MS) await tryAutoEntry(state.activeSignal);
 }
 
 async function resolveOutcomes(closed) {
@@ -316,7 +320,12 @@ function nextReading(s, now) {
   if (s.activeSignal) return { kind: 'signal', sig: s.activeSignal };
   if (!s.active) return { kind: 'off' };
   if (s.day.locked || s.openTrade) return { kind: 'blocked', text: canSignal(s) };
-  if (conn.status !== 'ok') return { kind: 'blocked', text: conn.status === 'stale' ? 'Dados atrasados — aguarde' : 'Sem conexão com a fonte de dados' };
+  if (conn.status !== 'ok') {
+    const lastC = closedOnly(candles, now).at(-1);
+    return { kind: 'blocked', text: conn.status === 'stale'
+      ? `Dados atrasados (última vela ${lastC ? formatTime(lastC.time, s.settings.timeZone, false) : '—'}) — aguarde`
+      : 'Sem conexão com a fonte de dados' };
+  }
   if (preview) return { kind: 'preview', ...preview };
   if (confirmed) return { kind: 'confirmed', ...confirmed };
   return { kind: 'blocked', text: 'Carregando candles…' };
@@ -329,7 +338,7 @@ let pressing = false;
 function render() {
   if (!root || !state) return;
   if (pressing) { tick(); return; }
-  const s = state, tz = s.settings.timeZone, now = Date.now();
+  const s = state, tz = s.settings.timeZone, now = nowMs();
   panel.classList.toggle('min', !!s.settings.panel.minimized);
   $('minBtn').textContent = s.settings.panel.minimized ? '+' : '–';
   if (!panel.dataset.placed) {
@@ -363,6 +372,7 @@ function render() {
   const warn = [];
   if (match === false) warn.push(`⚠ página mostra ${asset.label}`);
   if (pageMode === 'REAL' && s.account.mode === 'DEMO') warn.push('⚠ página parece conta REAL');
+  if (Math.abs(clockOffset) > 3000) warn.push(`⏱ relógio do PC ${clockOffset < 0 ? 'adiantado' : 'atrasado'} ${Math.round(Math.abs(clockOffset) / 1000)} s (corrigido)`);
   $('assetInfo').textContent = warn.length ? warn.join(' · ') : `TradingView · BINANCE:${s.settings.symbol} · ${conn.status === 'ok' ? 'ao vivo' : conn.status === 'stale' ? '(atrasado)' : conn.status === 'offline' ? '(offline)' : '(conectando)'}`;
   renderChart(s);
   $('assetInfo').style.color = warn.length || conn.status === 'offline' || conn.status === 'stale' ? '#f59e0b' : '';
@@ -509,8 +519,13 @@ function autoChecks(s) {
   return [
     { label: 'Calibrado', ok: calibComplete(s), v: calibComplete(s) ? 'ok' : 'abra ⚙' },
     { label: 'Conta', ok: pageMode === s.account.mode, v: `página ${pageMode} · bot ${s.account.mode}` },
-    { label: 'Mercado aberto', ok: !!pageSym && pageSym === s.settings.symbol, v: asset ? asset.label + (pageSym ? '' : ' (sem dados)') : 'não detectado' },
-    { label: 'Valor', ok: amt != null && Math.abs(amt - s.settings.amount) < 0.001, v: `Quotex ${amt ?? '?'} · bot ${s.settings.amount.toFixed(2)}` },
+    { label: 'Mercado aberto', ok: !!pageSym && pageSym === s.settings.symbol,
+      v: !asset ? (calib.asset ? 'não lido — recalibre o ativo' : 'calibre o ativo em ⚙')
+        : asset.otc ? `${asset.label}: OTC não tem fonte externa`
+        : !pageSym ? `${asset.label}: sem dados de cripto`
+        : pageSym !== s.settings.symbol ? `${asset.label} ≠ ${s.settings.symbol}` : asset.label },
+    { label: 'Valor', ok: amt != null && Math.abs(amt - s.settings.amount) < 0.001,
+      v: amt == null ? (calib.amount ? 'não lido — recalibre o valor' : 'calibre o valor em ⚙') : `Quotex ${amt} · bot ${s.settings.amount.toFixed(2)}` },
   ];
 }
 
@@ -623,9 +638,11 @@ function renderCalib() {
     const r = el('div', 'row small');
     let test = '';
     if (c[it.key]) {
-      if (it.key === 'asset') test = detectAsset(c)?.label ?? 'não lido';
-      else if (it.key === 'amount') test = String(readAmount(c) ?? 'não lido');
-      else test = document.querySelector(c[it.key]) ? 'encontrado' : 'não encontrado';
+      const rd = calibReading(c[it.key], it.key);
+      if (!rd.found) test = 'NÃO ENCONTRADO — refaça';
+      else if (it.key === 'asset') { const a = detectAsset(c); test = a ? `lido "${a.label}"` : `lido "${rd.text}" (não reconhecido)`; }
+      else if (it.key === 'amount') test = `lido "${rd.text}" = ${readAmount(c) ?? '?'}`;
+      else test = 'encontrado';
     }
     r.append(el('span', c[it.key] ? 'ok' : 'no', `${c[it.key] ? '✓' : '✗'} ${it.label}${test ? ' · ' + test : ''}`),
       button(calibrating === it.key ? 'blue' : '', calibrating === it.key ? 'CLIQUE NA QUOTEX…' : (c[it.key] ? 'REFAZER' : 'CALIBRAR'), () => startCalib(it)));
@@ -641,8 +658,7 @@ async function startCalib(it) {
   const target = await captureNextClick((e) => e.composedPath().includes(hostEl));
   calibrating = null;
   if (target) {
-    const sel = cssPath(target);
-    const r = await dispatch({ type: 'SET_CALIB', key: it.key, selector: sel });
+    const r = await dispatch({ type: 'SET_CALIB', key: it.key, selector: makeCalib(target, it.key) });
     showToast(r.error ? `Erro: ${r.error}` : `${it.label} calibrado`, r.error ? 'err' : 'ok');
   } else showToast('Calibração cancelada', 'warn');
   renderCalib();
@@ -667,16 +683,16 @@ function updateSettingsStats() {
 
 function tick() {
   if (!root || !state) return;
-  $('clock').textContent = formatTime(Date.now(), state.settings.timeZone);
+  $('clock').textContent = formatTime(nowMs(), state.settings.timeZone);
 }
 
 let lastSecond = -1;
 function everySecond() {
-  const sec = Math.floor(Date.now() / 1000);
+  const sec = Math.floor(nowMs() / 1000);
   if (sec === lastSecond) return;
   lastSecond = sec;
   if (view === 'main' && visible) render(); else tick();
-  if (state?.activeSignal && Date.now() > state.activeSignal.entryTime + state.settings.signalTtlSec * 1000) dispatch({ type: 'TICK' });
+  if (state?.activeSignal && nowMs() > state.activeSignal.entryTime + state.settings.signalTtlSec * 1000) dispatch({ type: 'TICK' });
 }
 
 export async function start() {

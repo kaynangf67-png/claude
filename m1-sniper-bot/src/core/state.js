@@ -237,7 +237,7 @@ export function reduce(prev, action, now = Date.now()) {
     case 'SET_CALIB': {
       const { key, selector } = action;
       if (!['asset', 'amount', 'call', 'put'].includes(key)) return fail('Item de calibração inválido');
-      if (selector !== null && (typeof selector !== 'string' || !selector || selector.length > 600)) return fail('Seletor inválido');
+      if (selector !== null && (typeof selector !== 'string' || !selector || selector.length > 3000)) return fail('Seletor inválido');
       if (s.openTrade) return fail('Calibre sem operação aberta');
       s.settings.calib = { ...s.settings.calib, [key]: selector };
       s.settings.auto = { ...s.settings.auto, armedDay: null }; // mudou calibração → precisa armar de novo

@@ -41,7 +41,15 @@ export function parseKlines(raw) {
  * Busca candles de 1 minuto. `endTime` opcional (ms) para histórico.
  * Tenta os endpoints em ordem; lança erro com mensagem clara se todos falharem.
  */
-export async function fetchKlines(symbol, { limit = 500, endTime, startTime, fetchImpl = fetch, timeoutMs = 8000 } = {}) {
+export async function fetchKlines(symbol, opts = {}) {
+  return (await fetchKlinesTimed(symbol, opts)).candles;
+}
+
+/**
+ * Igual a fetchKlines, mas também devolve o horário do servidor (cabeçalho Date),
+ * usado para corrigir relógio do PC adiantado/atrasado.
+ */
+export async function fetchKlinesTimed(symbol, { limit = 500, endTime, startTime, fetchImpl = fetch, timeoutMs = 8000 } = {}) {
   if (!SYMBOLS[symbol] && !/^[A-Z0-9]{5,20}$/.test(symbol)) throw new Error('Símbolo inválido');
   const q = new URLSearchParams({ symbol, interval: '1m', limit: String(Math.min(1000, Math.max(1, limit))) });
   if (endTime) q.set('endTime', String(endTime));
@@ -51,9 +59,15 @@ export async function fetchKlines(symbol, { limit = 500, endTime, startTime, fet
     const ctrl = new AbortController();
     const to = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
+      const t0 = Date.now();
       const res = await fetchImpl(`${base}/api/v3/klines?${q}`, { signal: ctrl.signal, cache: 'no-store' });
       if (!res.ok) throw new Error(`HTTP ${res.status} em ${new URL(base).host}`);
-      return parseKlines(await res.json());
+      const candles = parseKlines(await res.json());
+      const t1 = Date.now();
+      const d = Date.parse(res.headers?.get?.('date') || '');
+      // Date tem resolução de 1 s: soma 500 ms (média) e compensa metade da latência.
+      const serverNow = Number.isFinite(d) ? d + 500 + (t1 - t0) / 2 : null;
+      return { candles, serverNow, localNow: t1 };
     } catch (e) {
       lastErr = e.name === 'AbortError' ? new Error(`Tempo esgotado em ${new URL(base).host}`) : e;
     } finally {
