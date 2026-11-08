@@ -9,7 +9,7 @@ import { computeStats, realReadiness, REAL_CONFIRM_PHRASE } from '../core/stats.
 import { formatTime } from '../core/time.js';
 import { SYMBOLS, SOURCE_ID } from '../data/binance.js';
 import { QuotexFeed, feedKey } from './quotexFeed.js';
-import { detectPageMode, detectAsset, assetMatches, assetToSymbol, readAmount, readPayout, panelReadings, readPrice, readPriceInfo, diagnostics, clearCaches, makeCalib, calibReading, captureNextClick, clickDirection } from './quotexPage.js';
+import { detectPageMode, detectAsset, assetMatches, assetToSymbol, readAmount, readPayout, panelReadings, readPrice, readPriceInfo, diagnostics, clearCaches, assetTargetFromClick, makeCalib, calibReading, captureNextClick, clickDirection } from './quotexPage.js';
 
 const POLL_MS = 3000;
 const FAST_POLL_MS = 1000;           // perto da virada do minuto
@@ -162,22 +162,36 @@ async function syncPayout() {
   }
 }
 
-/** Botão ⟳: relê a Quotex do zero e troca o bot para o ativo aberto. */
+/** Botão ⟳: relê a Quotex; se o ativo não mudou, pede para o usuário apontar o nome. */
 async function refreshMarket() {
   clearCaches();
-  const calib = state.settings.calib;
-  const asset = detectAsset(calib);
-  if (!asset) { showToast('Ativo não encontrado na tela. Use ⚙ → COPIAR DIAGNÓSTICO e envie.', 'err'); return; }
   if (state.openTrade || state.activeSignal) { showToast('Há sinal ou operação em aberto: troque de ativo depois.', 'warn'); return; }
-  let target;
-  if (quotexMode()) {
-    const key = feedKey(asset);
-    qxKey = key; lastSeenKey = key; keyChangedAt = Date.now(); // ignora o preço por 1,5 s (pode ser do ativo anterior)
-    target = qxSymbol(key);
-  } else {
-    target = assetToSymbol(asset, { allowOtc: true });
-    if (!target) { showToast(`${asset.label}: sem dados na Binance. Use a fonte Quotex em ⚙.`, 'warn'); return; }
-  }
+  const before = state.settings.symbol;
+  const asset = detectAsset(state.settings.calib);
+  const target = asset && targetSymbol(asset);
+  if (target && target !== before) { await switchTo(asset, target); return; }
+  // Não mudou (ou não achou): o usuário mostra onde está o nome do ativo.
+  showToast('Clique no NOME do ativo aberto na Quotex (ex.: no topo do painel da direita, acima do Tempo). Esc cancela.', 'warn');
+  const clicked = await captureNextClick((e) => e.composedPath().includes(hostEl));
+  if (!clicked) { showToast('Cancelado.', 'warn'); return; }
+  const el = assetTargetFromClick(clicked);
+  if (!el) { showToast('Não há nome de ativo nesse ponto. Clique no texto do ativo (ex.: "Litecoin (OTC)").', 'err'); return; }
+  const r = await dispatch({ type: 'SET_CALIB', key: 'asset', selector: makeCalib(el, 'asset') });
+  if (r.error) { showToast('Erro: ' + r.error, 'err'); return; }
+  clearCaches();
+  const a2 = detectAsset(state.settings.calib);
+  const t2 = a2 && targetSymbol(a2);
+  if (!t2) { showToast(`Lido "${a2?.label ?? '?'}", mas sem dados para esse ativo.`, 'err'); return; }
+  await switchTo(a2, t2);
+  showToast(`⟳ Ativo: ${a2.label}. O bot passa a vigiar esse ponto da tela.`, 'ok');
+}
+
+function targetSymbol(asset) {
+  return quotexMode() ? qxSymbol(feedKey(asset)) : assetToSymbol(asset, { allowOtc: true });
+}
+
+async function switchTo(asset, target) {
+  if (quotexMode()) { const key = feedKey(asset); qxKey = key; lastSeenKey = key; keyChangedAt = Date.now(); }
   if (target !== state.settings.symbol) await dispatch({ type: 'SET_SETTINGS', value: { symbol: target } });
   candleSymbol = null; lastAnalyzedTime = null; confirmed = preview = null;
   syncPayout();
@@ -763,7 +777,7 @@ const CALIB_ITEMS = [
   { key: 'price', label: 'Preço ao vivo', hint: 'clique no PREÇO ATUAL (rótulo azul à direita do gráfico)' },
   { key: 'call', label: 'Botão Comprar (CALL)', hint: 'clique no botão COMPRAR (verde)' },
   { key: 'put', label: 'Botão Vender (PUT)', hint: 'clique no botão VENDER (vermelho)' },
-  { key: 'asset', label: 'Ativo (opcional)', hint: 'clique no NOME do ativo no painel de operação' },
+  { key: 'asset', label: 'Ativo', hint: 'clique no NOME do ativo aberto (topo do painel da direita)' },
   { key: 'amount', label: 'Valor (opcional)', hint: 'clique no número do Investimento' },
 ];
 let calibrating = null;

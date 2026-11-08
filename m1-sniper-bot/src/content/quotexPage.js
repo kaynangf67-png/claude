@@ -172,17 +172,46 @@ function panelReadingsRaw(calib, doc = document) {
 
 /** Ativo aberto: painel de operação; depois elemento calibrado; depois o título da aba. */
 export function detectAsset(calib = null, doc = document) {
-  const pr = calib?.call ? panelReadings(calib, doc) : null;
-  if (pr?.asset) return pr.asset;
-  // sem painel: aba ativa visível na barra superior (fundo escuro + botão ×)
+  // 1º: o lugar que o USUÁRIO apontou (botão ⟳ / calibração do ativo) — tem prioridade.
   if (calib?.asset) {
     const el = resolveCalib(calib.asset, doc, 'asset');
-    const a = el && readActiveAsset(el);
-    if (a) return { ...a, from: 'calibrado' };
-    if (el) return null; // achou o elemento, mas não dá para saber qual ativo está aberto
+    const a = el && isVisible(el) && readActiveAsset(el);
+    if (a) return { ...a, from: 'ponto indicado' };
   }
+  // 2º: painel de operação ao lado do botão Comprar.
+  const pr = calib?.call ? panelReadings(calib, doc) : null;
+  if (pr?.asset) return pr.asset;
+  // 3º: título da aba do navegador.
   const t = parseAsset(doc.title);
   return t ? { ...t, from: 'título' } : null;
+}
+
+/**
+ * A partir do elemento clicado pelo usuário, escolhe o que vigiar:
+ * - se ele estiver numa BARRA com vários ativos e a barra marcar a aba ativa,
+ *   vigia a barra (troca de aba é acompanhada);
+ * - senão, vigia o próprio elemento com o nome (ex.: cabeçalho do painel).
+ */
+export function assetTargetFromClick(clicked) {
+  let el = clicked;
+  for (let i = 0; i < 4 && el && !parseAsset(el.textContent); i++) el = el.parentElement;
+  if (!el || !parseAsset(el.textContent)) return null;
+  // menor elemento com o nome (evita pegar um bloco grande)
+  while (el.children.length) {
+    const k = [...el.children].find((c) => parseAsset(c.textContent) && isVisible(c));
+    if (!k || parseAsset(k.textContent).label !== parseAsset(el.textContent).label) break;
+    el = k;
+  }
+  for (let bar = el.parentElement, d = 0; bar && d < 6 && bar !== document.body; bar = bar.parentElement, d++) {
+    const items = [...bar.querySelectorAll('*')].filter((e) => e.children.length === 0 && parseAsset(e.textContent) && isVisible(e));
+    const labels = new Set(items.map((e) => parseAsset(e.textContent).label));
+    if (labels.size >= 2) {
+      const act = activeAssetItem(bar);
+      if (act && parseAsset(act.textContent)?.label === parseAsset(el.textContent).label) return bar;
+      break;
+    }
+  }
+  return el;
 }
 
 const ACTIVE_RE = /(^|[-_\s])(active|selected|current|is-active|opened|open)([-_\s]|$)/i;

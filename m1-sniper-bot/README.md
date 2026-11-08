@@ -75,7 +75,7 @@ Para voltar a usar a Binance (só cripto, sem OTC), mude **Fonte das velas** em 
 ### Sincronização com a Quotex
 
 O bot acompanha o que você muda na Quotex, sem precisar mexer no painel:
-- **Trocou de ativo** (aba ou painel de operação) → o bot passa a analisar o mesmo ativo. Para forçar na hora, clique em **⟳** no topo do painel: o bot relê a Quotex do zero e mostra de onde leu o ativo. Isso vale também para OTC (Bitcoin (OTC) → BTC/USD), mas nesse caso os indicadores servem só de **referência**: o preço OTC é da Quotex, e sinais e AUTO ficam desligados.
+- **Trocou de ativo** (aba ou painel de operação) → o bot passa a analisar o mesmo ativo. Para forçar na hora, clique em **⟳** no topo do painel. Se o bot não perceber a troca, ele pede para você **clicar no nome do ativo aberto** (de preferência no topo do painel da direita, acima do Tempo). A partir daí ele vigia esse ponto da tela e acompanha as trocas sozinho. O ponto indicado por você tem prioridade sobre a detecção automática. Isso vale também para OTC (Bitcoin (OTC) → BTC/USD), mas nesse caso os indicadores servem só de **referência**: o preço OTC é da Quotex, e sinais e AUTO ficam desligados.
 - **Mudou o Investimento** → o valor do bot muda junto. O valor **não é digitado no bot**: ele é só exibido, lido do Investimento da Quotex (sem Martingale continua valendo).
 - **Mudou de mercado com outra %** → o payout do bot muda junto.
 
