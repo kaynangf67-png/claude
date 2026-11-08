@@ -396,8 +396,10 @@ export function parsePrice(text) {
  */
 export function readPriceInfo(calib, doc = document) {
   const el = calib?.price && resolveCalib(calib.price, doc, 'price');
-  const v = el ? parsePrice(readText(el)) : null;
+  const v = el && isPriceText(readText(el)) ? parsePrice(readText(el)) : null;
   if (v != null) return { price: v, from: 'rótulo' };
+  const auto = autoPrice.get();
+  if (auto != null) return { price: auto, from: 'automático' };
   const lg = legendClose(doc);
   if (lg != null) return { price: lg, from: 'legenda' };
   return null;
@@ -406,6 +408,52 @@ export function readPriceInfo(calib, doc = document) {
 export function readPrice(calib, doc = document) {
   return readPriceInfo(calib, doc)?.price ?? null;
 }
+
+/**
+ * Descoberta automática do preço ao vivo: procura textos visíveis que são só
+ * um número decimal (ex.: "0.78274") e escolhe o que MUDA com frequência,
+ * de preferência sobre a área do gráfico.
+ */
+export const autoPrice = (() => {
+  const seen = new Map(); // el -> { text, changes: [t...] }
+  let best = null; let lastScan = 0;
+  function scan(doc = document) {
+    const now = Date.now();
+    if (now - lastScan < 1000) return;
+    lastScan = now;
+    const canvas = [...doc.querySelectorAll('canvas')].filter((c) => !c.closest('#m1-sniper-bot-host'))
+      .map((c) => c.getBoundingClientRect()).sort((a, b) => b.width * b.height - a.width * a.height)[0];
+    for (const e of doc.querySelectorAll('body *')) {
+      if (e.children.length || e.closest('#m1-sniper-bot-host')) continue;
+      const t = e.textContent.trim();
+      if (!isPriceText(t)) continue;
+      const rec = seen.get(e) || { text: t, changes: [] };
+      if (rec.text !== t) { rec.changes.push(now); rec.text = t; }
+      rec.changes = rec.changes.filter((x) => now - x < 20_000);
+      seen.set(e, rec);
+    }
+    let top = null, score = 0;
+    for (const [e, rec] of seen) {
+      if (!e.isConnected) { seen.delete(e); continue; }
+      if (!isVisible(e)) continue;
+      const r = e.getBoundingClientRect();
+      const onChart = canvas && r.left >= canvas.left - 120 && r.right <= canvas.right + 160 && r.top >= canvas.top && r.bottom <= canvas.bottom;
+      const sc = rec.changes.length * (onChart ? 2 : 1);
+      if (rec.changes.length >= 3 && sc > score) { score = sc; top = e; }
+    }
+    best = top;
+  }
+  return {
+    get(doc = document) { scan(doc); return best && best.isConnected && isPriceText(best.textContent) ? parsePrice(best.textContent) : null; },
+    info(doc = document) {
+      scan(doc);
+      return [...seen.entries()].filter(([e]) => e.isConnected).slice(0, 15).map(([e, r]) => {
+        const cls = typeof e.className === 'string' ? e.className.trim().split(/\s+/).slice(0, 2).join('.') : '';
+        return `${e === best ? '★ ' : ''}${isVisible(e) ? 'VISÍVEL' : 'oculto '} ${e.tagName.toLowerCase()}${cls ? '.' + cls : ''} "${r.text}" mudou ${r.changes.length}x/20s`;
+      });
+    },
+  };
+})();
 
 const CLOSE_RE = /^\s*(fechamento|fech\.?|close|c)\s*:?\s*([\d.,]+)?\s*$/i;
 let legendCache = null; let legendScanAt = 0;
@@ -482,11 +530,16 @@ export function diagnostics(calib, doc = document) {
     }
   }
   lines.push('nomes de ativos na página:', ...seen);
+  const pc2 = autoPrice.info(doc);
+  lines.push('--- números que parecem preço (★ = usado) ---', ...(pc2.length ? pc2 : ['nenhum (o preço deve estar desenhado no gráfico)']));
   return lines.join('\n');
 }
 
+const PURE_PRICE_RE = /^\s*\d{1,7}(?:[.,]\d{1,7})?\s*$/;
+export const isPriceText = (t) => PURE_PRICE_RE.test(String(t)) && /[.,]\d{2,}/.test(String(t)); // ex.: 0.78274, 75135.26
+
 const looksRight = {
-  price: (el) => parsePrice(readText(el)) != null && !/%|:/.test(readText(el)),
+  price: (el) => isPriceText(readText(el)),
   asset: (el) => !!parseAsset(el.textContent) || !!el.querySelector?.('*'),
   amount: (el) => parseMoney(readText(el)) != null && !/%/.test(readText(el)),
   call: (el) => el.getBoundingClientRect().width > 0,

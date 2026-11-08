@@ -157,7 +157,7 @@ async function poll() {
           && closedOnly(candles, nowMs()).length < WARMUP_REQUIRED && nowMs() - keyChangedAt > 3000) {
         loadChartHistory(qxKey);
       }
-      if (!qxKey || (feed.loaded.has(qxKey) && nowMs() - feed.lastTickAt(qxKey) > 5000 && feed.lastTickAt(qxKey) > 0) || (!readPrice(state.settings.calib) && Date.now() - pointerOverChartAt > 1500)) throw new Error('Preço da Quotex não está sendo lido. Deixe a legenda do gráfico (Abertura/Fechamento) visível ou use ⚙ → COPIAR DIAGNÓSTICO e envie ao suporte.');
+      if (!qxKey || (feed.loaded.has(qxKey) && nowMs() - feed.lastTickAt(qxKey) > 5000 && feed.lastTickAt(qxKey) > 0) || (!readPrice(state.settings.calib) && Date.now() - pointerOverChartAt > 1500)) throw new Error('Preço ao vivo da Quotex não encontrado como texto (pode estar desenhado no gráfico). Use ⚙ → COPIAR DIAGNÓSTICO e envie; ou mude a fonte para Binance (só cripto sem OTC).');
       // relógio: sincroniza pelo servidor de dados de vez em quando
       if (nowMs() - lastClockSync > 60_000) { lastClockSync = nowMs(); send({ type: 'klines', symbol: 'BTCUSDT', limit: 1 }).then((r) => { if (Number.isFinite(r.clockOffset)) clockOffset = r.clockOffset; }); }
     } else {
@@ -808,7 +808,10 @@ function renderCalib() {
     let test = '';
     if (c[it.key]) {
       const rd = calibReading(c[it.key], it.key);
-      if (!rd.found && it.key === 'price') { const pi = readPriceInfo(c); test = pi ? `usando a legenda do gráfico: ${pi.price}` : 'rótulo é desenhado no gráfico (ilegível); legenda não encontrada'; }
+      if (it.key === 'price' && (!rd.found || !readPrice({ price: c.price }))) {
+        const pi = readPriceInfo(c);
+        test = pi ? `preço ${pi.from}: ${pi.price}` : 'NÃO LIDO — o ponto calibrado não é um preço (ex.: 0.78274). O bot está procurando o preço sozinho…';
+      }
       else if (!rd.found && /opcional/.test(it.label)) test = 'não usado (lido do painel)';
       else if (!rd.found) test = 'NÃO ENCONTRADO — refaça';
       else if (it.key === 'asset') { const a = detectAsset(c); test = a ? `lido "${a.label}"` : `lido "${rd.text}" (não reconhecido)`; }

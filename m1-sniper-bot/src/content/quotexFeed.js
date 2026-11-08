@@ -7,7 +7,7 @@ const M1 = 60_000;
 const MAX_CANDLES = 400;
 const MAX_FILL_GAP_MIN = 2;      // lacunas curtas são preenchidas com vela "parada"
 const MAX_JUMP = 0.2;            // salto > 20% em relação ao último preço = leitura errada
-const STORE_PREFIX = 'm1qx:';
+const STORE_PREFIX = 'm1qx2:';   // v2: descarta velas antigas gravadas com preço inválido
 const STORE_MAX_AGE = 3 * M1;    // histórico salvo só vale se a última vela for recente
 
 export class QuotexFeed {
