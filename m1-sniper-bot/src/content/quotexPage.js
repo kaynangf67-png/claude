@@ -44,15 +44,35 @@ export function parseAsset(text) {
 const MONEY_LEAF_RE = /^\s*(R\$|US\$|\$|€|£|₹)?\s*\d[\d.,]*\s*(R\$|\$|€|£|₹|BRL|USD|USDT|EUR)?\s*$/i;
 const TIME_LEAF_RE = /^\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*$/;
 
+/**
+ * Visível na tela? A Quotex mantém no HTML listas/menus fechados (ex.: seletor
+ * de ativos com "Bitcoin (OTC)" no topo). Elementos invisíveis são ignorados.
+ */
+export function isVisible(el) {
+  if (!el?.getBoundingClientRect) return false;
+  const r = el.getBoundingClientRect();
+  if (r.width < 1 || r.height < 1) return false;
+  if (r.right < 0 || r.bottom < 0 || r.left > innerWidth || r.top > innerHeight) return false;
+  for (let e = el; e && e.nodeType === 1; e = e.parentElement) {
+    const cs = getComputedStyle(e);
+    if (cs.visibility === 'hidden' || cs.display === 'none' || Number(cs.opacity) === 0) return false;
+    if (e === document.body) break;
+  }
+  return true;
+}
+
 function leaves(root) {
   const out = [];
   for (const e of root.querySelectorAll('*')) {
     if (e.closest('#m1-sniper-bot-host')) continue;
-    if (e.matches('input, textarea')) { out.push({ el: e, text: String(e.value || '') }); continue; }
-    if (e.children.length === 0 || [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) {
-      const own = [...e.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join(' ').trim();
-      if (own) out.push({ el: e, text: own });
+    let text = null;
+    if (e.matches('input, textarea')) text = String(e.value || '');
+    else if (e.children.length === 0 || [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) {
+      text = [...e.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join(' ').trim();
     }
+    if (!text) continue;
+    if (!isVisible(e)) continue; // só depois de ter texto (custo menor)
+    out.push({ el: e, text });
   }
   return out;
 }
@@ -152,6 +172,7 @@ function panelReadingsRaw(calib, doc = document) {
 export function detectAsset(calib = null, doc = document) {
   const pr = calib?.call ? panelReadings(calib, doc) : null;
   if (pr?.asset) return pr.asset;
+  // sem painel: aba ativa visível na barra superior (fundo escuro + botão ×)
   if (calib?.asset) {
     const el = resolveCalib(calib.asset, doc, 'asset');
     const a = el && readActiveAsset(el);
@@ -181,7 +202,7 @@ export function activeAssetItem(el) {
   const items = [];
   const walk = (e) => {
     const kids = [...e.children].filter((k) => parseAsset(k.textContent));
-    if (!kids.length) { if (parseAsset(e.textContent)) items.push(e); return; }
+    if (!kids.length) { if (parseAsset(e.textContent) && isVisible(e)) items.push(e); return; }
     if (kids.length === 1 && !items.length && parseAsset(e.textContent)?.label === parseAsset(kids[0].textContent)?.label) { walk(kids[0]); return; }
     kids.forEach(walk);
   };
@@ -403,6 +424,19 @@ export function diagnostics(calib, doc = document) {
   lines.push('--- preço calibrado ---', pc ? `tag=${pc.tag} classes=${(pc.cls || []).join('.')} texto="${pc.text}"` : 'não calibrado');
   const lg = legendClose(doc);
   lines.push(`legenda Fechamento: ${lg ?? 'não encontrada'}`);
+  const a = detectAsset(calib, doc);
+  const pr = calib?.call ? panelReadings(calib, doc) : null;
+  lines.push('--- ativo ---', `lido: ${a?.label ?? 'nenhum'} (de: ${a?.from ?? '-'})`, `painel: ${pr?.asset?.label ?? '-'} · ${pr?.payout ?? '-'} · tempo ${pr?.expiryText ?? '-'} · inv ${pr?.amountText ?? '-'}`);
+  const seen = [];
+  for (const e of doc.querySelectorAll('body *')) {
+    if (seen.length >= 25 || e.closest('#m1-sniper-bot-host')) continue;
+    const t = ownText(e);
+    if (t && t.length < 40 && parseAsset(t)) {
+      const cls = typeof e.className === 'string' ? e.className.trim().split(/\s+/).slice(0, 2).join('.') : '';
+      seen.push(`${isVisible(e) ? 'VISÍVEL ' : 'oculto  '} ${e.tagName.toLowerCase()}${cls ? '.' + cls : ''} "${t}"`);
+    }
+  }
+  lines.push('nomes de ativos na página:', ...seen);
   return lines.join('\n');
 }
 
