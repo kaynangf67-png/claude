@@ -262,16 +262,30 @@ export function parsePercent(text) {
  * Retorna fração (0.85) ou null.
  */
 export function readPayout(calib, doc = document) {
+  // 1º: ao lado do nome do ativo que o usuário apontou (ex.: "Litecoin (OTC)  92%").
+  const fromPointed = payoutNearAsset(calib, doc);
+  if (fromPointed != null) return fromPointed;
+  // 2º: cabeçalho do painel de operação.
   const pr = calib?.call ? panelReadings(calib, doc) : null;
-  if (pr?.payout != null) return pr.payout;
+  return pr?.payout ?? null;
+}
+
+function payoutNearAsset(calib, doc) {
   if (!calib?.asset) return null;
   const el = resolveCalib(calib.asset, doc, 'asset');
-  const it = el && activeAssetItem(el);
+  const it = el && isVisible(el) && activeAssetItem(el);
   if (!it) return null;
   let p = parsePercent(it.textContent);
-  // % às vezes fica num irmão/pai imediato (ex.: <div><span>Ethereum</span><span>85%</span></div>)
-  for (let e = it.parentElement, depth = 0; p == null && e && depth < 2; e = e.parentElement, depth++) {
-    if ((e.textContent.match(/%/g) || []).length === 1) p = parsePercent(e.textContent);
+  // sobe até 3 níveis: no primeiro bloco que tiver UM só percentual visível, usa ele
+  for (let e = it.parentElement, d = 0; p == null && e && d < 3 && e !== doc.body; e = e.parentElement, d++) {
+    const pcts = leaves(e).filter((l) => /%/.test(l.text) && parsePercent(l.text) != null);
+    if (pcts.length === 1) p = parsePercent(pcts[0].text);
+    else if (pcts.length > 1) {
+      // vários: o primeiro DEPOIS do nome do ativo
+      const after = pcts.find((l) => it.compareDocumentPosition(l.el) & Node.DOCUMENT_POSITION_FOLLOWING);
+      if (after) p = parsePercent(after.text);
+      break;
+    }
   }
   return p == null ? null : Math.round(p) / 100;
 }
