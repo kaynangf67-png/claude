@@ -400,7 +400,7 @@ export function readPriceInfo(calib, doc = document) {
   const pc = parseCanvasPref(calib?.price);
   if (pc) {
     const v = canvasPriceFor(pc);
-    return v != null ? { price: v, from: 'gráfico (escolhido)' } : null;
+    return v != null ? { price: v, from: pc.auto ? 'gráfico (automático)' : 'gráfico (escolhido)' } : null;
   }
   const el = calib?.price && resolveCalib(calib.price, doc, 'price');
   const v = el && isPriceText(readText(el)) ? parsePrice(readText(el)) : null;

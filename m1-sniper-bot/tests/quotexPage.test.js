@@ -46,5 +46,7 @@ test('preço automático: grupo de números que concordam (lista real da Quotex)
     mk(0.56357, '#ffffff', 3.1), mk(0.56357, '#ffffff', 2.1), mk(0.56041, '#ffffff', 0.7), mk(0.55950, '#ffffff', 0)];
   const v = autoPick(cands);
   assert.ok(v >= 0.56357 && v <= 0.56365, String(v));
-  assert.equal(autoPick([mk(1.1, '#fff', 2), mk(2.2, '#000', 2)]), null); // ambíguo: não chuta
+  assert.equal(autoPick([mk(1.1, '#ffffff', 2), mk(2.2, '#ffffff', 2)]), null); // dois brancos diferentes: não chuta
+  // caso real USD/NGN (OTC): branco (preço) x cinza (animação) -> escolhe o branco
+  assert.equal(autoPick([mk(1348.17, '#ffffff', 3.3), mk(1348.68, '#474c5d', 5.8)]), 1348.17);
 });

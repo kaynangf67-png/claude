@@ -13,7 +13,7 @@ import { SYMBOLS, SOURCE_ID } from '../data/binance.js';
 import { QuotexFeed, feedKey } from './quotexFeed.js';
 import { readChartHistory, syntheticMover, trustedMover } from './chartHistory.js';
 import { wsHistoryFor, wsQuoteFor, wsInfo, normAsset } from './wsFeed.js';
-import { canvasStatus, canvasCandidates, selectCanvasKey, resetCanvasSelection, isPriceLocked, unlockCanvasPrice } from './canvasText.js';
+import { canvasStatus, canvasCandidates, selectCanvasKey, resetCanvasSelection, isPriceLocked, unlockCanvasPrice, getLockedColor } from './canvasText.js';
 import { detectPageMode, detectAsset, assetMatches, assetToSymbol, readAmount, readPayout, panelReadings, readPrice, readPriceInfo, parseCanvasPref, diagnostics, readOpenTradesCount, directionButtonCenter, clearCaches, assetTargetFromClick, makeCalib, calibReading, captureNextClick, clickDirection } from './quotexPage.js';
 
 const POLL_MS = 3000;
@@ -38,6 +38,7 @@ window.addEventListener('pointermove', (e) => {
   if (e.target instanceof HTMLCanvasElement || e.target?.closest?.('canvas')) pointerOverChartAt = Date.now();
 }, true);
 let lastPriceFrom = null;
+let savingPricePref = false;
 /** Preço ao vivo: cotação recebida pela página (mais exata) ou leitura do gráfico. */
 function livePriceInfo(calib = state.settings.calib) {
   const key = qxKey || feedKey(detectAsset(calib));
@@ -108,6 +109,11 @@ function qxTick() {
   if (Date.now() - keyChangedAt < 1500) return; // preço na tela ainda pode ser do ativo anterior
   const info = livePriceInfo();
   if (!info) return;
+  // Achou e travou automaticamente: salva a escolha (cor) para não procurar de novo depois do F5.
+  if (info.from === 'gráfico (automático)' && isPriceLocked() && !state.settings.calib?.price && !savingPricePref) {
+    const color = getLockedColor();
+    if (color) { savingPricePref = true; dispatch({ type: 'SET_CALIB', key: 'price', selector: JSON.stringify({ v: 4, kind: 'canvas', auto: true, color }) }).finally(() => { savingPricePref = false; }); }
+  }
   if (info.from === 'legenda' && Date.now() - pointerOverChartAt < 1500) return; // pausa durante o hover
   lastPriceFrom = info.from;
   const price = info.price;
@@ -951,10 +957,12 @@ function priceRow(c) {
   r.append(el('span', pi ? 'ok' : 'no', `${pi ? '✓' : '✗'} Preço ao vivo · ${pi ? `${pi.price} (${pi.from}${lockedNow ? ', travado' : ''})` : 'procurando automaticamente (alguns segundos)…'}`),
     button(pickingPrice ? 'blue' : '', pickingPrice ? 'FECHAR' : 'ESCOLHER', () => { pickingPrice = !pickingPrice; renderCalib(); }));
   wrap.append(r);
-  if (lockedNow && !chosen) {
-    wrap.append(button('', 'PROCURAR DE NOVO', () => { unlockCanvasPrice(); showToast('Procurando o preço de novo…', 'warn'); renderCalib(); }));
-  }
-  if (chosen) {
+  if (chosen?.auto) {
+    wrap.append(button('', 'PROCURAR DE NOVO', async () => {
+      await dispatch({ type: 'SET_CALIB', key: 'price', selector: null }); unlockCanvasPrice();
+      showToast('Procurando o preço de novo…', 'warn'); renderCalib();
+    }));
+  } else if (chosen) {
     wrap.append(button('', 'VOLTAR AO AUTOMÁTICO', async () => {
       await dispatch({ type: 'SET_CALIB', key: 'price', selector: null }); selectCanvasKey(null);
       showToast('Preço ao vivo: automático', 'ok'); renderCalib();

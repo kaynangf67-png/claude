@@ -125,7 +125,10 @@ export function resetCanvasSelection() {
  * Na mesma página usa o mesmo grupo; após recarregar, o grupo da mesma cor
  * com ritmo de mudança parecido. Sem escolha: só usa se houver UM candidato.
  */
+export const getLockedColor = () => lockedColor;
+
 export function canvasPriceFor(pref) {
+  if (pref?.auto && pref.color && !lockedColor) lockedColor = pref.color; // escolha salva: mesma cor depois do F5
   if (locked) {
     // Rótulo travado parou de ser redesenhado enquanto outros números do gráfico
     // continuam mudando? A Quotex recriou o rótulo: destrava e reencontra.
@@ -166,23 +169,27 @@ export function unlockCanvasPrice() { locked = null; selectedKey = null; lockedC
 export function autoPick(cands = canvasCandidates(), lock = false) {
   const live = cands.filter((c) => c.ageMs < 8000 && c.seenS >= 3 && c.rate >= 0.3 && Number.isFinite(c.value));
   if (!live.length) return cands.length === 1 ? cands[0].value : null;
-  if (live.length === 1) return live[0].value;
+  if (live.length === 1) {
+    if (lock && live[0].seenS >= 5) { locked = [live[0].key]; lockedColor = live[0].color; lockedAt = Date.now(); }
+    return live[0].value;
+  }
   const tick = (c) => (c.rate >= 0.5 && c.rate <= 8 ? 1 : 0);
+  const white = (c) => /^#?(fff|ffffff)$/i.test(String(c.color).trim());
+  const scoreOf = (members) => members.length * 2 + members.reduce((a, m) => a + tick(m), 0) / members.length
+    + (white(members[0]) ? 0.5 : 0)                                              // o preço vem em texto branco
+    - Math.min(0.4, members.reduce((a, m) => a + m.rate, 0) / members.length / 50); // animações mudam mais rápido
   let best = null;
   for (const c of live) {
     const members = live.filter((o) => o.color === c.color && Math.abs(o.value - c.value) / c.value < 0.0005);
-    const score = members.length * 2 + members.reduce((a, m) => a + tick(m), 0) / members.length;
+    const score = scoreOf(members);
     if (!best || score > best.score) best = { score, members };
   }
-  // empate entre grupos diferentes de 1 só número: ambíguo demais
-  const ties = live.filter((c) => {
-    const m = live.filter((o) => o.color === c.color && Math.abs(o.value - c.value) / c.value < 0.0005);
-    return m.length * 2 + m.reduce((a, x) => a + tick(x), 0) / m.length === best.score && !best.members.includes(c);
-  });
+  // empate exato entre grupos diferentes de 1 só número: ambíguo demais
+  const ties = live.filter((c) => !best.members.includes(c) && Math.abs(scoreOf(live.filter((o) => o.color === c.color && Math.abs(o.value - c.value) / c.value < 0.0005)) - best.score) < 1e-9);
   if (best.members.length === 1 && ties.length) return null;
   const vals = best.members.map((m) => m.value).sort((a, b) => a - b);
   // trava quando a escolha é confiável: grupo de 2+ rótulos (ou único candidato), observado por 5 s+
-  if (lock && best.members.every((m) => m.seenS >= 5) && (best.members.length >= 2 || live.length === 1)) {
+  if (lock && best.members.every((m) => m.seenS >= 5)) {
     locked = best.members.map((m) => m.key);
     lockedColor = best.members[0].color; lockedAt = Date.now();
   }
@@ -236,3 +243,6 @@ export function canvasInfo() {
   const sample = (now - lastAt < 2000 ? lastItems : []).slice(0, 12).map((i) => `"${i.t}"@${i.x},${i.y} ${i.f}`);
   return [`textos do canvas: ${now - lastAt < 5000 ? 'recebendo' : 'NADA recebido'} (${batches} lotes; script ${helloAt ? 'ativo' : 'NÃO detectado'})`, ...gs.slice(0, 10), 'amostra: ' + sample.join(' ')];
 }
+
+/** Só para testes. */
+export const _ingestForTest = (items) => ingest(items);
