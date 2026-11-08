@@ -124,8 +124,20 @@ export function scoreDirection(candles, ind, i, dir, cfg) {
   }
 
   const score = bd.trend + bd.rsi + bd.adx + bd.bollinger + bd.priceAction + bd.candle;
+  // Checklist por indicador (para o painel): ok = confirma, partial = neutro, senão contra.
+  const st = (pts, max, veto) => (veto ? 'no' : pts >= max ? 'ok' : pts > 0 ? 'partial' : 'no');
+  const has = (txt) => vetoes.some((v) => v.includes(txt));
+  const checks = [
+    { id: 'trend', label: 'Tendência (EMAs)', status: emaAligned && longTrend ? 'ok' : emaAligned || longTrend ? 'partial' : 'no',
+      detail: `EMA9 ${call ? (e9 > e21 ? '>' : '<') : (e9 < e21 ? '<' : '>')} EMA21 · preço ${x.close > e200 ? 'acima' : 'abaixo'} da EMA200` },
+    { id: 'rsi', label: 'RSI 14', status: st(bd.rsi, 15, has('RSI')), detail: fmt(r, 1) },
+    { id: 'adx', label: 'ADX 14', status: st(bd.adx, 15, has('ADX') || has('DI')), detail: `${fmt(a, 1)} · +DI ${fmt(pdi, 0)} / −DI ${fmt(mdi, 0)}` },
+    { id: 'bb', label: 'Bollinger 20/2', status: st(bd.bollinger, 10, has('Bollinger') || has('banda')), detail: x.close > up ? 'acima da banda sup.' : x.close < lo ? 'abaixo da banda inf.' : x.close > mid ? 'acima da média' : 'abaixo da média' },
+    { id: 'pa', label: 'Price Action', status: patterns.length ? 'ok' : 'no', detail: patterns.length ? patterns.map((p) => p.label).join(', ') : 'nenhum padrão' },
+    { id: 'candle', label: 'Vela de confirmação', status: dirCandle ? 'ok' : 'no', detail: H.isBull(x) ? 'vela de alta' : H.isBear(x) ? 'vela de baixa' : 'doji' },
+  ];
   return {
-    dir, score, vetoes, reasons, confirmed, breakdown: bd,
+    dir, score, vetoes, reasons, confirmed, breakdown: bd, checks,
     patterns: patterns.map((p) => p.id),
     snapshot: { ema9: e9, ema21: e21, ema200: e200, rsi: r, adx: a, plusDI: pdi, minusDI: mdi, bbUpper: up, bbMiddle: mid, bbLower: lo },
   };
@@ -176,6 +188,7 @@ export function analyzeAt(candles, ind, i, cfg, meta = {}) {
       breakdown: chosen.breakdown,
       reasons: chosen.reasons,
       confirmed: chosen.confirmed,
+      checks: chosen.checks,
       patterns: chosen.patterns,
       snapshot: chosen.snapshot,
       confirmCandleTime: c.time,            // abertura do candle de confirmação (fechado)

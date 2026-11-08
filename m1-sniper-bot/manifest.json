@@ -1,12 +1,31 @@
 {
   "manifest_version": 3,
   "name": "M1 SNIPER BOT",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Assistente de análise M1 (EMA, RSI, ADX, Bollinger, Price Action) com gestão de risco. Não executa ordens: toda entrada é manual.",
-  "icons": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
-  "action": { "default_title": "M1 SNIPER BOT — relatórios", "default_icon": { "16": "icons/icon16.png", "48": "icons/icon48.png" } },
-  "background": { "service_worker": "src/background/sw.js", "type": "module" },
-  "permissions": ["storage", "unlimitedStorage", "alarms"],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "M1 SNIPER BOT — mostrar/ocultar painel no gráfico",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png"
+    }
+  },
+  "background": {
+    "service_worker": "src/background/sw.js",
+    "type": "module"
+  },
+  "permissions": [
+    "storage",
+    "unlimitedStorage",
+    "alarms",
+    "activeTab",
+    "scripting"
+  ],
   "host_permissions": [
     "https://data-api.binance.vision/*",
     "https://api.binance.com/*"
@@ -14,21 +33,30 @@
   "content_scripts": [
     {
       "matches": [
-        "https://qxbroker.com/*", "https://*.qxbroker.com/*",
-        "https://quotex.com/*", "https://*.quotex.com/*",
-        "https://quotex.io/*", "https://*.quotex.io/*"
+        "https://qxbroker.com/*",
+        "https://*.qxbroker.com/*",
+        "https://quotex.com/*",
+        "https://*.quotex.com/*",
+        "https://quotex.io/*",
+        "https://*.quotex.io/*",
+        "https://market-qx.pro/*",
+        "https://*.market-qx.pro/*",
+        "https://market-qx.trade/*",
+        "https://*.market-qx.trade/*"
       ],
-      "js": ["src/content/loader.js"],
+      "js": [
+        "src/content/loader.js"
+      ],
       "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["src/*"],
+      "resources": [
+        "src/*"
+      ],
       "matches": [
-        "https://qxbroker.com/*", "https://*.qxbroker.com/*",
-        "https://quotex.com/*", "https://*.quotex.com/*",
-        "https://quotex.io/*", "https://*.quotex.io/*"
+        "<all_urls>"
       ]
     }
   ],

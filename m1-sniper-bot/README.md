@@ -12,7 +12,9 @@ Extensão do Google Chrome (Manifest V3) que mostra um painel pequeno, flutuante
 
 | Recurso | Situação |
 |---|---|
-| Painel flutuante (arrastar, minimizar, LIGAR/DESLIGAR, valor, DEMO/REAL, GREEN/LOSS, análise, último sinal, histórico, ativo, relógio) | **Funcionando.** Testado no Chromium com a extensão carregada. |
+| Painel flutuante **sobre o gráfico** (arrastar, minimizar, ocultar, LIGAR/DESLIGAR, valor, DEMO/REAL, GREEN/LOSS, último sinal, histórico, ativo, relógio, ajustes ⚙ dentro do painel) | **Funcionando.** Testado no Chromium com a extensão carregada. |
+| Confirmação da **próxima vela** (M1, expiração 1 min): checklist ✓/✗ de cada indicador, nota e prévia ao vivo da vela em formação | **Funcionando** com dados reais da Binance. |
+| Clique no ícone da extensão = mostra/oculta o painel na aba atual (funciona em qualquer domínio, inclusive espelhos da Quotex) | **Funcionando.** Testado com injeção via `activeTab` em domínio fora da lista. |
 | Fonte de candles: **API pública de market data da Binance** (`data-api.binance.vision`, documentada e sem chave) | **Conectada e testada** com dados reais. |
 | Candles da própria Quotex | **Não conectado.** A Quotex não tem API pública documentada. Por isso o bot usa uma fonte independente. |
 | Ativos cobertos | Criptomoedas (BTC, ETH, SOL, XRP, …) via Binance. **OTC e Forex da Quotex não são cobertos.** O preço da Binance pode diferir do preço exibido na Quotex. |
@@ -33,7 +35,7 @@ Extensão do Google Chrome (Manifest V3) que mostra um painel pequeno, flutuante
 3. Ative o **Modo do desenvolvedor** (canto superior direito).
 4. Clique em **Carregar sem compactação** e selecione a pasta `m1-sniper-bot/` (a que contém `manifest.json`).
 5. Abra a Quotex (`qxbroker.com`, `quotex.com` ou `quotex.io`). O painel aparece no canto superior direito.
-6. Clique no ícone da extensão (ou em **Relatórios e configurações** no painel) para abrir a página de configurações. Primeiro ajuste o **fuso horário** e o **payout**.
+6. Nada abre em outra página. **Clique no ícone da extensão** para mostrar ou ocultar o painel em cima do gráfico (funciona até em domínios da Quotex que não estão na lista). Ajuste o **fuso** e o **payout** no botão **⚙** do painel.
 
 > Se o seu acesso à Quotex usa outro domínio, acrescente-o em `content_scripts.matches` e em `web_accessible_resources.matches` no `manifest.json` e recarregue a extensão.
 
@@ -43,11 +45,16 @@ Não há build: o código roda direto no Chrome. Node 20+ só é necessário par
 
 1. Na Quotex, abra a **conta DEMO** e o mesmo ativo escolhido no painel (ex.: BTC/USD ↔ `BTCUSDT`), em M1.
 2. Digite o **valor por operação** no painel.
-3. Clique em **LIGAR**. A análise começa no próximo candle fechado.
-4. Quando surgir um sinal, o painel mostra a direção, a nota, os motivos, os indicadores confirmados, o horário de entrada e o ativo. Você tem **15 s** (configurável de 3 a 30 s) a partir da abertura do candle de entrada.
-5. Se decidir entrar, **abra a operação você mesmo na Quotex** (1 minuto) e clique em **CONFIRMEI A ENTRADA**. Caso contrário, clique em **IGNORAR**.
+3. Clique em **LIGAR**. A caixa **PRÓXIMA VELA** mostra, a cada segundo:
+   - a leitura da vela em formação (**prévia**: "se fechar assim, sai sinal"), com contagem até o fechamento;
+   - a lista de confirmações: Tendência (EMAs), RSI 14, ADX 14, Bollinger 20/2, Price Action e vela de confirmação, cada uma com ✓ (confirma), • (neutro) ou ✗ (contra), e o valor do indicador;
+   - a nota de 0 a 100, com a linha amarela marcando o mínimo de 80.
+4. Quando a vela **fecha** e tudo confirma, a caixa vira **✔ CONFIRMADO · ▲ CALL / ▼ PUT**, com a entrada na vela seguinte e expiração de 1 minuto. Você tem **15 s** (configurável de 3 a 30 s) a partir da abertura dessa vela.
+5. O bot **não opera sozinho**. Se decidir entrar, abra a operação você mesmo na Quotex e clique em **ENTREI** (para contar no placar). Caso contrário, clique em **IGNORAR**.
 6. Depois da expiração, clique em **GREEN**, **LOSS** ou **EMPATE** conforme o resultado da Quotex. O botão sugerido pela Binance fica destacado em amarelo.
 7. Os contadores se atualizam. Com **10 GREEN** aparece **META DIÁRIA ATINGIDA**, com **3 LOSS** aparece **LIMITE DE LOSS ATINGIDO**. O painel desliga e só volta na virada do dia local.
+
+Os ajustes (fuso, nota mínima, payout, validade do sinal), as estatísticas da DEMO, os critérios do modo REAL e a exportação do histórico ficam no botão **⚙** do próprio painel. O relatório completo continua disponível em `chrome://extensions` → M1 SNIPER BOT → **Detalhes → Opções da extensão**.
 
 **DESLIGAR** interrompe novos sinais na hora. Uma operação já aberta continua esperando o registro do resultado.
 

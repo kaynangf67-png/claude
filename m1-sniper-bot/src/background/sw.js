@@ -54,7 +54,20 @@ chrome.runtime.onStartup.addListener(() => {
 
 chrome.alarms.onAlarm.addListener((a) => { if (a.name === 'tick') dispatch({ type: 'TICK' }); });
 
-chrome.action.onClicked.addListener(() => chrome.runtime.openOptionsPage());
+// Clique no ícone: mostra/oculta o painel SOBRE o gráfico na aba atual.
+// Em domínios não listados no manifesto, injeta o painel via activeTab.
+chrome.action.onClicked.addListener(async (tab) => {
+  if (!tab?.id || !/^https?:/.test(tab.url || 'https:')) return;
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: () => { window.__m1SniperWantToggle = true; },
+    });
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['src/content/loader.js'] });
+  } catch (e) {
+    console.warn('[M1 SNIPER BOT] não foi possível abrir o painel nesta aba:', e?.message || e);
+  }
+});
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   (async () => {
