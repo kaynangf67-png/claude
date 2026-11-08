@@ -391,9 +391,12 @@ function render() {
   const asset = detectAsset(s.settings.calib);
   const match = assetMatches(asset, s.settings.symbol);
   const warn = [];
-  if (match === false) warn.push(`⚠ página mostra ${asset.label}`);
+  if (match === false) {
+    warn.push(asset.otc
+      ? `Mercado OTC aberto: o preço OTC é da própria Quotex, o bot não opera nele. Abra ${asset.label.replace(/\s*\(?OTC\)?/i, '')} sem OTC.`
+      : `Quotex em ${asset.label}, bot em ${s.settings.symbol.replace('USDT', '/USD')}: abra o mesmo ativo.`);
+  }
   if (pageMode === 'REAL' && s.account.mode === 'DEMO') warn.push('⚠ página parece conta REAL');
-  if (Math.abs(clockOffset) > 3000) warn.push(`⏱ relógio do PC ${Math.round(Math.abs(clockOffset) / 1000)} s ${clockOffset < 0 ? 'adiantado' : 'atrasado'} — já corrigido`);
   $('assetInfo').textContent = warn.length ? warn.join(' · ') : `TradingView · BINANCE:${s.settings.symbol} · ${conn.status === 'ok' ? 'ao vivo' : conn.status === 'stale' ? '(atrasado)' : conn.status === 'offline' ? '(offline)' : '(conectando)'}`;
   renderChart(s);
   $('assetInfo').style.color = warn.length || conn.status === 'offline' || conn.status === 'stale' ? '#f59e0b' : '';
@@ -608,7 +611,8 @@ function renderSettings(rebuild) {
   const payout = num(s.settings.payout, 0.1, 1.5, 0.01);
   const ttl = num(s.settings.signalTtlSec, 3, 30, 1);
   const lab = (t, inp) => { const l = el('label'); l.append(el('span', null, t), inp); return l; };
-  form.append(el('div', 'small muted', 'Horário: Brasília (automático) · o dia vira à meia-noite'), lab('Nota mínima (80–100)', minScore), lab('Payout (ex.: 0.85)', payout), lab('Validade do sinal (s)', ttl));
+  const clk = Math.abs(clockOffset) > 3000 ? ` · relógio do PC ${Math.round(Math.abs(clockOffset) / 1000)} s ${clockOffset < 0 ? 'adiantado' : 'atrasado'} (o bot já corrige sozinho)` : '';
+  form.append(el('div', 'small muted', `Horário: Brasília (automático) · o dia vira à meia-noite${clk}`), lab('Nota mínima (80–100)', minScore), lab('Payout (ex.: 0.85)', payout), lab('Validade do sinal (s)', ttl));
   const msg = el('div', 'small');
   const save = button('blue', 'SALVAR', async () => {
     const v = { minScore: Number(minScore.value), payout: Number(payout.value), signalTtlSec: Number(ttl.value) };
