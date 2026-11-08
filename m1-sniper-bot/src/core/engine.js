@@ -233,13 +233,16 @@ export function analyzeAt(candles, ind, i, cfg, meta = {}) {
 
 // ------------------------------------------------------------------ estratégias
 import { analyzeSniperPro, sniperProRequired } from './strategies/sniperPro.js';
+import { analyzePriceAction, PA_REQUIRED } from './strategies/priceAction.js';
 export const STRATEGIES = Object.freeze({
+  priceAction: { name: 'Price action (S/R, pullback, Fibonacci, tendência)', required: () => PA_REQUIRED },
   sniperPro: { name: 'M1 SNIPER PRO (seu script)', required: () => sniperProRequired() },
-  padrao: { name: 'Padrão (pontuação 0–100)', required: null },
+  padrao: { name: 'Padrão (indicadores, 0–100)', required: () => QUICK_REQUIRED },
 });
 
 /** Analisa com a estratégia escolhida. ctx.lastSignalTime = vela do último sinal (intervalo do script). */
 export function analyzeStrategy(candles, cfg = {}, meta = {}, ctx = {}) {
   if (cfg.strategy === 'sniperPro') return analyzeSniperPro(candles, meta, ctx.lastSignalTime ?? null);
+  if (cfg.strategy === 'priceAction') return analyzePriceAction(candles, meta);
   return analyze(candles, cfg, meta);
 }

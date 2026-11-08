@@ -2,6 +2,7 @@
 // Não executa ordens: mostra a confirmação para a PRÓXIMA vela (expiração 1 min).
 import { analyze, analyzeStrategy, STRATEGIES, REQUIRED_CANDLES, WARMUP_LONG_EMA, WARMUP_REQUIRED, QUICK_REQUIRED, profileForCount } from '../core/engine.js';
 import { sniperProRequired } from '../core/strategies/sniperPro.js';
+import { PA_REQUIRED } from '../core/strategies/priceAction.js';
 import { closedOnly, mergeCandles, M1_MS } from '../core/validate.js';
 import { outcomeOf } from '../core/backtest.js';
 import { canSignal, autoArmed, calibComplete, AUTO_ENTRY_WINDOW_MS } from '../core/state.js';
@@ -250,7 +251,7 @@ async function runScan() {
       const last = closed.at(-1);
       if (!last) continue;
       const forming = cs.find((c) => c.time === last.time + M1_MS);
-      const scfg = state.settings.strategy === 'sniperPro' ? { ...cfg, strategy: 'sniperPro' } : cfg;
+      const scfg = (state.settings.strategy || 'priceAction') !== 'padrao' ? { ...cfg, strategy: state.settings.strategy || 'priceAction' } : cfg;
       const rc = analyzeStrategy(closed, scfg, { symbol: sym });
       const rp = forming ? analyzeStrategy([...closed, forming], scfg, { symbol: sym }) : rc;
       const pick = (r) => (r.status === 'signal' ? { dir: r.signal.direction, score: r.signal.score, signal: true } : r.best ? { dir: r.best.dir, score: r.best.score, signal: false } : null);
@@ -339,20 +340,26 @@ async function onData() {
   const qm = quotexMode();
   const meta = { symbol: state.settings.symbol, source: qm ? 'quotex-tela' : SOURCE_ID };
   // Fonte Quotex (sem histórico): modo rápido com 12 velas; completo com 60; EMA 200 com 260.
-  const strat = state.settings.strategy || 'sniperPro';
-  const prof = qm && strat !== 'sniperPro' ? profileForCount(closed.length) : null;
-  const cfg = strat === 'sniperPro' ? { strategy: 'sniperPro', minScore: state.settings.minScore }
+  const strat = state.settings.strategy || 'priceAction';
+  const prof = qm && strat === 'padrao' ? profileForCount(closed.length) : null;
+  const cfg = strat !== 'padrao' ? { strategy: strat, minScore: state.settings.minScore }
     : qm ? { minScore: state.settings.minScore, profile: prof || undefined, longEma: prof?.long }
     : { minScore: state.settings.minScore, longEma: 200 };
   const lastSig = [...state.signalLog].reverse().find((x) => x.symbol === state.settings.symbol);
   const ctx = { lastSignalTime: lastSig?.confirmCandleTime ?? null };
+  if (strat === 'priceAction' && closed.length < PA_REQUIRED) {
+    const n = closed.length;
+    preview = { r: { status: 'invalid', reason: `Juntando velas ao vivo: ${n}/${PA_REQUIRED} (~${PA_REQUIRED - n} min). O price action precisa ver topos e fundos.` }, candleTime: last.time };
+    lastAnalyzedTime = last.time;
+    return;
+  }
   if (strat === 'sniperPro' && closed.length < sniperProRequired()) {
     const n = closed.length, req = sniperProRequired();
     preview = { r: { status: 'invalid', reason: `Seu script usa EMA 200: juntando velas ao vivo ${n}/${req} (~${Math.ceil((req - n) / 60 * 10) / 10} h). Com a fonte Binance (cripto sem OTC) o histórico vem na hora.` }, candleTime: last.time };
     lastAnalyzedTime = last.time;
     return;
   }
-  if (qm && strat !== 'sniperPro' && !prof) {
+  if (qm && strat === 'padrao' && !prof) {
     const n = closed.length;
     preview = { r: { status: 'invalid', reason: historyStatus || `Juntando velas ao vivo: ${n}/${QUICK_REQUIRED} (~${QUICK_REQUIRED - n} min). Com ${QUICK_REQUIRED} velas o bot já analisa e opera (modo rápido).` }, candleTime: last.time };
     lastAnalyzedTime = last.time;
@@ -572,7 +579,7 @@ function render() {
   const nC = qm && qxKey ? closedOnly(feed.candles(qxKey), nowMs()).length : 0;
   const live = conn.status === 'ok' ? 'ao vivo' : conn.status === 'stale' ? '(atrasado)' : conn.status === 'offline' ? '(sem leitura)' : '(conectando)';
   $('assetInfo').textContent = warn.length ? warn.join(' · ')
-    : qm ? `Preço lido: ${readPrice(s.settings.calib) ?? '—'} · ${qxKey ?? 'ativo ?'} · ${nC} velas · ${(s.settings.strategy || 'sniperPro') === 'sniperPro' ? `script SNIPER PRO${nC < sniperProRequired() ? ` (opera com ${sniperProRequired()})` : ''}` : nC >= WARMUP_REQUIRED ? 'modo completo' : nC >= QUICK_REQUIRED ? `modo rápido (completo com ${WARMUP_REQUIRED})` : `operando com ${QUICK_REQUIRED}`} · ${live}`
+    : qm ? `Preço lido: ${readPrice(s.settings.calib) ?? '—'} · ${qxKey ?? 'ativo ?'} · ${nC} velas · ${(s.settings.strategy || 'priceAction') === 'priceAction' ? `price action${nC < PA_REQUIRED ? ` (opera com ${PA_REQUIRED})` : ''}` : s.settings.strategy === 'sniperPro' ? `script SNIPER PRO${nC < sniperProRequired() ? ` (opera com ${sniperProRequired()})` : ''}` : nC >= WARMUP_REQUIRED ? 'modo completo' : nC >= QUICK_REQUIRED ? `modo rápido (completo com ${WARMUP_REQUIRED})` : `operando com ${QUICK_REQUIRED}`} · ${live}`
     : `Fonte: Binance · ${s.settings.symbol} · ${live}`;
   $('symbol').classList.toggle('hidden', qm);
   $('qxName').classList.toggle('hidden', !qm);
@@ -785,7 +792,7 @@ function renderSettings(rebuild) {
   feedSel.addEventListener('change', () => dispatch({ type: 'SET_SETTINGS', value: { feed: feedSel.value } }));
   const stratSel = el('select');
   for (const [v, d] of Object.entries(STRATEGIES)) { const o = el('option', null, d.name); o.value = v; stratSel.appendChild(o); }
-  stratSel.value = s.settings.strategy || 'sniperPro';
+  stratSel.value = s.settings.strategy || 'priceAction';
   stratSel.addEventListener('change', () => dispatch({ type: 'SET_SETTINGS', value: { strategy: stratSel.value } }));
   const minScore = num(s.settings.minScore, 80, 100, 1);
   const payout = num(s.settings.payout, 0.1, 1.5, 0.01);

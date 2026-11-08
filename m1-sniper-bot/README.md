@@ -130,6 +130,18 @@ Análise **somente no fechamento** do candle. A entrada é na abertura do candle
 
 A nota mínima é **80** e só pode ser aumentada (até 100). Se CALL e PUT se qualificarem ao mesmo tempo, não há sinal.
 
+## 4a. Estratégia "Price action" — padrão desde a v1.13
+
+Sem indicadores (`src/core/strategies/priceAction.js`). **COMPRA** quando tudo abaixo vale na vela fechada (VENDA: o espelho):
+1. **Tendência de alta** pela estrutura: os 2 últimos topos e os 2 últimos fundos subindo (topo/fundo = maior/menor que 2 velas de cada lado, confirmado);
+2. **Fibonacci** do último impulso (fundo → topo, de pelo menos 2 ATR): correção entre **38,2% e 78,6%**;
+3. **Pullback**: 2+ velas de correção, sem romper o início do impulso;
+4. **Suporte**: a correção parou em um nível anterior (topo ou fundo antigo, tolerância 0,35 ATR);
+5. **Vela de rejeição**: vela de alta fechando nos 40% superiores da vela;
+6. **Espaço até a resistência** (topo do impulso) de pelo menos 0,3 ATR.
+
+Precisa de **30 velas** (~30 min no OTC). **Backtest honesto** (BTC/ETH/SOL/BNB/XRP, M1, entrada na vela seguinte): na última semana, 1.328 sinais com **53,0%**; nas duas semanas anteriores, sem mudar nada, 2.752 sinais com **49,8%**. O break-even é 54,1%, então não há vantagem consistente comprovada.
+
 ## 4b. Estratégia "M1 SNIPER PRO" (script Pine do usuário) — padrão desde a v1.12
 
 Tradução fiel do script Pine v6 do usuário (`src/core/strategies/sniperPro.js`), com os indicadores no padrão do TradingView (EMA semeada com SMA; RSI/ATR/DMI com RMA). **COMPRA** quando todas as condições abaixo valem na vela **fechada** (VENDA: o inverso):

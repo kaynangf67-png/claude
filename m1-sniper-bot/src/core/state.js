@@ -20,8 +20,9 @@ export const DEFAULT_SETTINGS = Object.freeze({
   calib: { price: null, asset: null, amount: null, call: null, put: null },
   // Fonte das velas: 'quotex' = preço lido da tela da Quotex (inclui OTC); 'binance' = API pública.
   feed: 'quotex',
-  // Estratégia de sinais: 'sniperPro' (script Pine do usuário) ou 'padrao' (pontuação 0–100).
-  strategy: 'sniperPro',
+  // Estratégia de sinais: 'priceAction' (S/R, pullback, Fibonacci, tendência),
+  // 'sniperPro' (script Pine do usuário) ou 'padrao' (indicadores 0–100).
+  strategy: 'priceAction',
   // Execução automática: só vale no dia em que foi armada.
   auto: { armedDay: null, expiryConfirmed: false },
 });
@@ -86,6 +87,8 @@ export function hydrate(saved, now = Date.now()) {
     if (k < s.day.key && empty) s.day = newDay(k);
   }
   s.settings.tzMigrated = true;
+  // v1.13: estratégia padrão passa a ser price action (pedido do usuário); aplica uma vez.
+  if (!saved.settings?.strategyPAv1) { s.settings.strategy = 'priceAction'; s.settings.strategyPAv1 = true; }
   // v1.9.4: preço passa a ser automático; descarta a escolha manual antiga uma vez.
   if (!saved.settings?.priceAutoV1) {
     if (typeof s.settings.calib?.price === 'string' && s.settings.calib.price.includes('"kind":"canvas"')) s.settings.calib = { ...s.settings.calib, price: null };
@@ -187,7 +190,7 @@ export function reduce(prev, action, now = Date.now()) {
         s.settings.symbol = v.symbol;
       }
       if (v.strategy !== undefined) {
-        if (!['sniperPro', 'padrao'].includes(v.strategy)) return fail('Estratégia inválida');
+        if (!['priceAction', 'sniperPro', 'padrao'].includes(v.strategy)) return fail('Estratégia inválida');
         if (s.openTrade || s.activeSignal) return fail('Troque a estratégia sem sinal ou operação em aberto');
         s.settings.strategy = v.strategy;
       }
