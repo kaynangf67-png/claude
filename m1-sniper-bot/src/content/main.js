@@ -528,7 +528,7 @@ function render() {
   const nC = qm && qxKey ? closedOnly(feed.candles(qxKey), nowMs()).length : 0;
   const live = conn.status === 'ok' ? 'ao vivo' : conn.status === 'stale' ? '(atrasado)' : conn.status === 'offline' ? '(sem leitura)' : '(conectando)';
   $('assetInfo').textContent = warn.length ? warn.join(' · ')
-    : qm ? `Fonte: Quotex (preço da tela) · ${qxKey ?? 'ativo ?'} · ${nC} velas · EMA ${nC >= REQUIRED_CANDLES ? 200 : WARMUP_LONG_EMA} · ${live}`
+    : qm ? `Preço lido: ${readPrice(s.settings.calib) ?? '—'} · ${qxKey ?? 'ativo ?'} · ${nC} velas (${nC >= WARMUP_REQUIRED ? 'pronto' : `faltam ${WARMUP_REQUIRED - nC}`}) · ${live}`
     : `Fonte: Binance · ${s.settings.symbol} · ${live}`;
   $('symbol').classList.toggle('hidden', qm);
   $('qxName').classList.toggle('hidden', !qm);
