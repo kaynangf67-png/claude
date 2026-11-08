@@ -791,7 +791,7 @@ function renderSettings(rebuild) {
 }
 
 const CALIB_ITEMS = [
-  { key: 'price', label: 'Preço ao vivo', hint: 'clique no PREÇO ATUAL (rótulo azul à direita do gráfico)' },
+  { key: 'price', label: 'Preço ao vivo (automático)', hint: 'opcional: clique num PREÇO em texto, se houver' },
   { key: 'call', label: 'Botão Comprar (CALL)', hint: 'clique no botão COMPRAR (verde)' },
   { key: 'put', label: 'Botão Vender (PUT)', hint: 'clique no botão VENDER (vermelho)' },
   { key: 'asset', label: 'Ativo', hint: 'clique no NOME do ativo aberto (topo do painel da direita)' },
@@ -806,11 +806,18 @@ function renderCalib() {
   const rows = CALIB_ITEMS.map((it) => {
     const r = el('div', 'row small');
     let test = '';
+    let okItem = !!c[it.key];
+    if (it.key === 'price' && !c[it.key]) {
+      const pi = readPriceInfo(c);
+      okItem = !!pi;
+      test = pi ? `automático (${pi.from}): ${pi.price}` : 'procurando o preço sozinho…';
+    }
     if (c[it.key]) {
       const rd = calibReading(c[it.key], it.key);
       if (it.key === 'price' && (!rd.found || !readPrice({ price: c.price }))) {
         const pi = readPriceInfo(c);
-        test = pi ? `preço ${pi.from}: ${pi.price}` : 'NÃO LIDO — o ponto calibrado não é um preço (ex.: 0.78274). O bot está procurando o preço sozinho…';
+        okItem = !!pi;
+        test = pi ? `automático (${pi.from}): ${pi.price}` : 'procurando o preço sozinho…';
       }
       else if (!rd.found && /opcional/.test(it.label)) test = 'não usado (lido do painel)';
       else if (!rd.found) test = 'NÃO ENCONTRADO — refaça';
@@ -819,7 +826,7 @@ function renderCalib() {
       else if (it.key === 'price') test = `lido ${readPrice(c) ?? '?'}`;
       else test = 'encontrado';
     }
-    r.append(el('span', c[it.key] ? 'ok' : 'no', `${c[it.key] ? '✓' : '✗'} ${it.label}${test ? ' · ' + test : ''}`),
+    r.append(el('span', okItem ? 'ok' : 'no', `${okItem ? '✓' : '✗'} ${it.label}${test ? ' · ' + test : ''}`),
       button(calibrating === it.key ? 'blue' : '', calibrating === it.key ? 'CLIQUE NA QUOTEX…' : (c[it.key] ? 'REFAZER' : 'CALIBRAR'), () => startCalib(it)));
     return r;
   });

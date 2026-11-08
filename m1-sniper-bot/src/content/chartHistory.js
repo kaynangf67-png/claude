@@ -5,6 +5,7 @@
 // caso o bot volta ao aquecimento normal.
 
 import { parsePrice } from './quotexPage.js';
+import { canvasLegend, nextCanvasBatch, canvasTapActive } from './canvasText.js';
 
 const LABELS = {
   open: /^(abertura|abert\.?|open|o)$/i,
@@ -44,6 +45,7 @@ export function findLegend(doc = document) {
 
 export function readLegend(legend) {
   if (!legend) return null;
+  if (legend.canvas) return canvasLegend();
   const val = (f) => parsePrice(f.inline ? (ownText(f.el).match(/[\d.,]+$/)?.[0] ?? '') : f.strip ? f.el.textContent.replace(f.strip, '') : f.el.textContent);
   const o = { open: val(legend.open), high: val(legend.high), low: val(legend.low), close: val(legend.close) };
   return Object.values(o).every((v) => v != null) ? o : null;
@@ -60,6 +62,9 @@ export function biggestCanvas(doc = document) {
 }
 
 const frame = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 8)));
+// Após mover o mouse: espera o gráfico redesenhar (lote de textos do canvas) ou um quadro.
+const settle = async () => { if (canvasTapActive()) { await nextCanvasBatch(250); await nextCanvasBatch(120); } else { await frame(); } };
+const findAnyLegend = () => findLegend() || (canvasLegend() ? { canvas: true } : null);
 
 /** Mouse simulado comum (eventos do próprio script). */
 export const syntheticMover = {
@@ -118,13 +123,14 @@ export async function readChartHistory({ livePrice, now = Date.now(), step = 2, 
   if (!canvas) return { ok: false, error: 'gráfico (canvas) não encontrado', info: canvasInfo() };
   chartCanvas = canvas;
   const r = canvas.getBoundingClientRect();
+  if (canvasTapActive()) step = Math.max(step, 3); // leitura pelo canvas é mais lenta por passo
   // Na Quotex a legenda OHLC só aparece com o mouse SOBRE o gráfico: entra primeiro, depois procura.
-  let legend = findLegend();
+  let legend = findAnyLegend();
   await mover.begin(r.left + r.width * 0.6, r.top + r.height * 0.55);
   if (!legend) {
     for (const fx of [0.6, 0.4, 0.75, 0.25]) {
       const px = r.left + r.width * fx, py = r.top + r.height * 0.55;
-      for (let k = 0; k < 6 && !legend; k++) { await mover.move(px + k * 3, py); await frame(); await frame(); legend = findLegend(); }
+      for (let k = 0; k < 6 && !legend; k++) { await mover.move(px + k * 3, py); await settle(); legend = findAnyLegend(); }
       if (legend) break;
     }
   }
@@ -139,7 +145,7 @@ export async function readChartHistory({ livePrice, now = Date.now(), step = 2, 
   try {
     for (let x = r.right - 4; x > r.left + 4 && seq.length < maxCandles; x -= step) {
       await mover.move(x, y);
-      await frame();
+      await settle();
       const o = readLegend(legend);
       if (!o) continue;
       // A vela só muda quando a ABERTURA muda (a vela atual muda fechamento/extremos ao vivo).

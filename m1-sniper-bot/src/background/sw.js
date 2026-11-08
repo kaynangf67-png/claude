@@ -73,6 +73,7 @@ chrome.action.onClicked.addListener(async (tab) => {
       target: { tabId: tab.id },
       func: () => { window.__m1SniperWantToggle = true; },
     });
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['src/content/canvasTap.js'], world: 'MAIN' }).catch(() => {});
     await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['src/content/loader.js'] });
   } catch (e) {
     console.warn('[M1 SNIPER BOT] não foi possível abrir o painel nesta aba:', e?.message || e);

@@ -6,6 +6,7 @@
 // (clica neles uma vez) e o bot grava seletores CSS.
 
 import { SYMBOLS } from '../data/binance.js';
+import { canvasLivePrice, canvasInfo } from './canvasText.js';
 
 /** DEMO/REAL a partir da URL (ex.: /pt/demo-trade vs /pt/trade). */
 export function detectPageMode(loc = location) {
@@ -398,6 +399,8 @@ export function readPriceInfo(calib, doc = document) {
   const el = calib?.price && resolveCalib(calib.price, doc, 'price');
   const v = el && isPriceText(readText(el)) ? parsePrice(readText(el)) : null;
   if (v != null) return { price: v, from: 'rótulo' };
+  const cv = canvasLivePrice();
+  if (cv != null) return { price: cv, from: 'gráfico (canvas)' };
   const auto = autoPrice.get();
   if (auto != null) return { price: auto, from: 'automático' };
   const lg = legendClose(doc);
@@ -532,6 +535,7 @@ export function diagnostics(calib, doc = document) {
   lines.push('nomes de ativos na página:', ...seen);
   const pc2 = autoPrice.info(doc);
   lines.push('--- números que parecem preço (★ = usado) ---', ...(pc2.length ? pc2 : ['nenhum (o preço deve estar desenhado no gráfico)']));
+  lines.push('--- textos desenhados no gráfico ---', ...canvasInfo());
   return lines.join('\n');
 }
 

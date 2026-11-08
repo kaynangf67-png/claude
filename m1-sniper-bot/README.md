@@ -59,7 +59,12 @@ Não há build: o código roda direto no Chrome. Node 20+ só é necessário par
 
 Os ajustes (nota mínima, payout, validade do sinal; o horário é sempre o de Brasília), as estatísticas da DEMO, os critérios do modo REAL e a exportação do histórico ficam no botão **⚙** do próprio painel. O relatório completo continua disponível em `chrome://extensions` → M1 SNIPER BOT → **Detalhes → Opções da extensão**.
 
-### Fonte "Quotex": o bot acompanha o gráfico da própria Quotex (v1.5)
+### Fonte "Quotex": o bot acompanha o gráfico da própria Quotex (v1.5 / v1.9)
+
+**v1.9 — leitura do que o gráfico DESENHA:** a Quotex desenha o preço e a legenda OHLC dentro do canvas (não há texto na página). A extensão observa os textos que a página desenha (`fillText`) por um script no mundo da página (`src/content/canvasTap.js`), **sem alterar** o desenho, e extrai:
+- **preço ao vivo** = número que muda o tempo todo no mesmo lugar e cor (os números do eixo ficam parados e não contam);
+- **legenda Abertura/Fechamento/Alto/Baixo** quando o mouse do Chrome passa pelo gráfico, o que permite ler o **histórico** em ~20 s.
+Testado com um gráfico 100% em canvas que só aceita mouse real: preço ao vivo lido; 94 velas de histórico, 92/92 conferidas iguais.
 
 Com a fonte **Quotex** (padrão), o bot lê o **preço ao vivo da tela** e monta as velas M1 sozinho. Assim ele analisa exatamente o gráfico que você vê, **inclusive OTC**, e sinais e AUTO funcionam também no OTC.
 
