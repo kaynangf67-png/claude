@@ -658,7 +658,7 @@ function renderNext(s, now, tz) {
     const ttl = Math.max(0, Math.ceil((sig.entryTime + s.settings.signalTtlSec * 1000 - now) / 1000));
     cls += ` ${sig.direction} signal`;
     items.push(el('div', 'lbl', `✔ CONFIRMADO · ENTRADA ${formatTime(sig.entryTime, tz, false)} · EXP. 1 MIN`));
-    const top = el('div', 'row'); top.append(el('span', 'dir', sig.direction === 'CALL' ? '▲ CALL' : '▼ PUT'), el('span', 'score', `${sig.score}/100`));
+    const top = el('div', 'row'); top.append(el('span', 'dir', sig.direction === 'CALL' ? '▲ COMPRA' : '▼ VENDA'), el('span', 'score', `${sig.score}/100`));
     items.push(top, bar(sig.score));
     const btns = el('div', 'btns');
     btns.append(
@@ -883,7 +883,7 @@ function renderSettings(rebuild) {
   const back = button('', '← VOLTAR AO PAINEL', () => { view = 'main'; render(); });
   const histInfo = el('div', 'small ' + (lastHistory ? (lastHistory.ok ? 'ok' : 'no') : 'muted'),
     lastHistory ? `Última leitura do histórico (${lastHistory.key}): ${lastHistory.ok ? '' : 'falhou — '}${lastHistory.text}` : 'Histórico do gráfico: ainda não tentado');
-  box.replaceChildren(el('div', 'small muted', `M1 SNIPER BOT versão ${chrome.runtime.getManifest().version}`), el('b', null, 'Calibração do automático'), cal, diag, hist, histInfo, el('b', null, 'Ajustes'), form, el('b', null, 'Validação DEMO'), stats, real, exp, back);
+  box.replaceChildren(el('div', 'small muted', `M1 SNIPER BOT versão ${chrome.runtime.getManifest().version}`), el('b', null, 'Leitura da Quotex'), cal, diag, hist, histInfo, el('b', null, 'Ajustes'), form, el('b', null, 'Validação DEMO'), stats, real, exp, back);
   updateSettingsStats();
   renderCalib();
 }
