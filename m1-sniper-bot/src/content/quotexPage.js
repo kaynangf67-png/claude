@@ -37,8 +37,81 @@ export function parseAsset(text) {
   return null;
 }
 
-/** Ativo aberto: elemento calibrado primeiro; depois o título da aba. */
+// ------------------------------------------------------------------ painel de operação
+// A partir do botão CALL calibrado, acha o painel de operação da Quotex
+// (onde ficam ativo + %, Tempo, Investimento, Pagamento, Comprar/Vender).
+
+const MONEY_LEAF_RE = /^\s*(R\$|US\$|\$|€|£|₹)?\s*\d[\d.,]*\s*(R\$|\$|€|£|₹|BRL|USD|USDT|EUR)?\s*$/i;
+const TIME_LEAF_RE = /^\s*(\d{1,2}):(\d{2})(?::(\d{2}))?\s*$/;
+
+function leaves(root) {
+  const out = [];
+  for (const e of root.querySelectorAll('*')) {
+    if (e.closest('#m1-sniper-bot-host')) continue;
+    if (e.matches('input, textarea')) { out.push({ el: e, text: String(e.value || '') }); continue; }
+    if (e.children.length === 0 || [...e.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) {
+      const own = [...e.childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join(' ').trim();
+      if (own) out.push({ el: e, text: own });
+    }
+  }
+  return out;
+}
+
+export function tradePanel(calib, doc = document) {
+  const btn = calib?.call && resolveCalib(calib.call, doc, 'call');
+  if (!btn) return null;
+  for (let e = btn.parentElement, d = 0; e && d < 12; e = e.parentElement, d++) {
+    if (e === doc.body || e === doc.documentElement) break;
+    const lv = leaves(e);
+    const hasAsset = lv.some((l) => parseAsset(l.text));
+    const hasMoney = lv.some((l) => !/%|:/.test(l.text) && MONEY_LEAF_RE.test(l.text));
+    if (hasAsset && hasMoney) return e;
+  }
+  return null;
+}
+
+function panelAssetLeaf(panel) {
+  const lv = leaves(panel).filter((l) => parseAsset(l.text));
+  return lv.length ? lv[0] : null; // o cabeçalho do painel vem primeiro
+}
+
+export function panelReadings(calib, doc = document) {
+  const panel = tradePanel(calib, doc);
+  if (!panel) return null;
+  const lv = leaves(panel);
+  const assetLeaf = panelAssetLeaf(panel);
+  const asset = assetLeaf ? parseAsset(assetLeaf.text) : null;
+  // % logo depois do nome do ativo (cabeçalho "Bitcoin (OTC)  80%")
+  let payout = assetLeaf ? parsePercent(assetLeaf.text) : null;
+  if (payout == null && assetLeaf) {
+    const i = lv.indexOf(assetLeaf);
+    const next = lv.slice(i + 1, i + 4).find((l) => /%/.test(l.text));
+    if (next) payout = parsePercent(next.text);
+  }
+  // Investimento: primeiro valor monetário depois do rótulo "Invest…"; senão o primeiro.
+  const money = lv.filter((l) => !/%|:/.test(l.text) && MONEY_LEAF_RE.test(l.text));
+  const li = lv.findIndex((l) => /invest/i.test(l.text));
+  const inv = (li >= 0 && money.find((m) => lv.indexOf(m) > li)) || money[0] || null;
+  // Tempo: primeiro "00:01:00" do painel
+  const tl = lv.find((l) => TIME_LEAF_RE.test(l.text));
+  let expirySec = null;
+  if (tl) {
+    const [, a, b, c] = tl.text.match(TIME_LEAF_RE);
+    expirySec = c != null ? (+a) * 3600 + (+b) * 60 + (+c) : (+a) * 60 + (+b);
+  }
+  return {
+    asset: asset ? { ...asset, from: 'painel' } : null,
+    payout: payout == null ? null : Math.round(payout) / 100,
+    amount: inv ? parseMoney(inv.text) : null,
+    amountText: inv?.text ?? null,
+    expirySec, expiryText: tl?.text ?? null,
+  };
+}
+
+/** Ativo aberto: painel de operação; depois elemento calibrado; depois o título da aba. */
 export function detectAsset(calib = null, doc = document) {
+  const pr = calib?.call ? panelReadings(calib, doc) : null;
+  if (pr?.asset) return pr.asset;
   if (calib?.asset) {
     const el = resolveCalib(calib.asset, doc, 'asset');
     const a = el && readActiveAsset(el);
@@ -97,6 +170,8 @@ export function parsePercent(text) {
  * Retorna fração (0.85) ou null.
  */
 export function readPayout(calib, doc = document) {
+  const pr = calib?.call ? panelReadings(calib, doc) : null;
+  if (pr?.payout != null) return pr.payout;
   if (!calib?.asset) return null;
   const el = resolveCalib(calib.asset, doc, 'asset');
   const it = el && activeAssetItem(el);
@@ -129,6 +204,8 @@ export function assetMatches(asset, symbol) {
 
 /** Lê o valor da operação no campo calibrado. */
 export function readAmount(calib, doc = document) {
+  const pr = calib?.call ? panelReadings(calib, doc) : null;
+  if (pr?.amount != null) return pr.amount;
   const el = calib?.amount && resolveCalib(calib.amount, doc);
   if (!el) return null;
   return parseMoney(readText(el));

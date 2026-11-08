@@ -28,7 +28,8 @@ export const AUTO_ABORT_WINDOW_MS = 15000;
 
 export function calibComplete(s) {
   const c = s.settings.calib || {};
-  return !!(c.asset && c.amount && c.call && c.put);
+  // Ativo, valor, % e tempo são lidos do painel de operação ao lado do botão CALL.
+  return !!(c.call && c.put);
 }
 
 export function autoArmed(s) {
@@ -270,7 +271,7 @@ export function reduce(prev, action, now = Date.now()) {
       }
       if (s.day.locked) return fail(LOCK_MESSAGES[s.day.locked]);
       if (!s.active) return fail('Ligue o painel antes de armar o automático');
-      if (!calibComplete(s)) return fail('Calibre ativo, valor, botão CALL e botão PUT antes de armar');
+      if (!calibComplete(s)) return fail('Calibre os botões Comprar (CALL) e Vender (PUT) antes de armar');
       if (!action.expiryConfirmed) return fail('Confirme que a expiração na Quotex está em 1 minuto');
       s.settings.auto = { armedDay: s.day.key, expiryConfirmed: true };
       log(s, now, 'warn', `Automático ARMADO (${s.account.mode}) — o bot vai clicar CALL/PUT sozinho`);
@@ -287,6 +288,7 @@ export function reduce(prev, action, now = Date.now()) {
       if (now > sig.entryTime + AUTO_ENTRY_WINDOW_MS) return fail('Tarde demais para entrada automática');
       if (action.pageMode !== s.account.mode) return fail(`Conta da página (${action.pageMode}) ≠ modo do bot (${s.account.mode})`);
       if (action.pageAsset !== sig.symbol) return fail('Mercado aberto na Quotex não é o indicado');
+      if (action.pageExpirySec != null && action.pageExpirySec !== 60) return fail(`Tempo na Quotex não é 1 minuto (${action.pageExpirySec}s)`);
       if (Math.abs(Number(action.pageAmount) - s.settings.amount) > 0.001) return fail(`Valor na Quotex (${action.pageAmount}) ≠ valor do bot (${s.settings.amount.toFixed(2)})`);
       const amtErr = checkAmount(s.settings.amount, s.day);
       if (amtErr) return fail(amtErr);

@@ -68,11 +68,13 @@ Os ajustes (fuso, nota mínima, payout, validade do sinal), as estatísticas da 
 
 ### Modo AUTO (opcional)
 
-1. No painel, clique em **⚙ → Calibração do automático** e calibre os 4 itens. Clique em **CALIBRAR** e depois no item da Quotex: o **nome do ativo**, o **campo de valor**, o botão **Para cima (CALL)** e o botão **Para baixo (PUT)**. Durante a calibração, o clique é **bloqueado** e não abre operação. **Esc** cancela.
+1. No painel, clique em **⚙ → Calibração do automático** e calibre só os botões **Comprar (CALL)** e **Vender (PUT)**: clique em **CALIBRAR** e depois no botão da Quotex. Durante a calibração, o clique é **bloqueado** e não abre operação. **Esc** cancela.
+   A partir do botão Comprar, o bot acha sozinho o **painel de operação** da Quotex e lê ali o **ativo e a %** (cabeçalho "Bitcoin 80%"), o **Tempo** (00:01:00), o **Investimento** e o **Pagamento**. Calibrar o ativo e o valor é opcional e só serve de reserva.
 2. Na Quotex, deixe a **expiração em 1 minuto** e o **valor igual** ao do painel.
 3. Clique em **🤖 AUTO DESLIGADO**, leia o aviso e confirme. O botão fica roxo: **AUTO ARMADO**.
 4. O painel mostra, ao vivo, as condições exigidas, e **todas** precisam estar ✓ para o bot clicar:
-   - **Calibrado**;
+   - **Calibrado** (painel de operação encontrado);
+   - **Tempo**: o tempo da Quotex precisa ser 00:01:00;
    - **Conta**: a página DEMO/REAL precisa ser igual ao modo do bot (REAL só depois da validação);
    - **Mercado aberto**: o ativo aberto na Quotex é o analisado (OTC nunca entra);
    - **Valor**: o valor no campo da Quotex é igual ao do painel.

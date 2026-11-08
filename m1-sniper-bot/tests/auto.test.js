@@ -11,7 +11,7 @@ const page = { pageMode: 'DEMO', pageAsset: 'BTCUSDT', pageAmount: 1 };
 
 function calibrated() {
   let s = ok(reduce(initialState(T0, TZ), { type: 'SET_ACTIVE', value: true }, T0));
-  for (const key of ['asset', 'amount', 'call', 'put']) s = ok(reduce(s, { type: 'SET_CALIB', key, selector: `#${key}` }, T0));
+  for (const key of ['call', 'put']) s = ok(reduce(s, { type: 'SET_CALIB', key, selector: `#${key}` }, T0));
   return s;
 }
 function armedWithSignal() {
@@ -77,4 +77,10 @@ test('mudar a calibração desarma', () => {
   let s = ok(reduce(calibrated(), { type: 'SET_AUTO', armed: true, expiryConfirmed: true }, T0));
   s = ok(reduce(s, { type: 'SET_CALIB', key: 'call', selector: '#outro' }, T0));
   assert.equal(autoArmed(s), false);
+});
+
+test('tempo da Quotex diferente de 1 minuto bloqueia a entrada automática', () => {
+  const s = armedWithSignal();
+  assert.match(reduce(s, { type: 'AUTO_ENTRY', signalId: sig.id, ...page, pageExpirySec: 120 }, T0 + 1500).error, /1 minuto/);
+  assert.equal(reduce(s, { type: 'AUTO_ENTRY', signalId: sig.id, ...page, pageExpirySec: 60 }, T0 + 1500).error, undefined);
 });

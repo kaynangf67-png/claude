@@ -8,7 +8,7 @@ import { DAILY_GREEN_TARGET, DAILY_LOSS_LIMIT, LOCK_MESSAGES } from '../core/ris
 import { computeStats, realReadiness, REAL_CONFIRM_PHRASE } from '../core/stats.js';
 import { formatTime } from '../core/time.js';
 import { SYMBOLS, SOURCE_ID } from '../data/binance.js';
-import { detectPageMode, detectAsset, assetMatches, assetToSymbol, readAmount, readPayout, makeCalib, calibReading, captureNextClick, clickDirection } from './quotexPage.js';
+import { detectPageMode, detectAsset, assetMatches, assetToSymbol, readAmount, readPayout, panelReadings, makeCalib, calibReading, captureNextClick, clickDirection } from './quotexPage.js';
 
 const POLL_MS = 3000;
 const FAST_POLL_MS = 1000;           // perto da virada do minuto
@@ -151,6 +151,7 @@ async function tryAutoEntry(sig) {
   const res = await dispatch({
     type: 'AUTO_ENTRY', signalId: sig.id, pageMode: detectPageMode(),
     pageAsset: assetToSymbol(asset), pageAmount: readAmount(calib),
+    pageExpirySec: panelReadings(calib)?.expirySec ?? null,
   });
   if (res.error) { showToast(`AUTO não entrou: ${res.error}`, 'warn'); return; }
   const t = state.openTrade;
@@ -539,16 +540,18 @@ function autoChecks(s) {
   const asset = detectAsset(calib);
   const pageSym = assetToSymbol(asset);
   const amt = readAmount(calib);
+  const pr = calib.call ? panelReadings(calib) : null;
   return [
-    { label: 'Calibrado', ok: calibComplete(s), v: calibComplete(s) ? 'ok' : 'abra ⚙' },
+    { label: 'Calibrado', ok: calibComplete(s), v: calibComplete(s) ? (pr ? 'painel de operação encontrado' : 'botões ok') : 'calibre Comprar/Vender em ⚙' },
+    { label: 'Tempo', ok: pr?.expirySec == null || pr.expirySec === 60, v: pr?.expiryText ? `${pr.expiryText}${pr.expirySec === 60 ? '' : ' — use 00:01:00'}` : 'não lido (confirme 1 min)' },
     { label: 'Conta', ok: pageMode === s.account.mode, v: `página ${pageMode} · bot ${s.account.mode}` },
     { label: 'Mercado aberto', ok: !!pageSym && pageSym === s.settings.symbol,
-      v: !asset ? (calib.asset ? 'aba ativa não identificada — recalibre clicando no NOME do ativo aberto' : 'calibre o ativo em ⚙')
+      v: !asset ? (calib.call ? 'ativo não encontrado no painel de operação' : 'calibre Comprar/Vender em ⚙')
         : asset.otc ? `${asset.label}: OTC não tem fonte externa`
         : !pageSym ? `${asset.label}: sem dados de cripto`
         : pageSym !== s.settings.symbol ? `${asset.label} ≠ ${s.settings.symbol}` : asset.label },
     { label: 'Valor', ok: amt != null && Math.abs(amt - s.settings.amount) < 0.001,
-      v: amt == null ? (calib.amount ? 'não lido — recalibre o valor' : 'calibre o valor em ⚙')
+      v: amt == null ? (calib.call ? 'Investimento não encontrado no painel' : 'calibre Comprar/Vender em ⚙')
         : amountSyncError ? `Quotex ${amt}: ${amountSyncError}` : `Quotex ${amt} · bot ${s.settings.amount.toFixed(2)} (automático)` },
   ];
 }
@@ -647,10 +650,10 @@ function renderSettings(rebuild) {
 }
 
 const CALIB_ITEMS = [
-  { key: 'asset', label: 'Nome do ativo', hint: 'clique no NOME do ativo aberto (ex.: BTC/USD)' },
-  { key: 'amount', label: 'Campo de valor', hint: 'clique no campo do VALOR da operação' },
-  { key: 'call', label: 'Botão CALL', hint: 'clique no botão PARA CIMA / COMPRA (verde)' },
-  { key: 'put', label: 'Botão PUT', hint: 'clique no botão PARA BAIXO / VENDA (vermelho)' },
+  { key: 'call', label: 'Botão Comprar (CALL)', hint: 'clique no botão COMPRAR (verde)' },
+  { key: 'put', label: 'Botão Vender (PUT)', hint: 'clique no botão VENDER (vermelho)' },
+  { key: 'asset', label: 'Ativo (opcional)', hint: 'clique no NOME do ativo no painel de operação' },
+  { key: 'amount', label: 'Valor (opcional)', hint: 'clique no número do Investimento' },
 ];
 let calibrating = null;
 
@@ -672,7 +675,11 @@ function renderCalib() {
       button(calibrating === it.key ? 'blue' : '', calibrating === it.key ? 'CLIQUE NA QUOTEX…' : (c[it.key] ? 'REFAZER' : 'CALIBRAR'), () => startCalib(it)));
     return r;
   });
-  box.replaceChildren(el('div', 'small muted', 'Clique em CALIBRAR e depois no item da Quotex. O clique é bloqueado: nada é operado. Esc cancela.'), ...rows);
+  const pr = c.call ? panelReadings(c) : null;
+  const auto = el('div', 'small ' + (pr ? 'ok' : 'muted'), pr
+    ? `Painel de operação lido automaticamente: ${pr.asset?.label ?? 'ativo ?'} · ${pr.payout != null ? Math.round(pr.payout * 100) + '%' : '% ?'} · Tempo ${pr.expiryText ?? '?'} · Investimento ${pr.amountText ?? '?'}`
+    : 'Calibre Comprar e Vender: ativo, %, tempo e valor são lidos sozinhos do painel ao lado deles.');
+  box.replaceChildren(el('div', 'small muted', 'Clique em CALIBRAR e depois no item da Quotex. O clique é bloqueado: nada é operado. Esc cancela.'), ...rows, auto);
 }
 
 async function startCalib(it) {
