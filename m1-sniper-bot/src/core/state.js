@@ -1,6 +1,5 @@
 // Estado da aplicação + redutor puro. TODA mutação passa por `reduce`, que
 // aplica as regras de risco. O service worker é o único que grava o estado.
-import { isValidTimeZone } from './time.js';
 import { rollDay, lockFor, checkAmount, newDay, LOCK_MESSAGES, MIN_SCORE_FLOOR } from './risk.js';
 import { realReadiness, REAL_CONFIRM_PHRASE } from './stats.js';
 import { dayKey } from './time.js';
@@ -38,8 +37,8 @@ export function autoArmed(s) {
 
 export const DEFAULT_TIME_ZONE = 'America/Sao_Paulo'; // horário de Brasília
 
-export function initialState(now = Date.now(), tz = DEFAULT_TIME_ZONE) {
-  const timeZone = isValidTimeZone(tz) ? tz : DEFAULT_TIME_ZONE;
+export function initialState(now = Date.now()) {
+  const timeZone = DEFAULT_TIME_ZONE;
   return {
     version: STATE_VERSION,
     settings: { ...DEFAULT_SETTINGS, timeZone, panel: { ...DEFAULT_SETTINGS.panel }, calib: { ...DEFAULT_SETTINGS.calib }, auto: { ...DEFAULT_SETTINGS.auto } },
@@ -74,18 +73,15 @@ export function hydrate(saved, now = Date.now()) {
     events: Array.isArray(saved.events) ? saved.events : [],
     version: STATE_VERSION,
   };
-  if (!isValidTimeZone(s.settings.timeZone)) s.settings.timeZone = DEFAULT_TIME_ZONE;
-  // Migração única: instalações antigas ficaram em UTC → horário de Brasília.
-  // Seguro: o dia de Brasília nunca está à frente do UTC, então nada é zerado.
-  if (!saved.settings?.tzMigrated) {
-    if (s.settings.timeZone === 'UTC') {
-      s.settings.timeZone = DEFAULT_TIME_ZONE;
-      const k = dayKey(now, DEFAULT_TIME_ZONE);
-      const empty = !s.day.locked && !s.openTrade && s.day.greens + s.day.losses + s.day.draws === 0;
-      if (k < s.day.key && empty) s.day = newDay(k); // UTC já tinha virado o dia: alinha sem perder nada
-    }
-    s.settings.tzMigrated = true;
+  // Fuso FIXO: horário de Brasília. Seguro para instalações antigas (UTC):
+  // o dia de Brasília nunca está à frente, então nada é zerado nem desbloqueado.
+  if (s.settings.timeZone !== DEFAULT_TIME_ZONE) {
+    s.settings.timeZone = DEFAULT_TIME_ZONE;
+    const k = dayKey(now, DEFAULT_TIME_ZONE);
+    const empty = !s.day.locked && !s.openTrade && s.day.greens + s.day.losses + s.day.draws === 0;
+    if (k < s.day.key && empty) s.day = newDay(k);
   }
+  s.settings.tzMigrated = true;
   if (s.settings.minScore < MIN_SCORE_FLOOR) s.settings.minScore = MIN_SCORE_FLOOR;
   // Reaplica a trava a partir dos contadores (defesa contra estado adulterado).
   const lock = lockFor(s.day);
@@ -170,18 +166,7 @@ export function reduce(prev, action, now = Date.now()) {
 
     case 'SET_SETTINGS': {
       const v = action.value || {};
-      if (v.timeZone !== undefined && v.timeZone !== s.settings.timeZone) {
-        if (!isValidTimeZone(v.timeZone)) return fail('Fuso horário inválido');
-        const today = s.day.greens + s.day.losses + s.day.draws;
-        const k = dayKey(now, v.timeZone);
-        // Fuso que "pula" para o dia seguinte zeraria contadores/trava: só sem operações no dia.
-        if (k > s.day.key && (s.day.locked || today > 0 || s.openTrade)) {
-          return fail('Esse fuso já está no dia seguinte: só pode ser escolhido em um dia sem operações e sem bloqueio');
-        }
-        s.settings.timeZone = v.timeZone;
-        // Se o novo fuso estiver no mesmo dia ou atrás, o dia atual (contadores e trava) continua.
-        if (k > s.day.key) s.day = newDay(k);
-      }
+      if (v.timeZone !== undefined && v.timeZone !== DEFAULT_TIME_ZONE) return fail('O horário é fixo: Brasília');
       if (v.minScore !== undefined) {
         const m = Number(v.minScore);
         if (!Number.isFinite(m) || m < MIN_SCORE_FLOOR || m > 100) return fail(`Pontuação mínima deve ficar entre ${MIN_SCORE_FLOOR} e 100`);

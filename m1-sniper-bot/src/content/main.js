@@ -603,21 +603,15 @@ function renderSettings(rebuild) {
   box.dataset.built = '1';
   const s = state;
   const form = el('div', 'form');
-  const tz = el('select');
-  const tzs = Intl.supportedValuesOf ? Intl.supportedValuesOf('timeZone') : [];
-  if (!tzs.includes('UTC')) tzs.unshift('UTC');
-  for (const z of tzs) { const o = el('option', null, z); o.value = z; tz.appendChild(o); }
-  tz.value = s.settings.timeZone;
   const num = (v, min, max, step) => { const i = el('input'); i.type = 'number'; i.min = min; i.max = max; i.step = step; i.value = v; return i; };
   const minScore = num(s.settings.minScore, 80, 100, 1);
   const payout = num(s.settings.payout, 0.1, 1.5, 0.01);
   const ttl = num(s.settings.signalTtlSec, 3, 30, 1);
   const lab = (t, inp) => { const l = el('label'); l.append(el('span', null, t), inp); return l; };
-  form.append(lab('Fuso (virada do dia)', tz), lab('Nota mínima (80–100)', minScore), lab('Payout (ex.: 0.85)', payout), lab('Validade do sinal (s)', ttl));
+  form.append(el('div', 'small muted', 'Horário: Brasília (automático) · o dia vira à meia-noite'), lab('Nota mínima (80–100)', minScore), lab('Payout (ex.: 0.85)', payout), lab('Validade do sinal (s)', ttl));
   const msg = el('div', 'small');
   const save = button('blue', 'SALVAR', async () => {
     const v = { minScore: Number(minScore.value), payout: Number(payout.value), signalTtlSec: Number(ttl.value) };
-    if (tz.value !== state.settings.timeZone) v.timeZone = tz.value;
     const r = await dispatch({ type: 'SET_SETTINGS', value: v });
     msg.textContent = r.error || 'Salvo.'; msg.className = 'small ' + (r.error ? 'no' : 'ok');
   });

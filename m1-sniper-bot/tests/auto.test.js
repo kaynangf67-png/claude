@@ -10,7 +10,7 @@ const sig = { id: `BTCUSDT-${ENTRY - 60000}`, symbol: 'BTCUSDT', direction: 'PUT
 const page = { pageMode: 'DEMO', pageAsset: 'BTCUSDT', pageAmount: 1 };
 
 function calibrated() {
-  let s = ok(reduce(initialState(T0, TZ), { type: 'SET_ACTIVE', value: true }, T0));
+  let s = ok(reduce(initialState(T0), { type: 'SET_ACTIVE', value: true }, T0));
   for (const key of ['call', 'put']) s = ok(reduce(s, { type: 'SET_CALIB', key, selector: `#${key}` }, T0));
   return s;
 }
@@ -20,7 +20,7 @@ function armedWithSignal() {
 }
 
 test('armar exige painel ligado, calibração completa e confirmação de expiração 1 min', () => {
-  const off = initialState(T0, TZ);
+  const off = initialState(T0);
   assert.match(reduce(off, { type: 'SET_AUTO', armed: true, expiryConfirmed: true }, T0).error, /Ligue/);
   const on = ok(reduce(off, { type: 'SET_ACTIVE', value: true }, T0));
   assert.match(reduce(on, { type: 'SET_AUTO', armed: true, expiryConfirmed: true }, T0).error, /Calibre/);

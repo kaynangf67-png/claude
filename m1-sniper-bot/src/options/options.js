@@ -24,9 +24,8 @@ function render() {
   const s = state, tz = s.settings.timeZone;
   $('modeBadge').textContent = s.account.mode;
   $('modeBadge').className = 'badge ' + (s.account.mode === 'REAL' ? 'real' : '');
-  $('dayInfo').textContent = `Dia ${s.day.key} (${tz}) · GREEN ${s.day.greens}/10 · LOSS ${s.day.losses}/3` + (s.day.locked ? ` · ${LOCK_MESSAGES[s.day.locked]}` : '');
+  $('dayInfo').textContent = `Dia ${s.day.key} (horário de Brasília) · GREEN ${s.day.greens}/10 · LOSS ${s.day.losses}/3` + (s.day.locked ? ` · ${LOCK_MESSAGES[s.day.locked]}` : '');
 
-  if (document.activeElement !== $('tz')) $('tz').value = tz;
   if (document.activeElement !== $('minScore')) $('minScore').value = s.settings.minScore;
   if (document.activeElement !== $('payout')) $('payout').value = s.settings.payout;
   if (document.activeElement !== $('ttl')) $('ttl').value = s.settings.signalTtlSec;
@@ -68,16 +67,12 @@ function download(name, text, type = 'text/csv') {
 }
 
 async function init() {
-  const tzs = Intl.supportedValuesOf ? Intl.supportedValuesOf('timeZone') : ['America/Sao_Paulo'];
-  if (!tzs.includes('UTC')) tzs.unshift('UTC');
-  $('tz').replaceChildren(...tzs.map((z) => { const o = document.createElement('option'); o.value = o.textContent = z; return o; }));
   const res = await send({ type: 'getState' });
   state = res.state; render();
   chrome.storage.onChanged.addListener((c, a) => { if (a === 'local' && c.m1state?.newValue) { state = c.m1state.newValue; render(); } });
 
   $('saveSettings').onclick = () => {
     const v = { minScore: Number($('minScore').value), payout: Number($('payout').value), signalTtlSec: Number($('ttl').value) };
-    if ($('tz').value !== state.settings.timeZone) v.timeZone = $('tz').value;
     dispatch({ type: 'SET_SETTINGS', value: v }, $('settingsMsg'));
   };
   document.querySelectorAll('.tabs button').forEach((b) => b.onclick = () => {

@@ -21,10 +21,10 @@ function cycle(s, now, result, n = 0) {
   return ok(reduce(s, { type: 'RECORD_RESULT', tradeId: t.id, result }, t.expiryTime + 1000));
 }
 
-function on(now = T0) { return ok(reduce(initialState(now, TZ), { type: 'SET_ACTIVE', value: true }, now)); }
+function on(now = T0) { return ok(reduce(initialState(now), { type: 'SET_ACTIVE', value: true }, now)); }
 
 test('não gera sinal com painel desativado', () => {
-  const s = initialState(T0, TZ);
+  const s = initialState(T0);
   const r = reduce(s, { type: 'PROPOSE_SIGNAL', signal: sig(0, T0) }, T0);
   assert.equal(r.error, 'Painel desativado');
 });
@@ -83,7 +83,7 @@ test('trava de 3 LOSS', () => {
 });
 
 test('trava reaplicada mesmo se o estado salvo for adulterado', () => {
-  const s = initialState(T0, TZ); s.day.losses = 3; s.day.locked = null; s.active = true;
+  const s = initialState(T0); s.day.losses = 3; s.day.locked = null; s.active = true;
   const h = hydrate(s, T0);
   assert.equal(h.day.locked, 'LOSS'); assert.equal(h.active, false);
 });
@@ -98,15 +98,11 @@ test('sem Martingale: valor não sobe após LOSS no mesmo dia', () => {
   assert.ok(reduce(s, { type: 'SET_AMOUNT', value: 'abc' }, T0).error);
 });
 
-test('pontuação mínima nunca abaixo de 80; fuso travado com operações no dia', () => {
-  let s = on();
+test('pontuação mínima nunca abaixo de 80; horário fixo de Brasília', () => {
+  const s = on();
   assert.ok(reduce(s, { type: 'SET_SETTINGS', value: { minScore: 70 } }, T0).error);
-  s = cycle(s, T0, 'GREEN');
-  // 12:00 em São Paulo = 00:00 do dia seguinte em Tóquio → pularia o dia: recusado.
-  assert.match(reduce(s, { type: 'SET_SETTINGS', value: { timeZone: 'Asia/Tokyo' } }, T0 + 200000).error, /fuso/);
-  // Fuso no mesmo dia/atrás é permitido e mantém os contadores.
-  const t = reduce(s, { type: 'SET_SETTINGS', value: { timeZone: 'America/Los_Angeles' } }, T0 + 200000);
-  assert.equal(t.error, undefined); assert.equal(t.state.day.greens, 1);
+  assert.match(reduce(s, { type: 'SET_SETTINGS', value: { timeZone: 'Asia/Tokyo' } }, T0).error, /Brasília/);
+  assert.equal(s.settings.timeZone, 'America/Sao_Paulo');
 });
 
 test('modo REAL exige validação E confirmação expressa', () => {
@@ -128,7 +124,7 @@ test('página em REAL com bot em DEMO bloqueia sinais', () => {
 });
 
 test('instalação antiga em UTC migra para horário de Brasília sem zerar contadores', () => {
-  const old = initialState(T0, 'UTC'); old.day.losses = 3; old.day.locked = 'LOSS';
+  const old = initialState(T0); old.settings.timeZone = 'UTC'; old.day.losses = 3; old.day.locked = 'LOSS';
   delete old.settings.tzMigrated;
   const h = hydrate(JSON.parse(JSON.stringify(old)), T0);
   assert.equal(h.settings.timeZone, 'America/Sao_Paulo');

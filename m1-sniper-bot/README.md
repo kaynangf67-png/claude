@@ -39,7 +39,7 @@ Extensão do Google Chrome (Manifest V3) que mostra um painel pequeno, flutuante
 3. Ative o **Modo do desenvolvedor** (canto superior direito).
 4. Clique em **Carregar sem compactação** e selecione a pasta `m1-sniper-bot/` (a que contém `manifest.json`).
 5. Abra a Quotex (`qxbroker.com`, `quotex.com` ou `quotex.io`). O painel aparece no canto superior direito.
-6. Nada abre em outra página. **Clique no ícone da extensão** para mostrar ou ocultar o painel em cima do gráfico (funciona até em domínios da Quotex que não estão na lista). Ajuste o **fuso** e o **payout** no botão **⚙** do painel.
+6. Nada abre em outra página. **Clique no ícone da extensão** para mostrar ou ocultar o painel em cima do gráfico (funciona até em domínios da Quotex que não estão na lista). O horário já é o de Brasília e o payout é lido da Quotex.
 
 > Se o seu acesso à Quotex usa outro domínio, acrescente-o em `content_scripts.matches` e em `web_accessible_resources.matches` no `manifest.json` e recarregue a extensão.
 
@@ -58,7 +58,7 @@ Não há build: o código roda direto no Chrome. Node 20+ só é necessário par
 6. Depois da expiração, clique em **GREEN**, **LOSS** ou **EMPATE** conforme o resultado da Quotex. O botão sugerido pela Binance fica destacado em amarelo.
 7. Os contadores se atualizam. Com **10 GREEN** aparece **META DIÁRIA ATINGIDA**, com **3 LOSS** aparece **LIMITE DE LOSS ATINGIDO**. O painel desliga e só volta na virada do dia local.
 
-Os ajustes (fuso, nota mínima, payout, validade do sinal), as estatísticas da DEMO, os critérios do modo REAL e a exportação do histórico ficam no botão **⚙** do próprio painel. O relatório completo continua disponível em `chrome://extensions` → M1 SNIPER BOT → **Detalhes → Opções da extensão**.
+Os ajustes (nota mínima, payout, validade do sinal; o horário é sempre o de Brasília), as estatísticas da DEMO, os critérios do modo REAL e a exportação do histórico ficam no botão **⚙** do próprio painel. O relatório completo continua disponível em `chrome://extensions` → M1 SNIPER BOT → **Detalhes → Opções da extensão**.
 
 ### Payout e valor automáticos
 
@@ -105,7 +105,7 @@ A nota mínima é **80** e só pode ser aumentada (até 100). Se CALL e PUT se q
 ## 5. Gerenciamento de risco (fixo, não configurável)
 
 - **10 GREEN/dia** ou **3 LOSS/dia** bloqueiam o dia. O painel desliga e não religa até a virada do dia local.
-- A virada usa o **fuso configurado**: o padrão é o **horário de Brasília** (`America/Sao_Paulo`), e instalações antigas em UTC são migradas sozinhas, sem zerar nada. Os contadores só reiniciam quando a data **avança**: atrasar o relógio não desbloqueia. Um fuso que "pula" para o dia seguinte só pode ser escolhido em um dia sem operações e sem bloqueio. Fusos no mesmo dia ou atrás podem ser escolhidos a qualquer momento.
+- O horário é **fixo em Brasília** (`America/Sao_Paulo`), sem opção de troca: o dia vira à meia-noite de Brasília. Instalações antigas em outro fuso são ajustadas sozinhas, sem zerar contadores nem liberar bloqueio. Os contadores só reiniciam quando a data **avança**: atrasar o relógio não desbloqueia.
 - **Sem Martingale.** Depois de um LOSS, o valor não pode subir no mesmo dia.
 - Uma operação por vez, cada sinal é único (ativo + candle) e sinais vencidos são descartados.
 - Todo o estado passa pelo service worker, que é o único gravador. A trava é **recalculada a partir dos contadores** sempre que o estado é carregado (reinício, atualização ou edição manual do storage).
