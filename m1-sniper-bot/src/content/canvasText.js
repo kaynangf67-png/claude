@@ -94,11 +94,25 @@ export function canvasCandidates(maxAgeMs = 60_000) {
 }
 
 let selectedKey = null;
+let locked = null;   // chaves do grupo de rótulos do preço, depois de encontrado (não procura de novo)
 let resetAt = 0; // após trocar de ativo, só valem números redesenhados depois da troca
+
+/** Valor do grupo travado: mediana dos rótulos do grupo (mesmo se o preço ficou parado e não foi redesenhado). */
+function lockedValue() {
+  if (!locked) return null;
+  const gs = locked.map((k) => groups.get(k)).filter((g) => g && g.last);
+  if (!gs.length) return null;
+  const newest = Math.max(...gs.map((g) => g.lastAt));
+  const fresh = gs.filter((g) => newest - g.lastAt < 5000); // rótulos que andam juntos
+  const vals = fresh.map((g) => parsePrice(g.last.t)).filter(Number.isFinite).sort((a, b) => a - b);
+  return vals.length ? vals[Math.floor(vals.length / 2)] : null;
+}
+export const isPriceLocked = () => !!locked;
 
 /** Troca de ativo: esquece o rótulo escolhido e procura o novo (mesma cor e ritmo). */
 export function resetCanvasSelection() {
   selectedKey = null;
+  locked = null;
   resetAt = Date.now();
   for (const g of groups.values()) g.changes = []; // ritmo recomeça a contar
 }
@@ -109,9 +123,10 @@ export function resetCanvasSelection() {
  * com ritmo de mudança parecido. Sem escolha: só usa se houver UM candidato.
  */
 export function canvasPriceFor(pref) {
+  if (locked) { const v = lockedValue(); if (v != null) return v; }
   const cands = canvasCandidates();
   if (!cands.length) return null;
-  if (!pref) return autoPick(cands);
+  if (!pref || pref.auto) return autoPick(cands, true);
   let c = cands.find((x) => x.key === (selectedKey || pref.key));
   if (!c) {
     const same = cands.filter((x) => x.color === pref.color);
@@ -126,7 +141,9 @@ export function canvasPriceFor(pref) {
   return c.value;
 }
 
-export function selectCanvasKey(key) { selectedKey = key; }
+export function selectCanvasKey(key) { selectedKey = key; locked = key ? [key] : null; }
+/** Destrava (botão PROCURAR DE NOVO). */
+export function unlockCanvasPrice() { locked = null; selectedKey = null; }
 
 /**
  * Escolha AUTOMÁTICA do preço ao vivo entre os números que o gráfico desenha.
@@ -135,7 +152,7 @@ export function selectCanvasKey(key) { selectedKey = key; }
  * Animações (muito rápidas) e marcações fixas (quase paradas) ficam de fora.
  * Retorna o valor do meio do maior grupo que concorda.
  */
-export function autoPick(cands = canvasCandidates()) {
+export function autoPick(cands = canvasCandidates(), lock = false) {
   const live = cands.filter((c) => c.ageMs < 8000 && c.seenS >= 3 && c.rate >= 0.3 && Number.isFinite(c.value));
   if (!live.length) return cands.length === 1 ? cands[0].value : null;
   if (live.length === 1) return live[0].value;
@@ -153,6 +170,10 @@ export function autoPick(cands = canvasCandidates()) {
   });
   if (best.members.length === 1 && ties.length) return null;
   const vals = best.members.map((m) => m.value).sort((a, b) => a - b);
+  // trava quando a escolha é confiável: grupo de 2+ rótulos (ou único candidato), observado por 5 s+
+  if (lock && best.members.every((m) => m.seenS >= 5) && (best.members.length >= 2 || live.length === 1)) {
+    locked = best.members.map((m) => m.key);
+  }
   return vals[Math.floor(vals.length / 2)];
 }
 

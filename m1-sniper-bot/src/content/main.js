@@ -10,7 +10,7 @@ import { formatTime } from '../core/time.js';
 import { SYMBOLS, SOURCE_ID } from '../data/binance.js';
 import { QuotexFeed, feedKey } from './quotexFeed.js';
 import { readChartHistory, syntheticMover, trustedMover } from './chartHistory.js';
-import { canvasStatus, canvasCandidates, selectCanvasKey, resetCanvasSelection } from './canvasText.js';
+import { canvasStatus, canvasCandidates, selectCanvasKey, resetCanvasSelection, isPriceLocked, unlockCanvasPrice } from './canvasText.js';
 import { detectPageMode, detectAsset, assetMatches, assetToSymbol, readAmount, readPayout, panelReadings, readPrice, readPriceInfo, parseCanvasPref, diagnostics, readOpenTradesCount, directionButtonCenter, clearCaches, assetTargetFromClick, makeCalib, calibReading, captureNextClick, clickDirection } from './quotexPage.js';
 
 const POLL_MS = 3000;
@@ -883,9 +883,13 @@ function priceRow(c) {
   const pi = readPriceInfo(c);
   const chosen = parseCanvasPref(c.price);
   const r = el('div', 'row small');
-  r.append(el('span', pi ? 'ok' : 'no', `${pi ? '✓' : '✗'} Preço ao vivo · ${pi ? `${pi.price} (${pi.from})` : 'procurando automaticamente…'}`),
+  const lockedNow = isPriceLocked();
+  r.append(el('span', pi ? 'ok' : 'no', `${pi ? '✓' : '✗'} Preço ao vivo · ${pi ? `${pi.price} (${pi.from}${lockedNow ? ', travado' : ''})` : 'procurando automaticamente (alguns segundos)…'}`),
     button(pickingPrice ? 'blue' : '', pickingPrice ? 'FECHAR' : 'ESCOLHER', () => { pickingPrice = !pickingPrice; renderCalib(); }));
   wrap.append(r);
+  if (lockedNow && !chosen) {
+    wrap.append(button('', 'PROCURAR DE NOVO', () => { unlockCanvasPrice(); showToast('Procurando o preço de novo…', 'warn'); renderCalib(); }));
+  }
   if (chosen) {
     wrap.append(button('', 'VOLTAR AO AUTOMÁTICO', async () => {
       await dispatch({ type: 'SET_CALIB', key: 'price', selector: null }); selectCanvasKey(null);
