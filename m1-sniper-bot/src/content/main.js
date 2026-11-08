@@ -12,6 +12,7 @@ import { formatTime } from '../core/time.js';
 import { SYMBOLS, SOURCE_ID } from '../data/binance.js';
 import { QuotexFeed, feedKey } from './quotexFeed.js';
 import { readChartHistory, syntheticMover, trustedMover } from './chartHistory.js';
+import { wsHistoryFor, wsQuoteFor, wsInfo, normAsset } from './wsFeed.js';
 import { canvasStatus, canvasCandidates, selectCanvasKey, resetCanvasSelection, isPriceLocked, unlockCanvasPrice } from './canvasText.js';
 import { detectPageMode, detectAsset, assetMatches, assetToSymbol, readAmount, readPayout, panelReadings, readPrice, readPriceInfo, parseCanvasPref, diagnostics, readOpenTradesCount, directionButtonCenter, clearCaches, assetTargetFromClick, makeCalib, calibReading, captureNextClick, clickDirection } from './quotexPage.js';
 
@@ -37,6 +38,14 @@ window.addEventListener('pointermove', (e) => {
   if (e.target instanceof HTMLCanvasElement || e.target?.closest?.('canvas')) pointerOverChartAt = Date.now();
 }, true);
 let lastPriceFrom = null;
+/** Preço ao vivo: cotação recebida pela página (mais exata) ou leitura do gráfico. */
+function livePriceInfo(calib = state.settings.calib) {
+  const key = qxKey || feedKey(detectAsset(calib));
+  const wq = key ? wsQuoteFor(key) : null;
+  if (wq != null) return { price: wq, from: 'cotação da Quotex' };
+  return readPriceInfo(calib);
+}
+const wsLoaded = new Map(); // ativo -> quantidade de velas já incorporadas do histórico recebido
 let lastSeenKey = null, keyChangedAt = 0;
 // ---- Histórico pelo gráfico (mouse virtual sobre a legenda OHLC)
 let historyBusy = false;
@@ -97,7 +106,7 @@ function qxTick() {
   }
   qxKey = key;
   if (Date.now() - keyChangedAt < 1500) return; // preço na tela ainda pode ser do ativo anterior
-  const info = readPriceInfo(state.settings.calib);
+  const info = livePriceInfo();
   if (!info) return;
   if (info.from === 'legenda' && Date.now() - pointerOverChartAt < 1500) return; // pausa durante o hover
   lastPriceFrom = info.from;
@@ -161,10 +170,25 @@ async function poll() {
         await dispatch({ type: 'SET_SETTINGS', value: { symbol: want } });
       }
       if (state.settings.symbol !== candleSymbol) { candleSymbol = state.settings.symbol; lastAnalyzedTime = null; confirmed = preview = null; }
+      // Histórico que a própria página recebeu (WebSocket): entra direto nas velas do ativo.
+      if (qxKey && feed.loaded.has(qxKey)) {
+        const hist = wsHistoryFor(qxKey);
+        const live = livePriceInfo()?.price;
+        const named = hist && normAsset(qxKey);
+        if (hist && hist.length && hist.length !== wsLoaded.get(qxKey)
+            && (!Number.isFinite(live) || Math.abs(hist.at(-1).close - live) / live < 0.01)) {
+          const before = feed.candles(qxKey).length;
+          const n = feed.setHistory(qxKey, hist.filter((c) => c.time < Math.floor(nowMs() / M1_MS) * M1_MS));
+          feed.persist(qxKey);
+          wsLoaded.set(qxKey, hist.length);
+          lastAnalyzedTime = null;
+          if (n > before + 5) showToast(`Histórico recebido da Quotex: ${n} velas de ${qxKey}. Sem espera.`, 'ok');
+        }
+      }
       candles = qxKey && qxSymbol(qxKey) === state.settings.symbol ? feed.candles(qxKey) : [];
       // (Leitura automática do histórico pelo gráfico removida: na Quotex a legenda não é legível.
       //  Continua disponível manualmente em ⚙ → LER HISTÓRICO DO GRÁFICO.)
-      if (!qxKey || (feed.loaded.has(qxKey) && nowMs() - feed.lastTickAt(qxKey) > 5000 && feed.lastTickAt(qxKey) > 0) || (!readPrice(state.settings.calib) && Date.now() - pointerOverChartAt > 1500)) throw new Error(`Preço ao vivo não identificado: ${canvasStatus()}. Se continuar, envie ⚙ → COPIAR DIAGNÓSTICO.`);
+      if (!qxKey || (feed.loaded.has(qxKey) && nowMs() - feed.lastTickAt(qxKey) > 5000 && feed.lastTickAt(qxKey) > 0) || (!livePriceInfo() && Date.now() - pointerOverChartAt > 1500)) throw new Error(`Preço ao vivo não identificado: ${canvasStatus()}. Se continuar, envie ⚙ → COPIAR DIAGNÓSTICO.`);
       // relógio: sincroniza pelo servidor de dados de vez em quando
       if (nowMs() - lastClockSync > 60_000) { lastClockSync = nowMs(); send({ type: 'klines', symbol: 'BTCUSDT', limit: 1 }).then((r) => { if (Number.isFinite(r.clockOffset)) clockOffset = r.clockOffset; }); }
     } else {
@@ -579,7 +603,7 @@ function render() {
   const nC = qm && qxKey ? closedOnly(feed.candles(qxKey), nowMs()).length : 0;
   const live = conn.status === 'ok' ? 'ao vivo' : conn.status === 'stale' ? '(atrasado)' : conn.status === 'offline' ? '(sem leitura)' : '(conectando)';
   $('assetInfo').textContent = warn.length ? warn.join(' · ')
-    : qm ? `Preço lido: ${readPrice(s.settings.calib) ?? '—'} · ${qxKey ?? 'ativo ?'} · ${nC} velas · ${(s.settings.strategy || 'priceAction') === 'priceAction' ? `price action${nC < PA_REQUIRED ? ` (opera com ${PA_REQUIRED})` : ''}` : s.settings.strategy === 'sniperPro' ? `script SNIPER PRO${nC < sniperProRequired() ? ` (opera com ${sniperProRequired()})` : ''}` : nC >= WARMUP_REQUIRED ? 'modo completo' : nC >= QUICK_REQUIRED ? `modo rápido (completo com ${WARMUP_REQUIRED})` : `operando com ${QUICK_REQUIRED}`} · ${live}`
+    : qm ? `Preço lido: ${livePriceInfo()?.price ?? '—'} · ${qxKey ?? 'ativo ?'} · ${nC} velas · ${(s.settings.strategy || 'priceAction') === 'priceAction' ? `price action${nC < PA_REQUIRED ? ` (opera com ${PA_REQUIRED})` : ''}` : s.settings.strategy === 'sniperPro' ? `script SNIPER PRO${nC < sniperProRequired() ? ` (opera com ${sniperProRequired()})` : ''}` : nC >= WARMUP_REQUIRED ? 'modo completo' : nC >= QUICK_REQUIRED ? `modo rápido (completo com ${WARMUP_REQUIRED})` : `operando com ${QUICK_REQUIRED}`} · ${live}`
     : `Fonte: Binance · ${s.settings.symbol} · ${live}`;
   $('symbol').classList.toggle('hidden', qm);
   $('qxName').classList.toggle('hidden', !qm);
@@ -829,7 +853,7 @@ function renderSettings(rebuild) {
     a.download = 'm1-sniper-historico.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   });
   const diag = button('blue', 'COPIAR DIAGNÓSTICO', async () => {
-    const txt = diagnostics(state.settings.calib) + '\n--- histórico do gráfico ---\n'
+    const txt = diagnostics(state.settings.calib) + '\n--- conexão da página (WebSocket) ---\n' + wsInfo().join('\n') + '\n--- histórico do gráfico ---\n'
       + (lastHistory ? `${lastHistory.key}: ${lastHistory.ok ? 'OK' : 'FALHOU'} — ${lastHistory.text}\n${lastHistory.info}` : 'ainda não tentado');
     try { await navigator.clipboard.writeText(txt); showToast('Diagnóstico copiado: cole na conversa com o suporte', 'ok'); }
     catch { window.prompt('Copie o diagnóstico (Ctrl+C):', txt); }
@@ -902,7 +926,7 @@ function colorName(f) {
 /** Linha "Preço ao vivo": mostra o preço lido e permite ESCOLHER entre os números do gráfico. */
 function priceRow(c) {
   const wrap = el('div');
-  const pi = readPriceInfo(c);
+  const pi = livePriceInfo(c);
   const chosen = parseCanvasPref(c.price);
   const r = el('div', 'row small');
   const lockedNow = isPriceLocked();

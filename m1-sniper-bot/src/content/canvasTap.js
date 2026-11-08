@@ -45,6 +45,37 @@
   }
   window.postMessage({ __m1tap: 1, at: Date.now(), items: [], hello: true }, '*');
 
+  // ---------------------------------------------------------------- WebSocket (somente leitura)
+  // Observa as mensagens que a página RECEBE (histórico de velas, cotações).
+  // Não envia nada e não altera as mensagens.
+  const NativeWS = window.WebSocket;
+  if (NativeWS && !NativeWS.__m1wrapped) {
+    const dec = new TextDecoder('utf-8');
+    const INTEREST = /candle|history|quote|stream|tick|price|chart/i;
+    const relay = (text) => {
+      if (typeof text !== 'string' || text.length < 8 || text.length > 3_000_000) return;
+      if (!INTEREST.test(text.slice(0, 200)) && !/^\s*[\[{]/.test(text)) return;
+      window.postMessage({ __m1ws: 1, at: Date.now(), data: text }, '*');
+    };
+    const onMsg = (ev) => {
+      try {
+        const d = ev.data;
+        if (typeof d === 'string') relay(d);
+        else if (d instanceof ArrayBuffer) relay(dec.decode(new Uint8Array(d)[0] === 4 ? new Uint8Array(d).subarray(1) : new Uint8Array(d)));
+        else if (d && typeof d.arrayBuffer === 'function') d.arrayBuffer().then((b) => { const u = new Uint8Array(b); relay(dec.decode(u[0] === 4 ? u.subarray(1) : u)); }).catch(() => {});
+      } catch { /* nunca atrapalha a página */ }
+    };
+    const Wrapped = function (...args) {
+      const ws = new NativeWS(...args);
+      try { ws.addEventListener('message', onMsg); } catch {}
+      return ws;
+    };
+    Wrapped.prototype = NativeWS.prototype;
+    for (const k of ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED']) Wrapped[k] = NativeWS[k];
+    Wrapped.__m1wrapped = true;
+    window.WebSocket = Wrapped;
+  }
+
   // envia um lote por quadro desenhado e, por segurança, a cada 250 ms
   let scheduled = false;
   function flush() {
