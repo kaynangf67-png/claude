@@ -29,10 +29,13 @@ export function findLegend(doc = document) {
     if (!m) continue;
     for (const [k, re] of Object.entries(LABELS)) {
       if (found[k] || !re.test(m[1].trim())) continue;
-      if (m[2]) found[k] = { el: e, inline: true };
-      else {
-        const v = e.nextElementSibling || e.parentElement?.nextElementSibling;
-        if (v && parsePrice(v.textContent) != null) found[k] = { el: v, inline: false };
+      if (m[2]) { found[k] = { el: e, inline: true }; continue; }
+      // valor: irmão seguinte, irmão do pai, ou o texto da "linha" (pai) sem o rótulo
+      const cands = [e.nextElementSibling, e.parentElement?.nextElementSibling].filter(Boolean);
+      const v = cands.find((c) => parsePrice(c.textContent) != null && c.textContent.trim().length < 25);
+      if (v) found[k] = { el: v, inline: false };
+      else if (e.parentElement && parsePrice(e.parentElement.textContent.replace(t, '')) != null && e.parentElement.textContent.length < 40) {
+        found[k] = { el: e.parentElement, inline: false, strip: t };
       }
     }
   }
@@ -41,7 +44,7 @@ export function findLegend(doc = document) {
 
 export function readLegend(legend) {
   if (!legend) return null;
-  const val = (f) => parsePrice(f.inline ? (ownText(f.el).match(/[\d.,]+$/)?.[0] ?? '') : f.el.textContent);
+  const val = (f) => parsePrice(f.inline ? (ownText(f.el).match(/[\d.,]+$/)?.[0] ?? '') : f.strip ? f.el.textContent.replace(f.strip, '') : f.el.textContent);
   const o = { open: val(legend.open), high: val(legend.high), low: val(legend.low), close: val(legend.close) };
   return Object.values(o).every((v) => v != null) ? o : null;
 }
@@ -88,9 +91,21 @@ export async function readChartHistory({ livePrice, now = Date.now(), step = 2, 
   const canvas = biggestCanvas();
   if (!canvas) return { ok: false, error: 'gráfico (canvas) não encontrado', info: canvasInfo() };
   chartCanvas = canvas;
-  const legend = findLegend();
-  if (!legend) return { ok: false, error: 'legenda Abertura/Fechamento/Alto/Baixo não encontrada', info: canvasInfo() };
   const r = canvas.getBoundingClientRect();
+  // Na Quotex a legenda OHLC só aparece com o mouse SOBRE o gráfico: entra primeiro, depois procura.
+  let legend = findLegend();
+  if (!legend) {
+    for (const fx of [0.6, 0.4, 0.75, 0.25]) {
+      const px = r.left + r.width * fx, py = r.top + r.height * 0.55;
+      fire(px, py, 'mouseover'); fire(px, py, 'mouseenter'); fire(px, py);
+      for (let k = 0; k < 6 && !legend; k++) { await frame(); fire(px + k, py); legend = findLegend(); }
+      if (legend) break;
+    }
+  }
+  if (!legend) {
+    leaveChart(r);
+    return { ok: false, error: 'legenda Abertura/Fechamento/Alto/Baixo não apareceu nem com o mouse virtual sobre o gráfico', info: canvasInfo() + ' · textos com rótulos OHLC: ' + ohlcTextsInfo() };
+  }
   const legendStart = readLegend(legend);
   const y = r.top + r.height * 0.55;
   const seq = [];
@@ -110,13 +125,30 @@ export async function readChartHistory({ livePrice, now = Date.now(), step = 2, 
     // devolve a legenda para a vela atual e sai do gráfico pelo mesmo elemento
     fire(r.right - 4, y);
     await frame();
-    const t = lastTarget;
-    for (const type of ['mouseout', 'mouseleave']) fire(r.right - 4, y, type, t);
-    if (t) t.dispatchEvent(new PointerEvent('pointerleave', { bubbles: false, pointerType: 'mouse', clientX: r.right + 50, clientY: y }));
+    leaveChart(r);
   }
   const res = buildHistory(seq, { livePrice, now });
   res.info = `${canvasInfo()} · legenda inicial ${JSON.stringify(legendStart)} · mudanças lidas ${seq.length} · preço ao vivo ${livePrice}`;
   return res;
+}
+
+function leaveChart(r) {
+  const t = lastTarget;
+  const y = r.top + r.height * 0.55;
+  for (const type of ['mouseout', 'mouseleave']) fire(r.right - 4, y, type, t);
+  if (t) t.dispatchEvent(new PointerEvent('pointerleave', { bubbles: false, pointerType: 'mouse', pointerId: 1, isPrimary: true, clientX: r.right + 50, clientY: y }));
+  if (chartCanvas && chartCanvas !== t) chartCanvas.dispatchEvent(new PointerEvent('pointerleave', { bubbles: false, pointerType: 'mouse', pointerId: 1, isPrimary: true, clientX: r.right + 50, clientY: y }));
+}
+
+/** Para o diagnóstico: textos da página que parecem rótulos OHLC. */
+function ohlcTextsInfo() {
+  const out = [];
+  for (const e of document.querySelectorAll('body *')) {
+    if (out.length >= 8 || e.closest('#m1-sniper-bot-host')) continue;
+    const t = ownText(e);
+    if (t && t.length < 30 && /abert|fech|alto|baixo|máx|mín|open|close|high|low/i.test(t)) out.push(`"${t}"`);
+  }
+  return out.join(' ') || 'nenhum';
 }
 
 function canvasInfo() {
