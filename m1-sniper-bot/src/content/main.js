@@ -10,7 +10,8 @@ import { formatTime } from '../core/time.js';
 import { SYMBOLS, SOURCE_ID } from '../data/binance.js';
 import { QuotexFeed, feedKey } from './quotexFeed.js';
 import { readChartHistory, syntheticMover, trustedMover } from './chartHistory.js';
-import { detectPageMode, detectAsset, assetMatches, assetToSymbol, readAmount, readPayout, panelReadings, readPrice, readPriceInfo, diagnostics, clearCaches, assetTargetFromClick, makeCalib, calibReading, captureNextClick, clickDirection } from './quotexPage.js';
+import { canvasStatus, canvasCandidates, selectCanvasKey } from './canvasText.js';
+import { detectPageMode, detectAsset, assetMatches, assetToSymbol, readAmount, readPayout, panelReadings, readPrice, readPriceInfo, parseCanvasPref, diagnostics, clearCaches, assetTargetFromClick, makeCalib, calibReading, captureNextClick, clickDirection } from './quotexPage.js';
 
 const POLL_MS = 3000;
 const FAST_POLL_MS = 1000;           // perto da virada do minuto
@@ -157,7 +158,7 @@ async function poll() {
           && closedOnly(candles, nowMs()).length < WARMUP_REQUIRED && nowMs() - keyChangedAt > 3000) {
         loadChartHistory(qxKey);
       }
-      if (!qxKey || (feed.loaded.has(qxKey) && nowMs() - feed.lastTickAt(qxKey) > 5000 && feed.lastTickAt(qxKey) > 0) || (!readPrice(state.settings.calib) && Date.now() - pointerOverChartAt > 1500)) throw new Error('Preço ao vivo da Quotex não encontrado como texto (pode estar desenhado no gráfico). Use ⚙ → COPIAR DIAGNÓSTICO e envie; ou mude a fonte para Binance (só cripto sem OTC).');
+      if (!qxKey || (feed.loaded.has(qxKey) && nowMs() - feed.lastTickAt(qxKey) > 5000 && feed.lastTickAt(qxKey) > 0) || (!readPrice(state.settings.calib) && Date.now() - pointerOverChartAt > 1500)) throw new Error(`Preço ao vivo não identificado: ${canvasStatus()}. Se continuar, envie ⚙ → COPIAR DIAGNÓSTICO.`);
       // relógio: sincroniza pelo servidor de dados de vez em quando
       if (nowMs() - lastClockSync > 60_000) { lastClockSync = nowMs(); send({ type: 'klines', symbol: 'BTCUSDT', limit: 1 }).then((r) => { if (Number.isFinite(r.clockOffset)) clockOffset = r.clockOffset; }); }
     } else {
@@ -471,7 +472,7 @@ function nextReading(s, now) {
     const lastC = closedOnly(candles, now).at(-1);
     return { kind: 'blocked', text: conn.status === 'stale'
       ? `Dados atrasados (última vela ${lastC ? formatTime(lastC.time, s.settings.timeZone, false) : '—'}) — aguarde`
-      : 'Sem conexão com a fonte de dados' };
+      : (quotexMode(s) ? `Preço ao vivo não identificado: ${canvasStatus()}` : 'Sem conexão com a fonte de dados') };
   }
   if (preview) return { kind: 'preview', ...preview };
   if (confirmed) return { kind: 'confirmed', ...confirmed };
@@ -804,6 +805,7 @@ function renderCalib() {
   if (!box) return;
   const c = state.settings.calib;
   const rows = CALIB_ITEMS.map((it) => {
+    if (it.key === 'price') return priceRow(c);
     const r = el('div', 'row small');
     let test = '';
     let okItem = !!c[it.key];
@@ -835,6 +837,36 @@ function renderCalib() {
     ? `Painel de operação lido automaticamente: ${pr.asset?.label ?? 'ativo ?'} · ${pr.payout != null ? Math.round(pr.payout * 100) + '%' : '% ?'} · Tempo ${pr.expiryText ?? '?'} · Investimento ${pr.amountText ?? '?'}`
     : 'Calibre Comprar e Vender: ativo, %, tempo e valor são lidos sozinhos do painel ao lado deles.');
   box.replaceChildren(el('div', 'small muted', 'Clique em CALIBRAR e depois no item da Quotex. O clique é bloqueado: nada é operado. Esc cancela.'), ...rows, auto);
+}
+
+let pickingPrice = false;
+function colorName(f) {
+  const m = { '#ffffff': 'branco', '#fff': 'branco', '#000000': 'preto' };
+  return m[String(f).toLowerCase()] || f;
+}
+/** Linha "Preço ao vivo": mostra o preço lido e permite ESCOLHER entre os números do gráfico. */
+function priceRow(c) {
+  const wrap = el('div');
+  const pi = readPriceInfo(c);
+  const chosen = parseCanvasPref(c.price);
+  const r = el('div', 'row small');
+  r.append(el('span', pi ? 'ok' : 'no', `${pi ? '✓' : '✗'} Preço ao vivo · ${pi ? `${pi.price} (${pi.from})` : 'não identificado'}`),
+    button(pickingPrice ? 'blue' : '', pickingPrice ? 'FECHAR' : 'ESCOLHER', () => { pickingPrice = !pickingPrice; renderCalib(); }));
+  wrap.append(r);
+  if (pickingPrice) {
+    const cands = canvasCandidates(10_000).slice(0, 8);
+    wrap.append(el('div', 'small muted', cands.length ? 'Toque no número IGUAL ao rótulo azul do preço no gráfico:' : 'Nenhum número mudando no gráfico agora. Recarregue a Quotex (F5) e aguarde.'));
+    for (const k of cands) {
+      const sel = chosen && chosen.color === k.color && (chosen.key === k.key);
+      wrap.append(button(sel ? 'green' : '', `${k.text} · ${colorName(k.color)} · ${Math.round(k.rate * 10) / 10}/s`, async () => {
+        selectCanvasKey(k.key);
+        await dispatch({ type: 'SET_CALIB', key: 'price', selector: JSON.stringify({ v: 3, kind: 'canvas', key: k.key, color: k.color, rate: k.rate }) });
+        pickingPrice = false; renderCalib();
+        showToast(`Preço ao vivo: ${k.text} (${colorName(k.color)}). Confira se acompanha o rótulo azul.`, 'ok');
+      }));
+    }
+  }
+  return wrap;
 }
 
 async function startCalib(it) {

@@ -31,3 +31,10 @@ test('percentual de payout e valor nunca confundidos', () => {
   assert.equal(parseMoney('71%'), null);
   assert.equal(parseMoney('Ethereum 85% 5,000 R$'), 5000);
 });
+
+test('número desenhado letra por letra no gráfico é remontado', async () => {
+  const { assembleRuns } = await import('../src/content/canvasText.js');
+  const glyphs = '0.78274'.split('').map((ch, i) => ({ t: ch, c: 1, f: '#fff', x: 1030 + i * 7, y: 200, w: 7 }));
+  const out = assembleRuns([...glyphs, { t: '0.79000', c: 1, f: '#888', x: 1030, y: 100, w: 40 }]).map((i) => i.t).sort();
+  assert.deepEqual(out, ['0.78274', '0.79000']);
+});

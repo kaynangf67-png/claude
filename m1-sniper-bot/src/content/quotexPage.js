@@ -6,7 +6,7 @@
 // (clica neles uma vez) e o bot grava seletores CSS.
 
 import { SYMBOLS } from '../data/binance.js';
-import { canvasLivePrice, canvasInfo } from './canvasText.js';
+import { canvasPriceFor, canvasInfo } from './canvasText.js';
 
 /** DEMO/REAL a partir da URL (ex.: /pt/demo-trade vs /pt/trade). */
 export function detectPageMode(loc = location) {
@@ -396,16 +396,27 @@ export function parsePrice(text) {
  * Retorna { price, from } ou null.
  */
 export function readPriceInfo(calib, doc = document) {
+  // Preço escolhido pelo usuário entre os números desenhados no gráfico
+  const pc = parseCanvasPref(calib?.price);
+  if (pc) {
+    const v = canvasPriceFor(pc);
+    return v != null ? { price: v, from: 'gráfico (escolhido)' } : null;
+  }
   const el = calib?.price && resolveCalib(calib.price, doc, 'price');
   const v = el && isPriceText(readText(el)) ? parsePrice(readText(el)) : null;
   if (v != null) return { price: v, from: 'rótulo' };
-  const cv = canvasLivePrice();
+  const cv = canvasPriceFor(null); // só se houver um único número mudando no gráfico
   if (cv != null) return { price: cv, from: 'gráfico (canvas)' };
   const auto = autoPrice.get();
   if (auto != null) return { price: auto, from: 'automático' };
   const lg = legendClose(doc);
   if (lg != null) return { price: lg, from: 'legenda' };
   return null;
+}
+
+export function parseCanvasPref(rec) {
+  if (!rec || !rec.startsWith('{')) return null;
+  try { const o = JSON.parse(rec); return o.kind === 'canvas' ? o : null; } catch { return null; }
 }
 
 export function readPrice(calib, doc = document) {
