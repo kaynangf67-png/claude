@@ -88,13 +88,14 @@ export function canvasCandidates(maxAgeMs = 60_000) {
     .filter(([, g]) => now - g.lastAt < maxAgeMs && g.lastAt > resetAt && g.perBatch <= 3 && g.last)
     .map(([key, g]) => {
       const seenS = Math.max(1, Math.min(20, (now - Math.max(g.firstAt, resetAt)) / 1000));
-      return { key, color: g.last.f, value: parsePrice(g.last.t), text: g.last.t, rate: g.changes.length / seenS, seenS, ageMs: now - g.lastAt };
+      return { key, color: g.last.f, value: parsePrice(g.last.t), text: g.last.t, rate: g.changes.length / seenS, seenS, ageMs: now - g.lastAt, firstAt: g.firstAt };
     })
     .sort((a, b) => b.rate - a.rate);
 }
 
 let selectedKey = null;
 let locked = null;   // chaves do grupo de rótulos do preço, depois de encontrado (não procura de novo)
+let lockedColor = null, lockedAt = 0;
 let resetAt = 0; // após trocar de ativo, só valem números redesenhados depois da troca
 
 /** Valor do grupo travado: mediana dos rótulos do grupo (mesmo se o preço ficou parado e não foi redesenhado). */
@@ -112,7 +113,7 @@ export const isPriceLocked = () => !!locked;
 /** Troca de ativo: esquece o rótulo escolhido e procura o novo (mesma cor e ritmo). */
 export function resetCanvasSelection() {
   selectedKey = null;
-  locked = null;
+  locked = null; // mantém lockedColor: o rótulo do ativo novo costuma ter a mesma cor
   resetAt = Date.now();
   for (const g of groups.values()) g.changes = []; // ritmo recomeça a contar
 }
@@ -123,10 +124,18 @@ export function resetCanvasSelection() {
  * com ritmo de mudança parecido. Sem escolha: só usa se houver UM candidato.
  */
 export function canvasPriceFor(pref) {
-  if (locked) { const v = lockedValue(); if (v != null) return v; }
+  if (locked) {
+    // Rótulo travado parou de ser redesenhado enquanto outros números do gráfico
+    // continuam mudando? A Quotex recriou o rótulo: destrava e reencontra.
+    const newest = Math.max(0, ...locked.map((k) => groups.get(k)?.lastAt || 0));
+    // só rótulos NOVOS (criados depois da trava) e da MESMA COR do preço indicam que a Quotex recriou o rótulo
+    const recreated = canvasCandidates(3000).filter((c) => !locked.includes(c.key) && c.color === lockedColor && c.firstAt > lockedAt && c.ageMs < 2000);
+    if (Date.now() - newest > 10_000 && recreated.length) { locked = null; selectedKey = null; resetAt = Math.min(...recreated.map((c) => c.firstAt)) - 1; }
+    else { const v = lockedValue(); if (v != null) return v; }
+  }
   const cands = canvasCandidates();
   if (!cands.length) return null;
-  if (!pref || pref.auto) return autoPick(cands, true);
+  if (!pref || pref.auto) return autoPick(lockedColor ? cands.filter((c) => c.color === lockedColor) : cands, true);
   let c = cands.find((x) => x.key === (selectedKey || pref.key));
   if (!c) {
     const same = cands.filter((x) => x.color === pref.color);
@@ -143,7 +152,7 @@ export function canvasPriceFor(pref) {
 
 export function selectCanvasKey(key) { selectedKey = key; locked = key ? [key] : null; }
 /** Destrava (botão PROCURAR DE NOVO). */
-export function unlockCanvasPrice() { locked = null; selectedKey = null; }
+export function unlockCanvasPrice() { locked = null; selectedKey = null; lockedColor = null; }
 
 /**
  * Escolha AUTOMÁTICA do preço ao vivo entre os números que o gráfico desenha.
@@ -173,6 +182,7 @@ export function autoPick(cands = canvasCandidates(), lock = false) {
   // trava quando a escolha é confiável: grupo de 2+ rótulos (ou único candidato), observado por 5 s+
   if (lock && best.members.every((m) => m.seenS >= 5) && (best.members.length >= 2 || live.length === 1)) {
     locked = best.members.map((m) => m.key);
+    lockedColor = best.members[0].color; lockedAt = Date.now();
   }
   return vals[Math.floor(vals.length / 2)];
 }
