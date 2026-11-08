@@ -986,7 +986,19 @@
         const P = ZP[pose] || ZP.dormindo; a.scr.forEach((s) => s.material.color.setHex(P.scr));
       }
     }
-    const poll = async () => { try { const r = await fetch("/api/agent?action=zyon"); if (r.ok) window.__zyApply(await r.json()); } catch { /* sem servidor: ficam dormindo */ } };
+    // Com o escritório aberto e o Forex aberto, a página roda um ciclo a cada 5 min (o servidor impõe o intervalo mínimo e trava execução dupla).
+    const fxOpen = () => { const d = new Date(), wd = d.getUTCDay(), h = d.getUTCHours(); return !(wd === 6 || (wd === 5 && h >= 22) || (wd === 0 && h < 22)); };
+    const poll = async () => {
+      try {
+        const r = await fetch("/api/agent?action=zyon"); if (!r.ok) return;
+        let d = await r.json();
+        const now = Math.floor(Date.now() / 1000);
+        if (document.visibilityState === "visible" && fxOpen() && d.nextIn === 0 && (!d.lastCycle || now - d.lastCycle >= 300)) {
+          const c = await fetch("/api/agent?action=zyon-cycle", { method: "POST" }); if (c.ok) d = await c.json();
+        }
+        window.__zyApply(d);
+      } catch { /* sem servidor: ficam dormindo */ }
+    };
     poll(); setInterval(poll, 60000);
     window.__zyApply = (d) => { apply(d); if (window.__zyHud) window.__zyHud(d); }; // painel e bonecos atualizam juntos
   })();
