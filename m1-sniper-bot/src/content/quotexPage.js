@@ -120,7 +120,9 @@ function panelReadingsRaw(calib, doc = document) {
   // Investimento e Tempo: lidos no BLOCO do rótulo ("Investimento", "Tempo"),
   // preferindo o <input> do bloco. Evita pegar relógio, saldo ou pagamento.
   const isMoney = (t) => !/%|:/.test(t) && MONEY_LEAF_RE.test(t) && parseMoney(t) > 0;
-  const isTime = (t) => TIME_LEAF_RE.test(t);
+  // Tempo de expiração na Quotex: sempre HH:MM:SS (00:01:00). Contagens regressivas
+  // do gráfico ("00:05") e relógios têm outro formato/valor e são ignorados.
+  const isTime = (t) => /^\s*\d{2}:\d{2}:\d{2}\s*$/.test(t);
   const INV_RE = /^\s*(investimento|investment|invest|amount|valor)\b/i;
   const TIME_RE = /^\s*(tempo|time|expira\w*|expiration|dura\w*)\b/i;
   const body = doc.body;
