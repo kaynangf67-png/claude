@@ -31,7 +31,8 @@ export function parseAsset(text) {
   const m = raw.match(PAIR_RE);
   if (m) return { base: m[1].toUpperCase(), quote: m[2].toUpperCase(), otc: otc || !!m[3], label: m[0].trim(), raw };
   for (const [re, base] of NAME_TO_BASE) {
-    if (re.test(raw)) return { base, quote: 'USD', otc, label: raw.slice(0, 40), raw };
+    const n = raw.match(re);
+    if (n) return { base, quote: 'USD', otc, label: n[0] + (otc ? ' (OTC)' : ''), raw };
   }
   return null;
 }
@@ -39,12 +40,41 @@ export function parseAsset(text) {
 /** Ativo aberto: elemento calibrado primeiro; depois o título da aba. */
 export function detectAsset(calib = null, doc = document) {
   if (calib?.asset) {
-    const el = resolveCalib(calib.asset, doc);
-    const a = el && parseAsset(el.textContent);
+    const el = resolveCalib(calib.asset, doc, 'asset');
+    const a = el && readActiveAsset(el);
     if (a) return { ...a, from: 'calibrado' };
+    if (el) return null; // achou o elemento, mas não dá para saber qual ativo está aberto
   }
   const t = parseAsset(doc.title);
   return t ? { ...t, from: 'título' } : null;
+}
+
+const ACTIVE_RE = /(^|[-_\s])(active|selected|current|is-active|opened|open)([-_\s]|$)/i;
+const isActiveEl = (e) => ACTIVE_RE.test(typeof e.className === 'string' ? e.className : '')
+  || e.getAttribute?.('aria-selected') === 'true' || e.getAttribute?.('aria-current') === 'true' || e.getAttribute?.('aria-current') === 'page';
+
+/**
+ * O elemento calibrado pode ser a BARRA de abas (vários ativos). Nesse caso
+ * escolhe a aba ativa (classe active/selected ou aria-selected).
+ */
+export function readActiveAsset(el) {
+  // Itens "folha": elementos cujo texto é um ativo e nenhum filho também é.
+  const items = [];
+  const walk = (e) => {
+    const kids = [...e.children].filter((k) => parseAsset(k.textContent));
+    if (!kids.length) { if (parseAsset(e.textContent)) items.push(e); return; }
+    if (kids.length === 1 && !items.length && parseAsset(e.textContent)?.label === parseAsset(kids[0].textContent)?.label) { walk(kids[0]); return; }
+    kids.forEach(walk);
+  };
+  walk(el);
+  if (items.length <= 1) return parseAsset((items[0] || el).textContent);
+  // Vários ativos: procura a aba ativa (no item ou em um ancestral dentro da barra).
+  for (const it of items) {
+    for (let e = it; e && e !== el.parentElement; e = e.parentElement) {
+      if (isActiveEl(e)) return parseAsset(it.textContent);
+    }
+  }
+  return null;
 }
 
 /** Símbolo da fonte de dados correspondente ao ativo da Quotex (ou null). */
@@ -127,7 +157,7 @@ function parseCalib(rec) {
 }
 
 const looksRight = {
-  asset: (el) => !!parseAsset(el.textContent),
+  asset: (el) => !!parseAsset(el.textContent) || !!el.querySelector?.('*'),
   amount: (el) => parseMoney(readText(el)) != null,
   call: (el) => el.getBoundingClientRect().width > 0,
   put: (el) => el.getBoundingClientRect().width > 0,

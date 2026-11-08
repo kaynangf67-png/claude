@@ -97,7 +97,7 @@ A nota mínima é **80** e só pode ser aumentada (até 100). Se CALL e PUT se q
 ## 5. Gerenciamento de risco (fixo, não configurável)
 
 - **10 GREEN/dia** ou **3 LOSS/dia** bloqueiam o dia. O painel desliga e não religa até a virada do dia local.
-- A virada usa o **fuso configurado**. Os contadores só reiniciam quando a data **avança**: atrasar o relógio não desbloqueia. O fuso só pode ser trocado em um dia sem operações e sem bloqueio.
+- A virada usa o **fuso configurado**: o padrão é o **horário de Brasília** (`America/Sao_Paulo`), e instalações antigas em UTC são migradas sozinhas, sem zerar nada. Os contadores só reiniciam quando a data **avança**: atrasar o relógio não desbloqueia. Um fuso que "pula" para o dia seguinte só pode ser escolhido em um dia sem operações e sem bloqueio. Fusos no mesmo dia ou atrás podem ser escolhidos a qualquer momento.
 - **Sem Martingale.** Depois de um LOSS, o valor não pode subir no mesmo dia.
 - Uma operação por vez, cada sinal é único (ativo + candle) e sinais vencidos são descartados.
 - Todo o estado passa pelo service worker, que é o único gravador. A trava é **recalculada a partir dos contadores** sempre que o estado é carregado (reinício, atualização ou edição manual do storage).
@@ -167,6 +167,7 @@ m1-sniper-bot/
 |---|---|
 | **Dados atrasados** | Na versão 1.3.1, o horário é corrigido pelo servidor de dados. Se o relógio do PC estiver errado, o painel avisa "⏱ relógio do PC adiantado/atrasado X s (corrigido)". Se continuar atrasado, verifique a internet. |
 | **Valor ✗ "não lido"** | Refaça a calibração do valor em ⚙, clicando no **número** do Investimento. Valores como `5,000 R$` são lidos como 5000; `2,50 R$`, como 2,50. |
+| **Mercado aberto ✗ "aba ativa não identificada"** | A calibração pegou a barra de abas e a Quotex não marcou a aba ativa de um jeito reconhecível. Refaça clicando **no nome do ativo aberto** (ex.: "Ethereum"). Se a barra marcar a aba ativa (classe `active`/`selected`), o bot escolhe a aba certa sozinho. |
 | **Mercado aberto ✗ "não lido"** | Refaça a calibração clicando no **nome do ativo** no topo do gráfico. São aceitos pares ("BTC/USD") e nomes ("Bitcoin"). |
 | **Mercado aberto ✗ "OTC não tem fonte externa"** | Ativos **OTC** têm preço gerado pela própria corretora (comum nos fins de semana). O bot não tem como analisá-los e nunca opera neles. Abra um ativo de cripto sem OTC. |
 

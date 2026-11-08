@@ -102,7 +102,11 @@ test('pontuação mínima nunca abaixo de 80; fuso travado com operações no di
   let s = on();
   assert.ok(reduce(s, { type: 'SET_SETTINGS', value: { minScore: 70 } }, T0).error);
   s = cycle(s, T0, 'GREEN');
+  // 12:00 em São Paulo = 00:00 do dia seguinte em Tóquio → pularia o dia: recusado.
   assert.match(reduce(s, { type: 'SET_SETTINGS', value: { timeZone: 'Asia/Tokyo' } }, T0 + 200000).error, /fuso/);
+  // Fuso no mesmo dia/atrás é permitido e mantém os contadores.
+  const t = reduce(s, { type: 'SET_SETTINGS', value: { timeZone: 'America/Los_Angeles' } }, T0 + 200000);
+  assert.equal(t.error, undefined); assert.equal(t.state.day.greens, 1);
 });
 
 test('modo REAL exige validação E confirmação expressa', () => {
@@ -121,4 +125,13 @@ test('modo REAL exige validação E confirmação expressa', () => {
 test('página em REAL com bot em DEMO bloqueia sinais', () => {
   const s = on();
   assert.match(reduce(s, { type: 'PROPOSE_SIGNAL', signal: sig(0, T0), pageMode: 'REAL' }, T0).error, /REAL/);
+});
+
+test('instalação antiga em UTC migra para horário de Brasília sem zerar contadores', () => {
+  const old = initialState(T0, 'UTC'); old.day.losses = 3; old.day.locked = 'LOSS';
+  delete old.settings.tzMigrated;
+  const h = hydrate(JSON.parse(JSON.stringify(old)), T0);
+  assert.equal(h.settings.timeZone, 'America/Sao_Paulo');
+  assert.equal(h.day.locked, 'LOSS'); assert.equal(h.day.losses, 3);
+  assert.equal(initialState(T0).settings.timeZone, 'America/Sao_Paulo');
 });

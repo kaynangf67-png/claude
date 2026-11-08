@@ -372,7 +372,7 @@ function render() {
   const warn = [];
   if (match === false) warn.push(`⚠ página mostra ${asset.label}`);
   if (pageMode === 'REAL' && s.account.mode === 'DEMO') warn.push('⚠ página parece conta REAL');
-  if (Math.abs(clockOffset) > 3000) warn.push(`⏱ relógio do PC ${clockOffset < 0 ? 'adiantado' : 'atrasado'} ${Math.round(Math.abs(clockOffset) / 1000)} s (corrigido)`);
+  if (Math.abs(clockOffset) > 3000) warn.push(`⏱ relógio do PC ${Math.round(Math.abs(clockOffset) / 1000)} s ${clockOffset < 0 ? 'adiantado' : 'atrasado'} — já corrigido`);
   $('assetInfo').textContent = warn.length ? warn.join(' · ') : `TradingView · BINANCE:${s.settings.symbol} · ${conn.status === 'ok' ? 'ao vivo' : conn.status === 'stale' ? '(atrasado)' : conn.status === 'offline' ? '(offline)' : '(conectando)'}`;
   renderChart(s);
   $('assetInfo').style.color = warn.length || conn.status === 'offline' || conn.status === 'stale' ? '#f59e0b' : '';
@@ -520,7 +520,7 @@ function autoChecks(s) {
     { label: 'Calibrado', ok: calibComplete(s), v: calibComplete(s) ? 'ok' : 'abra ⚙' },
     { label: 'Conta', ok: pageMode === s.account.mode, v: `página ${pageMode} · bot ${s.account.mode}` },
     { label: 'Mercado aberto', ok: !!pageSym && pageSym === s.settings.symbol,
-      v: !asset ? (calib.asset ? 'não lido — recalibre o ativo' : 'calibre o ativo em ⚙')
+      v: !asset ? (calib.asset ? 'aba ativa não identificada — recalibre clicando no NOME do ativo aberto' : 'calibre o ativo em ⚙')
         : asset.otc ? `${asset.label}: OTC não tem fonte externa`
         : !pageSym ? `${asset.label}: sem dados de cripto`
         : pageSym !== s.settings.symbol ? `${asset.label} ≠ ${s.settings.symbol}` : asset.label },
