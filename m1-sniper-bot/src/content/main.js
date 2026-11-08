@@ -40,7 +40,8 @@ let historyBusy = false;
 const historyTried = new Set();
 let historyStatus = null; // texto exibido durante/depois da leitura
 let lastHistory = null;
-let syntheticFailed = false; // gráfico ignora mouse simulado: vai direto ao mouse do Chrome    // resultado da última tentativa (exibido no ⚙ e no diagnóstico)
+let syntheticFailed = false; // gráfico ignora mouse simulado: vai direto ao mouse do Chrome
+let historyUnavailable = false; // as duas formas falharam: não tenta mais sozinho nesta página    // resultado da última tentativa (exibido no ⚙ e no diagnóstico)
 
 async function loadChartHistory(key, manual = false) {
   if (historyBusy || !key) return;
@@ -58,6 +59,7 @@ async function loadChartHistory(key, manual = false) {
       try {
         r = await readChartHistory({ livePrice: readPrice(state.settings.calib) ?? live, now: nowMs(), onProgress: progress, mover: trustedMover(send) });
       } catch (e) { r = { ok: false, error: String(e.message || e), info: 'mouse Chrome' }; }
+      if (!r.ok) historyUnavailable = true;
     }
     lastHistory = { at: nowMs(), key, ok: r.ok, text: r.ok ? `ok: ${r.used} velas` : r.error, info: r.info || '' };
     if (r.ok) {
@@ -69,7 +71,7 @@ async function loadChartHistory(key, manual = false) {
       lastAnalyzedTime = null;
     } else {
       historyStatus = null;
-      showToast(`Não deu para ler o histórico: ${r.error}. Seguindo com o aquecimento normal.`, manual ? 'err' : 'warn');
+      showToast(`Não deu para ler o histórico: ${r.error}. Seguindo com o aquecimento normal.${historyUnavailable ? ' (O bot não vai tentar de novo sozinho nesta página.)' : ''}`, manual ? 'err' : 'warn');
     }
   } catch (e) {
     historyStatus = null;
@@ -151,7 +153,7 @@ async function poll() {
       if (state.settings.symbol !== candleSymbol) { candleSymbol = state.settings.symbol; lastAnalyzedTime = null; confirmed = preview = null; }
       candles = qxKey && qxSymbol(qxKey) === state.settings.symbol ? feed.candles(qxKey) : [];
       // Aquecendo? Tenta uma vez por ativo ler o histórico do próprio gráfico.
-      if (qxKey && !historyTried.has(qxKey) && !historyBusy && feed.lastTickAt(qxKey) > 0
+      if (qxKey && !historyUnavailable && !historyTried.has(qxKey) && !historyBusy && feed.lastTickAt(qxKey) > 0
           && closedOnly(candles, nowMs()).length < WARMUP_REQUIRED && nowMs() - keyChangedAt > 3000) {
         loadChartHistory(qxKey);
       }
