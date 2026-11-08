@@ -8,7 +8,7 @@ import { DAILY_GREEN_TARGET, DAILY_LOSS_LIMIT, LOCK_MESSAGES } from '../core/ris
 import { computeStats, realReadiness, REAL_CONFIRM_PHRASE } from '../core/stats.js';
 import { formatTime } from '../core/time.js';
 import { SYMBOLS, SOURCE_ID } from '../data/binance.js';
-import { detectPageMode, detectAsset, assetMatches, assetToSymbol, readAmount, makeCalib, calibReading, captureNextClick, clickDirection } from './quotexPage.js';
+import { detectPageMode, detectAsset, assetMatches, assetToSymbol, readAmount, readPayout, makeCalib, calibReading, captureNextClick, clickDirection } from './quotexPage.js';
 
 const POLL_MS = 3000;
 const FAST_POLL_MS = 1000;           // perto da virada do minuto
@@ -61,6 +61,7 @@ async function poll() {
   try {
     if (!state) return;
     await followOpenedMarket();
+    await syncPayout();
     const sym = state.settings.symbol;
     if (sym !== candleSymbol) { candles = []; candleSymbol = sym; lastAnalyzedTime = null; confirmed = preview = null; }
     const res = await send({ type: 'klines', symbol: sym, limit: candles.length >= REQUIRED_CANDLES ? 5 : 500 });
@@ -88,6 +89,24 @@ async function followOpenedMarket() {
   const sym = assetToSymbol(detectAsset(state.settings.calib));
   if (sym && sym !== state.settings.symbol && !state.openTrade && !state.activeSignal) {
     await dispatch({ type: 'SET_SETTINGS', value: { symbol: sym } });
+  }
+}
+
+/** Ajusta o payout automaticamente com a % do mercado aberto na Quotex. */
+let pagePayout = null;
+let amountSyncError = null;
+async function syncPayout() {
+  // Valor: segue o campo da Quotex (as regras de risco, como "sem Martingale", continuam valendo).
+  const pageAmt = readAmount(state.settings.calib);
+  if (pageAmt != null && !state.openTrade && Math.abs(pageAmt - state.settings.amount) >= 0.005) {
+    const r = await dispatch({ type: 'SET_AMOUNT', value: pageAmt });
+    amountSyncError = r.error || null;
+    if (r.error) uiError = null; // mostra no item "Valor" do AUTO, não como erro geral
+  } else if (pageAmt != null && Math.abs(pageAmt - state.settings.amount) < 0.005) amountSyncError = null;
+  pagePayout = readPayout(state.settings.calib);
+  if (pagePayout == null || state.openTrade) return;
+  if (Math.abs(pagePayout - state.settings.payout) >= 0.005) {
+    await dispatch({ type: 'SET_SETTINGS', value: { payout: pagePayout } });
   }
 }
 
@@ -245,6 +264,7 @@ const TEMPLATE = `
       <button class="toggle off" data-k="toggle">LIGAR</button>
       <input class="amount" data-k="amount" type="number" min="0.01" step="0.01" inputmode="decimal" title="Valor por operação">
     </div>
+    <div class="small" data-k="payoutInfo"></div>
     <div class="stats small">
       <span>GREEN <span class="cnt g" data-k="greens">0</span>/${DAILY_GREEN_TARGET}</span>
       <span>LOSS <span class="cnt l" data-k="losses">0</span>/${DAILY_LOSS_LIMIT}</span>
@@ -395,6 +415,9 @@ function render() {
   }
   renderTrade(s, now);
   renderAuto(s);
+  const be = 1 / (1 + s.settings.payout);
+  $('payoutInfo').textContent = `Payout ${Math.round(s.settings.payout * 100)}% ${pagePayout != null ? '(lido da Quotex, automático)' : '(manual em ⚙)'} · empata com ${(be * 100).toFixed(1)}% de acerto`;
+  $('payoutInfo').className = 'small ' + (s.settings.payout < 0.75 ? 'no' : 'muted');
   renderMarkets(s);
   const tEl = $('toast');
   const showT = toast && toast.until > now;
@@ -525,7 +548,8 @@ function autoChecks(s) {
         : !pageSym ? `${asset.label}: sem dados de cripto`
         : pageSym !== s.settings.symbol ? `${asset.label} ≠ ${s.settings.symbol}` : asset.label },
     { label: 'Valor', ok: amt != null && Math.abs(amt - s.settings.amount) < 0.001,
-      v: amt == null ? (calib.amount ? 'não lido — recalibre o valor' : 'calibre o valor em ⚙') : `Quotex ${amt} · bot ${s.settings.amount.toFixed(2)}` },
+      v: amt == null ? (calib.amount ? 'não lido — recalibre o valor' : 'calibre o valor em ⚙')
+        : amountSyncError ? `Quotex ${amt}: ${amountSyncError}` : `Quotex ${amt} · bot ${s.settings.amount.toFixed(2)} (automático)` },
   ];
 }
 

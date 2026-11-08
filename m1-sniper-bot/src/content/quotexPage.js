@@ -58,6 +58,12 @@ const isActiveEl = (e) => ACTIVE_RE.test(typeof e.className === 'string' ? e.cla
  * escolhe a aba ativa (classe active/selected ou aria-selected).
  */
 export function readActiveAsset(el) {
+  const it = activeAssetItem(el);
+  return it ? parseAsset(it.textContent) : null;
+}
+
+/** Elemento (aba/item) do ativo aberto dentro do elemento calibrado. */
+export function activeAssetItem(el) {
   // Itens "folha": elementos cujo texto é um ativo e nenhum filho também é.
   const items = [];
   const walk = (e) => {
@@ -67,14 +73,40 @@ export function readActiveAsset(el) {
     kids.forEach(walk);
   };
   walk(el);
-  if (items.length <= 1) return parseAsset((items[0] || el).textContent);
+  if (items.length <= 1) return parseAsset((items[0] || el).textContent) ? (items[0] || el) : null;
   // Vários ativos: procura a aba ativa (no item ou em um ancestral dentro da barra).
   for (const it of items) {
     for (let e = it; e && e !== el.parentElement; e = e.parentElement) {
-      if (isActiveEl(e)) return parseAsset(it.textContent);
+      if (isActiveEl(e)) return it;
     }
   }
   return null;
+}
+
+/** Lê um percentual (ex.: "71%", "+85 %") de um texto. */
+export function parsePercent(text) {
+  const m = String(text || '').match(/(\d{1,3}(?:[.,]\d+)?)\s*%/);
+  if (!m) return null;
+  const v = Number(m[1].replace(',', '.'));
+  return v > 0 && v <= 200 ? v : null;
+}
+
+/**
+ * Payout do mercado aberto, lido da aba/item do ativo na Quotex (ex.: "Ethereum 85%").
+ * Procura no próprio item e, se não houver, nos vizinhos próximos.
+ * Retorna fração (0.85) ou null.
+ */
+export function readPayout(calib, doc = document) {
+  if (!calib?.asset) return null;
+  const el = resolveCalib(calib.asset, doc, 'asset');
+  const it = el && activeAssetItem(el);
+  if (!it) return null;
+  let p = parsePercent(it.textContent);
+  // % às vezes fica num irmão/pai imediato (ex.: <div><span>Ethereum</span><span>85%</span></div>)
+  for (let e = it.parentElement, depth = 0; p == null && e && depth < 2; e = e.parentElement, depth++) {
+    if ((e.textContent.match(/%/g) || []).length === 1) p = parsePercent(e.textContent);
+  }
+  return p == null ? null : Math.round(p) / 100;
 }
 
 /** Símbolo da fonte de dados correspondente ao ativo da Quotex (ou null). */
@@ -115,7 +147,9 @@ export function readText(el) {
  * Separador seguido de exatamente 3 dígitos = milhar; de 1–2 dígitos = decimal.
  */
 export function parseMoney(text) {
-  const m = String(text).replace(/\s/g, '').match(/\d[\d.,]*/);
+  // Ignora percentuais (ex.: payout "71%") — nunca são o valor da operação.
+  const clean = String(text).replace(/\s/g, '').replace(/\d[\d.,]*%/g, ' ');
+  const m = clean.match(/\d[\d.,]*/);
   if (!m) return null;
   let t = m[0].replace(/[.,]$/, '');
   const lastSep = Math.max(t.lastIndexOf(','), t.lastIndexOf('.'));
@@ -158,7 +192,7 @@ function parseCalib(rec) {
 
 const looksRight = {
   asset: (el) => !!parseAsset(el.textContent) || !!el.querySelector?.('*'),
-  amount: (el) => parseMoney(readText(el)) != null,
+  amount: (el) => parseMoney(readText(el)) != null && !/%/.test(readText(el)),
   call: (el) => el.getBoundingClientRect().width > 0,
   put: (el) => el.getBoundingClientRect().width > 0,
 };

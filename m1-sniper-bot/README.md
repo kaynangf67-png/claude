@@ -60,6 +60,12 @@ Não há build: o código roda direto no Chrome. Node 20+ só é necessário par
 
 Os ajustes (fuso, nota mínima, payout, validade do sinal), as estatísticas da DEMO, os critérios do modo REAL e a exportação do histórico ficam no botão **⚙** do próprio painel. O relatório completo continua disponível em `chrome://extensions` → M1 SNIPER BOT → **Detalhes → Opções da extensão**.
 
+### Payout e valor automáticos
+
+- **Payout:** o bot lê a **%** do mercado aberto, na aba do ativo da Quotex (ex.: "Ethereum 85%"), e ajusta o payout sozinho a cada troca de mercado. O painel mostra "Payout 85% (lido da Quotex, automático) · empata com 54,1% de acerto". Abaixo de 75%, a linha fica vermelha: com payout baixo é preciso acertar muito mais para não perder.
+- **Valor:** o valor do bot segue o campo **Investimento** da Quotex. As regras continuam valendo: depois de um LOSS, aumentar o valor na Quotex é recusado (sem Martingale) e o item "Valor" mostra o motivo.
+- Percentuais nunca são confundidos com o valor da operação.
+
 ### Modo AUTO (opcional)
 
 1. No painel, clique em **⚙ → Calibração do automático** e calibre os 4 itens. Clique em **CALIBRAR** e depois no item da Quotex: o **nome do ativo**, o **campo de valor**, o botão **Para cima (CALL)** e o botão **Para baixo (PUT)**. Durante a calibração, o clique é **bloqueado** e não abre operação. **Esc** cancela.

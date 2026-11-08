@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseMoney, parseAsset, assetToSymbol } from '../src/content/quotexPage.js';
+import { parseMoney, parseAsset, assetToSymbol, parsePercent } from '../src/content/quotexPage.js';
 
 test('valores no formato da Quotex', () => {
   assert.equal(parseMoney('5,000 R$'), 5000);
@@ -22,4 +22,12 @@ test('ativo por par ou por nome; OTC nunca corresponde', () => {
   assert.equal(assetToSymbol(parseAsset('EUR/USD')), null);
   assert.equal(parseAsset('Bitcoin Cash'), null);
   assert.equal(parseAsset(''), null);
+});
+
+test('percentual de payout e valor nunca confundidos', () => {
+  assert.equal(parsePercent('Bitcoin (OTC)71%'), 71);
+  assert.equal(parsePercent('Ethereum +85 %'), 85);
+  assert.equal(parsePercent('Ethereum'), null);
+  assert.equal(parseMoney('71%'), null);
+  assert.equal(parseMoney('Ethereum 85% 5,000 R$'), 5000);
 });
