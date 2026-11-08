@@ -8,7 +8,7 @@ import { outcomeOf } from '../core/backtest.js';
 import { canSignal, autoArmed, calibComplete, AUTO_ENTRY_WINDOW_MS } from '../core/state.js';
 import { DAILY_GREEN_TARGET, DAILY_LOSS_LIMIT, LOCK_MESSAGES } from '../core/risk.js';
 import { computeStats, realReadiness, REAL_CONFIRM_PHRASE } from '../core/stats.js';
-import { formatTime } from '../core/time.js';
+import { formatTime, dayKey } from '../core/time.js';
 import { SYMBOLS, SOURCE_ID } from '../data/binance.js';
 import { QuotexFeed, feedKey } from './quotexFeed.js';
 import { readChartHistory, syntheticMover, trustedMover } from './chartHistory.js';
@@ -409,7 +409,7 @@ async function onData() {
   const res = await dispatch({ type: 'PROPOSE_SIGNAL', signal: r.signal, pageMode: detectPageMode() });
   if (res.error) return;
   beep(r.signal.direction);
-  if (state.activeSignal && nowMs() <= r.signal.entryTime + AUTO_ENTRY_WINDOW_MS) await tryAutoEntry(state.activeSignal);
+  if (state.settings.signalsOnly === false && state.activeSignal && nowMs() <= r.signal.entryTime + AUTO_ENTRY_WINDOW_MS) await tryAutoEntry(state.activeSignal);
 }
 
 async function resolveOutcomes(closed) {
@@ -664,7 +664,7 @@ function renderNext(s, now, tz) {
     btns.append(
       button(sig.direction === 'CALL' ? 'green' : 'red', `ENTREI (${ttl}s)`, () => dispatch({ type: 'CONFIRM_ENTRY', signalId: sig.id })),
       button('', 'IGNORAR', () => dispatch({ type: 'DISMISS_SIGNAL', signalId: sig.id })));
-    items.push(btns, el('div', 'small muted', 'Abra você mesmo na Quotex agora. Nota ≠ probabilidade de acerto.'));
+    items.push(btns, el('div', 'small muted', `Entre você mesmo na Quotex agora (${sig.direction === 'CALL' ? 'COMPRAR' : 'VENDER'}, 1 min). ENTREI só conta no placar. Sinal não é garantia de acerto.`));
     checks = sig.checks;
   } else if (n.kind === 'off') {
     items.push(el('div', 'lbl', 'PRÓXIMA VELA'), el('div', 'dir', 'DESLIGADO'), el('div', 'small muted', 'Clique em LIGAR para ver os indicadores M1.'));
@@ -683,11 +683,11 @@ function renderNext(s, now, tz) {
         ? `PRÓXIMA VELA ${formatTime(nextOpen, tz, false)} · confirma em ${secsToClose}s`
         : `VELA ${formatTime(n.candleTime, tz, false)} FECHADA`));
       const top = el('div', 'row');
-      const dirTxt = strong ? (b.dir === 'CALL' ? '▲ CALL' : '▼ PUT') : '⏸ AGUARDAR';
-      top.append(el('span', 'dir', dirTxt), el('span', 'score', `${b.dir} ${b.score}/100`));
+      const dirTxt = strong ? (b.dir === 'CALL' ? '▲ COMPRA' : '▼ VENDA') : '⏸ AGUARDAR';
+      top.append(el('span', 'dir', dirTxt), el('span', 'score', `${b.dir === 'CALL' ? 'compra' : 'venda'} ${b.score}/100`));
       items.push(top, bar(b.score));
       items.push(el('div', 'small muted', strong
-        ? (isPrev ? 'Prévia: se a vela fechar assim, sai sinal. Ainda pode mudar.' : 'Sinal na vela fechada.')
+        ? (isPrev ? 'Prévia: se a vela fechar assim, sai o sinal. Ainda pode mudar — espere o fechamento.' : 'Sinal na vela fechada.')
         : `Falta: ${r.reason}`));
       checks = b.checks;
     }
@@ -762,8 +762,26 @@ function autoChecks(s) {
   ];
 }
 
+/** Acerto MEDIDO dos sinais do bot (resultado da vela seguinte, sem promessa). */
+function measuredAccuracy(s) {
+  const done = s.signalLog.filter((x) => x.outcome === 'GREEN' || x.outcome === 'LOSS');
+  const g = done.filter((x) => x.outcome === 'GREEN').length;
+  const today = done.filter((x) => dayKey(x.entryTime, s.settings.timeZone) === s.day.key);
+  const gt = today.filter((x) => x.outcome === 'GREEN').length;
+  return { n: done.length, pct: done.length ? (g / done.length) * 100 : null, nToday: today.length, pctToday: today.length ? (gt / today.length) * 100 : null };
+}
+
 function renderAuto(s) {
   const box = $('autoBox');
+  if (s.settings.signalsOnly !== false) {
+    // Somente sinais: sem botão AUTO; mostra o acerto medido dos sinais.
+    const a = measuredAccuracy(s);
+    const line = el('div', 'small ' + (a.pct == null ? 'muted' : a.pct >= 54.1 ? 'ok' : 'no'),
+      a.pct == null ? 'Modo SOMENTE SINAIS · o bot não opera. Acerto medido: aparece após os primeiros sinais.'
+        : `Modo SOMENTE SINAIS · acerto medido: ${a.pct.toFixed(1)}% em ${a.n} sinais${a.nToday ? ` (hoje ${a.pctToday.toFixed(0)}% em ${a.nToday})` : ''} · empate exige ~${(100 / (1 + s.settings.payout)).toFixed(1)}%`);
+    box.replaceChildren(line);
+    return;
+  }
   const armed = autoArmed(s);
   const row = el('div', 'row');
   const btn = el('button', 'toggle ' + (armed ? 'auto-on' : 'off'), armed ? '🤖 AUTO ARMADO' : '🤖 AUTO DESLIGADO');

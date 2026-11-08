@@ -10,7 +10,8 @@ const sig = { id: `BTCUSDT-${ENTRY - 60000}`, symbol: 'BTCUSDT', direction: 'PUT
 const page = { pageMode: 'DEMO', pageAsset: 'BTCUSDT', pageAmount: 1 };
 
 function calibrated() {
-  let s = ok(reduce(initialState(T0), { type: 'SET_ACTIVE', value: true }, T0));
+  const base = initialState(T0); base.settings.signalsOnly = false; // estes testes cobrem o AUTO (opcional)
+  let s = ok(reduce(base, { type: 'SET_ACTIVE', value: true }, T0));
   for (const key of ['call', 'put']) s = ok(reduce(s, { type: 'SET_CALIB', key, selector: `#${key}` }, T0));
   return s;
 }
@@ -19,8 +20,17 @@ function armedWithSignal() {
   return ok(reduce(s, { type: 'PROPOSE_SIGNAL', signal: sig }, T0 + 1000));
 }
 
+test('modo SOMENTE SINAIS (padrão): o bot nunca arma nem entra sozinho', () => {
+  let s = ok(reduce(initialState(T0), { type: 'SET_ACTIVE', value: true }, T0));
+  for (const key of ['call', 'put']) s = ok(reduce(s, { type: 'SET_CALIB', key, selector: `#${key}` }, T0));
+  assert.match(reduce(s, { type: 'SET_AUTO', armed: true, expiryConfirmed: true }, T0).error, /somente sinais/i);
+  s = ok(reduce(s, { type: 'PROPOSE_SIGNAL', signal: sig }, T0 + 1000));
+  assert.match(reduce(s, { type: 'AUTO_ENTRY', signalId: sig.id, ...page }, T0 + 1500).error, /somente sinais/i);
+  assert.equal(s.activeSignal.direction, 'PUT'); // o sinal continua sendo mostrado
+});
+
 test('armar exige painel ligado, calibração completa e confirmação de expiração 1 min', () => {
-  const off = initialState(T0);
+  const off = initialState(T0); off.settings.signalsOnly = false;
   assert.match(reduce(off, { type: 'SET_AUTO', armed: true, expiryConfirmed: true }, T0).error, /Ligue/);
   const on = ok(reduce(off, { type: 'SET_ACTIVE', value: true }, T0));
   assert.match(reduce(on, { type: 'SET_AUTO', armed: true, expiryConfirmed: true }, T0).error, /Calibre/);

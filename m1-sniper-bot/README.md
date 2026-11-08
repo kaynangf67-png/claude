@@ -100,7 +100,11 @@ O bot acompanha o que você muda na Quotex, sem precisar mexer no painel:
 - **Valor:** o valor do bot segue o campo **Investimento** da Quotex. As regras continuam valendo: depois de um LOSS, aumentar o valor na Quotex é recusado (sem Martingale) e o item "Valor" mostra o motivo.
 - Percentuais nunca são confundidos com o valor da operação.
 
-### Modo AUTO (opcional)
+### Modo SOMENTE SINAIS (padrão desde a v1.15)
+
+O bot **não opera**: ele só mostra **▲ COMPRA** ou **▼ VENDA** (com som), o horário de entrada e a contagem para você entrar manualmente na Quotex (1 min). O botão AUTO fica oculto, e o redutor recusa armar ou entrar sozinho. Cada sinal tem o resultado medido na vela seguinte, e o painel mostra o **acerto medido** (*"acerto medido: X% em N sinais (hoje …)"*), em verde só se passar do empate (~54%). **Nenhum sinal é garantia de acerto.**
+
+### Modo AUTO (opcional, desativado)
 
 1. No painel, clique em **⚙ → Calibração do automático** e calibre só os botões **Comprar (CALL)** e **Vender (PUT)**: clique em **CALIBRAR** e depois no botão da Quotex. Durante a calibração, o clique é **bloqueado** e não abre operação. **Esc** cancela.
    A partir do botão Comprar, o bot acha sozinho o **painel de operação** da Quotex e lê ali o **ativo e a %** (cabeçalho "Bitcoin 80%"), o **Tempo** (00:01:00), o **Investimento** e o **Pagamento**. Calibrar o ativo e o valor é opcional e só serve de reserva.

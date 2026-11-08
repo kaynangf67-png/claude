@@ -20,6 +20,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
   calib: { price: null, asset: null, amount: null, call: null, put: null },
   // Fonte das velas: 'quotex' = preço lido da tela da Quotex (inclui OTC); 'binance' = API pública.
   feed: 'quotex',
+  // Somente sinais: o bot NUNCA clica na Quotex (pedido do usuário). AUTO bloqueado.
+  signalsOnly: true,
   // Estratégia de sinais: 'priceAction' (S/R, pullback, Fibonacci, tendência),
   // 'sniperPro' (script Pine do usuário) ou 'padrao' (indicadores 0–100).
   strategy: 'priceAction',
@@ -87,6 +89,8 @@ export function hydrate(saved, now = Date.now()) {
     if (k < s.day.key && empty) s.day = newDay(k);
   }
   s.settings.tzMigrated = true;
+  // v1.15: somente sinais (sem operar sozinho), aplicado uma vez; desarma o AUTO.
+  if (!saved.settings?.signalsOnlyV1) { s.settings.signalsOnly = true; s.settings.auto = { ...s.settings.auto, armedDay: null }; s.settings.signalsOnlyV1 = true; }
   // v1.13: estratégia padrão passa a ser price action (pedido do usuário); aplica uma vez.
   if (!saved.settings?.strategyPAv1) { s.settings.strategy = 'priceAction'; s.settings.strategyPAv1 = true; }
   // v1.9.4: preço passa a ser automático; descarta a escolha manual antiga uma vez.
@@ -276,6 +280,7 @@ export function reduce(prev, action, now = Date.now()) {
         log(s, now, 'info', 'Automático DESARMADO');
         return { state: s };
       }
+      if (s.settings.signalsOnly !== false) return fail('Modo somente sinais: o bot não opera sozinho');
       if (s.day.locked) return fail(LOCK_MESSAGES[s.day.locked]);
       if (!s.active) return fail('Ligue o painel antes de armar o automático');
       if (!calibComplete(s)) return fail('Calibre os botões Comprar (CALL) e Vender (PUT) antes de armar');
@@ -287,6 +292,7 @@ export function reduce(prev, action, now = Date.now()) {
 
     case 'AUTO_ENTRY': {
       const sig = s.activeSignal;
+      if (s.settings.signalsOnly !== false) return fail('Modo somente sinais');
       if (!autoArmed(s)) return fail('Automático não está armado');
       if (!sig || sig.id !== action.signalId) return fail('Sinal não está mais disponível');
       if (!s.active) return fail('Painel desativado');
