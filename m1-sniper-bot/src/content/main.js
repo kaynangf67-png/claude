@@ -33,12 +33,16 @@ window.addEventListener('pointermove', (e) => {
   if (e.target instanceof HTMLCanvasElement || e.target?.closest?.('canvas')) pointerOverChartAt = Date.now();
 }, true);
 let lastPriceFrom = null;
+let lastSeenKey = null, keyChangedAt = 0;
 function qxTick() {
   if (!quotexMode()) return;
   const key = feedKey(detectAsset(state.settings.calib));
   const info = readPriceInfo(state.settings.calib);
   if (!key || !info) return;
   if (info.from === 'legenda' && Date.now() - pointerOverChartAt < 1500) return; // pausa durante o hover
+  // Logo após trocar de ativo, o preço na tela ainda pode ser o do ativo anterior.
+  if (key !== lastSeenKey) { lastSeenKey = key; keyChangedAt = Date.now(); }
+  if (Date.now() - keyChangedAt < 1500) { qxKey = key; return; }
   lastPriceFrom = info.from;
   const price = info.price;
   if (!feed.loaded.has(key)) {

@@ -103,7 +103,12 @@ function panelReadingsRaw(calib, doc = document) {
   const panel = tradePanel(calib, doc);
   if (!panel) return null;
   const lv = leaves(panel);
-  const assetLeaf = lv.find((l) => parseAsset(l.text)) || null; // cabeçalho vem primeiro
+  // Ativo aberto = o nome mais PRÓXIMO ACIMA do botão Comprar (cabeçalho do painel).
+  // Ignora a lista "Operações"/histórico, que fica abaixo dos botões e não muda.
+  const btn = calib?.call && resolveCalib(calib.call, doc, 'call');
+  const assetLeaves = lv.filter((l) => parseAsset(l.text));
+  const before = btn ? assetLeaves.filter((l) => btn.compareDocumentPosition(l.el) & Node.DOCUMENT_POSITION_PRECEDING) : [];
+  const assetLeaf = before.at(-1) || assetLeaves[0] || null;
   const asset = assetLeaf ? parseAsset(assetLeaf.text) : null;
   // % logo depois do nome do ativo (cabeçalho "Bitcoin (OTC)  80%")
   let payout = assetLeaf ? parsePercent(assetLeaf.text) : null;

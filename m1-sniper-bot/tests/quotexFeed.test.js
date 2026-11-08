@@ -41,3 +41,12 @@ test('com 60 velas da Quotex o motor já analisa (EMA 50 no aquecimento)', () =>
   assert.notEqual(r.status, 'invalid', r.reason);
   assert.equal(analyze(closed.slice(-40), { longEma: WARMUP_LONG_EMA }).status, 'invalid');
 });
+
+test('preço errado logo após trocar de ativo não trava as leituras', () => {
+  const f = new QuotexFeed({ storage: null });
+  f.tick('ETH', 75000, T + 500);               // preço do BTC lido como se fosse do ETH
+  for (let k = 0; k < 7; k++) assert.equal(f.tick('ETH', 3000 + k, T + 1000 + k * 250), false);
+  assert.equal(f.tick('ETH', 3008, T + 3000), true); // 8ª leitura consistente: aceita e recomeça
+  f.tick('ETH', 3010, T + 61000);
+  assert.ok(f.candles('ETH').every((c) => c.high < 4000));
+});

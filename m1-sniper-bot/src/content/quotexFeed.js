@@ -16,6 +16,7 @@ export class QuotexFeed {
     this.series = new Map();   // key -> candles[]
     this.loaded = new Set();
     this.lastTick = new Map(); // key -> { t, price }
+    this.rejects = new Map();  // key -> { price, n } leituras fora do padrão seguidas
     this.onClose = onClose;
   }
 
@@ -35,7 +36,17 @@ export class QuotexFeed {
   tick(key, price, t) {
     if (!key || !Number.isFinite(price) || price <= 0) return false;
     const prev = this.lastTick.get(key);
-    if (prev && Math.abs(price - prev.price) / prev.price > MAX_JUMP) return false; // leitura suspeita
+    if (prev && Math.abs(price - prev.price) / prev.price > MAX_JUMP) {
+      // Leitura suspeita. Se o "novo nível" se repetir por ~2 s, o errado era o
+      // anterior (ex.: preço do ativo antigo lido logo após a troca): recomeça.
+      const rj = this.rejects.get(key);
+      const same = rj && Math.abs(price - rj.price) / rj.price < 0.02;
+      const n = same ? rj.n + 1 : 1;
+      this.rejects.set(key, { price, n });
+      if (n < 8) return false;
+      this.series.set(key, []);
+      this.rejects.delete(key);
+    } else this.rejects.delete(key);
     this.lastTick.set(key, { t, price });
     const m = Math.floor(t / M1) * M1;
     let arr = this.series.get(key);
