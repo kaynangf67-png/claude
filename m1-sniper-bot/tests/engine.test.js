@@ -64,3 +64,17 @@ test('outcome e utilidades de série', () => {
   assert.equal(mergeCandles(s.slice(0, 3), s.slice(2), 10).length, 5);
   assert.equal(validateSeries(s, 5).ok, true);
 });
+
+test('modo rápido: analisa com 12 velas usando indicadores curtos', async () => {
+  const { profileForCount, QUICK_REQUIRED } = await import('../src/core/engine.js');
+  assert.equal(profileForCount(11), null);
+  const p = profileForCount(QUICK_REQUIRED);
+  assert.equal(p.name, 'rápido');
+  assert.equal(profileForCount(60).fast, 9);
+  assert.equal(profileForCount(260).long, 200);
+  const cs = series(QUICK_REQUIRED, { drift: 0.01, noise: 0.03, seed: 3 });
+  const r = analyze(cs, { profile: p, longEma: p.long }, { symbol: 'QX:X' });
+  assert.notEqual(r.status, 'invalid', r.reason);
+  assert.equal(analyze(cs.slice(1), { profile: p, longEma: p.long }).status, 'invalid');
+  assert.match(r.best.checks.find((c) => c.id === 'rsi').label, /RSI 6/);
+});

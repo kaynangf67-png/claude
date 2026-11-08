@@ -24,19 +24,41 @@ export const WARMUP_LONG_EMA = 50;
 export const WARMUP_REQUIRED = 60;
 export const requiredFor = (longEma) => (longEma >= 200 ? REQUIRED_CANDLES : longEma + 10);
 
+// Perfis de períodos. "rapido" usa versões curtas dos mesmos indicadores para
+// começar a operar com poucas velas (fonte Quotex, sem histórico).
+export const PROFILES = Object.freeze({
+  completo: { name: 'completo', fast: 9, slow: 21, rsi: 14, adx: 14, bb: 20 },
+  rapido: { name: 'rápido', fast: 3, slow: 6, long: 10, rsi: 6, adx: 5, bb: 10 },
+});
+export const QUICK_REQUIRED = 12;
+export function requiredForProfile(p, longEma) {
+  const L = p.long ?? longEma ?? 200;
+  if (!p.long && L >= 200) return REQUIRED_CANDLES;
+  return Math.max(L, 2 * p.adx, p.bb, p.rsi + 1, p.slow + 3) + 2;
+}
+/** Perfil conforme as velas disponíveis (fonte Quotex). null = ainda poucas velas. */
+export function profileForCount(n) {
+  if (n >= REQUIRED_CANDLES) return { ...PROFILES.completo, long: 200 };
+  if (n >= WARMUP_REQUIRED) return { ...PROFILES.completo, long: WARMUP_LONG_EMA };
+  if (n >= QUICK_REQUIRED) return { ...PROFILES.rapido };
+  return null;
+}
+
 const fmt = (v, d = 2) => (v == null ? '—' : Number(v).toFixed(d));
 
 /** Calcula todos os indicadores para a série (uma vez). */
-export function computeIndicators(candles, longEma = 200) {
+export function computeIndicators(candles, longEma = 200, profile = PROFILES.completo) {
   const closes = candles.map((c) => c.close);
+  const p = { ...PROFILES.completo, ...profile };
+  const L = profile.long ?? longEma;
   return {
-    longEma,
-    ema9: ema(closes, 9),
-    ema21: ema(closes, 21),
-    ema200: ema(closes, longEma), // EMA longa (200; 50 durante o aquecimento)
-    rsi: rsi(closes, 14),
-    adx: adx(candles, 14),
-    bb: bollinger(closes, 20, 2),
+    longEma: L, p,
+    ema9: ema(closes, p.fast),     // EMA curta (9; 3 no modo rápido)
+    ema21: ema(closes, p.slow),    // EMA média (21; 6 no modo rápido)
+    ema200: ema(closes, L),        // EMA longa (200/50; 10 no modo rápido)
+    rsi: rsi(closes, p.rsi),
+    adx: adx(candles, p.adx),
+    bb: bollinger(closes, p.bb, 2),
   };
 }
 
@@ -47,6 +69,7 @@ export function computeIndicators(candles, longEma = 200) {
 export function scoreDirection(candles, ind, i, dir, cfg) {
   const x = candles[i];
   const call = dir === 'CALL';
+  const P = ind.p || PROFILES.completo;
   const e9 = ind.ema9[i], e21 = ind.ema21[i], e200 = ind.ema200[i];
   const e9prev = ind.ema9[i - 3];
   const r = ind.rsi[i];
@@ -60,13 +83,13 @@ export function scoreDirection(candles, ind, i, dir, cfg) {
   const emaAligned = call ? e9 > e21 : e9 < e21;
   const longTrend = call ? x.close > e200 && e21 > e200 : x.close < e200 && e21 < e200;
   const slope = call ? e9 > e9prev : e9 < e9prev;
-  if (!emaAligned) vetoes.push(`EMA 9 ${call ? 'abaixo' : 'acima'} da EMA 21`);
+  if (!emaAligned) vetoes.push(`EMA ${P.fast} ${call ? 'abaixo' : 'acima'} da EMA ${P.slow}`);
   const L = ind.longEma ?? 200;
   if (!longTrend) vetoes.push(`Preço/EMA 21 do lado errado da EMA ${L}`);
-  if (emaAligned) { bd.trend += 10; confirmed.push('EMA 9/21'); }
+  if (emaAligned) { bd.trend += 10; confirmed.push(`EMA ${P.fast}/${P.slow}`); }
   if (longTrend) { bd.trend += 10; confirmed.push(`EMA ${L}`); }
   if (slope) bd.trend += 5;
-  if (emaAligned && longTrend) reasons.push(`Tendência de ${call ? 'alta' : 'baixa'} confirmada (EMA9 ${fmt(e9, 5)} ${call ? '>' : '<'} EMA21 ${fmt(e21, 5)}, preço ${call ? 'acima' : 'abaixo'} da EMA${L})`);
+  if (emaAligned && longTrend) reasons.push(`Tendência de ${call ? 'alta' : 'baixa'} confirmada (EMA${P.fast} ${fmt(e9, 5)} ${call ? '>' : '<'} EMA${P.slow} ${fmt(e21, 5)}, preço ${call ? 'acima' : 'abaixo'} da EMA${L})`);
 
   // --- RSI (15)
   const [rMin, rMax] = call ? [cfg.rsiCallMin, cfg.rsiCallMax] : [cfg.rsiPutMin, cfg.rsiPutMax];
@@ -136,10 +159,10 @@ export function scoreDirection(candles, ind, i, dir, cfg) {
   const has = (txt) => vetoes.some((v) => v.includes(txt));
   const checks = [
     { id: 'trend', label: 'Tendência (EMAs)', status: emaAligned && longTrend ? 'ok' : emaAligned || longTrend ? 'partial' : 'no',
-      detail: `EMA9 ${call ? (e9 > e21 ? '>' : '<') : (e9 < e21 ? '<' : '>')} EMA21 · preço ${x.close > e200 ? 'acima' : 'abaixo'} da EMA${L}` },
-    { id: 'rsi', label: 'RSI 14', status: st(bd.rsi, 15, has('RSI')), detail: fmt(r, 1) },
-    { id: 'adx', label: 'ADX 14', status: st(bd.adx, 15, has('ADX') || has('DI')), detail: `${fmt(a, 1)} · +DI ${fmt(pdi, 0)} / −DI ${fmt(mdi, 0)}` },
-    { id: 'bb', label: 'Bollinger 20/2', status: st(bd.bollinger, 10, has('Bollinger') || has('banda')), detail: x.close > up ? 'acima da banda sup.' : x.close < lo ? 'abaixo da banda inf.' : x.close > mid ? 'acima da média' : 'abaixo da média' },
+      detail: `EMA${P.fast} ${call ? (e9 > e21 ? '>' : '<') : (e9 < e21 ? '<' : '>')} EMA${P.slow} · preço ${x.close > e200 ? 'acima' : 'abaixo'} da EMA${L}` },
+    { id: 'rsi', label: `RSI ${P.rsi}`, status: st(bd.rsi, 15, has('RSI')), detail: fmt(r, 1) },
+    { id: 'adx', label: `ADX ${P.adx}`, status: st(bd.adx, 15, has('ADX') || has('DI')), detail: `${fmt(a, 1)} · +DI ${fmt(pdi, 0)} / −DI ${fmt(mdi, 0)}` },
+    { id: 'bb', label: `Bollinger ${P.bb}/2`, status: st(bd.bollinger, 10, has('Bollinger') || has('banda')), detail: x.close > up ? 'acima da banda sup.' : x.close < lo ? 'abaixo da banda inf.' : x.close > mid ? 'acima da média' : 'abaixo da média' },
     { id: 'pa', label: 'Price Action', status: patterns.length ? 'ok' : 'no', detail: patterns.length ? patterns.map((p) => p.label).join(', ') : 'nenhum padrão' },
     { id: 'candle', label: 'Vela de confirmação', status: dirCandle ? 'ok' : 'no', detail: H.isBull(x) ? 'vela de alta' : H.isBear(x) ? 'vela de baixa' : 'doji' },
   ];
@@ -157,10 +180,11 @@ export function scoreDirection(candles, ind, i, dir, cfg) {
 export function analyze(candles, config = {}, meta = {}) {
   const cfg = { ...DEFAULT_ENGINE_CONFIG, ...config };
   const longEma = cfg.longEma ?? 200;
-  const v = validateSeries(candles, requiredFor(longEma));
+  const profile = cfg.profile || PROFILES.completo;
+  const v = validateSeries(candles, cfg.profile ? requiredForProfile(profile, longEma) : requiredFor(longEma));
   if (!v.ok) return { status: 'invalid', reason: v.reason };
 
-  const ind = computeIndicators(candles, longEma);
+  const ind = computeIndicators(candles, longEma, profile);
   return analyzeAt(candles, ind, candles.length - 1, cfg, meta);
 }
 

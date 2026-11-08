@@ -1,6 +1,6 @@
 // Painel flutuante SOBRE o gráfico + laço de análise M1.
 // Não executa ordens: mostra a confirmação para a PRÓXIMA vela (expiração 1 min).
-import { analyze, REQUIRED_CANDLES, WARMUP_LONG_EMA, WARMUP_REQUIRED } from '../core/engine.js';
+import { analyze, REQUIRED_CANDLES, WARMUP_LONG_EMA, WARMUP_REQUIRED, QUICK_REQUIRED, profileForCount } from '../core/engine.js';
 import { closedOnly, mergeCandles, M1_MS } from '../core/validate.js';
 import { outcomeOf } from '../core/backtest.js';
 import { canSignal, autoArmed, calibComplete, AUTO_ENTRY_WINDOW_MS } from '../core/state.js';
@@ -160,11 +160,8 @@ async function poll() {
       }
       if (state.settings.symbol !== candleSymbol) { candleSymbol = state.settings.symbol; lastAnalyzedTime = null; confirmed = preview = null; }
       candles = qxKey && qxSymbol(qxKey) === state.settings.symbol ? feed.candles(qxKey) : [];
-      // Aquecendo? Tenta uma vez por ativo ler o histórico do próprio gráfico.
-      if (qxKey && !historyUnavailable && !historyTried.has(qxKey) && !historyBusy && feed.lastTickAt(qxKey) > 0
-          && closedOnly(candles, nowMs()).length < WARMUP_REQUIRED && nowMs() - keyChangedAt > 3000) {
-        loadChartHistory(qxKey);
-      }
+      // (Leitura automática do histórico pelo gráfico removida: na Quotex a legenda não é legível.
+      //  Continua disponível manualmente em ⚙ → LER HISTÓRICO DO GRÁFICO.)
       if (!qxKey || (feed.loaded.has(qxKey) && nowMs() - feed.lastTickAt(qxKey) > 5000 && feed.lastTickAt(qxKey) > 0) || (!readPrice(state.settings.calib) && Date.now() - pointerOverChartAt > 1500)) throw new Error(`Preço ao vivo não identificado: ${canvasStatus()}. Se continuar, envie ⚙ → COPIAR DIAGNÓSTICO.`);
       // relógio: sincroniza pelo servidor de dados de vez em quando
       if (nowMs() - lastClockSync > 60_000) { lastClockSync = nowMs(); send({ type: 'klines', symbol: 'BTCUSDT', limit: 1 }).then((r) => { if (Number.isFinite(r.clockOffset)) clockOffset = r.clockOffset; }); }
@@ -330,7 +327,7 @@ async function onData() {
   const closed = closedOnly(candles, now);
   const last = closed.at(-1);
   if (!last && quotexMode()) {
-    preview = { r: { status: 'invalid', reason: historyStatus || `Aquecendo com o preço da Quotex: 0/${WARMUP_REQUIRED} velas (~${WARMUP_REQUIRED} min). Deixe a página aberta neste ativo.` }, candleTime: now };
+    preview = { r: { status: 'invalid', reason: historyStatus || `Juntando velas ao vivo: 0/${QUICK_REQUIRED} (~${QUICK_REQUIRED} min). Com ${QUICK_REQUIRED} velas o bot já analisa e opera (modo rápido).` }, candleTime: now };
     return;
   }
   if (!last || now - (last.time + M1_MS) > STALE_MS) { conn.status = 'stale'; preview = null; return; }
@@ -339,15 +336,17 @@ async function onData() {
 
   const qm = quotexMode();
   const meta = { symbol: state.settings.symbol, source: qm ? 'quotex-tela' : SOURCE_ID };
-  // Fonte Quotex: EMA 50 como tendência longa até juntar velas para a EMA 200.
-  const longEma = !qm || closed.length >= REQUIRED_CANDLES ? 200 : WARMUP_LONG_EMA;
-  const cfg = { minScore: state.settings.minScore, longEma };
-  if (qm && closed.length < WARMUP_REQUIRED) {
+  // Fonte Quotex (sem histórico): modo rápido com 12 velas; completo com 60; EMA 200 com 260.
+  const prof = qm ? profileForCount(closed.length) : null;
+  const cfg = qm ? { minScore: state.settings.minScore, profile: prof || undefined, longEma: prof?.long }
+    : { minScore: state.settings.minScore, longEma: 200 };
+  if (qm && !prof) {
     const n = closed.length;
-    preview = { r: { status: 'invalid', reason: historyStatus || `Aquecendo com o preço da Quotex: ${n}/${WARMUP_REQUIRED} velas (~${WARMUP_REQUIRED - n} min). Deixe a página aberta neste ativo, ou use ⚙ → LER HISTÓRICO DO GRÁFICO.` }, candleTime: last.time };
+    preview = { r: { status: 'invalid', reason: historyStatus || `Juntando velas ao vivo: ${n}/${QUICK_REQUIRED} (~${QUICK_REQUIRED - n} min). Com ${QUICK_REQUIRED} velas o bot já analisa e opera (modo rápido).` }, candleTime: last.time };
     lastAnalyzedTime = last.time;
     return;
   }
+
 
   // Prévia: a vela atual tratada como se fechasse agora (pode mudar até o fechamento).
   const forming = candles.find((c) => c.time === last.time + M1_MS);
@@ -561,7 +560,7 @@ function render() {
   const nC = qm && qxKey ? closedOnly(feed.candles(qxKey), nowMs()).length : 0;
   const live = conn.status === 'ok' ? 'ao vivo' : conn.status === 'stale' ? '(atrasado)' : conn.status === 'offline' ? '(sem leitura)' : '(conectando)';
   $('assetInfo').textContent = warn.length ? warn.join(' · ')
-    : qm ? `Preço lido: ${readPrice(s.settings.calib) ?? '—'} · ${qxKey ?? 'ativo ?'} · ${nC} velas (${nC >= WARMUP_REQUIRED ? 'pronto' : `faltam ${WARMUP_REQUIRED - nC}`}) · ${live}`
+    : qm ? `Preço lido: ${readPrice(s.settings.calib) ?? '—'} · ${qxKey ?? 'ativo ?'} · ${nC} velas · ${nC >= WARMUP_REQUIRED ? 'modo completo' : nC >= QUICK_REQUIRED ? `modo rápido (completo com ${WARMUP_REQUIRED})` : `operando com ${QUICK_REQUIRED}`} · ${live}`
     : `Fonte: Binance · ${s.settings.symbol} · ${live}`;
   $('symbol').classList.toggle('hidden', qm);
   $('qxName').classList.toggle('hidden', !qm);
