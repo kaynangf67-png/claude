@@ -219,6 +219,7 @@ const TEMPLATE = `
     <span class="dot" data-k="dot"></span>
     <span class="title">M1 <b>SNIPER</b> BOT</span>
     <span class="badge demo" data-k="mode">DEMO</span>
+    <button class="iconbtn" data-k="chartBtn" title="Gráfico TradingView ao vivo">📈</button>
     <button class="iconbtn" data-k="gear" title="Ajustes e estatísticas">⚙</button>
     <button class="iconbtn" data-k="minBtn" title="Minimizar">–</button>
     <button class="iconbtn" data-k="close" title="Ocultar (clique no ícone da extensão para mostrar)">×</button>
@@ -229,6 +230,7 @@ const TEMPLATE = `
       <span class="clock" data-k="clock">--:--:--</span>
     </div>
     <div class="small muted" data-k="assetInfo"></div>
+    <div class="tv hidden" data-k="tv"><iframe data-k="tvFrame" title="Gráfico TradingView" loading="lazy"></iframe></div>
     <div class="next" data-k="next"></div>
     <div class="checks" data-k="checks"></div>
     <div class="auto" data-k="autoBox"></div>
@@ -277,6 +279,7 @@ async function mountPanel() {
   $('minBtn').addEventListener('click', () => dispatch({ type: 'SET_SETTINGS', value: { panel: { minimized: !state.settings.panel.minimized } } }));
   $('gear').addEventListener('click', () => { view = view === 'main' ? 'settings' : 'main'; renderSettings(true); render(); });
   $('close').addEventListener('click', () => setVisible(false));
+  $('chartBtn').addEventListener('click', () => dispatch({ type: 'SET_SETTINGS', value: { panel: { chart: !state.settings.panel.chart } } }));
   enableDrag();
   root.addEventListener('pointerdown', () => { pressing = true; });
   window.addEventListener('pointerup', () => { if (pressing) { pressing = false; setTimeout(render, 0); } }, true);
@@ -360,7 +363,8 @@ function render() {
   const warn = [];
   if (match === false) warn.push(`⚠ página mostra ${asset.label}`);
   if (pageMode === 'REAL' && s.account.mode === 'DEMO') warn.push('⚠ página parece conta REAL');
-  $('assetInfo').textContent = warn.length ? warn.join(' · ') : `Fonte Binance · ${conn.status === 'ok' ? 'online' : conn.status === 'stale' ? 'atrasado' : conn.status === 'offline' ? 'offline' : 'conectando'}`;
+  $('assetInfo').textContent = warn.length ? warn.join(' · ') : `TradingView · BINANCE:${s.settings.symbol} · ${conn.status === 'ok' ? 'ao vivo' : conn.status === 'stale' ? '(atrasado)' : conn.status === 'offline' ? '(offline)' : '(conectando)'}`;
+  renderChart(s);
   $('assetInfo').style.color = warn.length || conn.status === 'offline' || conn.status === 'stale' ? '#f59e0b' : '';
 
   renderNext(s, now, tz);
@@ -394,6 +398,17 @@ function render() {
   err.classList.toggle('hidden', !msg);
   err.textContent = msg || '';
   tick();
+}
+
+/** Gráfico TradingView ao vivo (mesmo feed BINANCE:<par> usado nos cálculos). */
+function renderChart(s) {
+  const show = s.settings.panel.chart !== false;
+  $('tv').classList.toggle('hidden', !show);
+  $('chartBtn').classList.toggle('on', show);
+  if (!show) return;
+  const src = chrome.runtime.getURL(`src/chart/chart.html?symbol=${s.settings.symbol}&tz=${encodeURIComponent(s.settings.timeZone)}`);
+  const f = $('tvFrame');
+  if (f.dataset.src !== src) { f.dataset.src = src; f.src = src; }
 }
 
 function renderNext(s, now, tz) {

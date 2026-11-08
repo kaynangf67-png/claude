@@ -29,6 +29,7 @@ Extensão do Google Chrome (Manifest V3) que mostra um painel pequeno, flutuante
 | Detecção DEMO/REAL da página (pela URL `demo-trade` vs `trade`) | **Best-effort, NÃO verificada** na Quotex real. Se a página parecer REAL com o bot em DEMO, os sinais são bloqueados. |
 | Resultado GREEN/LOSS | O bot **sugere** o resultado pelo candle da Binance, mas **você registra** o resultado que a Quotex mostrou. |
 | **Modo AUTO** (clique automático em CALL/PUT) | **Funcionando e testado** numa página que imita a Quotex, com elementos calibrados e candles sintéticos que forçam um sinal: o clique saiu 0,3 s após a abertura da vela de entrada. **Não foi testado na Quotex real.** A calibração depende do HTML da Quotex, e se o site mudar é preciso calibrar de novo. |
+| **Gráfico TradingView ao vivo** dentro do painel (botão 📈), M1, símbolo `BINANCE:<par>` com EMA, Bollinger e RSI | **Integrado** pelo widget público de incorporação da TradingView (o mesmo feed usado nos cálculos do bot). O carregamento do iframe e a URL do widget foram testados; a renderização do gráfico em si não pôde ser vista neste ambiente, porque a rede bloqueia a TradingView. A TradingView não oferece API de dados para extensões, por isso os **cálculos** usam a API pública da Binance, que é a mesma fonte do gráfico `BINANCE:` exibido. |
 | Mercados indicados (varredura de 12 ativos de cripto a cada 15 s) | **Funcionando.** Ao abrir na Quotex um dos mercados, o bot passa a analisar esse mercado automaticamente. |
 
 ## 2. Instalação (modo desenvolvedor)

@@ -15,7 +15,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   symbol: 'BTCUSDT',
   payout: 0.85,          // payout informado pelo usuário (usado só nas estatísticas)
   signalTtlSec: 15,      // segundos após a abertura do candle de entrada em que o sinal ainda vale
-  panel: { x: null, y: 16, minimized: false },
+  panel: { x: null, y: 16, minimized: false, chart: true },
   // Calibração dos elementos da Quotex (seletores CSS gravados pelo usuário).
   calib: { asset: null, amount: null, call: null, put: null },
   // Execução automática: só vale no dia em que foi armada.
