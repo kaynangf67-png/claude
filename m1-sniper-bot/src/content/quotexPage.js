@@ -70,16 +70,31 @@ export function tradePanel(calib, doc = document) {
   return null;
 }
 
-function panelAssetLeaf(panel) {
-  const lv = leaves(panel).filter((l) => parseAsset(l.text));
-  return lv.length ? lv[0] : null; // o cabeçalho do painel vem primeiro
+/**
+ * Acha o campo do bloco de um rótulo: sobe até 3 níveis a partir do rótulo e
+ * procura primeiro <input>, depois textos que passem no teste.
+ */
+function fieldNear(panel, labelRe, test) {
+  const lv = leaves(panel);
+  for (const lab of lv.filter((l) => labelRe.test(l.text) && l.text.length < 30 && !l.el.matches('input'))) {
+    for (let box = lab.el.parentElement, d = 0; box && d < 3 && panel.contains(box); box = box.parentElement, d++) {
+      // só campos que vêm DEPOIS do rótulo (o relógio do topo, por exemplo, fica antes)
+      const after = (l) => !!(lab.el.compareDocumentPosition(l.el) & Node.DOCUMENT_POSITION_FOLLOWING);
+      const inner = leaves(box).filter((l) => l.el !== lab.el && after(l));
+      const inp = inner.find((l) => l.el.matches('input') && test(l.text));
+      if (inp) return inp;
+      const txt = inner.find((l) => test(l.text));
+      if (txt) return txt;
+    }
+  }
+  return null;
 }
 
 export function panelReadings(calib, doc = document) {
   const panel = tradePanel(calib, doc);
   if (!panel) return null;
   const lv = leaves(panel);
-  const assetLeaf = panelAssetLeaf(panel);
+  const assetLeaf = lv.find((l) => parseAsset(l.text)) || null; // cabeçalho vem primeiro
   const asset = assetLeaf ? parseAsset(assetLeaf.text) : null;
   // % logo depois do nome do ativo (cabeçalho "Bitcoin (OTC)  80%")
   let payout = assetLeaf ? parsePercent(assetLeaf.text) : null;
@@ -88,12 +103,14 @@ export function panelReadings(calib, doc = document) {
     const next = lv.slice(i + 1, i + 4).find((l) => /%/.test(l.text));
     if (next) payout = parsePercent(next.text);
   }
-  // Investimento: primeiro valor monetário depois do rótulo "Invest…"; senão o primeiro.
-  const money = lv.filter((l) => !/%|:/.test(l.text) && MONEY_LEAF_RE.test(l.text));
-  const li = lv.findIndex((l) => /invest/i.test(l.text));
-  const inv = (li >= 0 && money.find((m) => lv.indexOf(m) > li)) || money[0] || null;
-  // Tempo: primeiro "00:01:00" do painel
-  const tl = lv.find((l) => TIME_LEAF_RE.test(l.text));
+  // Investimento e Tempo: lidos no BLOCO do rótulo ("Investimento", "Tempo"),
+  // preferindo o <input> do bloco. Evita pegar relógio, saldo ou pagamento.
+  const isMoney = (t) => !/%|:/.test(t) && MONEY_LEAF_RE.test(t) && parseMoney(t) > 0;
+  const isTime = (t) => TIME_LEAF_RE.test(t);
+  const inv = fieldNear(panel, /^\s*(investimento|investment|invest|amount|valor)\b/i, isMoney)
+    || lv.find((l) => isMoney(l.text) && l.el.matches('input')) || null;
+  const tl = fieldNear(panel, /^\s*(tempo|time|expira\w*|expiration|dura\w*)\b/i, isTime)
+    || lv.find((l) => isTime(l.text) && /^\s*00:/.test(l.text)) || null; // expiração < 1h
   let expirySec = null;
   if (tl) {
     const [, a, b, c] = tl.text.match(TIME_LEAF_RE);

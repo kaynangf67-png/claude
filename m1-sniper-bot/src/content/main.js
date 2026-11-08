@@ -547,7 +547,10 @@ function autoChecks(s) {
   return [
     { label: 'Calibrado', ok: calibComplete(s), v: calibComplete(s) ? (pr ? 'painel de operação encontrado' : 'botões ok') : 'calibre Comprar/Vender em ⚙' },
     { label: 'Tempo', ok: pr?.expirySec == null || pr.expirySec === 60, v: pr?.expiryText ? `${pr.expiryText}${pr.expirySec === 60 ? '' : ' — use 00:01:00'}` : 'não lido (confirme 1 min)' },
-    { label: 'Conta', ok: pageMode === s.account.mode, v: `página ${pageMode} · bot ${s.account.mode}` },
+    { label: 'Conta', ok: pageMode === s.account.mode,
+      v: pageMode === s.account.mode ? `página ${pageMode} · bot ${s.account.mode}`
+        : pageMode === 'REAL' ? `página em conta REAL (${location.pathname}) — bot só opera DEMO; troque para a conta demo`
+        : `conta da página não identificada (${location.pathname})` },
     { label: 'Mercado aberto', ok: !!pageSym && pageSym === s.settings.symbol,
       v: !asset ? (calib.call ? 'ativo não encontrado no painel de operação' : 'calibre Comprar/Vender em ⚙')
         : asset.otc ? `${asset.label}: OTC não tem fonte externa`
