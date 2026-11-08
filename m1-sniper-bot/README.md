@@ -60,6 +60,13 @@ Não há build: o código roda direto no Chrome. Node 20+ só é necessário par
 
 Os ajustes (nota mínima, payout, validade do sinal; o horário é sempre o de Brasília), as estatísticas da DEMO, os critérios do modo REAL e a exportação do histórico ficam no botão **⚙** do próprio painel. O relatório completo continua disponível em `chrome://extensions` → M1 SNIPER BOT → **Detalhes → Opções da extensão**.
 
+### Sincronização com a Quotex
+
+O bot acompanha o que você muda na Quotex, sem precisar mexer no painel:
+- **Trocou de cripto** (aba ou painel de operação) → o bot passa a analisar a mesma moeda. Isso vale também para OTC (Bitcoin (OTC) → BTC/USD), mas nesse caso os indicadores servem só de **referência**: o preço OTC é da Quotex, e sinais e AUTO ficam desligados.
+- **Mudou o Investimento** → o valor do bot muda junto (sem Martingale continua valendo).
+- **Mudou de mercado com outra %** → o payout do bot muda junto.
+
 ### Payout e valor automáticos
 
 - **Payout:** o bot lê a **%** do mercado aberto, na aba do ativo da Quotex (ex.: "Ethereum 85%"), e ajusta o payout sozinho a cada troca de mercado. O painel mostra "Payout 85% (lido da Quotex, automático) · empata com 54,1% de acerto". Abaixo de 75%, a linha fica vermelha: com payout baixo é preciso acertar muito mais para não perder.

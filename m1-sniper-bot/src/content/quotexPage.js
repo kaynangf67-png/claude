@@ -202,8 +202,9 @@ export function readPayout(calib, doc = document) {
 }
 
 /** Símbolo da fonte de dados correspondente ao ativo da Quotex (ou null). */
-export function assetToSymbol(asset) {
-  if (!asset || asset.otc) return null; // OTC é preço sintético da corretora
+export function assetToSymbol(asset, { allowOtc = false } = {}) {
+  if (!asset) return null;
+  if (asset.otc && !allowOtc) return null; // OTC é preço sintético da corretora
   const quotes = asset.quote === 'USD' || asset.quote === 'USDT' ? ['USDT'] : [asset.quote];
   for (const q of quotes) {
     const sym = asset.base + q;

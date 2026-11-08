@@ -86,7 +86,8 @@ const isMinuteTurn = () => { const sec = new Date(nowMs()).getSeconds(); return 
 
 /** Se o usuário abriu na Quotex um mercado coberto, o bot passa a analisar esse mercado. */
 async function followOpenedMarket() {
-  const sym = assetToSymbol(detectAsset(state.settings.calib));
+  // Segue a cripto aberta na Quotex, inclusive OTC (como referência de análise).
+  const sym = assetToSymbol(detectAsset(state.settings.calib), { allowOtc: true });
   if (sym && sym !== state.settings.symbol && !state.openTrade && !state.activeSignal) {
     await dispatch({ type: 'SET_SETTINGS', value: { symbol: sym } });
   }
@@ -393,7 +394,7 @@ function render() {
   const warn = [];
   if (match === false) {
     warn.push(asset.otc
-      ? `Mercado OTC aberto: o preço OTC é da própria Quotex, o bot não opera nele. Abra ${asset.label.replace(/\s*\(?OTC\)?/i, '')} sem OTC.`
+      ? `${asset.label}: indicadores do ${s.settings.symbol.replace('USDT', '/USD')} (Binance) só como referência. O preço OTC é da Quotex e pode ser diferente; sinais e AUTO ficam desligados no OTC.`
       : `Quotex em ${asset.label}, bot em ${s.settings.symbol.replace('USDT', '/USD')}: abra o mesmo ativo.`);
   }
   if (pageMode === 'REAL' && s.account.mode === 'DEMO') warn.push('⚠ página parece conta REAL');
@@ -553,7 +554,7 @@ function autoChecks(s) {
         : `conta da página não identificada (${location.pathname})` },
     { label: 'Mercado aberto', ok: !!pageSym && pageSym === s.settings.symbol,
       v: !asset ? (calib.call ? 'ativo não encontrado no painel de operação' : 'calibre Comprar/Vender em ⚙')
-        : asset.otc ? `${asset.label}: OTC não tem fonte externa`
+        : asset.otc ? `${asset.label}: bot acompanha ${s.settings.symbol.replace('USDT', '/USD')} como referência, mas o AUTO não opera OTC`
         : !pageSym ? `${asset.label}: sem dados de cripto`
         : pageSym !== s.settings.symbol ? `${asset.label} ≠ ${s.settings.symbol}` : asset.label },
     { label: 'Valor', ok: amt != null && Math.abs(amt - s.settings.amount) < 0.001,
