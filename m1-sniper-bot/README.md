@@ -62,7 +62,7 @@ Os ajustes (nota mínima, payout, validade do sinal; o horário é sempre o de B
 ### Fonte "Quotex": o bot acompanha o gráfico da própria Quotex (v1.5 / v1.9)
 
 **v1.9 — leitura do que o gráfico DESENHA:** a Quotex desenha o preço e a legenda OHLC dentro do canvas (não há texto na página). A extensão observa os textos que a página desenha (`fillText`) por um script no mundo da página (`src/content/canvasTap.js`), **sem alterar** o desenho, e extrai:
-- **preço ao vivo**: a Quotex desenha vários números que mudam (cada um num canvas próprio). Em **⚙ → Preço ao vivo → ESCOLHER**, você toca no número igual ao **rótulo azul** do gráfico. O bot memoriza a cor e o ritmo dele e reencontra o mesmo número depois do F5. Se houver um só número mudando, ele é usado automaticamente;
+- **preço ao vivo (automático, v1.9.4)**: a Quotex desenha vários números que mudam, cada um num canvas próprio. O bot usa o **maior grupo de números que concordam entre si** (mesma cor, valores a menos de 0,05% um do outro, ritmo de ticks de 0,5 a 8 por segundo) e pega o valor do meio. Animações muito rápidas e marcações quase paradas ficam de fora. Se houver ambiguidade, ele não chuta. Para o caso de o automático errar, ainda dá para escolher manualmente em **⚙ → Preço ao vivo → ESCOLHER** (e **VOLTAR AO AUTOMÁTICO**);
 - **legenda Abertura/Fechamento/Alto/Baixo** quando o mouse do Chrome passa pelo gráfico, o que permite ler o **histórico** em ~20 s.
 Testado com um gráfico 100% em canvas que só aceita mouse real: preço ao vivo lido; 94 velas de histórico, 92/92 conferidas iguais.
 

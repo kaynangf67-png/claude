@@ -38,3 +38,13 @@ test('número desenhado letra por letra no gráfico é remontado', async () => {
   const out = assembleRuns([...glyphs, { t: '0.79000', c: 1, f: '#888', x: 1030, y: 100, w: 40 }]).map((i) => i.t).sort();
   assert.deepEqual(out, ['0.78274', '0.79000']);
 });
+
+test('preço automático: grupo de números que concordam (lista real da Quotex)', async () => {
+  const { autoPick } = await import('../src/content/canvasText.js');
+  const mk = (v, c, r) => ({ key: v + c, color: c, value: v, text: String(v), rate: r, seenS: 20, ageMs: 500 });
+  const cands = [mk(0.56282, '#474c5d', 12.4), mk(0.56360, '#ffffff', 3.1), mk(0.56363, '#ffffff', 3.1), mk(0.56365, '#ffffff', 3.1),
+    mk(0.56357, '#ffffff', 3.1), mk(0.56357, '#ffffff', 2.1), mk(0.56041, '#ffffff', 0.7), mk(0.55950, '#ffffff', 0)];
+  const v = autoPick(cands);
+  assert.ok(v >= 0.56357 && v <= 0.56365, String(v));
+  assert.equal(autoPick([mk(1.1, '#fff', 2), mk(2.2, '#000', 2)]), null); // ambíguo: não chuta
+});

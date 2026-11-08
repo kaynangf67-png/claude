@@ -857,12 +857,18 @@ function priceRow(c) {
   const pi = readPriceInfo(c);
   const chosen = parseCanvasPref(c.price);
   const r = el('div', 'row small');
-  r.append(el('span', pi ? 'ok' : 'no', `${pi ? '✓' : '✗'} Preço ao vivo · ${pi ? `${pi.price} (${pi.from})` : 'não identificado'}`),
+  r.append(el('span', pi ? 'ok' : 'no', `${pi ? '✓' : '✗'} Preço ao vivo · ${pi ? `${pi.price} (${pi.from})` : 'procurando automaticamente…'}`),
     button(pickingPrice ? 'blue' : '', pickingPrice ? 'FECHAR' : 'ESCOLHER', () => { pickingPrice = !pickingPrice; renderCalib(); }));
   wrap.append(r);
+  if (chosen) {
+    wrap.append(button('', 'VOLTAR AO AUTOMÁTICO', async () => {
+      await dispatch({ type: 'SET_CALIB', key: 'price', selector: null }); selectCanvasKey(null);
+      showToast('Preço ao vivo: automático', 'ok'); renderCalib();
+    }));
+  }
   if (pickingPrice) {
     const cands = canvasCandidates(10_000).slice(0, 8);
-    wrap.append(el('div', 'small muted', cands.length ? 'Toque no número IGUAL ao rótulo azul do preço no gráfico:' : 'Nenhum número mudando no gráfico agora. Recarregue a Quotex (F5) e aguarde.'));
+    wrap.append(el('div', 'small muted', cands.length ? 'Opcional: toque no número IGUAL ao rótulo azul (só se o automático errar):' : 'Nenhum número mudando no gráfico agora. Recarregue a Quotex (F5) e aguarde.'));
     for (const k of cands) {
       const sel = chosen && chosen.color === k.color && (chosen.key === k.key);
       wrap.append(button(sel ? 'green' : '', `${k.text} · ${colorName(k.color)} · ${Math.round(k.rate * 10) / 10}/s`, async () => {

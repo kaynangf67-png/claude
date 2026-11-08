@@ -111,7 +111,7 @@ export function resetCanvasSelection() {
 export function canvasPriceFor(pref) {
   const cands = canvasCandidates();
   if (!cands.length) return null;
-  if (!pref) return cands.length === 1 ? cands[0].value : null;
+  if (!pref) return autoPick(cands);
   let c = cands.find((x) => x.key === (selectedKey || pref.key));
   if (!c) {
     const same = cands.filter((x) => x.color === pref.color);
@@ -128,7 +128,35 @@ export function canvasPriceFor(pref) {
 
 export function selectCanvasKey(key) { selectedKey = key; }
 
-/** Compatibilidade: preço automático só quando não há ambiguidade. */
+/**
+ * Escolha AUTOMÁTICA do preço ao vivo entre os números que o gráfico desenha.
+ * O preço aparece em vários rótulos que concordam entre si (mesma cor, valores
+ * a < 0,05% um do outro) e mudam no ritmo de ticks (0,5–8 por segundo).
+ * Animações (muito rápidas) e marcações fixas (quase paradas) ficam de fora.
+ * Retorna o valor do meio do maior grupo que concorda.
+ */
+export function autoPick(cands = canvasCandidates()) {
+  const live = cands.filter((c) => c.ageMs < 8000 && c.seenS >= 3 && c.rate >= 0.3 && Number.isFinite(c.value));
+  if (!live.length) return cands.length === 1 ? cands[0].value : null;
+  if (live.length === 1) return live[0].value;
+  const tick = (c) => (c.rate >= 0.5 && c.rate <= 8 ? 1 : 0);
+  let best = null;
+  for (const c of live) {
+    const members = live.filter((o) => o.color === c.color && Math.abs(o.value - c.value) / c.value < 0.0005);
+    const score = members.length * 2 + members.reduce((a, m) => a + tick(m), 0) / members.length;
+    if (!best || score > best.score) best = { score, members };
+  }
+  // empate entre grupos diferentes de 1 só número: ambíguo demais
+  const ties = live.filter((c) => {
+    const m = live.filter((o) => o.color === c.color && Math.abs(o.value - c.value) / c.value < 0.0005);
+    return m.length * 2 + m.reduce((a, x) => a + tick(x), 0) / m.length === best.score && !best.members.includes(c);
+  });
+  if (best.members.length === 1 && ties.length) return null;
+  const vals = best.members.map((m) => m.value).sort((a, b) => a - b);
+  return vals[Math.floor(vals.length / 2)];
+}
+
+/** Compatibilidade. */
 export function canvasLivePrice() { return canvasPriceFor(null); }
 
 export const canvasTapActive = () => Date.now() - lastAt < 5000;

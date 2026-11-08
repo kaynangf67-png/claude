@@ -84,6 +84,11 @@ export function hydrate(saved, now = Date.now()) {
     if (k < s.day.key && empty) s.day = newDay(k);
   }
   s.settings.tzMigrated = true;
+  // v1.9.4: preço passa a ser automático; descarta a escolha manual antiga uma vez.
+  if (!saved.settings?.priceAutoV1) {
+    if (typeof s.settings.calib?.price === 'string' && s.settings.calib.price.includes('"kind":"canvas"')) s.settings.calib = { ...s.settings.calib, price: null };
+    s.settings.priceAutoV1 = true;
+  }
   if (s.settings.minScore < MIN_SCORE_FLOOR) s.settings.minScore = MIN_SCORE_FLOOR;
   // Reaplica a trava a partir dos contadores (defesa contra estado adulterado).
   const lock = lockFor(s.day);
