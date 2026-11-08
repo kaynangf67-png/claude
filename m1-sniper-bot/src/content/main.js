@@ -162,30 +162,6 @@ async function syncPayout() {
   }
 }
 
-/** Botão ⟳: relê a Quotex; se o ativo não mudou, pede para o usuário apontar o nome. */
-async function refreshMarket() {
-  clearCaches();
-  if (state.openTrade || state.activeSignal) { showToast('Há sinal ou operação em aberto: troque de ativo depois.', 'warn'); return; }
-  const before = state.settings.symbol;
-  const asset = detectAsset(state.settings.calib);
-  const target = asset && targetSymbol(asset);
-  if (target && target !== before) { await switchTo(asset, target); return; }
-  // Não mudou (ou não achou): o usuário mostra onde está o nome do ativo.
-  showToast('Clique no NOME do ativo aberto na Quotex (ex.: no topo do painel da direita, acima do Tempo). Esc cancela.', 'warn');
-  const clicked = await captureNextClick((e) => e.composedPath().includes(hostEl));
-  if (!clicked) { showToast('Cancelado.', 'warn'); return; }
-  const el = assetTargetFromClick(clicked);
-  if (!el) { showToast('Não há nome de ativo nesse ponto. Clique no texto do ativo (ex.: "Litecoin (OTC)").', 'err'); return; }
-  const r = await dispatch({ type: 'SET_CALIB', key: 'asset', selector: makeCalib(el, 'asset') });
-  if (r.error) { showToast('Erro: ' + r.error, 'err'); return; }
-  clearCaches();
-  const a2 = detectAsset(state.settings.calib);
-  const t2 = a2 && targetSymbol(a2);
-  if (!t2) { showToast(`Lido "${a2?.label ?? '?'}", mas sem dados para esse ativo.`, 'err'); return; }
-  await switchTo(a2, t2);
-  showToast(`⟳ Ativo: ${a2.label}. O bot passa a vigiar esse ponto da tela.`, 'ok');
-}
-
 function targetSymbol(asset) {
   return quotexMode() ? qxSymbol(feedKey(asset)) : assetToSymbol(asset, { allowOtc: true });
 }
@@ -195,7 +171,6 @@ async function switchTo(asset, target) {
   if (target !== state.settings.symbol) await dispatch({ type: 'SET_SETTINGS', value: { symbol: target } });
   candleSymbol = null; lastAnalyzedTime = null; confirmed = preview = null;
   syncPayout();
-  showToast(`⟳ Ativo: ${asset.label} (lido do ${asset.from})`, 'ok');
   poll();
 }
 
@@ -346,8 +321,6 @@ const TEMPLATE = `
     <span class="dot" data-k="dot"></span>
     <span class="title">M1 <b>SNIPER</b> BOT</span>
     <span class="badge demo" data-k="mode">DEMO</span>
-    <button class="iconbtn" data-k="refresh" title="Atualizar: reler o ativo aberto na Quotex">⟳</button>
-    <button class="iconbtn" data-k="chartBtn" title="Gráfico TradingView ao vivo">📈</button>
     <button class="iconbtn" data-k="gear" title="Ajustes e estatísticas">⚙</button>
     <button class="iconbtn" data-k="minBtn" title="Minimizar">–</button>
     <button class="iconbtn" data-k="close" title="Ocultar (clique no ícone da extensão para mostrar)">×</button>
@@ -359,7 +332,6 @@ const TEMPLATE = `
       <span class="clock" data-k="clock">--:--:--</span>
     </div>
     <div class="small muted" data-k="assetInfo"></div>
-    <div class="tv hidden" data-k="tv"><iframe data-k="tvFrame" title="Gráfico TradingView" loading="lazy"></iframe></div>
     <div class="next" data-k="next"></div>
     <div class="checks" data-k="checks"></div>
     <div class="auto" data-k="autoBox"></div>
@@ -407,8 +379,6 @@ async function mountPanel() {
   $('minBtn').addEventListener('click', () => dispatch({ type: 'SET_SETTINGS', value: { panel: { minimized: !state.settings.panel.minimized } } }));
   $('gear').addEventListener('click', () => { view = view === 'main' ? 'settings' : 'main'; renderSettings(true); render(); });
   $('close').addEventListener('click', () => setVisible(false));
-  $('refresh').addEventListener('click', () => refreshMarket());
-  $('chartBtn').addEventListener('click', () => dispatch({ type: 'SET_SETTINGS', value: { panel: { chart: !state.settings.panel.chart } } }));
   enableDrag();
   root.addEventListener('pointerdown', () => { pressing = true; });
   window.addEventListener('pointerup', () => { if (pressing) { pressing = false; setTimeout(render, 0); } }, true);
@@ -506,11 +476,10 @@ function render() {
   const live = conn.status === 'ok' ? 'ao vivo' : conn.status === 'stale' ? '(atrasado)' : conn.status === 'offline' ? '(sem leitura)' : '(conectando)';
   $('assetInfo').textContent = warn.length ? warn.join(' · ')
     : qm ? `Fonte: Quotex (preço da tela) · ${qxKey ?? 'ativo ?'} · ${nC} velas · EMA ${nC >= REQUIRED_CANDLES ? 200 : WARMUP_LONG_EMA} · ${live}`
-    : `TradingView · BINANCE:${s.settings.symbol} · ${live}` + (s.settings.calib?.price ? '' : ' · calibre o "Preço ao vivo" em ⚙ para usar o gráfico da Quotex (inclui OTC)');
+    : `Fonte: Binance · ${s.settings.symbol} · ${live}`;
   $('symbol').classList.toggle('hidden', qm);
   $('qxName').classList.toggle('hidden', !qm);
   $('qxName').textContent = qm ? (qxKey ?? '—') : '';
-  renderChart(s);
   $('assetInfo').style.color = warn.length || conn.status === 'offline' || conn.status === 'stale' ? '#f59e0b' : '';
 
   renderNext(s, now, tz);
@@ -547,17 +516,6 @@ function render() {
   err.classList.toggle('hidden', !msg);
   err.textContent = msg || '';
   tick();
-}
-
-/** Gráfico TradingView ao vivo (mesmo feed BINANCE:<par> usado nos cálculos). */
-function renderChart(s) {
-  const show = s.settings.panel.chart !== false && !quotexMode(s);
-  $('tv').classList.toggle('hidden', !show);
-  $('chartBtn').classList.toggle('on', show);
-  if (!show) return;
-  const src = chrome.runtime.getURL(`src/chart/chart.html?symbol=${s.settings.symbol}&tz=${encodeURIComponent(s.settings.timeZone)}`);
-  const f = $('tvFrame');
-  if (f.dataset.src !== src) { f.dataset.src = src; f.src = src; }
 }
 
 function renderNext(s, now, tz) {
@@ -817,7 +775,13 @@ async function startCalib(it) {
   const target = await captureNextClick((e) => e.composedPath().includes(hostEl));
   calibrating = null;
   if (target) {
-    const r = await dispatch({ type: 'SET_CALIB', key: it.key, selector: makeCalib(target, it.key) });
+    const el = it.key === 'asset' ? (assetTargetFromClick(target) || target) : target;
+    const r = await dispatch({ type: 'SET_CALIB', key: it.key, selector: makeCalib(el, it.key) });
+    if (it.key === 'asset' && !r.error) {
+      clearCaches();
+      const a = detectAsset(state.settings.calib);
+      if (a && !state.openTrade && !state.activeSignal) await switchTo(a, targetSymbol(a));
+    }
     showToast(r.error ? `Erro: ${r.error}` : `${it.label} calibrado`, r.error ? 'err' : 'ok');
   } else showToast('Calibração cancelada', 'warn');
   renderCalib();

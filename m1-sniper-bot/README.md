@@ -29,7 +29,6 @@ Extensão do Google Chrome (Manifest V3) que mostra um painel pequeno, flutuante
 | Detecção DEMO/REAL da página (pela URL `demo-trade` vs `trade`) | **Best-effort, NÃO verificada** na Quotex real. Se a página parecer REAL com o bot em DEMO, os sinais são bloqueados. |
 | Resultado GREEN/LOSS | O bot **sugere** o resultado pelo candle da Binance, mas **você registra** o resultado que a Quotex mostrou. |
 | **Modo AUTO** (clique automático em CALL/PUT) | **Funcionando e testado** numa página que imita a Quotex, com elementos calibrados e candles sintéticos que forçam um sinal: o clique saiu 0,3 s após a abertura da vela de entrada. **Não foi testado na Quotex real.** A calibração depende do HTML da Quotex, e se o site mudar é preciso calibrar de novo. |
-| **Gráfico TradingView ao vivo** dentro do painel (botão 📈), M1, símbolo `BINANCE:<par>` com EMA, Bollinger e RSI | **Integrado** pelo widget público de incorporação da TradingView (o mesmo feed usado nos cálculos do bot). O carregamento do iframe e a URL do widget foram testados; a renderização do gráfico em si não pôde ser vista neste ambiente, porque a rede bloqueia a TradingView. A TradingView não oferece API de dados para extensões, por isso os **cálculos** usam a API pública da Binance, que é a mesma fonte do gráfico `BINANCE:` exibido. |
 | Mercados indicados (varredura de 12 ativos de cripto a cada 15 s) | **Funcionando.** Ao abrir na Quotex um dos mercados, o bot passa a analisar esse mercado automaticamente. |
 
 ## 2. Instalação (modo desenvolvedor)
@@ -75,7 +74,7 @@ Para voltar a usar a Binance (só cripto, sem OTC), mude **Fonte das velas** em 
 ### Sincronização com a Quotex
 
 O bot acompanha o que você muda na Quotex, sem precisar mexer no painel:
-- **Trocou de ativo** (aba ou painel de operação) → o bot passa a analisar o mesmo ativo. Para forçar na hora, clique em **⟳** no topo do painel. Se o bot não perceber a troca, ele pede para você **clicar no nome do ativo aberto** (de preferência no topo do painel da direita, acima do Tempo). A partir daí ele vigia esse ponto da tela e acompanha as trocas sozinho. O ponto indicado por você tem prioridade sobre a detecção automática. Isso vale também para OTC (Bitcoin (OTC) → BTC/USD), mas nesse caso os indicadores servem só de **referência**: o preço OTC é da Quotex, e sinais e AUTO ficam desligados.
+- **Trocou de ativo** (aba ou painel de operação) → o bot passa a analisar o mesmo ativo. Se o bot não perceber a troca, use **⚙ → Calibração → Ativo** e clique no **nome do ativo aberto**, no topo do painel da direita, acima do Tempo. A partir daí ele vigia esse ponto da tela e acompanha as trocas sozinho, junto com o payout. O ponto indicado por você tem prioridade sobre a detecção automática. Isso vale também para OTC (Bitcoin (OTC) → BTC/USD), mas nesse caso os indicadores servem só de **referência**: o preço OTC é da Quotex, e sinais e AUTO ficam desligados.
 - **Mudou o Investimento** → o valor do bot muda junto. O valor **não é digitado no bot**: ele é só exibido, lido do Investimento da Quotex (sem Martingale continua valendo).
 - **Mudou de mercado com outra %** → o payout do bot muda junto.
 

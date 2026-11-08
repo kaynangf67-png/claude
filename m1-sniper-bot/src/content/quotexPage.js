@@ -111,7 +111,7 @@ function fieldNear(panel, labelRe, test) {
 }
 
 let prCache = { at: 0, key: '', val: null };
-/** Esquece leituras guardadas (botão ⟳ do painel). */
+/** Esquece leituras guardadas (ex.: após recalibrar o ativo). */
 export function clearCaches() { prCache = { at: 0, key: '', val: null }; legendCache = null; legendScanAt = 0; }
 export function panelReadings(calib, doc = document) {
   const key = (calib?.call || '') + '|' + (calib?.asset || '');
@@ -172,7 +172,7 @@ function panelReadingsRaw(calib, doc = document) {
 
 /** Ativo aberto: painel de operação; depois elemento calibrado; depois o título da aba. */
 export function detectAsset(calib = null, doc = document) {
-  // 1º: o lugar que o USUÁRIO apontou (botão ⟳ / calibração do ativo) — tem prioridade.
+  // 1º: o lugar que o USUÁRIO apontou (⚙ → Calibração → Ativo) — tem prioridade.
   if (calib?.asset) {
     const el = resolveCalib(calib.asset, doc, 'asset');
     const a = el && isVisible(el) && readActiveAsset(el);
