@@ -17,15 +17,15 @@
   <section class="hero">
     <div>
       <h2>Análise de candles M1 com gestão de risco obrigatória</h2>
-      <p>É uma extensão do Chrome que coloca um painel pequeno e arrastável sobre a Quotex. O painel combina EMA 9/21/200, RSI 14, ADX 14, Bollinger 20/2 e Price Action, dá uma nota de 0 a 100 e sugere CALL ou PUT com expiração de 1 minuto." O bot lê o <b>preço ao vivo da própria Quotex</b> (inclui OTC) e acompanha o ativo, o valor e o payout que você escolher. <b>Quem abre a operação é sempre você.</b></p>
+      <p>É uma extensão do Chrome que coloca um painel pequeno e arrastável sobre a Quotex. Ela lê o <b>preço ao vivo da própria Quotex</b> (inclusive OTC), acompanha o ativo, o valor e o payout que você escolher e mostra <b>▲ COMPRA</b> ou <b>▼ VENDA</b> confirmados no fechamento da vela, para entrar na <b>próxima vela com expiração de 1 minuto</b>. Estratégias: price action (S/R, pullback, Fibonacci, tendência), o script M1 SNIPER PRO ou indicadores. <b>O bot não opera: quem abre a operação é sempre você.</b></p>
       <a class="cta" href="m1-sniper-bot.zip" download>Baixar extensão (.zip)</a>
       <p class="small muted">Versão 1.15.2 · Chrome / Edge / Brave (Manifest V3)</p>
     </div>
-    <figure class="shot-wrap"><img class="shot" src="img/painel.png" alt="Painel do M1 SNIPER BOT com a confirmação da próxima vela"><figcaption class="small muted">Painel com AUTO armado (captura de teste)</figcaption></figure>
+    <figure class="shot-wrap"><img class="shot" src="img/painel.png" alt="Painel do M1 SNIPER BOT com a confirmação da próxima vela"><figcaption class="small muted">Painel sobre o gráfico (captura de teste)</figcaption></figure>
   </section>
 
   <section class="card warn">
-    <b>Avisos.</b> Por padrão o bot só indica. O modo AUTO é opcional e só clica nos botões que você calibrar. A Quotex pode proibir automação e bloquear a conta, então use primeiro na DEMO. Os candles vêm da API pública da Binance, não da Quotex, e só cobrem criptomoedas (OTC e Forex não). A nota <b>não é probabilidade de acerto</b>. Opções binárias têm alto risco e são restritas ou proibidas em vários países.
+    <b>Avisos.</b> O bot <b>só indica</b>: não clica nem abre operações. Nenhum sinal é garantia de acerto, e o painel mostra o <b>acerto medido</b> dos próprios sinais. No OTC o preço é gerado pela própria Quotex e não segue o mercado real. Opções binárias têm alto risco e são restritas ou proibidas em vários países. Use a conta <b>DEMO</b>.
   </section>
 
   <section id="monitor" class="card">
@@ -53,11 +53,10 @@
       <li>Baixe o <a href="m1-sniper-bot.zip" download>m1-sniper-bot.zip</a> e <b>extraia</b> o arquivo em uma pasta.</li>
       <li>Abra <code>chrome://extensions</code> e ative o <b>Modo do desenvolvedor</b>.</li>
       <li>Clique em <b>Carregar sem compactação</b> e selecione a pasta extraída (a que contém <code>manifest.json</code>).</li>
-      <li>Abra a Quotex em <b>conta DEMO</b>, M1, no mesmo ativo escolhido no painel (ex.: BTC/USD ↔ BTCUSDT).</li>
-      <li>O painel aparece <b>em cima do gráfico</b>. Se não aparecer, ou para mostrar e esconder, <b>clique no ícone da extensão</b> (funciona em qualquer endereço da Quotex).</li>
-      <li>Clique em <b>LIGAR</b>. A caixa <b>PRÓXIMA VELA</b> mostra cada indicador M1 com ✓/✗ e a prévia da vela em formação. Quando a vela fecha e tudo confirma, aparece <b>✔ CONFIRMADO CALL/PUT</b> para a vela seguinte, com expiração de 1 minuto.</li>
-      <li>Manual: abra a operação você mesmo e clique em <b>ENTREI</b>. <b>Automático (opcional):</b> em ⚙ calibre só os botões <b>Comprar</b> e <b>Vender</b> da Quotex: ativo, %, tempo e valor são lidos sozinhos do painel de operação (o clique da calibração é bloqueado), deixe a expiração em 1 min e clique em <b>🤖 AUTO</b>. O bot só clica no mercado aberto, na conta e no valor conferidos, e desarma sozinho na trava diária, na virada do dia ou se algo falhar.</li>
-      <li>Depois de 1 minuto, registre <b>GREEN</b>, <b>LOSS</b> ou <b>EMPATE</b> conforme o resultado na Quotex.</li>
+      <li>Abra a Quotex na <b>conta DEMO</b>, gráfico <b>1m</b>, e dê <b>F5</b>. O painel aparece em cima do gráfico (ou clique no ícone da extensão).</li>
+      <li>Em ⚙ → Leitura da Quotex, calibre os botões <b>Comprar</b> e <b>Vender</b> e aponte o <b>nome do ativo</b> (o clique da calibração é bloqueado). O preço ao vivo é encontrado e travado sozinho.</li>
+      <li>Clique em <b>LIGAR</b>. Se a página entregar o histórico, aparece <i>"Histórico recebido da Quotex"</i> e os sinais começam na hora; senão, o bot junta as velas ao vivo.</li>
+      <li>Quando a vela fecha e tudo confirma: <b>✔ CONFIRMADO · ENTRADA hh:mm · EXP. 1 MIN — ▲ COMPRA / ▼ VENDA</b>. Entre você mesmo na Quotex nos primeiros segundos da vela.</li>
     </ol>
   </section>
 
@@ -74,16 +73,16 @@
   </section>
 
   <section id="limites" class="card">
-    <h2>Backtest e limitações</h2>
-    <p>Backtest de 7 dias com dados reais da Binance, sem antecipação de candles (payout 0,85, break-even 54,1%):</p>
+    <h2>Backtest honesto e limitações</h2>
+    <p>Dados reais (BTC/ETH/SOL/BNB/XRP em M1), sem olhar o futuro, entrada na vela seguinte, payout 85% (empate em 54,1%):</p>
     <table>
-      <tr><th>Ativo</th><th>Sinais</th><th>Acerto</th><th>Resultado</th></tr>
-      <tr><td>BTCUSDT</td><td>72</td><td>66,2%</td><td>+15,25 entradas</td></tr>
-      <tr><td>ETHUSDT</td><td>49</td><td>50,0%</td><td>−3,60 entradas</td></tr>
-      <tr><td>SOLUSDT</td><td>44</td><td>38,5%</td><td>−11,25 entradas</td></tr>
-      <tr><td><b>Total</b></td><td>165</td><td>54,2%</td><td>+0,40 entradas</td></tr>
+      <tr><th>Estratégia</th><th>Período</th><th>Sinais</th><th>Acerto</th></tr>
+      <tr><td>Price action</td><td>7 dias</td><td>1.328</td><td>53,0%</td></tr>
+      <tr><td>Price action</td><td>14 dias anteriores</td><td>2.752</td><td>49,8%</td></tr>
+      <tr><td>Script M1 SNIPER PRO</td><td>7 dias</td><td>919</td><td>46,8%</td></tr>
+      <tr><td>Indicadores (modo completo)</td><td>7 dias</td><td>1.303</td><td>46,5%</td></tr>
     </table>
-    <p>No total, o resultado ficou no zero a zero. Uma semana de dados <b>não comprova vantagem estatística</b>. Valide na DEMO antes de qualquer decisão. A detecção do ativo e da conta (DEMO/REAL) na página da Quotex é feita pelo título e pela URL e não foi verificada na Quotex real.</p>
+    <p><b>Nenhuma estratégia mostrou vantagem consistente.</b> Use como ferramenta de análise na conta DEMO. Os dados de OTC são da própria Quotex e podem se comportar de outro jeito.</p>
   </section>
 </main>
 <footer class="muted small">M1 SNIPER BOT · ferramenta de análise; não é recomendação de investimento.</footer>
