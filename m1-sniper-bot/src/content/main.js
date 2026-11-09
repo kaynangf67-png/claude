@@ -263,6 +263,34 @@ async function switchTo(asset, target) {
   poll();
 }
 
+// ---------------------------------------------------------------- alertas do TradingView
+let lastTv = null;
+async function handleTvSignal(v) {
+  if (!v || !v.at || Date.now() - v.at > 30_000) return;
+  lastTv = v;
+  if (state.settings.signalSource !== 'tradingview') return;
+  const dirTxt = v.dir === 'CALL' ? 'COMPRA' : 'VENDA';
+  if (!state.active) { showToast(`Alerta TradingView (${dirTxt}) recebido, mas o painel está DESLIGADO.`, 'warn'); return; }
+  const asset = detectAsset(state.settings.calib);
+  if (!asset) { showToast('Alerta TradingView recebido, mas o ativo da Quotex não foi identificado.', 'err'); return; }
+  if (asset.otc) { showToast(`Alerta TradingView ignorado: ${asset.label} é OTC (não existe no TradingView). Abra o par normal.`, 'err'); return; }
+  const qx = (asset.base + asset.quote).toUpperCase().replace(/USDT$/, 'USD');
+  const tv = (v.ticker || '').toUpperCase().replace(/USDT$/, 'USD');
+  if (tv && tv !== qx) { showToast(`Alerta TradingView de ${v.ticker}, mas a Quotex está em ${asset.label}.`, 'err'); return; }
+  const now = nowMs(); const m = Math.floor(now / M1_MS) * M1_MS;
+  if (now - m > 10_000) { showToast(`Alerta TradingView chegou ${Math.round((now - m) / 1000)} s depois da abertura da vela — tarde demais para entrar.`, 'warn'); return; }
+  const signal = {
+    id: `TV-${tv || qx}-${m}`, symbol: state.settings.symbol, source: 'tradingview', strategy: 'tradingview',
+    direction: v.dir, score: 100, breakdown: {}, reasons: [`Alerta do TradingView: ${v.text}`], confirmed: ['TradingView'],
+    checks: [{ id: 'tv', label: 'Alerta do TradingView', status: 'ok', detail: v.text }], patterns: [], snapshot: {},
+    confirmCandleTime: m - M1_MS, entryTime: m, expiryTime: m + M1_MS, refPrice: livePriceInfo()?.price ?? null,
+  };
+  const res = await dispatch({ type: 'PROPOSE_SIGNAL', signal, pageMode: detectPageMode() });
+  if (res.error) { showToast(`Alerta TradingView não usado: ${res.error}`, 'warn'); return; }
+  beep(v.dir);
+  if (state.settings.signalsOnly === false && state.activeSignal) await tryAutoEntry(state.activeSignal);
+}
+
 /** Varre os outros mercados e calcula a leitura de cada um (prévia da vela atual). */
 async function runScan() {
   if (scanBusy || !state?.active) return;
@@ -330,7 +358,7 @@ async function tryAutoEntry(sig) {
       return;
     }
   }
-  showToast(`AUTO: ${sig.direction} ${sig.symbol} ${t.amount.toFixed(2)} — ${opened ? 'operação aberta na Quotex ✓' : 'clicado (não deu para confirmar pelo contador)'}`, opened ? 'ok' : 'warn');
+  showToast(`AUTO: ${sig.direction === 'CALL' ? 'COMPRA' : 'VENDA'} ${sig.symbol.replace(/^QX:/, '')} ${t.amount.toFixed(2)} — ${opened ? 'operação aberta na Quotex ✓' : 'clicado (não deu para confirmar pelo contador)'}`, opened ? 'ok' : 'warn');
 }
 
 /** true = contador subiu; false = contador lido e não subiu; null = contador não encontrado. */
@@ -412,6 +440,7 @@ async function onData() {
     confirmed = { r: { status: 'no_signal', reason: `Ativo da página (${asset.label}) ≠ ${state.settings.symbol}`, best: r.best }, candleTime: last.time };
     return;
   }
+  if (state.settings.signalSource === 'tradingview') return; // sinais vêm dos alertas do TradingView
   const res = await dispatch({ type: 'PROPOSE_SIGNAL', signal: r.signal, pageMode: detectPageMode() });
   if (res.error) return;
   beep(r.signal.direction);
@@ -782,10 +811,12 @@ function renderAuto(s) {
   if (s.settings.signalsOnly !== false) {
     // Somente sinais: sem botão AUTO; mostra o acerto medido dos sinais.
     const a = measuredAccuracy(s);
+    const tvLine = s.settings.signalSource === 'tradingview'
+      ? el('div', 'small muted', `Sinais do TradingView · último alerta: ${lastTv ? `${lastTv.dir === 'CALL' ? 'COMPRA' : 'VENDA'} ${lastTv.ticker ?? ''} às ${formatTime(lastTv.at, s.settings.timeZone)}` : 'nenhum ainda (deixe a aba do TradingView aberta)'}`) : null;
     const line = el('div', 'small ' + (a.pct == null ? 'muted' : a.pct >= 54.1 ? 'ok' : 'no'),
       a.pct == null ? 'Modo SOMENTE SINAIS · o bot não opera. Acerto medido: aparece após os primeiros sinais.'
         : `Modo SOMENTE SINAIS · acerto medido: ${a.pct.toFixed(1)}% em ${a.n} sinais${a.nToday ? ` (hoje ${a.pctToday.toFixed(0)}% em ${a.nToday})` : ''} · empate exige ~${(100 / (1 + s.settings.payout)).toFixed(1)}%`);
-    box.replaceChildren(line);
+    box.replaceChildren(...[tvLine, line].filter(Boolean));
     return;
   }
   const armed = autoArmed(s);
@@ -842,12 +873,22 @@ function renderSettings(rebuild) {
   for (const [v, d] of Object.entries(STRATEGIES)) { const o = el('option', null, d.name); o.value = v; stratSel.appendChild(o); }
   stratSel.value = s.settings.strategy || 'priceAction';
   stratSel.addEventListener('change', () => dispatch({ type: 'SET_SETTINGS', value: { strategy: stratSel.value } }));
+  const srcSel = el('select');
+  for (const [v, t] of [['bot', 'Bot (estratégia escolhida)'], ['tradingview', 'TradingView (alertas do seu script)']]) { const o = el('option', null, t); o.value = v; srcSel.appendChild(o); }
+  srcSel.value = s.settings.signalSource || 'bot';
+  srcSel.addEventListener('change', () => dispatch({ type: 'SET_SETTINGS', value: { signalSource: srcSel.value } }));
+  const autoAllowed = s.settings.signalsOnly === false;
+  const autoToggle = button(autoAllowed ? 'red' : '', autoAllowed ? 'OPERAÇÃO AUTOMÁTICA: LIGADA (desligar)' : 'OPERAÇÃO AUTOMÁTICA: DESLIGADA (ligar)', async () => {
+    if (!autoAllowed && !window.confirm('Permitir que o bot CLIQUE sozinho em Comprar/Vender na Quotex quando sair um sinal?\n\nSó na conta DEMO, no mesmo par, nos primeiros segundos da vela. Depois ainda é preciso ARMAR o AUTO no painel.')) return;
+    await dispatch({ type: 'SET_SETTINGS', value: { signalsOnly: autoAllowed } });
+    renderSettings(true); render();
+  });
   const minScore = num(s.settings.minScore, 80, 100, 1);
   const payout = num(s.settings.payout, 0.1, 1.5, 0.01);
   const ttl = num(s.settings.signalTtlSec, 3, 30, 1);
   const lab = (t, inp) => { const l = el('label'); l.append(el('span', null, t), inp); return l; };
   const clk = Math.abs(clockOffset) > 3000 ? ` · relógio do PC ${Math.round(Math.abs(clockOffset) / 1000)} s ${clockOffset < 0 ? 'adiantado' : 'atrasado'} (o bot já corrige sozinho)` : '';
-  form.append(el('div', 'small muted', `Horário: Brasília (automático) · o dia vira à meia-noite${clk}`), lab('Estratégia', stratSel), lab('Fonte das velas', feedSel), lab('Nota mínima (80–100)', minScore), lab('Payout (ex.: 0.85)', payout), lab('Validade do sinal (s)', ttl));
+  form.append(el('div', 'small muted', `Horário: Brasília (automático) · o dia vira à meia-noite${clk}`), lab('Fonte dos sinais', srcSel), lab('Estratégia', stratSel), lab('Fonte das velas', feedSel), autoToggle, lab('Nota mínima (80–100)', minScore), lab('Payout (ex.: 0.85)', payout), lab('Validade do sinal (s)', ttl));
   const msg = el('div', 'small');
   const save = button('blue', 'SALVAR', async () => {
     const v = { minScore: Number(minScore.value), payout: Number(payout.value), signalTtlSec: Number(ttl.value) };
@@ -1042,6 +1083,7 @@ export async function start() {
   render();
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.m1state?.newValue) { state = changes.m1state.newValue; render(); }
+    if (area === 'local' && changes.m1tv?.newValue) handleTvSignal(changes.m1tv.newValue);
   });
   window.addEventListener('online', () => poll());
   window.addEventListener('resize', () => { const r = panel.getBoundingClientRect(); place(r.left, r.top); });

@@ -22,6 +22,8 @@ export const DEFAULT_SETTINGS = Object.freeze({
   feed: 'quotex',
   // Somente sinais: o bot NUNCA clica na Quotex (pedido do usuário). AUTO bloqueado.
   signalsOnly: true,
+  // De onde vêm os sinais: 'bot' (estratégia do bot) ou 'tradingview' (alertas do seu script no TradingView).
+  signalSource: 'bot',
   // Estratégia de sinais: 'priceAction' (S/R, pullback, Fibonacci, tendência),
   // 'sniperPro' (script Pine do usuário) ou 'padrao' (indicadores 0–100).
   strategy: 'priceAction',
@@ -192,6 +194,16 @@ export function reduce(prev, action, now = Date.now()) {
         if (s.openTrade || s.activeSignal) return fail('Troque o ativo sem sinal ou operação em aberto');
         if (!/^([A-Z0-9]{5,20}|QX:[^<>]{2,40})$/.test(v.symbol)) return fail('Símbolo inválido');
         s.settings.symbol = v.symbol;
+      }
+      if (v.signalSource !== undefined) {
+        if (!['bot', 'tradingview'].includes(v.signalSource)) return fail('Fonte de sinais inválida');
+        s.settings.signalSource = v.signalSource;
+      }
+      if (v.signalsOnly !== undefined) {
+        if (s.openTrade) return fail('Espere a operação aberta terminar');
+        s.settings.signalsOnly = !!v.signalsOnly;
+        if (s.settings.signalsOnly) s.settings.auto = { ...s.settings.auto, armedDay: null };
+        log(s, now, 'warn', s.settings.signalsOnly ? 'Operação automática DESLIGADA (somente sinais)' : 'Operação automática PERMITIDA (ainda precisa armar)');
       }
       if (v.strategy !== undefined) {
         if (!['priceAction', 'sniperPro', 'padrao'].includes(v.strategy)) return fail('Estratégia inválida');

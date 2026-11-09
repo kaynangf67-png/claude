@@ -100,6 +100,17 @@ O bot acompanha o que você muda na Quotex, sem precisar mexer no painel:
 - **Valor:** o valor do bot segue o campo **Investimento** da Quotex. As regras continuam valendo: depois de um LOSS, aumentar o valor na Quotex é recusado (sem Martingale) e o item "Valor" mostra o motivo.
 - Percentuais nunca são confundidos com o valor da operação.
 
+### Sinais do TradingView (v1.16)
+
+Para usar o **seu script no TradingView**, onde o histórico já existe e não há aquecimento:
+1. No TradingView, adicione o script ao gráfico **M1** do par (ex.: EURUSD) e crie um alerta com a condição **COMPRA** e outro com **VENDA**, na opção **"Uma vez por fechamento de barra"**. Na mensagem, inclua o par: `M1 SNIPER - COMPRA {{ticker}}` (e `VENDA`).
+2. Deixe a aba do TradingView aberta. A extensão lê o aviso do alerta na tela, ou a notificação do navegador, e manda para o painel da Quotex.
+3. No painel da Quotex: **⚙ → Fonte dos sinais → TradingView**.
+4. O bot só aceita o alerta se: o **par** for o mesmo aberto na Quotex; o par **não for OTC** (OTC não existe no TradingView); o alerta chegar **até 10 s depois da abertura da vela**; e o painel estiver ligado e sem bloqueio diário.
+5. **Operação automática** (opcional, desligada por padrão): **⚙ → OPERAÇÃO AUTOMÁTICA → ligar**, depois **🤖 AUTO** no painel. Mesmas travas de antes: só DEMO, mesmo par, Tempo 00:01:00, valor conferido, 10 GREEN / 3 LOSS, confirmação pelo contador de Operações e clique real se o simulado for ignorado.
+
+Testado de ponta a ponta com imitações do TradingView e da Quotex: alerta no meio da vela recusado; alerta logo após o fechamento → COMPRA executada, 1 operação. Sobre o script: no backtest, 46,8% em M1, então ter histórico não aumenta o acerto.
+
 ### Modo SOMENTE SINAIS (padrão desde a v1.15)
 
 O bot **não opera**: ele só mostra **▲ COMPRA** ou **▼ VENDA** (com som), o horário de entrada e a contagem para você entrar manualmente na Quotex (1 min). O botão AUTO fica oculto, e o redutor recusa armar ou entrar sozinho. Cada sinal tem o resultado medido na vela seguinte, e o painel mostra o **acerto medido** (*"acerto medido: X% em N sinais (hoje …)"*), em verde só se passar do empate (~54%). **Nenhum sinal é garantia de acerto.**
