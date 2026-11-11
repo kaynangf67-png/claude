@@ -232,9 +232,9 @@ describe("três velas + região (reversão)", () => {
     const r = analyzeLatest(c, "tres")!.best;
     expect(r.dir === "PUT" && r.level === "confirmada").toBe(false);
   });
-  it("modo auto compara as 6 estratégias e a rota aceita 'tres'", async () => {
+  it("modo auto compara as 7 estratégias e a rota aceita 'tres'", async () => {
     const c = resistanceSetup(), now = (c.at(-1)!.t + 300 + 20) * 1000;
-    expect(Object.keys(analyzeLatest(c, "auto")!.signals).sort()).toEqual(["diminuicao", "dupla", "fluxo", "retracao", "reversao", "tres"]);
+    expect(Object.keys(analyzeLatest(c, "auto")!.signals).sort()).toEqual(["diminuicao", "dupla", "fluxo", "forca", "retracao", "reversao", "tres"]);
     const j = await (await handleBinary(new Request("http://x/api/binary", { method: "POST", body: JSON.stringify({ asset: "EURUSD", tf: "M5", strategy: "tres" }) }), { series: async () => c, now: () => now })).json();
     expect(j.signal.strategy).toBe("tres");
     expect(j.signal.dir).toBe("PUT");
@@ -277,9 +277,9 @@ describe("diminuição de vela + região", () => {
     expect(analyzeLatest(c, "diminuicao")!.best.conds[3].ok).toBe(false);
     expect(analyzeLatest(c, "diminuicao")!.best.level).not.toBe("confirmada");
   });
-  it("entra no modo auto (6 estratégias) e na rota", async () => {
+  it("entra no modo auto (7 estratégias) e na rota", async () => {
     const c = setup(), now = (c.at(-1)!.t + 300 + 20) * 1000;
-    expect(Object.keys(analyzeLatest(c, "auto")!.signals)).toHaveLength(6);
+    expect(Object.keys(analyzeLatest(c, "auto")!.signals)).toHaveLength(7);
     const j = await (await handleBinary(new Request("http://x/api/binary", { method: "POST", body: JSON.stringify({ asset: "EURUSD", tf: "M5", strategy: "diminuicao" }) }), { series: async () => c, now: () => now })).json();
     expect(j.signal.strategy).toBe("diminuicao");
     expect(j.signal.dir).toBe("PUT");
@@ -326,11 +326,73 @@ describe("dupla posição (região marcada pelo pavio)", () => {
     expect(r.conds[2].ok).toBe(false);
     expect(r.level).not.toBe("confirmada");
   });
-  it("entra no modo auto (6 estratégias) e na rota", async () => {
+  it("entra no modo auto (7 estratégias) e na rota", async () => {
     const c = setup(), now = (c.at(-1)!.t + 300 + 20) * 1000;
-    expect(Object.keys(analyzeLatest(c, "auto")!.signals)).toHaveLength(6);
+    expect(Object.keys(analyzeLatest(c, "auto")!.signals)).toHaveLength(7);
     const j = await (await handleBinary(new Request("http://x/api/binary", { method: "POST", body: JSON.stringify({ asset: "EURUSD", tf: "M5", strategy: "dupla" }) }), { series: async () => c, now: () => now })).json();
     expect(j.signal.strategy).toBe("dupla");
     expect(j.signal.dir).toBe("PUT");
+  });
+});
+
+describe("vela de força + reteste (aula da troca de lote)", () => {
+  const base = () => fromCloses(Array.from({ length: 62 }, (_, i) => 1.1 + Math.sin(i / 2) * 0.0001));
+  const mk = (t0: number, n: number, o: number, h: number, l: number, c: number): Candle => ({ t: t0 + n * 300, o, h, l, c });
+  /** fundo marcado em 1.0985 → vela de força de baixa fecha em 1.0977 (rompe) → sobe devagar → último candle toca a região da vela de força (1.0995–1.0997). */
+  const setup = (last = { o: 1.0988, h: 1.0996, l: 1.0987, c: 1.0990 }, force = { o: 1.0995, h: 1.0997, l: 1.0975, c: 1.0977 }): Candle[] => {
+    const c = base(), t = c.at(-1)!.t;
+    return [...c,
+      mk(t, 1, 1.0999, 1.1000, 1.0994, 1.0995), mk(t, 2, 1.0995, 1.0996, 1.0990, 1.0991), mk(t, 3, 1.0991, 1.0992, 1.0986, 1.0987),
+      mk(t, 4, 1.0987, 1.0988, 1.0985, 1.0986), mk(t, 5, 1.0986, 1.0992, 1.0985, 1.0991),                       // fundo (1.0985) marcado
+      mk(t, 6, 1.0991, 1.0996, 1.0990, 1.0994), mk(t, 7, 1.0994, 1.0998, 1.0993, 1.0996),                       // lote comprador / troca
+      mk(t, 8, force.o, force.h, force.l, force.c),                                                             // vela de força
+      mk(t, 9, 1.0977, 1.0984, 1.0975, 1.0982), mk(t, 10, 1.0982, 1.0990, 1.0981, 1.0988),                      // sobe sem tocar a região
+      mk(t, 11, last.o, last.h, last.l, last.c)];                                                               // primeiro toque
+  };
+  const mirror = (c: Candle[]): Candle[] => c.map((k) => ({ t: k.t, o: 2.2 - k.o, c: 2.2 - k.c, h: 2.2 - k.l, l: 2.2 - k.h }));
+
+  it("rompe o fundo com vela de força e volta tocar a região = PUT confirmada, 1 vela", () => {
+    const r = analyzeLatest(setup(), "forca")!.best;
+    expect(r.dir).toBe("PUT");
+    expect(r.conds.slice(0, 4).map((x) => x.ok)).toEqual([true, true, true, true]);
+    expect(r.level).toBe("confirmada");
+    expect(r.defaultExpiry).toBe(1);
+  });
+  it("espelho: rompe o topo com vela de força de alta e volta tocar = CALL", () => {
+    const r = analyzeLatest(mirror(setup()), "forca")!.best;
+    expect(r.dir).toBe("CALL");
+    expect(r.level).toBe("confirmada");
+  });
+  it("só o PAVIO rompe o fundo (o corpo fecha dentro): não é vela de força", () => {
+    const r = analyzeLatest(setup(undefined, { o: 1.0995, h: 1.0997, l: 1.0975, c: 1.0988 }), "forca")!.best;
+    expect(r.level).not.toBe("confirmada");
+  });
+  it("vela de baixa pequena que fecha abaixo do fundo não é 'de força'", () => {
+    const r = analyzeLatest(setup(undefined, { o: 1.0988, h: 1.0989, l: 1.0983, c: 1.0984 }), "forca")!.best;
+    expect(r.level).not.toBe("confirmada");
+  });
+  it("se o preço FECHA acima da região, ela foi invalidada: não confirma", () => {
+    const r = analyzeLatest(setup({ o: 1.0988, h: 1.1004, l: 1.0987, c: 1.1002 }), "forca")!.best;
+    expect(r.conds[3].ok).toBe(false);
+    expect(r.dir === "PUT" && r.level === "confirmada").toBe(false);
+  });
+  it("só vale o PRIMEIRO toque: se já tocou antes, o segundo não confirma", () => {
+    const c = setup(), n = c.length;
+    c[n - 2] = { ...c[n - 2], h: 1.0996, c: 1.0989 };                      // a vela anterior já tocou a região
+    const r = analyzeLatest(c, "forca")!.best;
+    expect(r.conds[2].ok).toBe(false);
+    expect(r.level).not.toBe("confirmada");
+  });
+  it("sem toque de volta na região não há entrada", () => {
+    const r = analyzeLatest(setup({ o: 1.0988, h: 1.0990, l: 1.0986, c: 1.0987 }), "forca")!.best;
+    expect(r.conds[2].ok).toBe(false);
+  });
+  it("entra no modo auto (7 estratégias) e na rota", async () => {
+    const c = setup(), now = (c.at(-1)!.t + 300 + 20) * 1000;
+    expect(Object.keys(analyzeLatest(c, "auto")!.signals)).toHaveLength(7);
+    const j = await (await handleBinary(new Request("http://x/api/binary", { method: "POST", body: JSON.stringify({ asset: "EURUSD", tf: "M5", strategy: "forca" }) }), { series: async () => c, now: () => now })).json();
+    expect(j.signal.strategy).toBe("forca");
+    expect(j.signal.dir).toBe("PUT");
+    expect(j.signal.expiryCandles).toBe(1);
   });
 });

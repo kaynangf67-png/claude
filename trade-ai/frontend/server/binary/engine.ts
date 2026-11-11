@@ -8,15 +8,15 @@ import type { Candle } from "../forex/types.js";
  * Binária não tem stop nem alvo: o resultado é só "o preço fechou acima ou abaixo da entrada na expiração".
  * Nada aqui prevê a próxima vela. É o conjunto de condições técnicas que o gráfico mostra agora.
  */
-export type BinStrategy = "reversao" | "retracao" | "fluxo" | "tres" | "diminuicao" | "dupla";
+export type BinStrategy = "reversao" | "retracao" | "fluxo" | "tres" | "diminuicao" | "dupla" | "forca";
 export type BinDir = "CALL" | "PUT";
 export type BinLevel = "confirmada" | "parcial" | "fraca";
 export interface Cond { ok: boolean; text: string }
 export interface BinSignal {
   strategy: BinStrategy; label: string; dir: BinDir; level: BinLevel; met: number; total: number; conds: Cond[]; defaultExpiry: number;
 }
-export const STRATEGY_LABEL: Record<BinStrategy, string> = { reversao: "Reversão de preço", retracao: "Retração", fluxo: "Fluxo de vela (região)", tres: "Três velas + região", diminuicao: "Diminuição de vela + região", dupla: "Dupla posição (região)" };
-export const DEFAULT_EXPIRY: Record<BinStrategy, number> = { reversao: 2, retracao: 3, fluxo: 1, tres: 1, diminuicao: 1, dupla: 1 };
+export const STRATEGY_LABEL: Record<BinStrategy, string> = { reversao: "Reversão de preço", retracao: "Retração", fluxo: "Fluxo de vela (região)", tres: "Três velas + região", diminuicao: "Diminuição de vela + região", dupla: "Dupla posição (região)", forca: "Vela de força + reteste" };
+export const DEFAULT_EXPIRY: Record<BinStrategy, number> = { reversao: 2, retracao: 3, fluxo: 1, tres: 1, diminuicao: 1, dupla: 1, forca: 1 };
 const LEVEL_RANK: Record<BinLevel, number> = { confirmada: 2, parcial: 1, fraca: 0 };
 export const MIN_INDEX = 60; // velas mínimas antes do primeiro sinal (médias e bandas precisam de histórico)
 
@@ -229,6 +229,45 @@ function doubleFor(S: Series, i: number, dir: BinDir): BinSignal {
   return { strategy: "dupla", label: STRATEGY_LABEL.dupla, dir, level: level(met, touch && !bodyBreak && pivot, 4, 3, pivot), met, total: 5, conds, defaultExpiry: DEFAULT_EXPIRY.dupla };
 }
 
+/**
+ * VELA DE FORÇA + RETESTE (aula "troca de lote"): marca-se o fundo (ou topo) das últimas 12 velas; uma vela forte rompe e FECHA além dele
+ * (vela de força); a região é a parte de cima dela (corpo e pavio, se for de baixa). No PRIMEIRO toque de volta nessa região, entra a favor
+ * do rompimento na próxima vela (retração/reversão no vídeo), expiração de 1 vela. PUT = rompeu o fundo; CALL = rompeu o topo.
+ */
+function forceFor(S: Series, i: number, dir: BinDir): BinSignal {
+  const buy = dir === "CALL", at = S.atr[i], k = S.c[i];
+  type F = { f: number; mark: number; e: number; zlo: number; zhi: number };
+  let found: F | null = null;
+  for (let f = i - 1; f >= Math.max(13, i - 15) && !found; f--) {          // a mais recente vence
+    const x = S.c[f], body = Math.abs(x.c - x.o), range = Math.max(x.h - x.l, 1e-12);
+    if (buy ? x.c <= x.o : x.c >= x.o) continue;                          // cor do rompimento
+    if (body < 0.7 * S.atr[f] || body < 0.6 * range) continue;            // vela de força: corpo grande e dominante
+    let mark = buy ? -Infinity : Infinity, e = -1;
+    for (let j = f - 12; j <= f - 1; j++) { const v = buy ? S.c[j].h : S.c[j].l; if (buy ? v > mark : v < mark) { mark = v; e = j; } }
+    if (buy ? x.c <= mark : x.c >= mark) continue;                         // precisa FECHAR além do fundo/topo marcado
+    // região: parte de cima da vela de baixa (corpo+pavio) ou parte de baixo da vela de alta
+    found = { f, mark, e, zlo: buy ? x.l : x.o, zhi: buy ? x.o : x.h };
+  }
+  const tol = 0.1 * at;
+  const touchAt = (x: Candle) => (buy ? x.l <= found!.zhi + tol : x.h >= found!.zlo - tol);
+  let firstTouch = false, respected = false;
+  if (found) {
+    const after = S.c.slice(found.f + 1, i + 1);
+    firstTouch = touchAt(k) && after.slice(0, -1).every((x) => !touchAt(x));
+    respected = after.every((x) => (buy ? x.c >= found!.zlo : x.c <= found!.zhi));
+  }
+  const ctx = buy ? S.e20[i] > S.e50[i] : S.e20[i] < S.e50[i];
+  const conds: Cond[] = [
+    { ok: !!found && found.e <= found.f - 3, text: buy ? "Topo marcado: o pavio mais alto das 12 velas antes da vela de força" : "Fundo marcado: o pavio mais baixo das 12 velas antes da vela de força" },
+    { ok: !!found, text: buy ? "Vela de força de alta fechou ROMPENDO o topo (corpo grande, mais de 60% da vela)" : "Vela de força de baixa fechou ROMPENDO o fundo (corpo grande, mais de 60% da vela)" },
+    { ok: firstTouch, text: "A última vela é o PRIMEIRO toque de volta na região da vela de força" },
+    { ok: !!found && respected, text: "A região foi respeitada: nenhum fechamento do outro lado dela desde a vela de força" },
+    { ok: ctx, text: buy ? "Contexto a favor: média de 20 acima da média de 50" : "Contexto a favor: média de 20 abaixo da média de 50" },
+  ];
+  const met = conds.filter((x) => x.ok).length;
+  return { strategy: "forca", label: STRATEGY_LABEL.forca, dir, level: level(met, !!found && firstTouch && respected, 4, 3, !!found), met, total: 5, conds, defaultExpiry: DEFAULT_EXPIRY.forca };
+}
+
 const better = (a: BinSignal, b: BinSignal, prefer: BinDir) => (b.met > a.met || (b.met === a.met && b.dir === prefer) ? b : a);
 
 /** Avalia as duas estratégias na vela i (já fechada). Em cada uma escolhe o lado com mais condições atendidas. */
@@ -243,13 +282,14 @@ export function evalAt(S: Series, i: number): Record<BinStrategy, BinSignal> {
     tres: better(threeFor(S, i, "CALL"), threeFor(S, i, "PUT"), k.c > k.o ? "PUT" : "CALL"),
     diminuicao: better(shrinkFor(S, i, "CALL"), shrinkFor(S, i, "PUT"), k.c > k.o ? "PUT" : "CALL"),
     dupla: better(doubleFor(S, i, "CALL"), doubleFor(S, i, "PUT"), k.c > S.mid[i] ? "PUT" : "CALL"),
+    forca: better(forceFor(S, i, "CALL"), forceFor(S, i, "PUT"), k.c < S.e20[i] ? "PUT" : "CALL"),
   };
 }
 
 /** Melhor sinal agora: nível (confirmada > parcial > fraca), depois condições atendidas. Sempre devolve algo quando há histórico. */
 export function bestOf(sig: Record<BinStrategy, BinSignal>, pick: BinStrategy | "auto"): BinSignal {
   if (pick !== "auto") return sig[pick];
-  const list = [sig.reversao, sig.retracao, sig.fluxo, sig.tres, sig.diminuicao, sig.dupla];
+  const list = [sig.reversao, sig.retracao, sig.fluxo, sig.tres, sig.diminuicao, sig.dupla, sig.forca];
   return list.sort((a, b) => LEVEL_RANK[b.level] - LEVEL_RANK[a.level] || b.met - a.met)[0];
 }
 
