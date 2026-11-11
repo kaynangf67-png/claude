@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  AlertTriangle, ArrowDownRight, ArrowUpRight, Ban, Check, ClipboardPaste, ImagePlus, Loader2, RefreshCw, Trash2, X,
+  AlertTriangle, ArrowDownRight, ArrowUpRight, Ban, Camera, Check, ClipboardPaste, ImagePlus, Loader2, RefreshCw, Trash2, X,
 } from "lucide-react";
 import type { Result } from "../server/analyze";
 import { prepareImage } from "./lib/image";
@@ -94,6 +94,7 @@ export default function App() {
     } catch { /* sem armazenamento */ }
   };
   const [drag, setDrag] = useState(false);
+  const cameraRef = useRef<HTMLInputElement>(null); // abre a câmera do aparelho (no computador, abre o seletor de arquivos)
 
   useEffect(() => save(history), [history]);
   useEffect(() => {
@@ -247,10 +248,19 @@ export default function App() {
             )}
           </label>
 
-          <button type="button" onClick={pasteFromClipboard}
-            className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-buy/40 bg-buy/10 py-2.5 text-[13.5px] font-bold text-buy transition-colors hover:bg-buy/20">
-            <ClipboardPaste size={16} /> Colar imagem copiada
-          </button>
+          <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" aria-label="Tirar foto do gráfico"
+            onChange={(e) => { const f = e.target.files?.[0]; take(f, Date.now()); e.target.value = ""; }} />
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button type="button" onClick={() => cameraRef.current?.click()}
+              className="flex items-center justify-center gap-2 rounded-xl border border-info/40 bg-info/10 py-2.5 text-[13.5px] font-bold text-info transition-colors hover:bg-info/20">
+              <Camera size={16} /> Tirar foto
+            </button>
+            <button type="button" onClick={pasteFromClipboard}
+              className="flex items-center justify-center gap-2 rounded-xl border border-buy/40 bg-buy/10 py-2.5 text-[13.5px] font-bold text-buy transition-colors hover:bg-buy/20">
+              <ClipboardPaste size={16} /> Colar imagem
+            </button>
+          </div>
+          <p className="mt-2 text-[11.5px] leading-relaxed text-faint">Na foto, enquadre só o gráfico, com as velas mais recentes e a escala de preço visíveis, sem reflexo e sem cortar o tempo gráfico.</p>
           {pasteBox && (
             <div className="mt-2 space-y-1.5">
               <p className="text-[12px] text-warn">{pasteBox}</p>
