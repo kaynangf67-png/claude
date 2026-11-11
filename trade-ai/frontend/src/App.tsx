@@ -9,6 +9,7 @@ import { load, save, type Entry } from "./lib/history";
 import { Logo } from "./components/Logo";
 import { Candle3D, CandleScene, Tilt } from "./components/ThreeD";
 import { LiveMarket } from "./components/LiveMarket";
+import { BinaryAnalysis } from "./components/BinaryAnalysis";
 import { DEFAULT_TF, MarketAnalysis, TF_OPTIONS, type Horizon, type SetupTf, type TfChoice } from "./components/MarketAnalysis";
 import { findAsset, marketState } from "./lib/markets";
 
@@ -219,6 +220,8 @@ export default function App() {
 
       <LiveMarket asset={asset} state={state} clock={clock} onPick={pickAsset} tf={chartTf} />
       <MarketAnalysis asset={asset} horizon={choice.hz} tf={choice.tf} onChange={changeChoice} onPicked={setAiTf} />
+      <BinaryAnalysis asset={asset} payoutPct={payout}
+        onRecord={(e) => setHistory((h) => [{ id: crypto.randomUUID(), at: Date.now(), symbol: e.symbol, timeframe: e.timeframe, decision: e.decision, quality: e.quality, payout: payout / 100, entryAt: e.entryAt, expiryAt: e.expiryAt, result: null }, ...h])} />
 
       <main className="mt-5 grid flex-1 gap-5 lg:grid-cols-[1.1fr_1fr]">
         {/* Print */}
