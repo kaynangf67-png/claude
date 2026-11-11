@@ -8,15 +8,15 @@ import type { Candle } from "../forex/types.js";
  * Binária não tem stop nem alvo: o resultado é só "o preço fechou acima ou abaixo da entrada na expiração".
  * Nada aqui prevê a próxima vela. É o conjunto de condições técnicas que o gráfico mostra agora.
  */
-export type BinStrategy = "reversao" | "retracao";
+export type BinStrategy = "reversao" | "retracao" | "fluxo" | "tres";
 export type BinDir = "CALL" | "PUT";
 export type BinLevel = "confirmada" | "parcial" | "fraca";
 export interface Cond { ok: boolean; text: string }
 export interface BinSignal {
   strategy: BinStrategy; label: string; dir: BinDir; level: BinLevel; met: number; total: number; conds: Cond[]; defaultExpiry: number;
 }
-export const STRATEGY_LABEL: Record<BinStrategy, string> = { reversao: "Reversão de preço", retracao: "Retração" };
-export const DEFAULT_EXPIRY: Record<BinStrategy, number> = { reversao: 2, retracao: 3 };
+export const STRATEGY_LABEL: Record<BinStrategy, string> = { reversao: "Reversão de preço", retracao: "Retração", fluxo: "Fluxo de vela (região)", tres: "Três velas + região" };
+export const DEFAULT_EXPIRY: Record<BinStrategy, number> = { reversao: 2, retracao: 3, fluxo: 1, tres: 1 };
 const LEVEL_RANK: Record<BinLevel, number> = { confirmada: 2, parcial: 1, fraca: 0 };
 export const MIN_INDEX = 60; // velas mínimas antes do primeiro sinal (médias e bandas precisam de histórico)
 
@@ -88,6 +88,93 @@ function retracementFor(S: Series, i: number, dir: BinDir): BinSignal {
   return { strategy: "retracao", label: STRATEGY_LABEL.retracao, dir, level: level(met, resume, 4, 3, trend), met, total: 5, conds, defaultExpiry: DEFAULT_EXPIRY.retracao };
 }
 
+/**
+ * FLUXO DE VELA (região): o preço toca uma região de suporte/resistência (nível testado ao menos 2 vezes), retrai e a vela de
+ * confirmação fecha a favor; entrada na PRÓXIMA vela, expiração em 1 vela. Região = pivôs (topos e fundos já confirmados por 3 velas)
+ * agrupados a até 0,5 ATR; vale tanto como suporte quanto como resistência, conforme o lado do preço.
+ */
+/** Pivôs (topos e fundos confirmados por 3 velas) das últimas 100 velas, sem os 4 mais recentes. Pivôs a menos de 3 velas do anterior contam como um só. */
+function pivotPrices(S: Series, i: number): number[] {
+  const prices: number[] = [];
+  let lastHi = -9, lastLo = -9;
+  for (let j = Math.max(3, i - 100); j <= i - 5; j++) {
+    let hi = true, lo = true;
+    for (let q = j - 3; q <= j + 3; q++) { if (q === j) continue; if (S.c[q].h > S.c[j].h) hi = false; if (S.c[q].l < S.c[j].l) lo = false; }
+    if (hi && j - lastHi >= 3) { prices.push(S.c[j].h); lastHi = j; }
+    if (lo && j - lastLo >= 3) { prices.push(S.c[j].l); lastLo = j; }
+  }
+  return prices;
+}
+interface Zone { lo: number; hi: number; n: number }
+/** Região = pivôs agrupados a até 0,5 ATR (ao menos 2). Suporte fica abaixo do preço; resistência, acima. Devolve a mais próxima do extremo (mín./máx. das velas do toque). */
+function nearestZone(S: Series, i: number, buy: boolean, extreme: number): { zone: Zone | null; dist: number } {
+  const at = S.atr[i], prices = pivotPrices(S, i), close = S.c[i].c;
+  let zone: Zone | null = null, best = Infinity;
+  for (const p of prices) {
+    const m = prices.filter((x) => Math.abs(x - p) <= 0.5 * at);
+    if (m.length < 2) continue;
+    const z = { lo: Math.min(...m) - 0.15 * at, hi: Math.max(...m) + 0.15 * at, n: m.length };
+    if (buy ? z.lo > close : z.hi < close) continue;
+    const d = extreme < z.lo ? z.lo - extreme : extreme > z.hi ? extreme - z.hi : 0;
+    if (d < best) { best = d; zone = z; }
+  }
+  return { zone, dist: best };
+}
+
+/**
+ * FLUXO DE VELA (região): o preço toca uma região de suporte/resistência (nível testado ao menos 2 vezes), retrai e a vela de
+ * confirmação fecha a favor; entrada na PRÓXIMA vela, expiração em 1 vela. A região vale tanto como suporte quanto como resistência.
+ */
+function flowFor(S: Series, i: number, dir: BinDir): BinSignal {
+  const buy = dir === "CALL", k = S.c[i], at = S.atr[i];
+  const win = [i - 2, i - 1, i].map((j) => S.c[j]);
+  const extreme = buy ? Math.min(...win.map((x) => x.l)) : Math.max(...win.map((x) => x.h));
+  const { zone, dist } = nearestZone(S, i, buy, extreme);
+  const near = !!zone && dist <= 1.0 * at;
+  const z = near ? zone! : null;
+  const t = z ? [...win].reverse().find((x) => (buy ? x.l <= z.hi : x.h >= z.lo)) ?? null : null;
+  const tr = t ? Math.max(t.h - t.l, 1e-12) : 1;
+  const wick = t ? (buy ? (Math.min(t.o, t.c) - t.l) / tr : (t.h - Math.max(t.o, t.c)) / tr) : 0;
+  const retracted = !!(t && z && (buy ? t.c >= z.lo && (t.c >= z.hi || wick >= 0.4) : t.c <= z.hi && (t.c <= z.lo || wick >= 0.4)));
+  const held = !!z && win.every((x) => (buy ? x.c >= z.lo : x.c <= z.hi));
+  const confirm = !!z && (buy ? k.c > k.o && k.c > z.hi : k.c < k.o && k.c < z.lo);
+  const conds: Cond[] = [
+    { ok: near, text: buy ? "Região de suporte testada 2 ou mais vezes perto do preço" : "Região de resistência testada 2 ou mais vezes perto do preço" },
+    { ok: !!t, text: "O preço tocou a região nas últimas 3 velas" },
+    { ok: retracted, text: "Retraiu: a vela do toque não fechou dentro/através da região (fechou acima/abaixo ou deixou pavio de rejeição)" },
+    { ok: held, text: "A região foi respeitada: nenhum fechamento do outro lado nas últimas 3 velas" },
+    { ok: confirm, text: buy ? "Vela de confirmação verde, fechando acima da região" : "Vela de confirmação vermelha, fechando abaixo da região" },
+  ];
+  const met = conds.filter((x) => x.ok).length;
+  return { strategy: "fluxo", label: STRATEGY_LABEL.fluxo, dir, level: level(met, confirm && !!t, 4, 3, near), met, total: 5, conds, defaultExpiry: DEFAULT_EXPIRY.fluxo };
+}
+
+/**
+ * TRÊS VELAS + REGIÃO (reversão): três velas seguidas da mesma cor, QUALQUER tamanho, chegam numa região testada; a 3ª toca a região.
+ * Entra CONTRA, na próxima vela, expiração em 1 vela. PUT = 3 verdes na resistência; CALL = 3 vermelhas no suporte.
+ */
+function threeFor(S: Series, i: number, dir: BinDir): BinSignal {
+  const buy = dir === "CALL", at = S.atr[i];
+  const win = [i - 2, i - 1, i].map((j) => S.c[j]), k = S.c[i];
+  const same = win.every((x) => (buy ? x.c < x.o : x.c > x.o));
+  const extreme = buy ? Math.min(...win.map((x) => x.l)) : Math.max(...win.map((x) => x.h));
+  const { zone, dist } = nearestZone(S, i, buy, extreme);
+  const near = !!zone && dist <= 1.0 * at;
+  const z = near ? zone! : null;
+  const touch = !!z && (buy ? k.l <= z.hi : k.h >= z.lo);
+  const respected = !!z && (buy ? k.c >= z.lo : k.c <= z.hi);
+  const history = !!z && z.n >= 3;
+  const conds: Cond[] = [
+    { ok: near, text: buy ? "Região de suporte testada 2 ou mais vezes perto do preço" : "Região de resistência testada 2 ou mais vezes perto do preço" },
+    { ok: same, text: buy ? "Três velas vermelhas seguidas (qualquer tamanho)" : "Três velas verdes seguidas (qualquer tamanho)" },
+    { ok: touch, text: "A 3ª vela tocou a região" },
+    { ok: respected, text: "A 3ª vela não fechou do outro lado da região (não rompeu)" },
+    { ok: history, text: "A região já respondeu antes: 3 ou mais testes no histórico" },
+  ];
+  const met = conds.filter((x) => x.ok).length;
+  return { strategy: "tres", label: STRATEGY_LABEL.tres, dir, level: level(met, same && touch, 4, 3, near && same), met, total: 5, conds, defaultExpiry: DEFAULT_EXPIRY.tres };
+}
+
 const better = (a: BinSignal, b: BinSignal, prefer: BinDir) => (b.met > a.met || (b.met === a.met && b.dir === prefer) ? b : a);
 
 /** Avalia as duas estratégias na vela i (já fechada). Em cada uma escolhe o lado com mais condições atendidas. */
@@ -98,13 +185,15 @@ export function evalAt(S: Series, i: number): Record<BinStrategy, BinSignal> {
   return {
     reversao: better(reversalFor(S, i, "CALL"), reversalFor(S, i, "PUT"), reversalPrefer),
     retracao: better(retracementFor(S, i, "CALL"), retracementFor(S, i, "PUT"), trendPrefer),
+    fluxo: better(flowFor(S, i, "CALL"), flowFor(S, i, "PUT"), trendPrefer),
+    tres: better(threeFor(S, i, "CALL"), threeFor(S, i, "PUT"), k.c > k.o ? "PUT" : "CALL"),
   };
 }
 
 /** Melhor sinal agora: nível (confirmada > parcial > fraca), depois condições atendidas. Sempre devolve algo quando há histórico. */
 export function bestOf(sig: Record<BinStrategy, BinSignal>, pick: BinStrategy | "auto"): BinSignal {
   if (pick !== "auto") return sig[pick];
-  const list = [sig.reversao, sig.retracao];
+  const list = [sig.reversao, sig.retracao, sig.fluxo, sig.tres];
   return list.sort((a, b) => LEVEL_RANK[b.level] - LEVEL_RANK[a.level] || b.met - a.met)[0];
 }
 

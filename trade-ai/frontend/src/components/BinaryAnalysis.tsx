@@ -6,18 +6,20 @@ import { hhmm } from "../lib/math";
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 const pct = (v: number | null) => (v === null ? "—" : `${(v * 100).toFixed(1).replace(".", ",")}%`);
 
-type Strat = "auto" | "reversao" | "retracao";
+type Strat = "auto" | "reversao" | "retracao" | "fluxo" | "tres";
 type Tf = "M1" | "M5" | "M15";
 const STRATS: { id: Strat; title: string; sub: string }[] = [
   { id: "auto", title: "✦ IA escolhe", sub: "a mais completa agora" },
   { id: "reversao", title: "Reversão de preço", sub: "preço esticado volta à média" },
   { id: "retracao", title: "Retração", sub: "recuo na tendência, retoma" },
+  { id: "fluxo", title: "Fluxo de vela", sub: "toca a região, confirma, entra" },
+  { id: "tres", title: "Três velas + região", sub: "3 da mesma cor na região, entra contra" },
 ];
 const TFS: Tf[] = ["M1", "M5", "M15"];
 const EXPIRIES = [0, 1, 2, 3, 5]; // 0 = sugerida pela estratégia
 
 interface Signal {
-  strategy: "reversao" | "retracao"; label: string; dir: "CALL" | "PUT"; level: "confirmada" | "parcial" | "fraca"; met: number; total: number;
+  strategy: "reversao" | "retracao" | "fluxo" | "tres"; label: string; dir: "CALL" | "PUT"; level: "confirmada" | "parcial" | "fraca"; met: number; total: number;
   conds: { ok: boolean; text: string }[]; expiryCandles: number; expiryMinutes: number; entryAt: number; expiryAt: number;
 }
 interface Result {
@@ -63,7 +65,7 @@ export function BinaryAnalysis({ asset, payoutPct, onRecord }: {
     } catch (e) { setError(e instanceof TypeError ? "Sem conexão com o servidor." : (e as Error).message); } finally { setBusy(false); }
   };
   const runBt = async () => {
-    const st = res?.signal?.strategy ?? (strategy === "retracao" ? "retracao" : "reversao");
+    const st = res?.signal?.strategy ?? (strategy === "auto" ? "reversao" : strategy);
     setBtBusy(true); setError(null);
     try { setBt(await call(`/api/binary?action=backtest&symbol=${asset.id}&tf=${tf}&strategy=${st}&payout=${payoutPct / 100}${expiry ? `&expiry=${expiry}` : ""}`)); }
     catch (e) { setError((e as Error).message); } finally { setBtBusy(false); }
@@ -78,7 +80,7 @@ export function BinaryAnalysis({ asset, payoutPct, onRecord }: {
         <span className="ml-auto text-[11.5px] text-faint">1 a 15 minutos · só análise</span>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-3" role="group" aria-label="Estratégia">
+      <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3" role="group" aria-label="Estratégia">
         {STRATS.map((o) => (
           <button key={o.id} onClick={() => setStrategy(o.id)} aria-pressed={strategy === o.id}
             className={cx("rounded-xl border px-3 py-2.5 text-left transition-colors", strategy === o.id ? "border-warn bg-warn/15 text-ink" : "border-line bg-panel text-mute hover:border-line-2 hover:text-ink")}>
