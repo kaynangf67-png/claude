@@ -18,7 +18,7 @@ const SPEC: Record<BTf, { interval: string; live: string; test: string }> = {
   M1: { interval: "1m", live: "2d", test: "7d" }, M5: { interval: "5m", live: "5d", test: "60d" }, M15: { interval: "15m", live: "10d", test: "60d" },
 };
 const isTf = (v: unknown): v is BTf => typeof v === "string" && (BINARY_TFS as readonly string[]).includes(v);
-const isStrategy = (v: unknown): v is BinStrategy | "auto" => v === "auto" || v === "reversao" || v === "retracao" || v === "fluxo" || v === "tres";
+const isStrategy = (v: unknown): v is BinStrategy | "auto" => v === "auto" || v === "reversao" || v === "retracao" || v === "fluxo" || v === "tres" || v === "diminuicao";
 
 export async function fetchBinarySeries(assetId: string, tf: BTf, range: "live" | "test"): Promise<Candle[]> {
   const a = BINARY_ASSETS[assetId];
@@ -39,7 +39,7 @@ export async function handleBinary(request: Request, deps: BinDeps = {}): Promis
       const id = (url.searchParams.get("symbol") ?? "EURUSD").toUpperCase(), tf = url.searchParams.get("tf") ?? "M5", st = url.searchParams.get("strategy") ?? "reversao";
       if (!BINARY_ASSETS[id]) return json({ error: "Ativo desconhecido" }, 400);
       if (!isTf(tf)) return json({ error: "Tempo gráfico inválido (use M1, M5 ou M15)" }, 400);
-      if (st !== "reversao" && st !== "retracao" && st !== "fluxo" && st !== "tres") return json({ error: "Estratégia inválida (reversao, retracao, fluxo ou tres)" }, 400);
+      if (st !== "reversao" && st !== "retracao" && st !== "fluxo" && st !== "tres" && st !== "diminuicao") return json({ error: "Estratégia inválida (reversao, retracao, fluxo, tres ou diminuicao)" }, 400);
       const payout = num(url.searchParams.get("payout"), 0.5, 1, 0.85), expiry = Math.round(num(url.searchParams.get("expiry"), 1, 10, DEFAULT_EXPIRY[st]));
       const candles = closedOnly(await get(id, tf, "test"), tf as TF, now);
       const out = (minLevel: "confirmada" | "parcial") => backtestBinary(candles, { strategy: st, expiry, payout, minLevel });

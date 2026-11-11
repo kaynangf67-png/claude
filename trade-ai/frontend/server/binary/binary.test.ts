@@ -232,13 +232,56 @@ describe("três velas + região (reversão)", () => {
     const r = analyzeLatest(c, "tres")!.best;
     expect(r.dir === "PUT" && r.level === "confirmada").toBe(false);
   });
-  it("modo auto compara as 4 estratégias e a rota aceita 'tres'", async () => {
+  it("modo auto compara as 5 estratégias e a rota aceita 'tres'", async () => {
     const c = resistanceSetup(), now = (c.at(-1)!.t + 300 + 20) * 1000;
-    expect(Object.keys(analyzeLatest(c, "auto")!.signals).sort()).toEqual(["fluxo", "retracao", "reversao", "tres"]);
+    expect(Object.keys(analyzeLatest(c, "auto")!.signals).sort()).toEqual(["diminuicao", "fluxo", "retracao", "reversao", "tres"]);
     const j = await (await handleBinary(new Request("http://x/api/binary", { method: "POST", body: JSON.stringify({ asset: "EURUSD", tf: "M5", strategy: "tres" }) }), { series: async () => c, now: () => now })).json();
     expect(j.signal.strategy).toBe("tres");
     expect(j.signal.dir).toBe("PUT");
     expect(j.signal.expiryCandles).toBe(1);
     expect((await handleBinary(new Request("http://x/api/binary?action=backtest&symbol=EURUSD&tf=M5&strategy=tres"), { series: async () => c, now: () => now })).status).toBe(200);
+  });
+});
+
+describe("diminuição de vela + região", () => {
+  const osc = () => Array.from({ length: 72 }, (_, k) => 1.1 + 0.0015 * Math.sin((2 * Math.PI * k) / 24));
+  /** 3 verdes com corpos 0.0010 > 0.0005 > 0.0002 chegando na resistência (~1.1015). */
+  const setup = (bodies: [number, number, number] = [0.0010, 0.0005, 0.0002]): Candle[] => {
+    const c = fromCloses(osc()), t = c.at(-1)!.t;
+    const end = 1.1015 - 0.0001, [b1, b2, b3] = bodies;
+    const o3 = end - b3, o2 = o3 - b2, o1 = o2 - b1;
+    const mk = (n: number, o: number, cl: number, extra = 0.00005): Candle => ({ t: t + n * 300, o, c: cl, h: cl + extra, l: o - extra });
+    return [...c, mk(1, o1, o2), mk(2, o2, o3), { ...mk(3, o3, end), h: 1.1016 }];
+  };
+  const mirror = (c: Candle[]): Candle[] => c.map((k) => ({ t: k.t, o: 2.2 - k.o, c: 2.2 - k.c, h: 2.2 - k.l, l: 2.2 - k.h }));
+
+  it("3 verdes perdendo tamanho na resistência = PUT confirmada, 1 vela", () => {
+    const r = analyzeLatest(setup(), "diminuicao")!.best;
+    expect(r.dir).toBe("PUT");
+    expect(r.conds.map((x) => x.ok)).toEqual([true, true, true, true, true]);
+    expect(r.level).toBe("confirmada");
+    expect(r.defaultExpiry).toBe(1);
+  });
+  it("espelho: 3 vermelhas perdendo tamanho no suporte = CALL", () => {
+    const r = analyzeLatest(mirror(setup()), "diminuicao")!.best;
+    expect(r.dir).toBe("CALL");
+    expect(r.level).toBe("confirmada");
+  });
+  it("velas CRESCENDO (ganhando força) não confirmam esta estratégia", () => {
+    const r = analyzeLatest(setup([0.0002, 0.0005, 0.0010]), "diminuicao")!.best;
+    expect(r.level).not.toBe("confirmada");
+    expect(r.conds[2].ok).toBe(false);
+  });
+  it("3ª vela grande (não diminuiu o bastante) não confirma, mas a 'três velas' simples ainda pode", () => {
+    const c = setup([0.0010, 0.0008, 0.0007]);
+    expect(analyzeLatest(c, "diminuicao")!.best.conds[3].ok).toBe(false);
+    expect(analyzeLatest(c, "diminuicao")!.best.level).not.toBe("confirmada");
+  });
+  it("entra no modo auto (5 estratégias) e na rota", async () => {
+    const c = setup(), now = (c.at(-1)!.t + 300 + 20) * 1000;
+    expect(Object.keys(analyzeLatest(c, "auto")!.signals)).toHaveLength(5);
+    const j = await (await handleBinary(new Request("http://x/api/binary", { method: "POST", body: JSON.stringify({ asset: "EURUSD", tf: "M5", strategy: "diminuicao" }) }), { series: async () => c, now: () => now })).json();
+    expect(j.signal.strategy).toBe("diminuicao");
+    expect(j.signal.dir).toBe("PUT");
   });
 });
