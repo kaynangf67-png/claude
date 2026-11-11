@@ -132,3 +132,16 @@ describe("API /api/analyze", () => {
     expect(headers!.get("anthropic-beta")).toContain("server-side-fallback-2026-07-01");
   });
 });
+
+describe("stop e alvo no print", () => {
+  const r = { is_chart: true, platform: null, symbol: "GBPUSD", timeframe: "M1", last_price: 1.3395, visible_time: null, trend: "alta", last_candles: "", supports: [], resistances: [], indicators: [],
+    decision: "CALL", setup_quality: "moderada", entry_reference_price: 1.3395, expiration_candles: 2, reasons: ["a", "b"], against: [], invalidation: null, missing: [], request_new_capture: false, new_capture_reason: null } as const;
+  it("mantém quando estão do lado certo; descarta quando não", () => {
+    const ok = applyGuards({ ...r, stop_price: 1.3388, target_price: 1.3408 } as never, 0);
+    expect([ok.stop_price, ok.target_price]).toEqual([1.3388, 1.3408]);
+    const bad = applyGuards({ ...r, stop_price: 1.34, target_price: 1.3408 } as never, 0);
+    expect([bad.stop_price, bad.target_price]).toEqual([null, null]);
+    const put = applyGuards({ ...r, decision: "PUT", stop_price: 1.3402, target_price: 1.3385 } as never, 0);
+    expect(put.stop_price).toBe(1.3402);
+  });
+});

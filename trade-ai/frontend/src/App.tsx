@@ -355,6 +355,13 @@ function ResultView({ r, timing }: { r: Result; timing: { entry: Date; expiry: D
             hint={late ? "não entre atrasado" : "pelo relógio do aparelho"} tone={late ? "text-sell" : "text-warn"} />
         </div>
       )}
+      {!wait && r.stop_price != null && r.target_price != null && (
+        <div className="grid grid-cols-3 gap-px overflow-hidden rounded-2xl border border-line bg-line text-center">
+          <Cell k="Referência" v={num(r.entry_reference_price ?? r.last_price)} hint="preço no print" />
+          <Cell k="Stop" v={num(r.stop_price)} hint="invalida a entrada" tone="text-sell" />
+          <Cell k="Alvo" v={num(r.target_price)} hint="próximo nível" tone="text-buy" />
+        </div>
+      )}
       {!wait && r.entry_reference_price !== null && (
         <div className="text-[12.5px] text-mute">Preço de referência no print: <b className="num text-ink">{num(r.entry_reference_price)}</b></div>
       )}

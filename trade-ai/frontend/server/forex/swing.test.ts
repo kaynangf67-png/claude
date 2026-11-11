@@ -211,3 +211,28 @@ describe("IA recomenda o tempo gráfico (tf=auto)", () => {
     expect(order).toEqual(["entrada_confirmada:80", "entrada_confirmada:70", "aguardando_confirmacao:95", "sem_operacao:90", "entrada_confirmada:99"]);
   });
 });
+
+describe("gerar entrada (entry:true): sempre devolve stop e alvo com dados válidos", () => {
+  const flat = noisy(3, 2360);
+  const now = (flat.at(-1)!.t + 300) * 1000;
+  const series: Deps["series"] = async (_id, tf) => { if (tf === "M1") throw new Error("x"); return { candles: tf === "M5" ? flat : aggregate(flat, tf === "H1" ? 12 : 3), duplicates: 0, invalid: 0 }; };
+  const call = async (body: object, n = now) => (await handleForexAnalyze(new Request("http://x/api/forex", { method: "POST", body: JSON.stringify({ asset: "GBPUSD", explain: false, ...body }) }), { series, calendar: async () => [], now: () => n })).json();
+  it("sem entry continua NO_TRADE sem sugestão; com entry vem entrada confirmada/antecipada ou plano de baixa convicção coerente", async () => {
+    const plain = await call({});
+    expect(plain.decision).toBe("NO_TRADE");
+    expect(plain.suggested).toBeNull();
+    const j = await call({ entry: true });
+    const has = (j.state === "entrada_confirmada" || j.state === "entrada_antecipada") && j.trade;
+    expect(!!has || !!j.suggested).toBe(true);
+    const p = has ? { dir: j.trade.dir, entry: j.trade.entry, sl: j.trade.sl, tp: j.trade.tps[0] } : { dir: j.suggested.dir, entry: j.suggested.entry, sl: j.suggested.sl, tp: j.suggested.tps[0] };
+    if (p.dir === "BUY") { expect(p.sl).toBeLessThan(p.entry); expect(p.tp).toBeGreaterThan(p.entry); }
+    else { expect(p.sl).toBeGreaterThan(p.entry); expect(p.tp).toBeLessThan(p.entry); }
+    if (j.suggested) { expect(j.suggested.basis.length).toBeGreaterThan(1); expect(j.suggested.riskPips).toBeGreaterThan(0); }
+  });
+  it("dados atrasados (mercado fechado): nenhuma entrada é inventada", async () => {
+    const j = await call({ entry: true }, now + 3 * 86400_000);
+    expect(j.data.ok).toBe(false);
+    expect(j.suggested).toBeNull();
+    expect(j.trade).toBeNull();
+  });
+});

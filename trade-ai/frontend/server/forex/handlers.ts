@@ -61,7 +61,7 @@ export function toView(a: ForexAnalysis, pip: number, m5?: { t: number; o: numbe
 
 export async function handleForexAnalyze(request: Request, deps: Deps = {}): Promise<Response> {
   if (request.method !== "POST") return json({ error: "Método não permitido" }, 405);
-  let body: { asset?: unknown; explain?: unknown; profile?: unknown; history?: unknown; horizon?: unknown; tf?: unknown };
+  let body: { asset?: unknown; explain?: unknown; profile?: unknown; history?: unknown; horizon?: unknown; tf?: unknown; entry?: unknown };
   try { body = await request.json(); } catch { return json({ error: "JSON inválido" }, 400); }
   const id = typeof body.asset === "string" ? body.asset : "";
   if (!FOREX_YAHOO[id]) return json({ error: "Par de Forex desconhecido" }, 400);
@@ -100,14 +100,28 @@ export async function handleForexAnalyze(request: Request, deps: Deps = {}): Pro
   }
   if (!runs.length) return json({ error: firstError ?? "Sem dados." }, 502);
   const ranked = [...runs].sort((x, y) => setupStrength(y.analysis) - setupStrength(x.analysis));
-  const { R, analysis } = ranked[0];
+  const R = ranked[0].R;
+  let analysis = ranked[0].analysis;
+  // entry:true (botão "gerar entrada" do app): sempre devolve direção, entrada, stop e alvo quando há dados válidos.
+  // 1º a entrada confirmada; 2º a antecipada (perfil Livre, sem todos os filtros); 3º um plano pela leitura do gráfico (baixa convicção).
+  const wantEntry = body.entry === true;
+  const hasEntry = (a: ForexAnalysis) => !!a.trade && (a.state === "entrada_confirmada" || a.state === "entrada_antecipada");
+  if (wantEntry && analysis.data.ok && !hasEntry(analysis)) {
+    const a2 = analyze({
+      symbol: id, label: FOREX_LABEL(id), pip, currencies: currenciesOf(id), now, events,
+      candles: { H1: closed(R.ctx)!, M5: closed(R.setup)!, M1: closed(R.trigger), M15: closed(R.struct) },
+      profile: sanitizeProfile({ ...profile, style: "livre", minRR: 1 }), history, horizon, roles: R,
+    });
+    if (hasEntry(a2)) analysis = a2;
+  }
+  const suggested = wantEntry && analysis.data.ok && !hasEntry(analysis) ? suggestEntry(analysis, pip, R.setup) : null;
   const autoPick = auto ? {
     tf: R.setup,
     reason: autoReason(analysis, ranked.length),
     ranking: ranked.map((x) => ({ tf: x.R.setup, decision: x.analysis.decision, state: x.analysis.state, score: x.analysis.score?.total ?? null,
       rr: x.analysis.trade?.rr[0] ?? null, dataOk: x.analysis.data.ok })),
   } : null;
-  const view = { ...toView(analysis, pip, closed(R.setup)!), horizon, roleTf: R, autoPick };
+  const view = { ...toView(analysis, pip, closed(R.setup)!), horizon, roleTf: R, autoPick, suggested };
   let narrative = null as Awaited<ReturnType<typeof narrate>> | null, narrativeError: string | null = null;
   const wantsExplain = body.explain !== false && (analysis.decision !== "NO_TRADE" || analysis.state === "aguardando_confirmacao");
   if (wantsExplain && (deps.narrate || process.env.ANTHROPIC_API_KEY)) {
@@ -177,4 +191,27 @@ export async function handleForexBacktest(request: Request, deps: Deps = {}): Pr
   });
   const first = c5[0]?.t ?? 0, last = c5.at(-1)?.t ?? 0;
   return json({ symbol: id, label: FOREX_LABEL(id), period: { from: brt(first), to: brt(last), days: Math.round((last - first) / 86400), candlesM5: c5.length, candlesSetup: c5.length, tfSeconds: TF_SECONDS[R.setup] }, horizon, ...result, note: horizon === "swing" ? swingBacktestNote : backtestNote });
+}
+
+export interface Suggested { dir: "BUY" | "SELL"; entry: number; sl: number; tps: number[]; rr: number[]; riskPips: number; basis: string[] }
+/** Plano de BAIXA CONVICÇÃO quando nenhuma estratégia confirmou: direção pela tendência do setup, stop além do último
+ * fundo/topo (entre 1 e 3 ATR) e alvos em 1,5R e 2,5R. Não passou pelos filtros nem pelo backtest: é só a leitura do momento. */
+export function suggestEntry(a: ForexAnalysis, pip: number, setupTf: string): Suggested | null {
+  const t = a.tfs.M5, atr = t.atr, price = a.price;
+  if (!(atr > 0) || !(price > 0)) return null;
+  const basis: string[] = [];
+  let dir: "BUY" | "SELL";
+  if (t.trend === "alta" || t.trend === "baixa") { dir = t.trend === "alta" ? "BUY" : "SELL"; basis.push(`Tendência de ${t.trend} no ${setupTf} (topos e fundos).`); }
+  else if (t.ema.stack === "alta" || t.ema.stack === "baixa") { dir = t.ema.stack === "alta" ? "BUY" : "SELL"; basis.push(`Médias alinhadas para ${t.ema.stack} no ${setupTf}.`); }
+  else { dir = price >= t.ema.e20 ? "BUY" : "SELL"; basis.push(`${setupTf} lateral: direção só pelo preço ${dir === "BUY" ? "acima" : "abaixo"} da média de 20 (sinal fraco).`); }
+  const buy = dir === "BUY";
+  const piv = t.pivots.filter((p) => p.type === (buy ? "low" : "high") && (buy ? p.price < price : p.price > price)).at(-1);
+  let dist = piv ? Math.abs(price - piv.price) + 0.5 * atr : 1.5 * atr;
+  const raw = dist; dist = Math.min(3 * atr, Math.max(1 * atr, dist));
+  basis.push(piv && raw === dist ? `Stop além do último ${buy ? "fundo" : "topo"} do ${setupTf}, com margem de 0,5 ATR.` : `Stop a ${(dist / atr).toFixed(1)} ATR do ${setupTf} (${piv ? "o ponto estrutural ficava fora da faixa de 1 a 3 ATR" : "sem fundo/topo próximo"}).`);
+  basis.push("Alvos fixos em 1,5R e 2,5R (não são alvos estruturais).");
+  const r = (v: number) => Math.round(v / (pip / 10)) * (pip / 10);
+  const sl = r(buy ? price - dist : price + dist);
+  const tps = [1.5, 2.5].map((k) => r(buy ? price + k * dist : price - k * dist));
+  return { dir, entry: r(price), sl, tps, rr: [1.5, 2.5], riskPips: Math.round((dist / pip) * 10) / 10, basis };
 }

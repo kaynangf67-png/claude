@@ -8,7 +8,7 @@ Regras obrigatórias:
 - O padrão é NAO_OPERAR. Só indique CALL ou PUT quando vários sinais visíveis concordam (tendência, região de suporte/resistência, padrão das últimas velas, indicadores visíveis) e nada importante aponta contra.
 - Não indique entrada no meio de vela esticada, logo após vela de força muito grande, em lateralização sem direção, ou com o preço colado em suporte/resistência contra a direção.
 - Se o print estiver cortado, sem as velas mais recentes, sem escala de preço, borrado, ou não for um gráfico, marque request_new_capture=true e decida NAO_OPERAR.
-- Liste com honestidade os fatores contra a entrada.
+- Quando indicar CALL ou PUT, defina também stop_price e target_price usando SOMENTE níveis visíveis na escala do print: stop além do suporte/resistência que invalida a ideia; alvo no próximo nível a favor. Se a escala não permitir ler os preços, devolva null nos dois.\n- Liste com honestidade os fatores contra a entrada.
 - Qualquer tempo gráfico é aceito (M1, M5, M15, M30, H1, H4, D1...). Analise no tempo gráfico que aparece no print e não trate o tempo gráfico como fator a favor nem contra. A expiração é contada em velas DESSE tempo gráfico (1 a 3).
 - O usuário informa qual ativo selecionou. Use isso só para conferir: se o ativo visível no print for outro, registre em "against" e não troque o nome lido.
 - Responda em português do Brasil, frases curtas.`;
@@ -38,6 +38,8 @@ export const SCHEMA = {
     decision: { type: "string", enum: ["CALL", "PUT", "NAO_OPERAR"] },
     setup_quality: { type: "string", enum: ["fraca", "moderada", "forte"] },
     entry_reference_price: { anyOf: [{ type: "number" }, { type: "null" }], description: "Preço visível de referência para a entrada" },
+    stop_price: { anyOf: [{ type: "number" }, { type: "null" }], description: "Stop Loss sugerido em preço, além do suporte/resistência visível que invalida a entrada. null se NAO_OPERAR ou se a escala de preço não permite" },
+    target_price: { anyOf: [{ type: "number" }, { type: "null" }], description: "Alvo (Take Profit) sugerido em preço, no próximo suporte/resistência visível a favor. null se NAO_OPERAR ou se a escala não permite" },
     expiration_candles: { type: "integer", description: "Expiração sugerida em velas do tempo gráfico do print (1 a 3)" },
     reasons: { type: "array", items: { type: "string" } },
     against: { type: "array", items: { type: "string" } },
@@ -48,7 +50,7 @@ export const SCHEMA = {
   },
   required: [
     "is_chart", "platform", "symbol", "timeframe", "last_price", "visible_time", "trend", "last_candles",
-    "supports", "resistances", "indicators", "decision", "setup_quality", "entry_reference_price",
+    "supports", "resistances", "indicators", "decision", "setup_quality", "entry_reference_price", "stop_price", "target_price",
     "expiration_candles", "reasons", "against", "invalidation", "missing", "request_new_capture", "new_capture_reason",
   ],
   additionalProperties: false,
@@ -71,6 +73,9 @@ export interface Reading {
   decision: Decision;
   setup_quality: "fraca" | "moderada" | "forte";
   entry_reference_price: number | null;
+  /** Stop e alvo em preço (para quem opera Forex/CFD no MT5); null quando não dá para definir pelo print. */
+  stop_price?: number | null;
+  target_price?: number | null;
   expiration_candles: number;
   reasons: string[];
   against: string[];
@@ -133,8 +138,12 @@ export function applyGuards(r: Reading, imageAgeSeconds: number | null, selected
   if (r.decision !== "NAO_OPERAR" && r.setup_quality === "fraca") blocks.push("Setup fraco.");
   if (r.decision !== "NAO_OPERAR" && r.reasons.length < 2) blocks.push("Poucos motivos a favor.");
   const exp = Math.min(3, Math.max(1, Math.round(r.expiration_candles || 1)));
+  // stop e alvo só valem do lado certo do preço de referência; senão são descartados (nunca corrigidos por chute)
+  const ref = r.entry_reference_price ?? r.last_price, sl = r.stop_price ?? null, tp = r.target_price ?? null;
+  const sideOk = ref !== null && sl !== null && tp !== null && (r.decision === "CALL" ? sl < ref && ref < tp : r.decision === "PUT" ? tp < ref && ref < sl : false);
   return {
     ...r,
+    stop_price: sideOk ? sl : null, target_price: sideOk ? tp : null,
     expiration_candles: exp,
     ai_decision: r.decision,
     decision: blocks.length ? "NAO_OPERAR" : r.decision,

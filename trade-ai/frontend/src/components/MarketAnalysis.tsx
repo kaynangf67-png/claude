@@ -29,6 +29,7 @@ interface ForexView {
   score: { total: number } | null;
   data: { ok: boolean; issues: string[] };
   favor: string[]; contra: string[]; missing: string[]; invalidation: string;
+  suggested?: { dir: "BUY" | "SELL"; entry: number; sl: number; tps: number[]; rr: number[]; riskPips: number; basis: string[] } | null;
   autoPick?: { tf: SetupTf; reason: string; ranking: { tf: SetupTf; decision: string; state: ForexView["state"]; score: number | null; rr: number | null; dataOk: boolean }[] } | null;
 }
 
@@ -56,7 +57,7 @@ export function MarketAnalysis({ asset, horizon, tf, onChange, onPicked }: {
     setBusy(true); setError(null); setRes(null);
     try {
       const r = await fetch("/api/forex", { method: "POST", headers: { "content-type": "application/json" },
-        body: JSON.stringify({ asset: asset.id, tf, horizon, explain: false }) });
+        body: JSON.stringify({ asset: asset.id, tf, horizon, explain: false, entry: true }) });
       const body = await r.json().catch(() => ({ error: `Erro ${r.status}` }));
       if (!r.ok) throw new Error(body.error ?? `Erro ${r.status}`);
       setRes(body as ForexView);
@@ -108,7 +109,7 @@ export function MarketAnalysis({ asset, horizon, tf, onChange, onPicked }: {
 
       <button onClick={run} disabled={!forex || busy}
         className="btn3d mt-3 flex w-full items-center justify-center gap-2.5 rounded-2xl py-3.5 text-[14.5px] font-extrabold tracking-[0.05em] text-[#03130a] disabled:cursor-not-allowed disabled:opacity-40">
-        {busy ? <><Loader2 size={18} className="animate-spin" /> {tf === "auto" ? `COMPARANDO ${TF_OPTIONS[horizon].map((o) => o.tf).join(", ")}…` : `ANALISANDO ${asset.label}…`}</> : "ANALISAR MERCADO PARA UMA POSSÍVEL ENTRADA"}
+        {busy ? <><Loader2 size={18} className="animate-spin" /> {tf === "auto" ? `COMPARANDO ${TF_OPTIONS[horizon].map((o) => o.tf).join(", ")}…` : `ANALISANDO ${asset.label}…`}</> : "GERAR ENTRADA · STOP E ALVO"}
       </button>
       {!forex && <p className="mt-2 text-[12px] text-warn">A análise de mercado funciona só para os pares de Forex. Escolha um par na aba Forex.</p>}
 
@@ -120,11 +121,13 @@ export function MarketAnalysis({ asset, horizon, tf, onChange, onPicked }: {
 
 function Verdict({ r }: { r: ForexView }) {
   const f = (v: number | null | undefined) => (v === null || v === undefined ? "—" : Number(v).toFixed(r.label.includes("JPY") ? 3 : 5));
+  const sg = r.suggested ?? null;
   const entry = (r.state === "entrada_confirmada" || r.state === "entrada_antecipada") && r.trade;
-  const buy = (r.trade?.dir ?? r.watch?.dir) === "BUY";
+  const buy = (entry ? r.trade!.dir : sg ? sg.dir : r.watch?.dir) === "BUY";
   const swing = r.horizon === "swing";
-  const title = entry ? (buy ? "COMPRA" : "VENDA") : r.state === "aguardando_confirmacao" && r.watch ? `AGUARDANDO ${r.watch.dir === "BUY" ? "COMPRA" : "VENDA"}` : "SEM ENTRADA AGORA";
-  const tone = entry ? (buy ? "buy" : "sell") : "wait";
+  const title = entry || sg ? (buy ? "COMPRA" : "VENDA") : r.state === "aguardando_confirmacao" && r.watch ? `AGUARDANDO ${r.watch.dir === "BUY" ? "COMPRA" : "VENDA"}` : "SEM ENTRADA AGORA";
+  const tone = entry || sg ? (buy ? "buy" : "sell") : "wait";
+  const level = entry ? (r.state === "entrada_confirmada" ? "CONFIRMADA" : "ANTECIPADA") : sg ? "BAIXA CONVICÇÃO" : null;
   const m = r.trade?.maxHoldMin ?? 0;
   const hold = r.trade ? (swing ? `até ${Math.round(m / 1440)} dias` : m >= 60 ? `até ${String(m / 60).replace(".", ",")} h` : `até ${m} min`) : null;
 
@@ -153,7 +156,7 @@ function Verdict({ r }: { r: ForexView }) {
         </div>
         <div className="min-w-0">
           <div className={cx("text-[22px] font-extrabold leading-none", tone === "wait" ? "text-mute" : tone === "buy" ? "text-buy" : "text-sell")}>
-            {title}{r.state === "entrada_antecipada" && <span className="ml-2 text-[12px] text-warn">antecipada</span>}
+            {title}{level && <span className={cx("ml-2 align-middle text-[11px] font-bold", level === "CONFIRMADA" ? "text-buy" : "text-warn")}>{level}</span>}
           </div>
           <div className="mt-1.5 text-[12.5px] text-mute">
             {r.label} · {swing ? "Swing trade" : "Day trade"}{r.roleTf && ` · ${r.roleTf.setup}`} · preço {f(r.price)}
@@ -173,11 +176,25 @@ function Verdict({ r }: { r: ForexView }) {
           <Cell k="Duração" v={hold ?? "—"} hint={r.trade.tps[1] ? `alvo 2: ${f(r.trade.tps[1])}` : undefined} />
         </div>
       )}
+      {!entry && sg && (
+        <>
+          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-line bg-line text-center sm:grid-cols-4">
+            <Cell k="Entrada" v={f(sg.entry)} />
+            <Cell k="Stop" v={f(sg.sl)} hint={`${sg.riskPips} pips`} tone="text-sell" />
+            <Cell k="Alvo 1" v={f(sg.tps[0])} hint={`R:R ${sg.rr[0]}`} tone="text-buy" />
+            <Cell k="Alvo 2" v={f(sg.tps[1])} hint={`R:R ${sg.rr[1]}`} tone="text-buy" />
+          </div>
+          <div className="rounded-xl border border-warn/30 bg-warn/10 p-3 text-[12.5px] text-warn">
+            Entrada de baixa convicção: nenhuma estratégia confirmou. Direção, stop e alvo vêm só da leitura do gráfico agora. Use valor pequeno.
+          </div>
+          <List title="Como foi definida" items={sg.basis} icon={<Check size={13} className="mt-0.5 shrink-0 text-mute" />} />
+        </>
+      )}
       {r.state === "aguardando_confirmacao" && r.watch && <p className="text-[12.5px] text-mute"><b className="text-ink">Esperar:</b> {r.watch.condition}</p>}
 
       <List title="A favor" items={r.favor.slice(0, 5)} icon={<Check size={13} className="mt-0.5 shrink-0 text-buy" />} />
       <List title="Contra" items={r.contra.slice(0, 5)} icon={<X size={13} className="mt-0.5 shrink-0 text-sell" />} />
-      {!entry && <List title="Falta para liberar" items={r.missing.slice(0, 4)} icon={<Clock size={13} className="mt-0.5 shrink-0 text-warn" />} />}
+      {!entry && <List title={sg ? "O que faltou para confirmar" : "Falta para liberar"} items={r.missing.slice(0, 4)} icon={<Clock size={13} className="mt-0.5 shrink-0 text-warn" />} />}
       {entry && r.invalidation && <p className="text-[12.5px] text-mute"><b className="text-ink">Invalidação:</b> {r.invalidation}</p>}
       <p className="text-[11px] text-faint">Pontuação é confluência técnica, não chance de acerto. Confira na sua corretora antes de operar: os preços (Yahoo) podem diferir alguns pips.</p>
     </div>
