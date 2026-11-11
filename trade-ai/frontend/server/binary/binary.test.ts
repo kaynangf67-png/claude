@@ -232,9 +232,9 @@ describe("três velas + região (reversão)", () => {
     const r = analyzeLatest(c, "tres")!.best;
     expect(r.dir === "PUT" && r.level === "confirmada").toBe(false);
   });
-  it("modo auto compara as 5 estratégias e a rota aceita 'tres'", async () => {
+  it("modo auto compara as 6 estratégias e a rota aceita 'tres'", async () => {
     const c = resistanceSetup(), now = (c.at(-1)!.t + 300 + 20) * 1000;
-    expect(Object.keys(analyzeLatest(c, "auto")!.signals).sort()).toEqual(["diminuicao", "fluxo", "retracao", "reversao", "tres"]);
+    expect(Object.keys(analyzeLatest(c, "auto")!.signals).sort()).toEqual(["diminuicao", "dupla", "fluxo", "retracao", "reversao", "tres"]);
     const j = await (await handleBinary(new Request("http://x/api/binary", { method: "POST", body: JSON.stringify({ asset: "EURUSD", tf: "M5", strategy: "tres" }) }), { series: async () => c, now: () => now })).json();
     expect(j.signal.strategy).toBe("tres");
     expect(j.signal.dir).toBe("PUT");
@@ -277,11 +277,60 @@ describe("diminuição de vela + região", () => {
     expect(analyzeLatest(c, "diminuicao")!.best.conds[3].ok).toBe(false);
     expect(analyzeLatest(c, "diminuicao")!.best.level).not.toBe("confirmada");
   });
-  it("entra no modo auto (5 estratégias) e na rota", async () => {
+  it("entra no modo auto (6 estratégias) e na rota", async () => {
     const c = setup(), now = (c.at(-1)!.t + 300 + 20) * 1000;
-    expect(Object.keys(analyzeLatest(c, "auto")!.signals)).toHaveLength(5);
+    expect(Object.keys(analyzeLatest(c, "auto")!.signals)).toHaveLength(6);
     const j = await (await handleBinary(new Request("http://x/api/binary", { method: "POST", body: JSON.stringify({ asset: "EURUSD", tf: "M5", strategy: "diminuicao" }) }), { series: async () => c, now: () => now })).json();
     expect(j.signal.strategy).toBe("diminuicao");
+    expect(j.signal.dir).toBe("PUT");
+  });
+});
+
+describe("dupla posição (região marcada pelo pavio)", () => {
+  const base = () => fromCloses(Array.from({ length: 62 }, (_, i) => 1.1 + Math.sin(i / 2) * 0.0001));
+  /** lote comprador (3 verdes) marca a máxima 1.1022; troca de lote (2 vermelhas); sobe de novo e a última vela marca 1.1022 de novo. */
+  const setup = (last = { o: 1.1013, h: 1.1022, l: 1.1009, c: 1.1010 }): Candle[] => {
+    const c = base(), t = c.at(-1)!.t, mk = (n: number, o: number, h: number, l: number, cl: number): Candle => ({ t: t + n * 300, o, h, l, c: cl });
+    return [...c,
+      mk(1, 1.1000, 1.1007, 1.0999, 1.1006), mk(2, 1.1006, 1.1013, 1.1005, 1.1012), mk(3, 1.1012, 1.1022, 1.1011, 1.1016),   // lote comprador, pavio marca 1.1022
+      mk(4, 1.1016, 1.1017, 1.1007, 1.1008), mk(5, 1.1008, 1.1009, 1.1001, 1.1002),                                           // troca de lote
+      mk(6, 1.1002, 1.1009, 1.1001, 1.1008), mk(7, 1.1008, 1.1014, 1.1007, 1.1013),                                           // volta a subir
+      mk(8, last.o, last.h, last.l, last.c)];
+  };
+  const mirror = (c: Candle[]): Candle[] => c.map((k) => ({ t: k.t, o: 2.2 - k.o, c: 2.2 - k.c, h: 2.2 - k.l, l: 2.2 - k.h }));
+
+  it("o pavio marca a máxima de novo, o corpo fecha dentro = dupla posição = PUT confirmada, 1 vela", () => {
+    const r = analyzeLatest(setup(), "dupla")!.best;
+    expect(r.dir).toBe("PUT");
+    expect(r.conds.map((x) => x.ok)).toEqual([true, true, true, true, true]);
+    expect(r.level).toBe("confirmada");
+    expect(r.defaultExpiry).toBe(1);
+  });
+  it("espelho: dupla posição na mínima = CALL", () => {
+    const r = analyzeLatest(mirror(setup()), "dupla")!.best;
+    expect(r.dir).toBe("CALL");
+    expect(r.level).toBe("confirmada");
+  });
+  it("se o CORPO rompe a região, é nova alta (regra do vídeo): não é dupla posição", () => {
+    const r = analyzeLatest(setup({ o: 1.1013, h: 1.1027, l: 1.1012, c: 1.1025 }), "dupla")!.best;
+    expect(r.dir === "PUT" && r.level === "confirmada").toBe(false);
+    expect(r.conds[3].ok).toBe(false);
+  });
+  it("só o pavio passa da região e o corpo fecha dentro: continua valendo (pavio não cancela)", () => {
+    const r = analyzeLatest(setup({ o: 1.1013, h: 1.1030, l: 1.1009, c: 1.1011 }), "dupla")!.best;
+    expect(r.conds[2].ok).toBe(true);
+    expect(r.conds[3].ok).toBe(true);
+  });
+  it("sem tocar a região de novo não há dupla posição", () => {
+    const r = analyzeLatest(setup({ o: 1.1008, h: 1.1012, l: 1.1006, c: 1.1007 }), "dupla")!.best;
+    expect(r.conds[2].ok).toBe(false);
+    expect(r.level).not.toBe("confirmada");
+  });
+  it("entra no modo auto (6 estratégias) e na rota", async () => {
+    const c = setup(), now = (c.at(-1)!.t + 300 + 20) * 1000;
+    expect(Object.keys(analyzeLatest(c, "auto")!.signals)).toHaveLength(6);
+    const j = await (await handleBinary(new Request("http://x/api/binary", { method: "POST", body: JSON.stringify({ asset: "EURUSD", tf: "M5", strategy: "dupla" }) }), { series: async () => c, now: () => now })).json();
+    expect(j.signal.strategy).toBe("dupla");
     expect(j.signal.dir).toBe("PUT");
   });
 });

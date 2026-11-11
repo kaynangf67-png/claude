@@ -6,7 +6,7 @@ import { hhmm } from "../lib/math";
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 const pct = (v: number | null) => (v === null ? "—" : `${(v * 100).toFixed(1).replace(".", ",")}%`);
 
-type Strat = "auto" | "reversao" | "retracao" | "fluxo" | "tres" | "diminuicao";
+type Strat = "auto" | "reversao" | "retracao" | "fluxo" | "tres" | "diminuicao" | "dupla";
 type Tf = "M1" | "M5" | "M15";
 const STRATS: { id: Strat; title: string; sub: string }[] = [
   { id: "auto", title: "✦ IA escolhe", sub: "a mais completa agora" },
@@ -15,12 +15,13 @@ const STRATS: { id: Strat; title: string; sub: string }[] = [
   { id: "fluxo", title: "Fluxo de vela", sub: "toca a região, confirma, entra" },
   { id: "tres", title: "Três velas + região", sub: "3 da mesma cor na região, entra contra" },
   { id: "diminuicao", title: "Diminuição de vela", sub: "3 velas perdendo força na região" },
+  { id: "dupla", title: "Dupla posição", sub: "região marcada, defendida 2 vezes" },
 ];
 const TFS: Tf[] = ["M1", "M5", "M15"];
 const EXPIRIES = [0, 1, 2, 3, 5]; // 0 = sugerida pela estratégia
 
 interface Signal {
-  strategy: "reversao" | "retracao" | "fluxo" | "tres" | "diminuicao"; label: string; dir: "CALL" | "PUT"; level: "confirmada" | "parcial" | "fraca"; met: number; total: number;
+  strategy: "reversao" | "retracao" | "fluxo" | "tres" | "diminuicao" | "dupla"; label: string; dir: "CALL" | "PUT"; level: "confirmada" | "parcial" | "fraca"; met: number; total: number;
   conds: { ok: boolean; text: string }[]; expiryCandles: number; expiryMinutes: number; entryAt: number; expiryAt: number;
 }
 interface Result {
