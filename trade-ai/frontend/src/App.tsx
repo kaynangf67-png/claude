@@ -342,7 +342,7 @@ function ResultView({ r, timing }: { r: Result; timing: { entry: Date; expiry: D
           </div>
           <div className="mt-1.5 text-[12.5px] text-mute">
             {[r.symbol, r.timeframe, r.platform].filter(Boolean).join(" · ") || "ativo não identificado"}
-            {!wait && <> · setup <b className="text-ink">{r.setup_quality}</b></>}
+            {!wait && <> · setup <b className={r.setup_quality === "fraca" ? "text-warn" : "text-ink"}>{r.setup_quality}</b>{r.setup_quality === "fraca" && " (baixa convicção)"}</>}
           </div>
         </div>
       </div>
@@ -366,12 +366,19 @@ function ResultView({ r, timing }: { r: Result; timing: { entry: Date; expiry: D
         <div className="text-[12.5px] text-mute">Preço de referência no print: <b className="num text-ink">{num(r.entry_reference_price)}</b></div>
       )}
 
-      {wait && (r.blocks.length > 0 || r.ai_decision === "NAO_OPERAR") && (
+      {wait && (
         <div className="space-y-1.5 rounded-xl border border-warn/30 bg-warn/10 p-3 text-[12.5px] text-warn">
           {r.blocks.map((b) => <div key={b} className="flex gap-2"><RefreshCw size={13} className="mt-0.5 shrink-0" />{b}</div>)}
-          {r.ai_decision === "NAO_OPERAR" && r.blocks.length === 0 && <div>Sem setup claro neste print. Espere a próxima oportunidade.</div>}
-          {r.ai_decision !== "NAO_OPERAR" && <div className="text-faint">A leitura indicava {r.ai_decision}, mas foi bloqueada pelas travas acima.</div>}
+          {r.blocks.length === 0 && <div>Não deu para ler o gráfico. Envie um print com as velas mais recentes e a escala de preço.</div>}
         </div>
+      )}
+      {!wait && r.warnings.length > 0 && (
+        <div className="space-y-1.5 rounded-xl border border-warn/30 bg-warn/10 p-3 text-[12.5px] text-warn">
+          {r.warnings.map((b) => <div key={b} className="flex gap-2"><AlertTriangle size={13} className="mt-0.5 shrink-0" />{b}</div>)}
+        </div>
+      )}
+      {!wait && r.stop_price == null && (
+        <div className="text-[12.5px] text-mute">Stop e alvo não puderam ser lidos pela escala deste print. Use o stop além do último {call ? "fundo" : "topo"} visível.</div>
       )}
 
       <List title="A favor" items={r.reasons} icon={<Check size={13} className="mt-0.5 shrink-0 text-buy" />} />

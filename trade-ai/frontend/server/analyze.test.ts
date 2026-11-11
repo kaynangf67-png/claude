@@ -48,29 +48,35 @@ describe("travas", () => {
     expect(r.blocks).toEqual([]);
     expect(r.timeframe_minutes).toBe(5);
   });
-  it("print antigo vira NÃO OPERAR", () => {
+  it("print antigo continua dando entrada, com aviso para conferir o preço atual", () => {
     const r = applyGuards(base, 600);
-    expect(r.decision).toBe("NAO_OPERAR");
-    expect(r.ai_decision).toBe("CALL");
-    expect(r.blocks[0]).toMatch(/10 min/);
+    expect(r.decision).toBe("CALL");
+    expect(r.blocks).toEqual([]);
+    expect(r.warnings[0]).toMatch(/10 min/);
   });
-  it("sem timeframe, não é gráfico, setup fraco ou nova captura -> NÃO OPERAR", () => {
-    expect(applyGuards({ ...base, timeframe: null }, 0).decision).toBe("NAO_OPERAR");
+  it("só não ser gráfico ou print cortado bloqueia; o resto vira aviso e a entrada sai mesmo assim", () => {
     expect(applyGuards({ ...base, is_chart: false }, 0).decision).toBe("NAO_OPERAR");
-    expect(applyGuards({ ...base, setup_quality: "fraca" }, 0).decision).toBe("NAO_OPERAR");
     expect(applyGuards({ ...base, request_new_capture: true }, 0).decision).toBe("NAO_OPERAR");
-    expect(applyGuards({ ...base, reasons: ["só um"] }, 0).decision).toBe("NAO_OPERAR");
+    const weak = applyGuards({ ...base, setup_quality: "fraca" }, 0);
+    expect(weak.decision).toBe("CALL");
+    expect(weak.warnings.join(" ")).toMatch(/baixa convicção/);
+    expect(applyGuards({ ...base, timeframe: null }, 0).decision).toBe("CALL");
+    expect(applyGuards({ ...base, reasons: ["só um"] }, 0).warnings.join(" ")).toMatch(/Poucos motivos/);
+    expect(applyGuards(base, 400).warnings.join(" ")).toMatch(/mercado já andou/);
   });
-  it("aceita qualquer tempo gráfico visível; só bloqueia quando não dá para ler", () => {
+  it("aceita qualquer tempo gráfico; sem tempo visível só avisa", () => {
     for (const tf of ["M1", "M5", "15m", "H1", "H4", "D1"]) expect(applyGuards({ ...base, timeframe: tf }, 0).blocks).toEqual([]);
     expect(applyGuards({ ...base, timeframe: "M1" }, 0).timeframe_minutes).toBe(1);
-    expect(applyGuards({ ...base, timeframe: null }, 0).blocks[0]).toMatch(/Tempo gráfico não visível/);
+    expect(applyGuards({ ...base, timeframe: null }, 0).warnings[0]).toMatch(/Tempo gráfico não visível/);
   });
   it("confere o ativo selecionado", () => {
     expect(applyGuards(base, 0, "EUR/USD").decision).toBe("CALL");
     expect(applyGuards({ ...base, symbol: "EUR/USD (OTC)" }, 0, "EUR/USD").decision).toBe("CALL");
-    expect(applyGuards({ ...base, symbol: "GBP/USD" }, 0, "EUR/USD").blocks[0]).toMatch(/GBP\/USD/);
-    expect(applyGuards({ ...base, symbol: null }, 0, "EUR/USD").decision).toBe("NAO_OPERAR");
+    // ativo diferente do selecionado: só avisa e analisa o ativo do print (era o caso AUDUSD x USD/CAD)
+    const other = applyGuards({ ...base, symbol: "GBP/USD" }, 0, "EUR/USD");
+    expect(other.decision).toBe("CALL");
+    expect(other.warnings[0]).toMatch(/GBP\/USD/);
+    expect(applyGuards({ ...base, symbol: null }, 0, "EUR/USD").warnings[0]).toMatch(/não aparece/);
   });
   it("normaliza símbolos de corretora", () => {
     expect(normalizeSymbol("BTCUSDT")).toBe("BTCUSD");
@@ -122,7 +128,8 @@ describe("API /api/analyze", () => {
     const body = await res.json();
     expect(res.status).toBe(200);
     expect(body.ai_decision).toBe("CALL");
-    expect(body.decision).toBe("NAO_OPERAR"); // print de 15 min
+    expect(body.decision).toBe("CALL"); // print de 15 min: só avisa
+    expect(body.warnings.join(" ")).toMatch(/15 min/);
     expect(sent.model).toBe("claude-opus-5-5");
     expect(sent.fallbacks).toBe("default");
     expect((sent.output_config as { format: { type: string } }).format.type).toBe("json_schema");
@@ -143,5 +150,40 @@ describe("stop e alvo no print", () => {
     expect([bad.stop_price, bad.target_price]).toEqual([null, null]);
     const put = applyGuards({ ...r, decision: "PUT", stop_price: 1.3402, target_price: 1.3385 } as never, 0);
     expect(put.stop_price).toBe(1.3402);
+  });
+});
+
+describe("print sempre gera entrada com stop e alvo", () => {
+  const r = { is_chart: true, platform: null, symbol: "AUDUSD", timeframe: "M1", last_price: 0.6880, visible_time: null, trend: "indefinida", last_candles: "", supports: [0.6860, 0.6840], resistances: [0.6885, 0.6900],
+    indicators: [], decision: "NAO_OPERAR", setup_quality: "fraca", entry_reference_price: 0.6880, expiration_candles: 1, reasons: [], against: ["lateral"], invalidation: null, missing: [], request_new_capture: false, new_capture_reason: null } as never as Parameters<typeof applyGuards>[0];
+  it("IA disse NÃO OPERAR em gráfico legível: o servidor deriva direção, stop e alvo dos níveis", () => {
+    const x = applyGuards(r, 0, "USD/CAD");
+    // preço colado na resistência (0.6885) e longe do suporte: PUT; stop acima da resistência, alvo no suporte
+    expect(x.decision).toBe("PUT");
+    expect(x.derived).toBe(true);
+    expect(x.stop_price!).toBeGreaterThan(0.6885);
+    expect(x.target_price).toBe(0.6860);
+    expect(x.setup_quality).toBe("fraca");
+    expect(x.warnings.join(" ")).toMatch(/baixa convicção/);
+    expect(x.warnings.join(" ")).toMatch(/AUDUSD, não de USD\/CAD/);
+  });
+  it("tendência manda: alta = CALL, baixa = PUT; sem alvo a favor usa 1,5R", () => {
+    const up = applyGuards({ ...r, trend: "alta", resistances: [] } as never, 0);
+    expect(up.decision).toBe("CALL");
+    expect(up.stop_price!).toBeLessThan(0.688);
+    expect(up.target_price!).toBeCloseTo(0.688 + 1.5 * (0.688 - up.stop_price!), 8);
+    expect(applyGuards({ ...r, trend: "baixa" } as never, 0).decision).toBe("PUT");
+  });
+  it("sem nenhum nível nem tendência não dá para definir: bloqueia com orientação", () => {
+    const x = applyGuards({ ...r, supports: [], resistances: [] } as never, 0);
+    expect(x.decision).toBe("NAO_OPERAR");
+    expect(x.blocks[0]).toMatch(/Envie um print/);
+  });
+  it("stop e alvo da IA do lado errado são trocados pelos derivados, nunca mostrados errados", () => {
+    const x = applyGuards({ ...r, decision: "CALL", trend: "alta", stop_price: 0.69, target_price: 0.6870, resistances: [0.6900] } as never, 0);
+    expect(x.decision).toBe("CALL");
+    expect(x.stop_price!).toBeLessThan(0.688);
+    expect(x.target_price!).toBeGreaterThan(0.688);
+    expect(x.derived).toBe(true);
   });
 });
