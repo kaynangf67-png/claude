@@ -9,7 +9,7 @@ Regras obrigatórias:
 - Não indique entrada no meio de vela esticada, logo após vela de força muito grande, em lateralização sem direção, ou com o preço colado em suporte/resistência contra a direção.
 - Se o print estiver cortado, sem as velas mais recentes, sem escala de preço, borrado, ou não for um gráfico, marque request_new_capture=true e decida NAO_OPERAR.
 - Liste com honestidade os fatores contra a entrada.
-- O Trade AI opera só no gráfico de 5 minutos (M5). A expiração é contada em velas de 5 minutos (1 a 3).
+- Qualquer tempo gráfico é aceito (M1, M5, M15, M30, H1, H4, D1...). Analise no tempo gráfico que aparece no print e não trate o tempo gráfico como fator a favor nem contra. A expiração é contada em velas DESSE tempo gráfico (1 a 3).
 - O usuário informa qual ativo selecionou. Use isso só para conferir: se o ativo visível no print for outro, registre em "against" e não troque o nome lido.
 - Responda em português do Brasil, frases curtas.`;
 
@@ -38,7 +38,7 @@ export const SCHEMA = {
     decision: { type: "string", enum: ["CALL", "PUT", "NAO_OPERAR"] },
     setup_quality: { type: "string", enum: ["fraca", "moderada", "forte"] },
     entry_reference_price: { anyOf: [{ type: "number" }, { type: "null" }], description: "Preço visível de referência para a entrada" },
-    expiration_candles: { type: "integer", description: "Expiração sugerida em velas de 5 minutos (1 a 3)" },
+    expiration_candles: { type: "integer", description: "Expiração sugerida em velas do tempo gráfico do print (1 a 3)" },
     reasons: { type: "array", items: { type: "string" } },
     against: { type: "array", items: { type: "string" } },
     invalidation: { anyOf: [{ type: "string" }, { type: "null" }], description: "O que invalida a entrada antes de entrar" },
@@ -86,12 +86,13 @@ export interface Result extends Reading {
   timeframe_minutes: number | null;
 }
 
-/** "M5", "5m", "5", "1 min", "15M", "H1" -> minutos. */
+/** "M5", "5m", "5", "1 min", "15M", "H1", "D1", "diário" -> minutos. */
 export function timeframeMinutes(tf: string | null): number | null {
   if (!tf) return null;
   const t = tf.trim().toLowerCase().replace(/\s+/g, "");
   const h = t.match(/^(?:h(\d+)|(\d+)h)$/);
   if (h) return Number(h[1] ?? h[2]) * 60;
+  if (/^(d1|1d|d|diario|diário|daily)$/.test(t)) return 1440;
   const m = t.match(/^(?:m(\d+)|(\d+)(?:m|min|minutos?)?)$/);
   if (m) return Number(m[1] ?? m[2]);
   return null;
@@ -121,8 +122,8 @@ export function applyGuards(r: Reading, imageAgeSeconds: number | null, selected
   const tfm = timeframeMinutes(r.timeframe);
   if (!r.is_chart) blocks.push("A imagem não parece ser um gráfico de preços.");
   if (r.request_new_capture) blocks.push(r.new_capture_reason || "Print incompleto: envie uma nova captura.");
-  if (tfm === null) blocks.push("Tempo gráfico não visível no print. Use o gráfico de 5 minutos (M5).");
-  else if (tfm !== 5) blocks.push(`O print está em ${r.timeframe}. O Trade AI opera só no gráfico de 5 minutos (M5).`);
+  // qualquer tempo gráfico vale; só precisa estar visível, porque o horário de entrada e a expiração dependem dele
+  if (tfm === null) blocks.push("Tempo gráfico não visível no print: mostre o tempo gráfico (M1, M5, M15, H1...) para calcular entrada e expiração.");
   if (selected) {
     if (!r.symbol) blocks.push(`O ativo não aparece no print: não dá para confirmar que é ${selected}.`);
     else if (!sameAsset(r.symbol, selected)) blocks.push(`O print é de ${r.symbol}, mas o ativo selecionado é ${selected}.`);

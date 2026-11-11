@@ -236,9 +236,9 @@ export default function App() {
             ) : (
               <>
                 <div className="grid size-14 place-items-center rounded-2xl border border-line bg-card-2"><ImagePlus size={24} className="text-mute" /></div>
-                <div className="text-[15px] font-semibold">Selecione o print de {asset.label} em M5</div>
+                <div className="text-[15px] font-semibold">Selecione o print de {asset.label}</div>
                 <div className="max-w-xs text-[12.5px] leading-relaxed text-mute">
-                  Toque para escolher da galeria, arraste ou use o botão Colar abaixo. Mostre ativo, tempo gráfico, escala de preço e as últimas velas.
+                  Toque para escolher da galeria, arraste ou use o botão Colar abaixo. Qualquer tempo gráfico (M1, M5, M15, H1, H4, D1). Mostre ativo, tempo gráfico, escala de preço e as últimas velas.
                 </div>
               </>
             )}

@@ -37,7 +37,7 @@ describe("matemática", () => {
 });
 
 describe("timeframe", () => {
-  it.each([["M1", 1], ["1m", 1], ["5", 5], ["M5", 5], ["15 min", 15], ["H1", 60], ["1h", 60], ["diário", null], [null, null]])(
+  it.each([["M1", 1], ["1m", 1], ["5", 5], ["M5", 5], ["15 min", 15], ["H1", 60], ["1h", 60], ["diário", 1440], ["D1", 1440], ["semanal", null], [null, null]])(
     "%s -> %s", (tf, m) => expect(timeframeMinutes(tf as string | null)).toBe(m));
 });
 
@@ -59,13 +59,12 @@ describe("travas", () => {
     expect(applyGuards({ ...base, is_chart: false }, 0).decision).toBe("NAO_OPERAR");
     expect(applyGuards({ ...base, setup_quality: "fraca" }, 0).decision).toBe("NAO_OPERAR");
     expect(applyGuards({ ...base, request_new_capture: true }, 0).decision).toBe("NAO_OPERAR");
-    expect(applyGuards({ ...base, timeframe: "H1" }, 0).decision).toBe("NAO_OPERAR");
     expect(applyGuards({ ...base, reasons: ["só um"] }, 0).decision).toBe("NAO_OPERAR");
   });
-  it("só aceita M5", () => {
-    expect(applyGuards({ ...base, timeframe: "M1" }, 0).blocks[0]).toMatch(/5 minutos/);
-    expect(applyGuards({ ...base, timeframe: "15m" }, 0).decision).toBe("NAO_OPERAR");
-    expect(applyGuards({ ...base, timeframe: "5m" }, 0).decision).toBe("CALL");
+  it("aceita qualquer tempo gráfico visível; só bloqueia quando não dá para ler", () => {
+    for (const tf of ["M1", "M5", "15m", "H1", "H4", "D1"]) expect(applyGuards({ ...base, timeframe: tf }, 0).blocks).toEqual([]);
+    expect(applyGuards({ ...base, timeframe: "M1" }, 0).timeframe_minutes).toBe(1);
+    expect(applyGuards({ ...base, timeframe: null }, 0).blocks[0]).toMatch(/Tempo gráfico não visível/);
   });
   it("confere o ativo selecionado", () => {
     expect(applyGuards(base, 0, "EUR/USD").decision).toBe("CALL");
