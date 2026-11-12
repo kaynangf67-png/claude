@@ -184,7 +184,7 @@ export async function handleForexBacktest(request: Request, deps: Deps = {}): Pr
   const get = deps.series ?? fetchSeries;
   if (url.searchParams.get("mode") === "candle") {
     const tf = url.searchParams.get("tf") ?? "H1";
-    if (!isCsTf(tf)) return json({ error: "Tempo inválido (M15, M30, H1 ou H4)" }, 400);
+    if (!isCsTf(tf)) return json({ error: "Tempo inválido (M1, M5, M15, M30, H1 ou H4)" }, 400);
     const ids = id === "ALL" ? Object.keys(FOREX_YAHOO) : [id];
     if (ids.some((x) => !FOREX_YAHOO[x])) return json({ error: "Par de Forex desconhecido" }, 400);
     const now = Math.floor((deps.now ?? Date.now)() / 1000);
@@ -233,6 +233,7 @@ export async function candleLayer(id: string, tf: CsTf, get: NonNullable<Deps["s
     period: { from: bt.from ? brt(bt.from) : null, to: bt.to ? brt(bt.to) : null, days: bt.from && bt.to ? Math.round((bt.to - bt.from) / 86400) : 0, candles: bt.candles },
     costPips: bt.costPips, rules: CS_RULES,
     entry: now_.entry && { ...now_.entry, entry: f(now_.entry.entry), sl: f(now_.entry.sl), tp: f(now_.entry.tp), riskPips: Math.round(now_.entry.riskPips * 10) / 10, riskAtr: Math.round(now_.entry.riskAtr * 100) / 100 },
+    candidate: now_.candidate && { ...now_.candidate, entry: f(now_.candidate.entry), sl: f(now_.candidate.sl), tp: f(now_.candidate.tp), riskPips: Math.round(now_.candidate.riskPips * 10) / 10, riskAtr: Math.round(now_.candidate.riskAtr * 100) / 100 },
     signals: now_.signals.map((x) => ({ strategy: x.strategy, label: x.label, dir: x.dir, validated: x.validated })),
     strategies: Object.values(bt.results).map((r) => ({ strategy: r.strategy, label: r.label, validated: r.validated, reason: r.reason,
       n: r.all.n, winRate: r.all.winRate, expR: r.all.expR, pf: r.all.pf, devExpR: r.development.expR, valExpR: r.validation.expR, valN: r.validation.n })),

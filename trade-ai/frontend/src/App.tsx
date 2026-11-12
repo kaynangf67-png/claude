@@ -3,6 +3,7 @@ import {
   AlertTriangle, ArrowDownRight, ArrowUpRight, Ban, Camera, Check, ClipboardPaste, ImagePlus, Loader2, RefreshCw, Trash2, X,
 } from "lucide-react";
 import type { PrintMode, Result } from "../server/analyze";
+import { STRATEGY_NAMES } from "../server/strategyNames";
 import { prepareImage } from "./lib/image";
 import { breakEven, entryTimes, hhmm, wilson } from "./lib/math";
 import { load, save, type Entry } from "./lib/history";
@@ -374,6 +375,7 @@ function ResultView({ r, timing, mode }: { r: Result; timing: { entry: Date; exp
           </div>
           <div className="mt-1.5 text-[12.5px] text-mute">
             {fx ? "Forex · " : "Binárias · "}{[r.symbol, r.timeframe, r.platform].filter(Boolean).join(" · ") || "ativo não identificado"}
+            {!wait && r.strategy_used && <> · estratégia <b className="text-ink">{STRATEGY_NAMES[r.strategy_used]}</b></>}
             {!wait && <> · setup <b className={r.setup_quality === "fraca" ? "text-warn" : "text-ink"}>{r.setup_quality}</b>{r.setup_quality === "fraca" && " (baixa convicção)"}</>}
           </div>
         </div>
@@ -414,6 +416,8 @@ function ResultView({ r, timing, mode }: { r: Result; timing: { entry: Date; exp
         <div className="text-[12.5px] text-mute">Stop e alvo não puderam ser lidos pela escala deste print. Use o stop além do último {call ? "fundo" : "topo"} visível.</div>
       )}
 
+      {!wait && r.strategy_checks && r.strategy_checks.length > 0 && <StrategyChecks checks={r.strategy_checks} fx={fx} />}
+
       <List title="A favor" items={r.reasons} icon={<Check size={13} className="mt-0.5 shrink-0 text-buy" />} />
       <List title="Contra" items={r.against} icon={<X size={13} className="mt-0.5 shrink-0 text-sell" />} />
       {r.invalidation && !wait && <p className="text-[12.5px] text-mute"><b className="text-ink">Não entre se:</b> {r.invalidation}</p>}
@@ -429,6 +433,34 @@ function ResultView({ r, timing, mode }: { r: Result; timing: { entry: Date; exp
           {r.missing.length > 0 && <div className="text-warn">Não visível: {r.missing.join(", ")}</div>}
         </div>
       </details>
+    </div>
+  );
+}
+
+/** As 7 estratégias do usuário avaliadas no print: confirmadas e parciais à vista, ausentes recolhidas. */
+function StrategyChecks({ checks, fx }: { checks: NonNullable<Result["strategy_checks"]>; fx: boolean }) {
+  const order = { confirmada: 0, parcial: 1, ausente: 2 } as const;
+  const list = [...checks].sort((a, b) => order[a.status] - order[b.status]);
+  const shown = list.filter((c) => c.status !== "ausente"), absent = list.filter((c) => c.status === "ausente");
+  const dir = (d: string) => (d === "nenhuma" ? "" : fx ? (d === "CALL" ? " · compra" : " · venda") : ` · ${d}`);
+  return (
+    <div>
+      <div className="text-[11px] font-semibold uppercase tracking-wider text-faint">Suas 7 estratégias neste print</div>
+      <ul className="mt-1.5 space-y-1">
+        {shown.map((c) => (
+          <li key={c.strategy} className="text-[13px] text-mute">
+            <b className={c.status === "confirmada" ? "text-buy" : "text-warn"}>{c.status === "confirmada" ? "✓ Confirmada" : "◐ Parcial"}</b>{" "}
+            <b className="text-ink">{STRATEGY_NAMES[c.strategy]}</b>{dir(c.direction)}: {c.note}
+          </li>
+        ))}
+        {!shown.length && <li className="text-[13px] text-mute">Nenhuma das 7 apareceu neste print.</li>}
+      </ul>
+      {absent.length > 0 && (
+        <details className="mt-1 text-[12px] text-faint">
+          <summary className="cursor-pointer">Ausentes ({absent.length})</summary>
+          <ul className="mt-1 space-y-0.5">{absent.map((c) => <li key={c.strategy}>{STRATEGY_NAMES[c.strategy]}: {c.note}</li>)}</ul>
+        </details>
+      )}
     </div>
   );
 }

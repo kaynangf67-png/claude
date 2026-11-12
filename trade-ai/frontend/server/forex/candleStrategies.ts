@@ -14,11 +14,11 @@ import type { Candle } from "./types.js";
  */
 export const CS_LIST: BinStrategy[] = ["reversao", "retracao", "fluxo", "tres", "diminuicao", "dupla", "forca"];
 export const CS_RULES = { targetR: 1.5, maxHold: 24, lookback: 5, padAtr: 0.2, minStopAtr: 0.7, maxStopAtr: 3, minN: 30, minValN: 10, minPf: 1.15 } as const;
-export const CS_TFS = ["M15", "M30", "H1", "H4"] as const;
+export const CS_TFS = ["M1", "M5", "M15", "M30", "H1", "H4"] as const;
 export type CsTf = (typeof CS_TFS)[number];
 export const isCsTf = (t: string): t is CsTf => (CS_TFS as readonly string[]).includes(t);
 /** Quanto histórico buscar para validar (o Yahoo limita: 15m ~60 dias, 60m ~730 dias). */
-export const CS_RANGE: Record<CsTf, string> = { M15: "60d", M30: "60d", H1: "1y", H4: "730d" };
+export const CS_RANGE: Record<CsTf, string> = { M1: "7d", M5: "60d", M15: "60d", M30: "60d", H1: "1y", H4: "730d" };
 
 const CROSSES = new Set(["EURJPY", "EURGBP", "GBPJPY", "AUDCAD", "AUDJPY"]);
 /** Spread + deslize típicos de conta comum (pips). */
@@ -99,19 +99,25 @@ export interface CsSignalNow { strategy: BinStrategy; label: string; dir: "BUY" 
 export interface CsEntry extends CsPlan { strategy: BinStrategy; label: string; rr: number; riskPips: number; stats: CsStats; validation: CsStats; conds: string[] }
 
 /** Agora: quais estratégias confirmaram na última vela fechada e, entre as VALIDADAS, a entrada (melhor resultado na validação). */
-export function candleEntryNow(c: Candle[], pip: number, bt: CsBacktest, price: number, S0?: Series): { signals: CsSignalNow[]; entry: CsEntry | null } {
+export function candleEntryNow(c: Candle[], pip: number, bt: CsBacktest, price: number, S0?: Series): { signals: CsSignalNow[]; entry: CsEntry | null; candidate: CsEntry | null } {
   const S = S0 ?? buildSeries(c), i = c.length - 1;
-  if (i < MIN_INDEX) return { signals: [], entry: null };
+  if (i < MIN_INDEX) return { signals: [], entry: null, candidate: null };
   const sig = evalAt(S, i);
   const signals = CS_LIST.filter((s) => sig[s].level === "confirmada").map((s) => ({
     strategy: s, label: STRATEGY_LABEL[s], dir: sig[s].dir === "CALL" ? "BUY" as const : "SELL" as const, validated: bt.results[s].validated,
     met: sig[s].met, total: sig[s].total, conds: sig[s].conds,
   }));
-  const ok = signals.filter((x) => x.validated).sort((a, b) => (bt.results[b.strategy].validation.expR ?? 0) - (bt.results[a.strategy].validation.expR ?? 0));
-  for (const x of ok) {
-    const p = planFor(S, i, x.dir === "BUY", price); if (!p) continue;
-    return { signals, entry: { ...p, strategy: x.strategy, label: x.label, rr: CS_RULES.targetR, riskPips: Math.abs(price - p.sl) / pip,
-      stats: bt.results[x.strategy].all, validation: bt.results[x.strategy].validation, conds: x.conds.filter((q) => q.ok).map((q) => q.text) } };
-  }
-  return { signals, entry: null };
+  const byVal = (a: CsSignalNow, b: CsSignalNow) => (bt.results[b.strategy].validation.expR ?? -9) - (bt.results[a.strategy].validation.expR ?? -9);
+  const plan = (list: CsSignalNow[]): CsEntry | null => {
+    for (const x of list) {
+      const p = planFor(S, i, x.dir === "BUY", price); if (!p) continue;
+      return { ...p, strategy: x.strategy, label: x.label, rr: CS_RULES.targetR, riskPips: Math.abs(price - p.sl) / pip,
+        stats: bt.results[x.strategy].all, validation: bt.results[x.strategy].validation, conds: x.conds.filter((q) => q.ok).map((q) => q.text) };
+    }
+    return null;
+  };
+  const entry = plan(signals.filter((x) => x.validated).sort(byVal));
+  // confirmou agora mas NÃO passou no backtest: o plano aparece, marcado como não validado (decisão do usuário)
+  const candidate = entry ? null : plan(signals.filter((x) => !x.validated).sort(byVal));
+  return { signals, entry, candidate };
 }

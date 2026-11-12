@@ -13,7 +13,18 @@ Regras obrigatórias:
 - Quando indicar CALL ou PUT, defina também stop_price e target_price usando SOMENTE níveis visíveis na escala do print: stop além do suporte/resistência que invalida a ideia; alvo no próximo nível a favor. Se a escala não permitir ler os preços, devolva null nos dois.\n- Liste com honestidade os fatores contra a entrada.
 - Qualquer tempo gráfico é aceito (M1, M5, M15, M30, H1, H4, D1...). Analise no tempo gráfico que aparece no print e não trate o tempo gráfico como fator a favor nem contra. A expiração é contada em velas DESSE tempo gráfico (1 a 3).
 - Analise o ativo que aparece no print. O usuário informa qual ativo selecionou só para conferência: se for outro, apenas registre isso em "against" e analise o ativo do print mesmo assim.
-- Responda em português do Brasil, frases curtas.`;
+- Responda em português do Brasil, frases curtas.
+
+ESTRATÉGIAS DO USUÁRIO: avalie SEMPRE as 7 no print (em strategy_checks, uma linha para cada), olhando só a vela FECHADA mais recente e as anteriores:
+1. reversao (Reversão de preço): preço esticado (RSI extremo ou fora/encostado na banda de Bollinger, ou muito longe da média) com vela de rejeição (pavio grande contra o movimento). Entra CONTRA o esticamento, voltando para a média.
+2. retracao (Retração): tendência clara pelas médias; recuo de 30% a 70% da última perna até a média curta (EMA 20); vela de retomada a favor da tendência. Entra A FAVOR da tendência.
+3. fluxo (Fluxo de vela na região): o preço toca uma região de suporte/resistência já testada ao menos 2 vezes, retrai, e a vela de confirmação fecha a favor da retração. Entra na próxima vela, a favor da confirmação.
+4. tres (Três velas + região): três velas seguidas da mesma cor (qualquer tamanho) chegam numa região testada e a 3ª toca a região. Entra CONTRA: 3 verdes na resistência = PUT; 3 vermelhas no suporte = CALL.
+5. diminuicao (Diminuição de vela + região): três velas da mesma cor chegando na região, cada corpo MENOR que o anterior e o 3º pequeno (até metade do 1º). Entra CONTRA o movimento.
+6. dupla (Dupla posição): um lote de velas de uma cor troca de cor e a ponta do pavio do extremo vira a região; uma vela volta a marcar esse extremo mas fecha DENTRO (só pavio, sem corpo além). Entra CONTRA: dupla na máxima = PUT; na mínima = CALL.
+7. forca (Vela de força + reteste): uma vela forte rompe e FECHA além do topo/fundo das últimas ~12 velas; no PRIMEIRO toque de volta na região dessa vela, entra A FAVOR do rompimento (rompeu fundo = PUT; rompeu topo = CALL).
+Status de cada uma: "confirmada" (todas as condições visíveis), "parcial" (falta uma condição ou não dá para ver com certeza), "ausente".
+Se alguma estiver "confirmada", a decisão deve seguir a confirmada mais clara e strategy_used recebe o id dela; se duas confirmadas apontarem lados opostos, diga isso em "against" e marque setup_quality "fraca". Sem nenhuma confirmada, strategy_used = null e setup_quality não pode ser "forte". Não force: na dúvida, "parcial" ou "ausente".`;
 
 export const SCHEMA = {
   type: "object",
@@ -49,11 +60,28 @@ export const SCHEMA = {
     missing: { type: "array", items: { type: "string" } },
     request_new_capture: { type: "boolean" },
     new_capture_reason: { anyOf: [{ type: "string" }, { type: "null" }] },
+    strategy_checks: {
+      type: "array",
+      description: "As 7 estratégias do usuário, uma linha para cada",
+      items: {
+        type: "object",
+        properties: {
+          strategy: { type: "string", enum: ["reversao", "retracao", "fluxo", "tres", "diminuicao", "dupla", "forca"] },
+          status: { type: "string", enum: ["confirmada", "parcial", "ausente"] },
+          direction: { type: "string", enum: ["CALL", "PUT", "nenhuma"] },
+          note: { type: "string", description: "O que viu ou o que faltou, em uma frase" },
+        },
+        required: ["strategy", "status", "direction", "note"],
+        additionalProperties: false,
+      },
+    },
+    strategy_used: { anyOf: [{ type: "string", enum: ["reversao", "retracao", "fluxo", "tres", "diminuicao", "dupla", "forca"] }, { type: "null" }], description: "Estratégia confirmada que definiu a decisão" },
   },
   required: [
     "is_chart", "platform", "symbol", "timeframe", "last_price", "visible_time", "trend", "last_candles",
     "supports", "resistances", "indicators", "decision", "setup_quality", "entry_reference_price", "stop_price", "target_price",
     "expiration_candles", "reasons", "against", "invalidation", "missing", "request_new_capture", "new_capture_reason",
+    "strategy_checks", "strategy_used",
   ],
   additionalProperties: false,
 } as const;
@@ -85,7 +113,12 @@ export interface Reading {
   missing: string[];
   request_new_capture: boolean;
   new_capture_reason: string | null;
+  /** As 7 estratégias do usuário avaliadas no print (podem faltar em respostas antigas). */
+  strategy_checks?: { strategy: StrategyId; status: "confirmada" | "parcial" | "ausente"; direction: "CALL" | "PUT" | "nenhuma"; note: string }[];
+  strategy_used?: StrategyId | null;
 }
+import { STRATEGY_NAMES, type StrategyId } from "./strategyNames.js";
+export { STRATEGY_NAMES, type StrategyId };
 
 export interface Result extends Reading {
   ai_decision: Decision; // o que a IA disse antes das travas do servidor
@@ -105,6 +138,19 @@ export function applyMode(r: Result, mode: PrintMode): Result {
   if (mode === "binarias") {
     out.stop_price = null; out.target_price = null;
     out.warnings = out.warnings.filter((w) => !/stop e alvo/i.test(w));
+  }
+  // as 7 estratégias do usuário: sem nenhuma confirmada não existe setup "forte"; conflito vira aviso
+  const conf = (r.strategy_checks ?? []).filter((c) => c.status === "confirmada" && c.direction !== "nenhuma");
+  if (out.decision !== "NAO_OPERAR") {
+    if (!conf.length) {
+      if (out.setup_quality === "forte") out.setup_quality = "moderada";
+      out.warnings.push("Nenhuma das suas 7 estratégias confirmou neste print: a direção vem só da leitura geral do gráfico.");
+    } else if (new Set(conf.map((c) => c.direction)).size > 1) {
+      out.setup_quality = "fraca";
+      out.warnings.push(`Suas estratégias discordam: ${conf.map((c) => `${STRATEGY_NAMES[c.strategy]} ${c.direction}`).join(", ")}.`);
+    } else if (conf[0].direction !== out.decision) {
+      out.warnings.push(`A entrada vai CONTRA a estratégia confirmada (${STRATEGY_NAMES[conf[0].strategy]} indica ${conf[0].direction}).`);
+    }
   }
   if (isOtc(r.symbol)) out.warnings.push("Ativo OTC: o preço é gerado pela própria corretora, fora do mercado real. Calendário econômico, dados reais e backtests do app não valem para ele.");
   return out;

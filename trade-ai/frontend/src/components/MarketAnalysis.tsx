@@ -36,13 +36,16 @@ interface ForexView {
   autoPick?: { tf: SetupTf; reason: string; ranking: { tf: SetupTf; decision: string; state: ForexView["state"]; score: number | null; rr: number | null; dataOk: boolean }[] } | null;
 }
 
+interface CsPlanV { dir: "BUY" | "SELL"; entry: number; sl: number; tp: number; rr: number; riskPips: number; strategy: string; label: string; stats: CsStatsV; validation: CsStatsV & { n: number }; conds: string[] }
 interface CsStatsV { n: number; winRate: number | null; expR: number | null; pf: number | null }
 /** Estratégias de vela (as 7 das operações rápidas) aplicadas ao tempo da entrada, com validação no histórico do par. */
 interface CandleLayer {
-  tf: "M15" | "M30" | "H1" | "H4"; price: number; lastCandleBrt: string | null; ageMin: number | null;
+  tf: "M1" | "M5" | "M15" | "M30" | "H1" | "H4"; price: number; lastCandleBrt: string | null; ageMin: number | null;
   period: { from: string | null; to: string | null; days: number; candles: number }; costPips: number;
   rules: { targetR: number; maxHold: number };
-  entry: { dir: "BUY" | "SELL"; entry: number; sl: number; tp: number; rr: number; riskPips: number; strategy: string; label: string; stats: CsStatsV; validation: CsStatsV & { n: number }; conds: string[] } | null;
+  entry: CsPlanV | null;
+  /** Confirmou agora mas não passou no backtest: plano mostrado com aviso. */
+  candidate?: CsPlanV | null;
   signals: { strategy: string; label: string; dir: "BUY" | "SELL"; validated: boolean }[];
   strategies: { strategy: string; label: string; validated: boolean; reason: string; n: number; winRate: number | null; expR: number | null; pf: number | null; devExpR: number | null; valExpR: number | null; valN: number }[];
 }
@@ -226,14 +229,13 @@ function Verdict({ r }: { r: ForexView }) {
           </details>
         </>
       ) : engine}
-      {!cl && r.roleTf && (r.roleTf.setup === "M1" || r.roleTf.setup === "M5") && <p className="text-[11.5px] text-warn">As estratégias de vela funcionam em M15, M30, H1 e H4. Em {r.roleTf.setup} só existe a leitura do motor, sem validação.</p>}
     </div>
   );
 }
 
 const pct = (v: number | null) => (v === null ? "—" : `${Math.round(v * 100)}%`);
 const rr = (v: number | null) => (v === null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}R`);
-const holdOf = (tf: CandleLayer["tf"], n: number) => (tf === "M15" ? `até ${n / 4} h` : tf === "M30" ? `até ${n / 2} h` : tf === "H1" ? `até ${n} h` : `até ${(n * 4) / 24} dias`);
+const holdOf = (tf: CandleLayer["tf"], n: number) => (tf === "M1" ? `até ${n} min` : tf === "M5" ? `até ${(n * 5) / 60} h` : tf === "M15" ? `até ${n / 4} h` : tf === "M30" ? `até ${n / 2} h` : tf === "H1" ? `até ${n} h` : `até ${(n * 4) / 24} dias`);
 
 function CandleBlock({ c, digits, label }: { c: CandleLayer; digits: number; label: string }) {
   const f = (v: number) => v.toFixed(digits), e = c.entry, buy = e?.dir === "BUY";
@@ -278,6 +280,7 @@ function CandleBlock({ c, digits, label }: { c: CandleLayer; digits: number; lab
               : `Nenhuma das 7 estratégias passou no backtest de ${label} ${c.tf}. Entrar por elas aqui seria apostar sem vantagem medida.`}
             {c.signals.length > 0 && ` Confirmaram agora, mas sem validação: ${c.signals.map((s) => `${s.label} (${s.dir === "BUY" ? "compra" : "venda"})`).join(", ")}.`}
           </div>
+          {c.candidate && <Candidate p={c.candidate} c={c} f={f} />}
         </div>
       )}
       <details className="rounded-xl border border-line bg-panel p-3 text-[12px]">
@@ -299,6 +302,29 @@ function CandleBlock({ c, digits, label }: { c: CandleLayer; digits: number; lab
         </div>
         <p className="mt-2 text-faint">Regras fixas: entrada no fechamento da vela, stop além das últimas 5 velas (mín. 0,7 ATR), alvo {c.rules.targetR}R, prazo {c.rules.maxHold} velas. Com 7 estratégias testadas, uma pode passar por sorte: resultado passado não garante o futuro.</p>
       </details>
+    </div>
+  );
+}
+
+/** Estratégia que confirmou agora mas não passou no backtest deste par e tempo: plano completo, com o resultado medido à vista. */
+function Candidate({ p, c, f }: { p: CsPlanV; c: CandleLayer; f: (v: number) => string }) {
+  const buy = p.dir === "BUY";
+  return (
+    <div className="mt-3 space-y-2 rounded-xl border border-warn/40 p-3">
+      <div className="text-[14px] font-extrabold">
+        <span className={buy ? "text-buy" : "text-sell"}>{buy ? "COMPRA" : "VENDA"}</span> pela <span className="text-ink">{p.label}</span>
+        <span className="ml-2 align-middle text-[10.5px] font-bold text-warn">NÃO PASSOU NO BACKTEST</span>
+      </div>
+      <div className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-line bg-line text-center sm:grid-cols-4">
+        <Cell k="Entrada" v={f(p.entry)} />
+        <Cell k="Stop" v={f(p.sl)} hint={`${p.riskPips} pips`} tone="text-sell" />
+        <Cell k="Alvo" v={f(p.tp)} hint={`R:R ${p.rr}`} tone="text-buy" />
+        <Cell k="Prazo" v={holdOf(c.tf, c.rules.maxHold)} />
+      </div>
+      <p className="text-[12px] text-warn">
+        Nesta estratégia, em {c.tf} ({c.period.days} dias): {p.stats.n} operações, {pct(p.stats.winRate)} positivas, média {rr(p.stats.expR)} por operação
+        {(p.stats.expR ?? 0) < 0 ? " — no histórico ela PERDEU dinheiro" : ""}. Se entrar, é decisão sua.
+      </p>
     </div>
   );
 }

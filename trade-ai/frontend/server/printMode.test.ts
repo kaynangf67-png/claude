@@ -18,3 +18,21 @@ describe("modo do print", () => {
     expect(applyMode({ ...base, symbol: "EUR/USD" }, "forex").warnings.some((w) => w.includes("OTC"))).toBe(false);
   });
 });
+
+describe("estratégias do usuário no print", () => {
+  const chk = (s: string, status: string, direction: string) => ({ strategy: s, status, direction, note: "" });
+  const mk = (over: object) => ({ ...base, symbol: "EUR/USD", decision: "CALL", setup_quality: "forte", warnings: [], ...over }) as unknown as Result;
+  it("sem estratégia confirmada não é forte", () => {
+    const r = applyMode(mk({ strategy_checks: [chk("fluxo", "parcial", "CALL")] }), "binarias");
+    expect(r.setup_quality).toBe("moderada");
+    expect(r.warnings.join(" ")).toMatch(/Nenhuma das suas 7/);
+  });
+  it("confirmadas em lados opostos viram setup fraco", () => {
+    const r = applyMode(mk({ strategy_checks: [chk("fluxo", "confirmada", "CALL"), chk("tres", "confirmada", "PUT")] }), "binarias");
+    expect(r.setup_quality).toBe("fraca");
+  });
+  it("confirmada a favor mantém a qualidade", () => {
+    const r = applyMode(mk({ strategy_checks: [chk("forca", "confirmada", "CALL")], strategy_used: "forca" }), "forex");
+    expect(r.setup_quality).toBe("forte"); expect(r.warnings).toEqual([]);
+  });
+});
