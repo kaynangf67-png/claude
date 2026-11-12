@@ -33,8 +33,8 @@ export default function App() {
   const [blob, setBlob] = useState<Blob | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [capturedAt, setCapturedAt] = useState<number | null>(null);
-  // Payout por par: cada ativo guarda o seu (a corretora paga diferente em cada um)
-  const [payouts, setPayouts] = useState<Record<string, number>>(() => {
+  // Payout por par já salvo (o campo saiu da tela; o valor ainda entra no histórico e nas binárias)
+  const [payouts] = useState<Record<string, number>>(() => {
     try {
       return JSON.parse(localStorage.getItem("trade-ai:payouts") ?? "{}") as Record<string, number>;
     } catch {
@@ -85,7 +85,6 @@ export default function App() {
   };
   const chartTf: SetupTf = choice.tf === "auto" ? aiTf ?? DEFAULT_TF[choice.hz] : choice.tf;
   const payout = payouts[asset.id] ?? defaultPayout;
-  const setPayout = (v: number) => setPayouts((p) => ({ ...p, [asset.id]: v }));
   const [clock, setClock] = useState(() => new Date());
   useEffect(() => {
     const id = setInterval(() => setClock(new Date()), 30_000);
@@ -210,8 +209,6 @@ export default function App() {
     }
   };
 
-  const be = breakEven(payout / 100);
-
   return (
     <div className="mx-auto flex min-h-screen max-w-[1180px] flex-col px-4 py-6 md:px-8 md:py-8">
       <CandleScene />
@@ -306,19 +303,6 @@ export default function App() {
             </div>
             {printTf === "auto" && <div className="mt-1 text-[11px] text-faint">Se o print não mostrar o tempo gráfico, marque aqui: sem ele não dá para calcular entrada e expiração.</div>}
           </div>
-
-          {printMode === "binarias" && <div className="mt-4 flex items-end gap-3">
-            <label className="w-40">
-              <span className="text-[12px] font-medium text-mute">Payout de {asset.label}</span>
-              <div className="relative mt-1.5">
-                <PayoutInput key={asset.id} value={payout} onChange={setPayout} />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[13px] text-faint">%</span>
-              </div>
-            </label>
-            <div className="pb-2.5 text-[12px] text-mute">
-              Precisa acertar <b className="num text-ink">{pct(be)}</b> só para empatar.
-            </div>
-          </div>}
 
           <button onClick={analyze} disabled={!blob || busy}
             className="btn3d mt-4 mb-1.5 flex w-full items-center justify-center gap-2.5 rounded-2xl py-4 text-[15px] font-extrabold tracking-[0.06em] text-[#03130a] disabled:cursor-not-allowed disabled:opacity-40">
@@ -583,17 +567,3 @@ function Stat({ k, v, hint, tone }: { k: string; v: string; hint?: string; tone?
   );
 }
 
-/** Digitação livre (dá para apagar e escrever 92); só vale um número de 10 a 100, e ao sair do campo volta ao último válido. */
-function PayoutInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  const [text, setText] = useState(String(value));
-  return (
-    <input type="number" inputMode="numeric" min={10} max={100} value={text} aria-label="Payout em porcentagem"
-      onChange={(e) => {
-        setText(e.target.value);
-        const n = Number(e.target.value);
-        if (e.target.value !== "" && Number.isFinite(n) && n >= 10 && n <= 100) onChange(n);
-      }}
-      onBlur={() => setText(String(value))}
-      className="num w-full rounded-xl border border-line-2 bg-panel px-3 py-2.5 pr-8 text-[14px] focus:border-info focus:outline-none" />
-  );
-}
