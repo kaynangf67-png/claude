@@ -139,7 +139,7 @@ describe("stop do swing pela estrutura do H4", () => {
 describe("tempo gráfico escolhido (tf)", () => {
   const m5 = noisy(15, 2360);
   const byTf = (tf: TF): Candle[] => {
-    const step = { M1: 60, M5: 300, M15: 900, H1: 3600, H4: 14400, D1: 86400 }[tf];
+    const step = { M1: 60, M5: 300, M15: 900, M30: 1800, H1: 3600, H4: 14400, D1: 86400 }[tf];
     return m5.map((k, i) => ({ ...k, t: 1_800_000_000 - (1_800_000_000 % 86400) + i * step }));
   };
   const call = async (tf: string) => {
@@ -174,7 +174,7 @@ describe("tempo gráfico escolhido (tf)", () => {
 describe("IA recomenda o tempo gráfico (tf=auto)", () => {
   const m5 = noisy(15, 2360);
   const byTf = (tf: TF): Candle[] => {
-    const step = { M1: 60, M5: 300, M15: 900, H1: 3600, H4: 14400, D1: 86400 }[tf];
+    const step = { M1: 60, M5: 300, M15: 900, M30: 1800, H1: 3600, H4: 14400, D1: 86400 }[tf];
     return m5.map((k, i) => ({ ...k, t: 1_800_000_000 - (1_800_000_000 % 86400) + i * step }));
   };
   const call = async (horizon: string, fail?: TF) => {
@@ -184,11 +184,11 @@ describe("IA recomenda o tempo gráfico (tf=auto)", () => {
       { series, calendar: async () => [], now: () => (byTf("M1").at(-1)!.t + 60) * 1000 });
     return { j: await r.json(), asked: asked.sort(), status: r.status };
   };
-  it("day trade compara M1, M5 e M15, busca cada tempo uma vez e devolve o de setup mais forte", async () => {
+  it("day trade compara M1, M5, M15 e M30, busca cada tempo uma vez e devolve o de setup mais forte", async () => {
     const { j, asked, status } = await call("curto");
     expect(status).toBe(200);
-    expect(asked).toEqual(["H1", "H4", "M1", "M15", "M5"]);
-    expect(j.autoPick.ranking.map((x: { tf: string }) => x.tf).sort()).toEqual(["M1", "M15", "M5"]);
+    expect(asked).toEqual(["H1", "H4", "M1", "M15", "M30", "M5"]);
+    expect(j.autoPick.ranking.map((x: { tf: string }) => x.tf).sort()).toEqual(["M1", "M15", "M30", "M5"]);
     expect(j.autoPick.tf).toBe(j.autoPick.ranking[0].tf);
     expect(j.roleTf.setup).toBe(j.autoPick.tf);
     expect(j.autoPick.reason.length).toBeGreaterThan(10);

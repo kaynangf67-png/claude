@@ -1,4 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { fetchCalendar } from "./calendar.js";
+import { currenciesForAsset, newsAlertFor } from "./newsAlert.js";
 
 export const SYSTEM_PROMPT = `Você analisa prints de gráficos de preço para operações binárias de curto prazo (CALL = sobe, PUT = desce).
 
@@ -212,6 +214,7 @@ export async function handleAnalyze(request: Request): Promise<Response> {
 
   const selected = typeof body.asset === "string" && body.asset.trim() ? body.asset.trim().slice(0, 40) : null;
   const client = new Anthropic();
+  const calendar = fetchCalendar().catch(() => null); // em paralelo com a leitura da IA
   try {
     const response = await client.beta.messages.create({
       model: "claude-opus-5-5",
@@ -233,7 +236,10 @@ export async function handleAnalyze(request: Request): Promise<Response> {
     if (!text) return json({ error: "Resposta vazia da IA" }, 502);
     const reading = JSON.parse(text) as Reading;
     const age = typeof body.image_age_s === "number" ? body.image_age_s : null;
-    return json(applyGuards(reading, age, selected));
+    const result = applyGuards(reading, age, selected);
+    // notícia de 2+ estrelas das moedas do ativo do print (ou do selecionado) em ±15 min: alerta antes de mostrar a entrada
+    const newsAlert = newsAlertFor(currenciesForAsset(reading.symbol ?? selected), await calendar, Math.floor(Date.now() / 1000));
+    return json({ ...result, newsAlert });
   } catch (err) {
     if (err instanceof Anthropic.RateLimitError) return json({ error: "Limite de uso da IA atingido. Tente em instantes." }, 429);
     if (err instanceof Anthropic.AuthenticationError) return json({ error: "Chave da IA inválida." }, 503);

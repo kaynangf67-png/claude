@@ -10,6 +10,7 @@ import { Logo } from "./components/Logo";
 import { Candle3D, CandleScene, Tilt } from "./components/ThreeD";
 import { LiveMarket } from "./components/LiveMarket";
 import { BinaryAnalysis } from "./components/BinaryAnalysis";
+import { NewsGate, type NewsAlert } from "./components/NewsGate";
 import { DEFAULT_TF, MarketAnalysis, TF_OPTIONS, type Horizon, type SetupTf, type TfChoice } from "./components/MarketAnalysis";
 import { findAsset, marketState } from "./lib/markets";
 
@@ -306,7 +307,7 @@ export default function App() {
               <Loader2 className="animate-spin" /> <span className="text-[13px]">Lendo velas, níveis e indicadores…</span>
             </div>
           ) : result ? (
-            <ResultView r={result} timing={timing} />
+            <NewsGate alert={(result as Result & { newsAlert?: NewsAlert }).newsAlert}><ResultView r={result} timing={timing} /></NewsGate>
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-3 py-14 text-center">
               <div className="flex h-24 items-end gap-6" style={{ perspective: 600 }} aria-hidden>

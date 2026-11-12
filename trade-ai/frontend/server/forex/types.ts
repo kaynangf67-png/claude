@@ -1,6 +1,6 @@
 export interface Candle { t: number; o: number; h: number; l: number; c: number; v?: number }
-export type TF = "D1" | "H4" | "H1" | "M15" | "M5" | "M1";
-export const TF_SECONDS: Record<TF, number> = { D1: 86400, H4: 14400, H1: 3600, M15: 900, M5: 300, M1: 60 };
+export type TF = "D1" | "H4" | "H1" | "M30" | "M15" | "M5" | "M1";
+export const TF_SECONDS: Record<TF, number> = { D1: 86400, H4: 14400, H1: 3600, M30: 1800, M15: 900, M5: 300, M1: 60 };
 
 /** Horizonte da análise. curto = minutos a ~1 hora; swing = posição que pode durar dias. */
 export type Horizon = "curto" | "swing";
@@ -12,11 +12,12 @@ export const HORIZON_TFS: Record<Horizon, Roles> = {
 };
 
 /** Tempo gráfico escolhido pelo usuário (o do SETUP) → os quatro papéis e o horizonte. */
-export type SetupTf = "M1" | "M5" | "M15" | "H1" | "H4";
+export type SetupTf = "M1" | "M5" | "M15" | "M30" | "H1" | "H4";
 export const SETUP_TFS: Record<SetupTf, Roles & { horizon: Horizon }> = {
   M1: { ctx: "M15", struct: "M5", setup: "M1", trigger: "M1", horizon: "curto" },
   M5: { ...HORIZON_TFS.curto, horizon: "curto" },
   M15: { ctx: "H4", struct: "H1", setup: "M15", trigger: "M5", horizon: "curto" },
+  M30: { ctx: "H4", struct: "H1", setup: "M30", trigger: "M15", horizon: "curto" },
   H1: { ...HORIZON_TFS.swing, horizon: "swing" },
   H4: { ctx: "D1", struct: "D1", setup: "H4", trigger: "H1", horizon: "swing" },
 };

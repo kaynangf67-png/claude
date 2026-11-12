@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, Ban, Check, Clock, Loader2, Radar, X } from "lucide-react";
 import type { Asset } from "../lib/markets";
+import { NewsGate, type NewsAlert } from "./NewsGate";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 
 export type Horizon = "curto" | "swing";
-export type SetupTf = "M1" | "M5" | "M15" | "H1" | "H4";
+export type SetupTf = "M1" | "M5" | "M15" | "M30" | "H1" | "H4";
 /** Tempos gráficos de cada tipo de operação e o que cada um usa de contexto. */
 export const TF_OPTIONS: Record<Horizon, { tf: SetupTf; hint: string }[]> = {
-  curto: [{ tf: "M1", hint: "M15 · M5 · M1" }, { tf: "M5", hint: "H1 · M15 · M5 · M1" }, { tf: "M15", hint: "H4 · H1 · M15 · M5" }],
+  curto: [{ tf: "M1", hint: "M15 · M5 · M1" }, { tf: "M5", hint: "H1 · M15 · M5 · M1" }, { tf: "M15", hint: "H4 · H1 · M15 · M5" }, { tf: "M30", hint: "H4 · H1 · M30 · M15" }],
   swing: [{ tf: "H1", hint: "D1 · H4 · H1 · M15" }, { tf: "H4", hint: "D1 · H4 · H1" }],
 };
 export const horizonOf = (tf: SetupTf): Horizon => (tf === "H1" || tf === "H4" ? "swing" : "curto");
@@ -31,13 +32,14 @@ interface ForexView {
   favor: string[]; contra: string[]; missing: string[]; invalidation: string;
   suggested?: { dir: "BUY" | "SELL"; entry: number; sl: number; tps: number[]; rr: number[]; riskPips: number; basis: string[] } | null;
   candle?: CandleLayer | { error: string } | null;
+  newsAlert?: NewsAlert | null;
   autoPick?: { tf: SetupTf; reason: string; ranking: { tf: SetupTf; decision: string; state: ForexView["state"]; score: number | null; rr: number | null; dataOk: boolean }[] } | null;
 }
 
 interface CsStatsV { n: number; winRate: number | null; expR: number | null; pf: number | null }
 /** Estratégias de vela (as 7 das operações rápidas) aplicadas ao tempo da entrada, com validação no histórico do par. */
 interface CandleLayer {
-  tf: "M15" | "H1" | "H4"; price: number; lastCandleBrt: string | null; ageMin: number | null;
+  tf: "M15" | "M30" | "H1" | "H4"; price: number; lastCandleBrt: string | null; ageMin: number | null;
   period: { from: string | null; to: string | null; days: number; candles: number }; costPips: number;
   rules: { targetR: number; maxHold: number };
   entry: { dir: "BUY" | "SELL"; entry: number; sl: number; tp: number; rr: number; riskPips: number; strategy: string; label: string; stats: CsStatsV; validation: CsStatsV & { n: number }; conds: string[] } | null;
@@ -46,7 +48,7 @@ interface CandleLayer {
 }
 
 const HZ: Record<Horizon, { title: string; sub: string }> = {
-  curto: { title: "Day trade", sub: "minutos a horas · M1, M5, M15" },
+  curto: { title: "Day trade", sub: "minutos a horas · M1, M5, M15, M30" },
   swing: { title: "Swing trade", sub: "pode durar dias · H1, H4" },
 };
 
@@ -126,7 +128,7 @@ export function MarketAnalysis({ asset, horizon, tf, onChange, onPicked }: {
       {!forex && <p className="mt-2 text-[12px] text-warn">A análise de mercado funciona só para os pares de Forex. Escolha um par na aba Forex.</p>}
 
       {error && <div className="mt-4 flex gap-2 rounded-xl border border-sell/30 bg-sell/10 p-3 text-[13px] text-sell"><AlertTriangle size={16} className="mt-0.5 shrink-0" />{error}</div>}
-      {res && <Verdict r={res} />}
+      {res && <NewsGate alert={res.newsAlert}><Verdict r={res} /></NewsGate>}
     </section>
   );
 }
@@ -224,14 +226,14 @@ function Verdict({ r }: { r: ForexView }) {
           </details>
         </>
       ) : engine}
-      {!cl && r.roleTf && (r.roleTf.setup === "M1" || r.roleTf.setup === "M5") && <p className="text-[11.5px] text-warn">As estratégias validadas funcionam em M15, H1 e H4. Em {r.roleTf.setup} só existe a leitura do motor, sem validação.</p>}
+      {!cl && r.roleTf && (r.roleTf.setup === "M1" || r.roleTf.setup === "M5") && <p className="text-[11.5px] text-warn">As estratégias de vela funcionam em M15, M30, H1 e H4. Em {r.roleTf.setup} só existe a leitura do motor, sem validação.</p>}
     </div>
   );
 }
 
 const pct = (v: number | null) => (v === null ? "—" : `${Math.round(v * 100)}%`);
 const rr = (v: number | null) => (v === null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}R`);
-const holdOf = (tf: CandleLayer["tf"], n: number) => (tf === "M15" ? `até ${n / 4} h` : tf === "H1" ? `até ${n} h` : `até ${(n * 4) / 24} dias`);
+const holdOf = (tf: CandleLayer["tf"], n: number) => (tf === "M15" ? `até ${n / 4} h` : tf === "M30" ? `até ${n / 2} h` : tf === "H1" ? `até ${n} h` : `até ${(n * 4) / 24} dias`);
 
 function CandleBlock({ c, digits, label }: { c: CandleLayer; digits: number; label: string }) {
   const f = (v: number) => v.toFixed(digits), e = c.entry, buy = e?.dir === "BUY";

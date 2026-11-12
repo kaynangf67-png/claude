@@ -2,7 +2,7 @@ import { buildSeries, evalAt, MIN_INDEX, STRATEGY_LABEL, type BinStrategy, type 
 import type { Candle } from "./types.js";
 
 /**
- * ESTRATÉGIAS DE VELA NO FOREX (M15, H1, H4): as 7 regras das operações rápidas (reversão, retração, fluxo de vela, três velas,
+ * ESTRATÉGIAS DE VELA NO FOREX (M15, M30, H1, H4): as 7 regras das operações rápidas (reversão, retração, fluxo de vela, três velas,
  * diminuição de vela, dupla posição, vela de força) aplicadas a tempos maiores, com STOP e ALVO no lugar da expiração.
  *
  * Regras fixas, definidas ANTES de olhar o resultado (nada foi ajustado para o backtest ficar bonito):
@@ -14,11 +14,11 @@ import type { Candle } from "./types.js";
  */
 export const CS_LIST: BinStrategy[] = ["reversao", "retracao", "fluxo", "tres", "diminuicao", "dupla", "forca"];
 export const CS_RULES = { targetR: 1.5, maxHold: 24, lookback: 5, padAtr: 0.2, minStopAtr: 0.7, maxStopAtr: 3, minN: 30, minValN: 10, minPf: 1.15 } as const;
-export const CS_TFS = ["M15", "H1", "H4"] as const;
+export const CS_TFS = ["M15", "M30", "H1", "H4"] as const;
 export type CsTf = (typeof CS_TFS)[number];
 export const isCsTf = (t: string): t is CsTf => (CS_TFS as readonly string[]).includes(t);
 /** Quanto histórico buscar para validar (o Yahoo limita: 15m ~60 dias, 60m ~730 dias). */
-export const CS_RANGE: Record<CsTf, string> = { M15: "60d", H1: "1y", H4: "730d" };
+export const CS_RANGE: Record<CsTf, string> = { M15: "60d", M30: "60d", H1: "1y", H4: "730d" };
 
 const CROSSES = new Set(["EURJPY", "EURGBP", "GBPJPY", "AUDCAD", "AUDJPY"]);
 /** Spread + deslize típicos de conta comum (pips). */

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { NewsGate, type NewsAlert } from "./NewsGate";
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, Check, Loader2, Timer, X } from "lucide-react";
 import type { Asset } from "../lib/markets";
 import { hhmm } from "../lib/math";
@@ -27,7 +28,7 @@ interface Signal {
 }
 interface Result {
   label: string; tf: Tf; digits: number; price: number | null; payout: number; breakEven: number;
-  data: { ok: boolean; issues: string[] }; signal: Signal | null; warnings?: string[];
+  data: { ok: boolean; issues: string[] }; signal: Signal | null; warnings?: string[]; newsAlert?: NewsAlert | null;
   signals?: Record<string, { label: string; dir: string; level: string; met: number; total: number }> | null;
 }
 interface Stats { n: number; wins: number; losses: number; ties: number; winRate: number | null; breakEven: number; expectancy: number | null; ci: [number, number] | null }
@@ -125,7 +126,7 @@ export function BinaryAnalysis({ asset, payoutPct, onRecord }: {
 
       {res && !res.data.ok && <div className="mt-4 rounded-xl border border-warn/30 bg-warn/10 p-3 text-[12.5px] text-warn">Dados bloqueados: {res.data.issues.join(" | ")}</div>}
 
-      {res && s && (
+      {res && s && (<NewsGate alert={res.newsAlert}>
         <div className="animate-fade mt-4 space-y-3">
           <div className={cx("flex items-center gap-4 rounded-2xl border p-4", s.dir === "CALL" ? "border-buy/40 bg-buy/10" : "border-sell/40 bg-sell/10")}>
             <div className={cx("grid size-12 shrink-0 place-items-center rounded-2xl border", s.dir === "CALL" ? "border-buy/40 text-buy" : "border-sell/40 text-sell")}>
@@ -170,7 +171,7 @@ export function BinaryAnalysis({ asset, payoutPct, onRecord }: {
               className="rounded-lg border border-line-2 px-3 py-2 text-[12.5px] font-semibold text-mute hover:text-ink disabled:opacity-50">{btBusy ? "Medindo…" : "Ver desempenho medido desta estratégia"}</button>
           </div>
         </div>
-      )}
+      </NewsGate>)}
 
       {!s && !res && !busy && (
         <div className="mt-3">

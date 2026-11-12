@@ -10,6 +10,7 @@ import { currenciesOf, fetchSeries, FOREX_LABEL, FOREX_YAHOO, type RawSeries } f
 import { narrate } from "./narrative.js";
 import { backtestCandle, candleEntryNow, costPipsOf, CS_RANGE, CS_RULES, isCsTf, type CsBacktest, type CsTf } from "./candleStrategies.js";
 import { buildSeries } from "../binary/engine.js";
+import { newsAlertFor } from "../newsAlert.js";
 import { HORIZON_TFS, isSetupTf, pipSize, SETUP_TFS, TF_SECONDS, type Horizon, type Roles, type SetupTf, type TF } from "./types.js";
 
 const json = (body: unknown, status = 200) =>
@@ -88,6 +89,10 @@ export async function handleForexAnalyze(request: Request, deps: Deps = {}): Pro
   let events: NewsEvent[] | null = null;
   try { events = await (deps.calendar ?? fetchCalendar)(); } catch { events = null; }
   const pip = pipSize(id);
+  const wantEntry = body.entry === true;
+  // gerar entrada: notícia de 2+ estrelas NÃO bloqueia no motor; vira alerta e o usuário decide (newsAlert)
+  const newsAlert = newsAlertFor(currenciesOf(id), events, now);
+  if (wantEntry && events) events = events.filter((e) => e.impact < 2);
 
   const runs: { R: Roles; analysis: ForexAnalysis }[] = [];
   let firstError: string | null = null;
@@ -106,7 +111,6 @@ export async function handleForexAnalyze(request: Request, deps: Deps = {}): Pro
   let analysis = ranked[0].analysis;
   // entry:true (botão "gerar entrada" do app): sempre devolve direção, entrada, stop e alvo quando há dados válidos.
   // 1º a entrada confirmada; 2º a antecipada (perfil Livre, sem todos os filtros); 3º um plano pela leitura do gráfico (baixa convicção).
-  const wantEntry = body.entry === true;
   const hasEntry = (a: ForexAnalysis) => !!a.trade && (a.state === "entrada_confirmada" || a.state === "entrada_antecipada");
   if (wantEntry && analysis.data.ok && !hasEntry(analysis)) {
     const a2 = analyze({
@@ -125,7 +129,7 @@ export async function handleForexAnalyze(request: Request, deps: Deps = {}): Pro
   } : null;
   // estratégias de vela (as 7 das operações rápidas) no tempo da entrada: só geram entrada as VALIDADAS no histórico deste par e tempo
   const candle = wantEntry && isCsTf(R.setup) ? await candleLayer(id, R.setup, get, now).catch((e) => ({ error: (e as Error).message.slice(0, 160) })) : null;
-  const view = { ...toView(analysis, pip, closed(R.setup)!), horizon, roleTf: R, autoPick, suggested, candle };
+  const view = { ...toView(analysis, pip, closed(R.setup)!), horizon, roleTf: R, autoPick, suggested, candle, newsAlert };
   let narrative = null as Awaited<ReturnType<typeof narrate>> | null, narrativeError: string | null = null;
   const wantsExplain = body.explain !== false && (analysis.decision !== "NO_TRADE" || analysis.state === "aguardando_confirmacao");
   if (wantsExplain && (deps.narrate || process.env.ANTHROPIC_API_KEY)) {
@@ -135,7 +139,7 @@ export async function handleForexAnalyze(request: Request, deps: Deps = {}): Pro
 }
 
 /** Tempos que a IA compara no modo automático. */
-export const AUTO_TFS: Record<Horizon, SetupTf[]> = { curto: ["M1", "M5", "M15"], swing: ["H1", "H4"] };
+export const AUTO_TFS: Record<Horizon, SetupTf[]> = { curto: ["M1", "M5", "M15", "M30"], swing: ["H1", "H4"] };
 
 /** Força do setup AGORA, para escolher o tempo: estado (entrada > antecipada > aguardando > nada), dados válidos, confluência e R:R.
  * Não é chance de acerto: só ordena qual tempo tem o cenário mais completo neste momento. */
@@ -180,7 +184,7 @@ export async function handleForexBacktest(request: Request, deps: Deps = {}): Pr
   const get = deps.series ?? fetchSeries;
   if (url.searchParams.get("mode") === "candle") {
     const tf = url.searchParams.get("tf") ?? "H1";
-    if (!isCsTf(tf)) return json({ error: "Tempo inválido (M15, H1 ou H4)" }, 400);
+    if (!isCsTf(tf)) return json({ error: "Tempo inválido (M15, M30, H1 ou H4)" }, 400);
     const ids = id === "ALL" ? Object.keys(FOREX_YAHOO) : [id];
     if (ids.some((x) => !FOREX_YAHOO[x])) return json({ error: "Par de Forex desconhecido" }, 400);
     const now = Math.floor((deps.now ?? Date.now)() / 1000);

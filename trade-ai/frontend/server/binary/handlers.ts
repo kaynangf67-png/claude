@@ -2,6 +2,8 @@ import { assessQuality, cleanCandles, closedOnly } from "../forex/candles.js";
 import { FOREX_LABEL, FOREX_YAHOO, parseYahooCandles } from "../forex/marketData.js";
 import type { Candle, TF } from "../forex/types.js";
 import { TF_SECONDS } from "../forex/types.js";
+import { fetchCalendar, type CalEvent } from "../calendar.js";
+import { currenciesForAsset, newsAlertFor } from "../newsAlert.js";
 import { analyzeLatest, backtestBinary, DEFAULT_EXPIRY, STRATEGY_LABEL, type BinStrategy } from "./engine.js";
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
@@ -27,7 +29,7 @@ export async function fetchBinarySeries(assetId: string, tf: BTf, range: "live" 
   return cleanCandles(parseYahooCandles(await res.json())).candles;
 }
 
-export interface BinDeps { series?: (assetId: string, tf: BTf, range: "live" | "test") => Promise<Candle[]>; now?: () => number }
+export interface BinDeps { series?: (assetId: string, tf: BTf, range: "live" | "test") => Promise<Candle[]>; now?: () => number; calendar?: () => Promise<CalEvent[]> }
 
 const num = (v: unknown, lo: number, hi: number, d: number) => { const n = typeof v === "number" ? v : typeof v === "string" && v.trim() !== "" ? Number(v) : NaN; return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d; };
 
@@ -61,13 +63,15 @@ export async function handleBinary(request: Request, deps: BinDeps = {}): Promis
     const tf: BTf = isTf(body.tf) ? body.tf : "M5", pick = isStrategy(body.strategy) ? body.strategy : "auto";
     const payout = num(body.payout, 0.5, 1, 0.85);
     const a = BINARY_ASSETS[id], step = TF_SECONDS[tf as TF];
-    const candles = closedOnly(await get(id, tf, "live"), tf as TF, now);
+    const [raw, cal] = await Promise.all([get(id, tf, "live"), (deps.calendar ?? fetchCalendar)().catch(() => null)]);
+    const candles = closedOnly(raw, tf as TF, now);
+    const newsAlert = newsAlertFor(currenciesForAsset(id), cal, now);
     const q = assessQuality(candles, tf as TF, now);
     // binária só precisa de ~60 velas; histórico curto de M1 em ativo parado não bloqueia
     const issues = q.issues.filter((x) => !x.includes("histórico curto"));
     const res = analyzeLatest(candles, pick);
     const dataOk = issues.length === 0 && !!res;
-    const base = { symbol: id, label: a.label, tf, digits: a.digits, now, payout, breakEven: 1 / (1 + payout), data: { ok: dataOk, issues: res ? issues : [...issues, "Poucas velas para analisar."], ageMin: q.ageMin } };
+    const base = { symbol: id, label: a.label, tf, digits: a.digits, now, payout, breakEven: 1 / (1 + payout), data: { ok: dataOk, issues: res ? issues : [...issues, "Poucas velas para analisar."], ageMin: q.ageMin }, newsAlert };
     if (!dataOk || !res) return json({ ...base, price: candles.at(-1)?.c ?? null, signal: null, signals: null });
 
     const best = res.best, expiry = Math.round(num(body.expiry, 1, 10, best.defaultExpiry));

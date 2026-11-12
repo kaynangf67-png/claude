@@ -3,7 +3,7 @@ import { Moon } from "lucide-react";
 import { ASSETS, GROUPS, brt, marketState, nextOpen, type Asset, type MarketState } from "../lib/markets";
 import { LiveChart } from "./LiveChart";
 
-const TV_INTERVAL: Record<string, string> = { M1: "1", M5: "5", M15: "15", H1: "60", H4: "240" };
+const TV_INTERVAL: Record<string, string> = { M1: "1", M5: "5", M15: "15", M30: "30", H1: "60", H4: "240" };
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
 
 /** Mercado ao vivo: abas por tipo de ativo, ativos da aba, gráfico M5 limpo. */

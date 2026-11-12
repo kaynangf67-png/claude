@@ -15,7 +15,7 @@ export interface TFAnalysis {
   fvgs: Fvg[]; sweep: Sweep | null; liquidity: LiquidityLevel[];
 }
 
-const KEEP: Record<TF, number> = { D1: 400, H4: 400, H1: 400, M15: 400, M5: 400, M1: 150 };
+const KEEP: Record<TF, number> = { D1: 400, H4: 400, H1: 400, M30: 400, M15: 400, M5: 400, M1: 150 };
 
 export function analyzeTF(all: Candle[], tf: TF): TFAnalysis {
   const c = all.slice(-KEEP[tf]);

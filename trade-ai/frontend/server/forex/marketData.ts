@@ -31,6 +31,7 @@ export function parseYahooCandles(body: unknown): Candle[] {
 const SPEC: Record<Exclude<TF, "H4">, { interval: string; range: string }> = {
   D1: { interval: "1d", range: "2y" },
   H1: { interval: "60m", range: "6mo" },
+  M30: { interval: "30m", range: "1mo" },
   M15: { interval: "15m", range: "1mo" },
   M5: { interval: "5m", range: "60d" }, // o Yahoo limita o M5 a ~60 dias
   M1: { interval: "1m", range: "5d" },
