@@ -30,7 +30,19 @@ interface ForexView {
   data: { ok: boolean; issues: string[] };
   favor: string[]; contra: string[]; missing: string[]; invalidation: string;
   suggested?: { dir: "BUY" | "SELL"; entry: number; sl: number; tps: number[]; rr: number[]; riskPips: number; basis: string[] } | null;
+  candle?: CandleLayer | { error: string } | null;
   autoPick?: { tf: SetupTf; reason: string; ranking: { tf: SetupTf; decision: string; state: ForexView["state"]; score: number | null; rr: number | null; dataOk: boolean }[] } | null;
+}
+
+interface CsStatsV { n: number; winRate: number | null; expR: number | null; pf: number | null }
+/** Estratégias de vela (as 7 das operações rápidas) aplicadas ao tempo da entrada, com validação no histórico do par. */
+interface CandleLayer {
+  tf: "M15" | "H1" | "H4"; price: number; lastCandleBrt: string | null; ageMin: number | null;
+  period: { from: string | null; to: string | null; days: number; candles: number }; costPips: number;
+  rules: { targetR: number; maxHold: number };
+  entry: { dir: "BUY" | "SELL"; entry: number; sl: number; tp: number; rr: number; riskPips: number; strategy: string; label: string; stats: CsStatsV; validation: CsStatsV & { n: number }; conds: string[] } | null;
+  signals: { strategy: string; label: string; dir: "BUY" | "SELL"; validated: boolean }[];
+  strategies: { strategy: string; label: string; validated: boolean; reason: string; n: number; winRate: number | null; expR: number | null; pf: number | null; devExpR: number | null; valExpR: number | null; valN: number }[];
 }
 
 const HZ: Record<Horizon, { title: string; sub: string }> = {
@@ -133,8 +145,9 @@ function Verdict({ r }: { r: ForexView }) {
 
   const ap = r.autoPick;
   const stTxt: Record<ForexView["state"], string> = { entrada_confirmada: "entrada", entrada_antecipada: "antecipada", aguardando_confirmacao: "aguardando", sem_operacao: "sem setup" };
-  return (
-    <div className="animate-fade mt-4 space-y-3">
+  const cl = r.candle && !("error" in r.candle) ? r.candle : null;
+  const engine = (
+    <>
       {ap && (
         <div className="rounded-2xl border border-info/40 bg-info/10 p-3">
           <div className="text-[13.5px] font-bold text-ink">✦ Tempo recomendado pela IA: <span className="num">{ap.tf}</span></div>
@@ -197,6 +210,93 @@ function Verdict({ r }: { r: ForexView }) {
       {!entry && <List title={sg ? "O que faltou para confirmar" : "Falta para liberar"} items={r.missing.slice(0, 4)} icon={<Clock size={13} className="mt-0.5 shrink-0 text-warn" />} />}
       {entry && r.invalidation && <p className="text-[12.5px] text-mute"><b className="text-ink">Invalidação:</b> {r.invalidation}</p>}
       <p className="text-[11px] text-faint">Pontuação é confluência técnica, não chance de acerto. Confira na sua corretora antes de operar: os preços (Yahoo) podem diferir alguns pips.</p>
+    </>
+  );
+  return (
+    <div className="animate-fade mt-4 space-y-3">
+      {r.candle && "error" in r.candle && <div className="rounded-xl border border-warn/30 bg-warn/10 p-3 text-[12.5px] text-warn">Estratégias de vela indisponíveis agora: {r.candle.error}</div>}
+      {cl ? (
+        <>
+          <CandleBlock c={cl} digits={r.label.includes("JPY") ? 3 : 5} label={r.label} />
+          <details className="rounded-xl border border-line p-3">
+            <summary className="cursor-pointer text-[12px] font-semibold text-faint">Leitura do motor de confluência (não validada; só para consulta)</summary>
+            <div className="mt-3 space-y-3">{engine}</div>
+          </details>
+        </>
+      ) : engine}
+      {!cl && r.roleTf && (r.roleTf.setup === "M1" || r.roleTf.setup === "M5") && <p className="text-[11.5px] text-warn">As estratégias validadas funcionam em M15, H1 e H4. Em {r.roleTf.setup} só existe a leitura do motor, sem validação.</p>}
+    </div>
+  );
+}
+
+const pct = (v: number | null) => (v === null ? "—" : `${Math.round(v * 100)}%`);
+const rr = (v: number | null) => (v === null ? "—" : `${v >= 0 ? "+" : ""}${v.toFixed(2)}R`);
+const holdOf = (tf: CandleLayer["tf"], n: number) => (tf === "M15" ? `até ${n / 4} h` : tf === "H1" ? `até ${n} h` : `até ${(n * 4) / 24} dias`);
+
+function CandleBlock({ c, digits, label }: { c: CandleLayer; digits: number; label: string }) {
+  const f = (v: number) => v.toFixed(digits), e = c.entry, buy = e?.dir === "BUY";
+  const ok = c.strategies.filter((s) => s.validated);
+  return (
+    <div className="space-y-3">
+      {e ? (
+        <>
+          <div className={cx("flex items-center gap-4 rounded-2xl border p-4", buy ? "border-buy/40 bg-buy/10" : "border-sell/40 bg-sell/10")}>
+            <div className={cx("grid size-12 shrink-0 place-items-center rounded-2xl border", buy ? "border-buy/40 text-buy" : "border-sell/40 text-sell")}>
+              {buy ? <ArrowUpRight size={24} /> : <ArrowDownRight size={24} />}
+            </div>
+            <div className="min-w-0">
+              <div className={cx("text-[22px] font-extrabold leading-none", buy ? "text-buy" : "text-sell")}>
+                {buy ? "COMPRA" : "VENDA"}<span className="ml-2 align-middle text-[11px] font-bold text-warn">PASSOU NO BACKTEST</span>
+              </div>
+              <div className="mt-1.5 text-[12.5px] text-mute">{label} · {c.tf} · {e.label} · vela fechada {c.lastCandleBrt}</div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-line bg-line text-center sm:grid-cols-4">
+            <Cell k="Entrada" v={f(e.entry)} />
+            <Cell k="Stop" v={f(e.sl)} hint={`${e.riskPips} pips`} tone="text-sell" />
+            <Cell k="Alvo" v={f(e.tp)} hint={`R:R ${e.rr}`} tone="text-buy" />
+            <Cell k="Prazo" v={holdOf(c.tf, c.rules.maxHold)} hint="sai no fechamento" />
+          </div>
+          <div className="rounded-xl border border-line bg-panel p-3 text-[12.5px] text-mute">
+            <b className="text-ink">No histórico de {label} {c.tf}</b> ({c.period.days} dias, custo de {c.costPips} pips descontado):{" "}
+            {e.stats.n} operações, {pct(e.stats.winRate)} positivas, média {rr(e.stats.expR)} por operação, fator de lucro {e.stats.pf?.toFixed(2) ?? "—"}.
+            No período de validação (os 40% mais recentes, não usados para nada): {e.validation.n} operações, {rr(e.validation.expR)} por operação.
+          </div>
+          <div className="rounded-xl border border-warn/30 bg-warn/10 p-3 text-[12px] text-warn">
+            Atenção: nos 12 pares, em H1 e H4, só 3 de 168 combinações (estratégia × par × tempo) passaram no filtro, e a média geral foi negativa.
+            Esse número de aprovações é o que se espera por sorte. Trate como hipótese a testar em conta demo, não como vantagem comprovada.
+          </div>
+          <List title="O que a estratégia viu" items={e.conds.slice(0, 5)} icon={<Check size={13} className="mt-0.5 shrink-0 text-buy" />} />
+        </>
+      ) : (
+        <div className="rounded-2xl border border-line-2 bg-card-2 p-4">
+          <div className="flex items-center gap-2 text-[15px] font-extrabold text-mute"><Ban size={18} /> Nenhuma estratégia validada confirmou agora no {c.tf}</div>
+          <div className="mt-1 text-[12.5px] text-mute">
+            {ok.length ? `Validadas em ${label} ${c.tf}: ${ok.map((s) => s.label).join(", ")}. Nenhuma delas confirmou na última vela fechada (${c.lastCandleBrt}).`
+              : `Nenhuma das 7 estratégias passou no backtest de ${label} ${c.tf}. Entrar por elas aqui seria apostar sem vantagem medida.`}
+            {c.signals.length > 0 && ` Confirmaram agora, mas sem validação: ${c.signals.map((s) => `${s.label} (${s.dir === "BUY" ? "compra" : "venda"})`).join(", ")}.`}
+          </div>
+        </div>
+      )}
+      <details className="rounded-xl border border-line bg-panel p-3 text-[12px]">
+        <summary className="cursor-pointer font-semibold text-ink">Backtest das 7 estratégias em {label} {c.tf} ({c.period.days} dias)</summary>
+        <div className="mt-2 overflow-x-auto">
+          <table className="num w-full text-left">
+            <thead className="text-faint"><tr><th className="py-1 pr-2">Estratégia</th><th className="pr-2">Ops</th><th className="pr-2">Positivas</th><th className="pr-2">Média</th><th className="pr-2">Validação</th><th>Situação</th></tr></thead>
+            <tbody>
+              {c.strategies.map((s) => (
+                <tr key={s.strategy} className="border-t border-line">
+                  <td className="py-1 pr-2">{s.label}</td><td className="pr-2">{s.n}</td><td className="pr-2">{pct(s.winRate)}</td>
+                  <td className={cx("pr-2", (s.expR ?? 0) > 0 ? "text-buy" : "text-sell")}>{rr(s.expR)}</td>
+                  <td className={cx("pr-2", (s.valExpR ?? 0) > 0 ? "text-buy" : "text-sell")}>{rr(s.valExpR)}</td>
+                  <td className={s.validated ? "text-buy" : "text-faint"}>{s.validated ? "validada" : s.reason}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-2 text-faint">Regras fixas: entrada no fechamento da vela, stop além das últimas 5 velas (mín. 0,7 ATR), alvo {c.rules.targetR}R, prazo {c.rules.maxHold} velas. Com 7 estratégias testadas, uma pode passar por sorte: resultado passado não garante o futuro.</p>
+      </details>
     </div>
   );
 }
