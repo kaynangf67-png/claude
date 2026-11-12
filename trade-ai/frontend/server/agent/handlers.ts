@@ -6,6 +6,7 @@ import { DEFAULT_NEWS_CONFIG } from "./news.js";
 import { telegramFromEnv, type Sender } from "./telegram.js";
 import { DEFAULT_CONFIG, storeFromEnv, type AgentConfig, type Store } from "./store.js";
 import { loadState, runCycle, view as zyonView } from "../zyon/cycle.js";
+import { loadMt5, poll as mt5Poll, publicView as mt5View, report as mt5Report, setEnabled as mt5SetEnabled, toText as mt5Text } from "../zyon/mt5.js";
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
 
@@ -66,10 +67,22 @@ export async function handleAgent(request: Request, deps: AgentDeps = {}): Promi
     if (action === "report" && request.method === "GET") return json((await store.getKv(`report:${url.searchParams.get("date") ?? ""}`)) ?? { error: "Sem relatório para esta data." }, 200);
 
     // ZYON: mesa multiagente SIMULADA. Leitura e ciclo são públicos (o ciclo tem intervalo mínimo e trava contra execução dupla).
-    if (action === "zyon" && request.method === "GET") return json(zyonView(await loadState(store), Math.floor((deps.now ?? Date.now)() / 1000)));
+    const nowS = Math.floor((deps.now ?? Date.now)() / 1000);
+    if (action === "zyon" && request.method === "GET") return json({ ...zyonView(await loadState(store), nowS), mt5: mt5View(await loadMt5(store), nowS) });
     if (action === "zyon-cycle" && request.method === "POST") {
       const r = await runCycle({ store, now: deps.now, series: deps.series, calendar: deps.calendar });
-      return json({ ...zyonView(r.state, Math.floor((deps.now ?? Date.now)() / 1000)), ran: r.ran, cycleNote: r.note });
+      return json({ ...zyonView(r.state, nowS), mt5: mt5View(await loadMt5(store), nowS), ran: r.ran, cycleNote: r.note });
+    }
+    // PONTE MT5: só o Expert Advisor chama estas duas rotas, com o token MT5_BRIDGE_TOKEN (texto simples, fácil de ler em MQL5)
+    if ((action === "mt5-poll" || action === "mt5-report") && request.method === "POST") {
+      const ok = bearer(request, env, "MT5_BRIDGE_TOKEN");
+      const text = (body: string, status = 200) => new Response(body, { status, headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" } });
+      if (ok === "unset") return text("ERROR|MT5_BRIDGE_TOKEN não configurada no servidor\n", 503);
+      if (!ok) return text("ERROR|token inválido\n", 401);
+      const p = new URLSearchParams(await request.text());
+      if (action === "mt5-poll") return text(mt5Text(await mt5Poll(store, p, nowS)));
+      const r = await mt5Report(store, p, nowS);
+      return text(`${r.ok ? "OK" : "ERROR"}|${r.note}\n`, r.ok ? 200 : 409);
     }
     if (action === "tick" && request.method === "POST") {
       const ok = bearer(request, env, "CRON_SECRET", "AGENT_ADMIN_TOKEN");
@@ -87,6 +100,7 @@ export async function handleAgent(request: Request, deps: AgentDeps = {}): Promi
       if (body.op === "pause" || body.op === "resume") await store.setConfig({ ...cur, paused: body.op === "pause" });
       else if (body.op === "start") await store.setConfig({ ...cur, armedDay: today, paused: false });
       else if (body.op === "stop") await store.setConfig({ ...cur, armedDay: null });
+      else if (body.op === "mt5-on" || body.op === "mt5-off") { await mt5SetEnabled(store, body.op === "mt5-on", Math.floor((deps.now ?? Date.now)() / 1000)); return json({ ok: true, mt5: mt5View(await loadMt5(store), Math.floor((deps.now ?? Date.now)() / 1000)) }); }
       else if (body.op === "config") await store.setConfig(sanitizeConfig(body.config, cur));
       else return json({ error: "Operação inválida (use start, stop, pause, resume ou config)." }, 400);
       return json({ ok: true, config: await store.getConfig() });

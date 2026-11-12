@@ -5,6 +5,7 @@ import { currenciesOf, fetchSeries, FOREX_LABEL, type RawSeries } from "../forex
 import { HORIZON_TFS, pipSize, type Candle, type TF } from "../forex/types.js";
 import { marketOpen } from "../agent/agent.js";
 import type { Store } from "../agent/store.js";
+import { enqueue } from "./mt5.js";
 import {
   brain, emptyState, master, pushEvent, resolvePosition, riskGuard, RISK_RULES, specialist, trimState, ZYON_PAIRS,
   type AgentCard, type ClosedPosition, type Opportunity, type Position, type ZyonState,
@@ -85,6 +86,10 @@ export async function runCycle(d: CycleDeps): Promise<{ ran: boolean; note: stri
           pushEvent(st, { at: now, who: "RISK", symbol: pick.symbol, kind: "aprovada", text: `${pick.label} APROVADA: dentro de todos os limites.` });
           st.open.push({ ...pick, kind: "simulada", maxHoldS: RISK_RULES.maxHoldS });
           pushEvent(st, { at: now, who: "EXEC", symbol: pick.symbol, kind: "aberta", text: `${pick.label} ${pick.dir === "BUY" ? "compra" : "venda"} SIMULADA aberta em ${pick.entry}, stop ${fmt(pick.sl, pick.symbol)}, alvo ${fmt(pick.tps[0]!, pick.symbol)}.` });
+          // PONTE MT5 (desligada por padrão): a mesma ordem aprovada vai para o EA executar na conta DEMO
+          const q = await enqueue(d.store, pick, now).catch((e) => ({ queued: false, reason: (e as Error).message }));
+          if (q.queued) pushEvent(st, { at: now, who: "EXEC", symbol: pick.symbol, kind: "aberta", text: `${pick.label}: ${q.reason}. O EA calcula o lote para ${0.5}% de risco.` });
+          else if (q.reason !== "ponte MT5 desligada") pushEvent(st, { at: now, who: "EXEC", symbol: pick.symbol, kind: "info", text: `${pick.label} não foi ao MT5: ${q.reason}.` });
           const c = st.agents.find((a) => a.symbol === pick.symbol);
           if (c) { c.status = "em_operacao"; c.text = `Em operação simulada: ${pick.dir === "BUY" ? "compra" : "venda"}.`; }
         }

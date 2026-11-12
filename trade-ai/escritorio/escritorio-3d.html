@@ -2486,6 +2486,27 @@
       ["Efeito do Risk Guard", b.vetoN ? `${b.vetoN} vetadas acompanhadas: teriam dado ${zR(b.vetoEffectR)} (${b.vetoEffectR < 0 ? "o veto evitou perda" : b.vetoEffectR > 0 ? "o veto custou ganho" : "neutro"})` : "nenhuma vetada fechada ainda"],
       ["Veredito", b.verdict],
     ]), ul(b.suggestions, "fx-list"), el("div", "ai-foot", "O Brain só mede e sugere. Regras de risco são fixas no código e só mudam por decisão humana.")));
+    if (d.mt5) {
+      const m = d.mt5, box = el("div", "");
+      const stTxt = !m.lastSeen ? "EA nunca conectou" : m.connected ? `EA conectado · conta ${m.mode}${m.server ? " · " + m.server : ""}` : `EA desconectado (último sinal às ${zhm(m.lastSeen)})`;
+      box.append(kv([["Ponte", m.enabled ? "LIGADA: ordens aprovadas vão para o MT5" : "DESLIGADA: a mesa só simula"], ["MetaTrader 5", stTxt],
+        ["Ordens no MT5", `${m.counts.executed} abertas · ${m.counts.closed} fechadas · ${m.counts.rejected} rejeitadas · ${m.counts.expired} expiradas`],
+        ["Resultado no MT5", m.counts.closed ? `${m.profit >= 0 ? "+" : ""}${m.profit.toFixed(2)} ${m.currency || ""} (conta ${m.mode || "demo"})` : "nenhuma operação fechada ainda"]]));
+      if (m.connected && m.mode !== "DEMO") box.append(el("div", "fx-warn", "A conta conectada NÃO é demo: nenhuma ordem é enviada. Troque para uma conta demo no MetaTrader 5."));
+      if (m.orders.length) box.append(ul(m.orders.map((o) => `${zhm(o.createdAt)} · ${o.symbol} ${o.dir === "BUY" ? "COMPRA" : "VENDA"} · ${o.status}${o.volume ? ` · ${o.volume} lote` : ""}${o.profit !== null ? ` · ${o.profit >= 0 ? "+" : ""}${o.profit.toFixed(2)}` : ""}${o.note ? " · " + o.note : ""}`), "fx-list"));
+      const tg = el("button", "fx-btn", m.enabled ? "■ Desligar a ponte MT5" : "▶ Ligar a ponte MT5 (conta demo)"); tg.type = "button";
+      tg.onclick = async () => { tg.disabled = true; try { await agentControl({ op: m.enabled ? "mt5-off" : "mt5-on" }); await renderZyon(false); } catch (e) { tg.disabled = false; tg.textContent = "Falhou: " + e.message; } };
+      box.append(tg);
+      const how = el("details", ""); how.append(el("summary", "", "COMO CONECTAR O METATRADER 5"));
+      how.append(ul(["1. Abra uma conta DEMO na sua corretora e entre nela no MetaTrader 5 (no computador ou numa VPS Windows).",
+        "2. Na Vercel, crie a variável MT5_BRIDGE_TOKEN com um texto longo e aleatório. Nunca envie esse token nem a senha da conta pelo chat.",
+        "3. No MT5: Ferramentas > Opções > Expert Advisors > marque 'Permitir WebRequest' e adicione o endereço deste site.",
+        "4. Copie o arquivo ZyonBridge.mq5 para a pasta MQL5/Experts, compile no MetaEditor e arraste para um gráfico. Cole o mesmo token no campo BridgeToken.",
+        "5. Ligue o botão Algo Trading no MT5 e clique em 'Ligar a ponte MT5' aqui.",
+        `Risco por ordem: ${m.rules.riskPct}% do saldo (o robô calcula o lote). Uma posição por par. Prazo máximo: ${m.rules.maxHoldS / 60} min.`], "fx-list"));
+      box.append(how, el("div", "ai-foot", "O robô só opera em conta DEMO e só executa o que o Risk Guard aprovou. O MT5 precisa ficar aberto para as ordens saírem."));
+      root.append(sec("METATRADER 5 · EXECUÇÃO AUTOMÁTICA", box));
+    }
     root.append(sec("RISK GUARD · REGRAS FIXAS", ul([`Confluência mínima ${d.rules.minScore} · R:R mínimo ${d.rules.minRR}`, `Até ${d.rules.maxOpen} posições abertas · ${d.rules.maxTradesDay} entradas por dia`, `Trava o dia em ${d.rules.dailyStopR}R · custo de ${d.rules.costPips} pips por operação`, "Notícia de alto impacto ou calendário fora do ar: veto", "Mesma moeda já exposta: o Master descarta (correlação)"], "fx-list")));
     zyonTimer = setInterval(() => { if (!aiOut.querySelector(".zy-root")) { clearInterval(zyonTimer); return; } renderZyon(false); }, 30000);
   }
