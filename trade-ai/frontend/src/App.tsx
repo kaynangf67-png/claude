@@ -11,6 +11,7 @@ import { Candle3D, CandleScene, Tilt } from "./components/ThreeD";
 import { LiveMarket } from "./components/LiveMarket";
 import { BinaryAnalysis } from "./components/BinaryAnalysis";
 import { DEFAULT_TF, MarketAnalysis, TF_OPTIONS, type Horizon, type SetupTf, type TfChoice } from "./components/MarketAnalysis";
+import { Mt5Bot } from "./components/Mt5Bot";
 import { findAsset, marketState } from "./lib/markets";
 
 const cx = (...c: (string | false | null | undefined)[]) => c.filter(Boolean).join(" ");
@@ -220,6 +221,7 @@ export default function App() {
 
 
       <LiveMarket asset={asset} state={state} clock={clock} onPick={pickAsset} tf={chartTf} />
+      <Mt5Bot />
       <MarketAnalysis asset={asset} horizon={choice.hz} tf={choice.tf} onChange={changeChoice} onPicked={setAiTf} />
       <BinaryAnalysis asset={asset} payoutPct={payout}
         onRecord={(e) => setHistory((h) => [{ id: crypto.randomUUID(), at: Date.now(), symbol: e.symbol, timeframe: e.timeframe, decision: e.decision, quality: e.quality, payout: payout / 100, entryAt: e.entryAt, expiryAt: e.expiryAt, result: null }, ...h])} />
