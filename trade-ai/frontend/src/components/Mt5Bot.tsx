@@ -32,7 +32,7 @@ function adminToken(): string {
 async function api(action: string, init?: RequestInit): Promise<any> {
   const r = await fetch(`/api/agent?action=${action}`, init);
   const j = await r.json().catch(() => ({ error: `Erro ${r.status}` }));
-  if (!r.ok || j?.error) { if (r.status === 401) try { sessionStorage.removeItem(TKEY); } catch { /* ok */ } throw new Error(j.error ?? `Erro ${r.status}`); }
+  if (!r.ok) { if (r.status === 401) try { sessionStorage.removeItem(TKEY); } catch { /* ok */ } throw new Error(j.error ?? `Erro ${r.status}`); }
   return j;
 }
 
@@ -49,11 +49,11 @@ export function Mt5Bot() {
   const timer = useRef<number | null>(null);
 
   const refresh = useCallback(async () => {
-    try { const r = await api("zyon"); if (!r?.mt5) throw new Error("Resposta inesperada do servidor."); setZ(r); setErr(null); } catch (e) { setErr((e as Error).message); }
+    try { setZ(await api("zyon")); setErr(null); } catch (e) { setErr((e as Error).message); }
   }, []);
 
   const cycle = useCallback(async () => {
-    try { const r: ZyonView = await api("zyon-cycle", { method: "POST" }); if (r?.mt5) setZ(r); setNote(r.cycleNote ?? null); setErr(null); }
+    try { const r: ZyonView = await api("zyon-cycle", { method: "POST" }); setZ(r); setNote(r.cycleNote ?? null); setErr(null); }
     catch (e) { setErr((e as Error).message); }
   }, []);
 
@@ -68,7 +68,7 @@ export function Mt5Bot() {
   }, [running, cycle]);
 
   // se a ponte foi desligada em outro lugar (escritório), o bot daqui para também
-  useEffect(() => { if (z?.mt5 && !z.mt5.enabled && running) setRun(false); }, [z, running]);
+  useEffect(() => { if (z && !z.mt5.enabled && running) setRun(false); }, [z, running]);
 
   function setRun(on: boolean) { setRunning(on); try { localStorage.setItem(RUN_KEY, on ? "1" : "0"); } catch { /* ok */ } }
 
