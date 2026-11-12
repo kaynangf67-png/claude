@@ -93,6 +93,21 @@ export interface Result extends Reading {
   warnings: string[]; // ressalvas que NÃO bloqueiam a entrada (ativo diferente, print antigo, setup fraco...)
   derived: boolean; // true quando a direção, o stop e o alvo foram derivados pelo servidor a partir dos níveis lidos
   timeframe_minutes: number | null;
+  /** Como o usuário vai operar este print: binárias (CALL/PUT + expiração) ou Forex (compra/venda + stop e alvo). */
+  mode?: PrintMode;
+}
+export type PrintMode = "binarias" | "forex";
+const isOtc = (s: string | null | undefined) => /\botc\b/i.test(s ?? "");
+
+/** Ajusta a leitura ao modo escolhido: binárias não têm stop nem alvo; OTC é preço da própria corretora. */
+export function applyMode(r: Result, mode: PrintMode): Result {
+  const out: Result = { ...r, mode, warnings: [...r.warnings] };
+  if (mode === "binarias") {
+    out.stop_price = null; out.target_price = null;
+    out.warnings = out.warnings.filter((w) => !/stop e alvo/i.test(w));
+  }
+  if (isOtc(r.symbol)) out.warnings.push("Ativo OTC: o preço é gerado pela própria corretora, fora do mercado real. Calendário econômico, dados reais e backtests do app não valem para ele.");
+  return out;
 }
 
 /** "M5", "5m", "5", "1 min", "15M", "H1", "D1", "diário" -> minutos. */
@@ -202,7 +217,7 @@ export async function handleAnalyze(request: Request): Promise<Response> {
   if (!process.env.ANTHROPIC_API_KEY)
     return json({ error: "Análise desativada: configure ANTHROPIC_API_KEY no servidor (Vercel → Settings → Environment Variables)." }, 503);
 
-  let body: { image?: string; media_type?: string; image_age_s?: number | null; asset?: string | null };
+  let body: { image?: string; media_type?: string; image_age_s?: number | null; asset?: string | null; mode?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -213,6 +228,7 @@ export async function handleAnalyze(request: Request): Promise<Response> {
   if (image.length > 6_000_000) return json({ error: "Imagem grande demais" }, 413);
 
   const selected = typeof body.asset === "string" && body.asset.trim() ? body.asset.trim().slice(0, 40) : null;
+  const mode: PrintMode = body.mode === "forex" ? "forex" : "binarias";
   const client = new Anthropic();
   const calendar = fetchCalendar().catch(() => null); // em paralelo com a leitura da IA
   try {
@@ -227,7 +243,7 @@ export async function handleAnalyze(request: Request): Promise<Response> {
         role: "user",
         content: [
           { type: "image", source: { type: "base64", media_type: media_type as "image/png", data: image } },
-          { type: "text", text: `Ativo selecionado pelo usuário: ${selected ?? "não informado"}. Analise este print e preencha o JSON.` },
+          { type: "text", text: `Ativo selecionado pelo usuário: ${selected ?? "não informado"}. Modo escolhido pelo usuário: ${mode === "forex" ? "FOREX (vai operar compra/venda com stop e alvo em preço; CALL = compra, PUT = venda; capriche no stop_price e no target_price)" : "OPÇÕES BINÁRIAS (vai operar CALL/PUT com expiração; o que importa é a direção e a expiração em velas; stop e alvo não são usados)"}. Analise este print e preencha o JSON.` },
         ],
       }],
     });
@@ -236,9 +252,10 @@ export async function handleAnalyze(request: Request): Promise<Response> {
     if (!text) return json({ error: "Resposta vazia da IA" }, 502);
     const reading = JSON.parse(text) as Reading;
     const age = typeof body.image_age_s === "number" ? body.image_age_s : null;
-    const result = applyGuards(reading, age, selected);
+    const result = applyMode(applyGuards(reading, age, selected), mode);
     // notícia de 2+ estrelas das moedas do ativo do print (ou do selecionado) em ±15 min: alerta antes de mostrar a entrada
-    const newsAlert = newsAlertFor(currenciesForAsset(reading.symbol ?? selected), await calendar, Math.floor(Date.now() / 1000));
+    // OTC não é mercado real: notícia não se aplica
+    const newsAlert = isOtc(reading.symbol) ? null : newsAlertFor(currenciesForAsset(reading.symbol ?? selected), await calendar, Math.floor(Date.now() / 1000));
     return json({ ...result, newsAlert });
   } catch (err) {
     if (err instanceof Anthropic.RateLimitError) return json({ error: "Limite de uso da IA atingido. Tente em instantes." }, 429);

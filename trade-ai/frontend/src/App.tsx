@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle, ArrowDownRight, ArrowUpRight, Ban, Camera, Check, ClipboardPaste, ImagePlus, Loader2, RefreshCw, Trash2, X,
 } from "lucide-react";
-import type { Result } from "../server/analyze";
+import type { PrintMode, Result } from "../server/analyze";
 import { prepareImage } from "./lib/image";
 import { breakEven, entryTimes, hhmm, wilson } from "./lib/math";
 import { load, save, type Entry } from "./lib/history";
@@ -51,6 +51,9 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Result | null>(null);
   const [timing, setTiming] = useState<{ entry: Date; expiry: Date } | null>(null);
+  // como o print vai ser operado: binárias (CALL/PUT + expiração) ou Forex (compra/venda + stop e alvo)
+  const [printMode, setPrintModeState] = useState<PrintMode>(() => { try { return localStorage.getItem("trade-ai:modo-print") === "forex" ? "forex" : "binarias"; } catch { return "binarias"; } });
+  const setPrintMode = (m: PrintMode) => { setPrintModeState(m); setResult(null); setTiming(null); try { localStorage.setItem("trade-ai:modo-print", m); } catch { /* ok */ } };
   const [history, setHistory] = useState<Entry[]>(load);
   const [assetId, setAssetId] = useState(() => {
     try {
@@ -174,7 +177,7 @@ export default function App() {
         body: JSON.stringify({
           image: img.data, media_type: img.mediaType,
           image_age_s: capturedAt ? (Date.now() - capturedAt) / 1000 : null,
-          asset: asset.label,
+          asset: asset.label, mode: printMode,
         }),
       });
       const body = await res.json().catch(() => ({
@@ -185,10 +188,11 @@ export default function App() {
       if (!res.ok) throw new Error(body.error ?? `Erro ${res.status}`);
       const r = body as Result;
       setResult(r);
-      const t = r.decision !== "NAO_OPERAR" && r.timeframe_minutes
+      const bin = (r.mode ?? printMode) === "binarias";
+      const t = bin && r.decision !== "NAO_OPERAR" && r.timeframe_minutes
         ? entryTimes(new Date(), r.timeframe_minutes, r.expiration_candles) : null;
       setTiming(t);
-      if (r.decision !== "NAO_OPERAR") {
+      if (bin && r.decision !== "NAO_OPERAR") {
         setHistory((h) => [{
           id: crypto.randomUUID(), at: Date.now(), symbol: r.symbol ?? asset.label, timeframe: r.timeframe, decision: r.decision,
           quality: r.setup_quality, payout: payout / 100, entryAt: t?.entry.getTime() ?? null,
@@ -272,7 +276,20 @@ export default function App() {
             </div>
           )}
 
-          <div className="mt-4 flex items-end gap-3">
+          <div className="mt-4">
+            <div className="text-[12px] font-medium text-mute">Como você vai operar este print?</div>
+            <div className="mt-1.5 grid grid-cols-2 gap-2">
+              {([["binarias", "Binárias", "CALL/PUT · expiração"], ["forex", "Forex", "compra/venda · stop e alvo"]] as const).map(([m, t, sub]) => (
+                <button key={m} onClick={() => setPrintMode(m)}
+                  className={cx("rounded-xl border px-3 py-2.5 text-left transition-colors", printMode === m ? "border-buy bg-buy/10" : "border-line-2 hover:border-line")}>
+                  <div className={cx("text-[14px] font-bold", printMode === m ? "text-ink" : "text-mute")}>{t}</div>
+                  <div className="text-[11px] text-faint">{sub}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {printMode === "binarias" && <div className="mt-4 flex items-end gap-3">
             <label className="w-40">
               <span className="text-[12px] font-medium text-mute">Payout de {asset.label}</span>
               <div className="relative mt-1.5">
@@ -283,7 +300,7 @@ export default function App() {
             <div className="pb-2.5 text-[12px] text-mute">
               Precisa acertar <b className="num text-ink">{pct(be)}</b> só para empatar.
             </div>
-          </div>
+          </div>}
 
           <button onClick={analyze} disabled={!blob || busy}
             className="btn3d mt-4 mb-1.5 flex w-full items-center justify-center gap-2.5 rounded-2xl py-4 text-[15px] font-extrabold tracking-[0.06em] text-[#03130a] disabled:cursor-not-allowed disabled:opacity-40">
@@ -307,7 +324,7 @@ export default function App() {
               <Loader2 className="animate-spin" /> <span className="text-[13px]">Lendo velas, níveis e indicadores…</span>
             </div>
           ) : result ? (
-            <NewsGate alert={(result as Result & { newsAlert?: NewsAlert }).newsAlert}><ResultView r={result} timing={timing} /></NewsGate>
+            <NewsGate alert={(result as Result & { newsAlert?: NewsAlert }).newsAlert}><ResultView r={result} timing={timing} mode={result.mode ?? printMode} /></NewsGate>
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-3 py-14 text-center">
               <div className="flex h-24 items-end gap-6" style={{ perspective: 600 }} aria-hidden>
@@ -333,8 +350,9 @@ export default function App() {
   );
 }
 
-function ResultView({ r, timing }: { r: Result; timing: { entry: Date; expiry: Date } | null }) {
+function ResultView({ r, timing, mode }: { r: Result; timing: { entry: Date; expiry: Date } | null; mode: PrintMode }) {
   const now = useNow();
+  const fx = mode === "forex";
   const call = r.decision === "CALL";
   const wait = r.decision === "NAO_OPERAR";
   const toEntry = timing ? Math.round((timing.entry.getTime() - now) / 1000) : null;
@@ -351,17 +369,18 @@ function ResultView({ r, timing }: { r: Result; timing: { entry: Date; expiry: D
         </div>
         <div className="min-w-0">
           <div className={cx("flex items-center gap-2 text-[28px] font-extrabold leading-none tracking-wide", wait ? "text-mute" : call ? "text-buy" : "text-sell")}>
-            {wait ? "NÃO OPERAR" : r.decision}
+            {wait ? "NÃO OPERAR" : fx ? (call ? "COMPRA" : "VENDA") : r.decision}
             {!wait && (call ? <ArrowUpRight size={26} /> : <ArrowDownRight size={26} />)}
           </div>
           <div className="mt-1.5 text-[12.5px] text-mute">
-            {[r.symbol, r.timeframe, r.platform].filter(Boolean).join(" · ") || "ativo não identificado"}
+            {fx ? "Forex · " : "Binárias · "}{[r.symbol, r.timeframe, r.platform].filter(Boolean).join(" · ") || "ativo não identificado"}
             {!wait && <> · setup <b className={r.setup_quality === "fraca" ? "text-warn" : "text-ink"}>{r.setup_quality}</b>{r.setup_quality === "fraca" && " (baixa convicção)"}</>}
           </div>
         </div>
       </div>
 
-      {!wait && timing && (
+      {!fx && !wait && !timing && <div className="text-[12.5px] text-warn">Sem o tempo gráfico visível não dá para calcular o horário de entrada e a expiração: mostre o tempo gráfico no print.</div>}
+      {!fx && !wait && timing && (
         <div className="grid grid-cols-3 gap-px overflow-hidden rounded-2xl border border-line bg-line text-center">
           <Cell k="Entrada" v={hhmm(timing.entry)} hint="abertura da vela" />
           <Cell k="Expiração" v={hhmm(timing.expiry)} hint={`${r.expiration_candles} vela${r.expiration_candles > 1 ? "s" : ""}`} />
@@ -369,14 +388,14 @@ function ResultView({ r, timing }: { r: Result; timing: { entry: Date; expiry: D
             hint={late ? "não entre atrasado" : "pelo relógio do aparelho"} tone={late ? "text-sell" : "text-warn"} />
         </div>
       )}
-      {!wait && r.stop_price != null && r.target_price != null && (
+      {fx && !wait && r.stop_price != null && r.target_price != null && (
         <div className="grid grid-cols-3 gap-px overflow-hidden rounded-2xl border border-line bg-line text-center">
-          <Cell k="Referência" v={num(r.entry_reference_price ?? r.last_price)} hint="preço no print" />
+          <Cell k="Entrada" v={num(r.entry_reference_price ?? r.last_price)} hint="preço no print" />
           <Cell k="Stop" v={num(r.stop_price)} hint="invalida a entrada" tone="text-sell" />
           <Cell k="Alvo" v={num(r.target_price)} hint="próximo nível" tone="text-buy" />
         </div>
       )}
-      {!wait && r.entry_reference_price !== null && (
+      {fx && !wait && r.entry_reference_price !== null && (r.stop_price == null || r.target_price == null) && (
         <div className="text-[12.5px] text-mute">Preço de referência no print: <b className="num text-ink">{num(r.entry_reference_price)}</b></div>
       )}
 
@@ -391,7 +410,7 @@ function ResultView({ r, timing }: { r: Result; timing: { entry: Date; expiry: D
           {r.warnings.map((b) => <div key={b} className="flex gap-2"><AlertTriangle size={13} className="mt-0.5 shrink-0" />{b}</div>)}
         </div>
       )}
-      {!wait && r.stop_price == null && (
+      {fx && !wait && r.stop_price == null && (
         <div className="text-[12.5px] text-mute">Stop e alvo não puderam ser lidos pela escala deste print. Use o stop além do último {call ? "fundo" : "topo"} visível.</div>
       )}
 
