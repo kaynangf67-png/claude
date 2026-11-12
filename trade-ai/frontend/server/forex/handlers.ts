@@ -8,6 +8,8 @@ import type { PatternStat } from "./confluence.js";
 import { sanitizeProfile } from "./profile.js";
 import { currenciesOf, fetchSeries, FOREX_LABEL, FOREX_YAHOO, type RawSeries } from "./marketData.js";
 import { narrate } from "./narrative.js";
+import { backtestCandle, candleEntryNow, costPipsOf, CS_RANGE, CS_RULES, isCsTf, type CsBacktest, type CsTf } from "./candleStrategies.js";
+import { buildSeries } from "../binary/engine.js";
 import { HORIZON_TFS, isSetupTf, pipSize, SETUP_TFS, TF_SECONDS, type Horizon, type Roles, type SetupTf, type TF } from "./types.js";
 
 const json = (body: unknown, status = 200) =>
@@ -121,7 +123,9 @@ export async function handleForexAnalyze(request: Request, deps: Deps = {}): Pro
     ranking: ranked.map((x) => ({ tf: x.R.setup, decision: x.analysis.decision, state: x.analysis.state, score: x.analysis.score?.total ?? null,
       rr: x.analysis.trade?.rr[0] ?? null, dataOk: x.analysis.data.ok })),
   } : null;
-  const view = { ...toView(analysis, pip, closed(R.setup)!), horizon, roleTf: R, autoPick, suggested };
+  // estratégias de vela (as 7 das operações rápidas) no tempo da entrada: só geram entrada as VALIDADAS no histórico deste par e tempo
+  const candle = wantEntry && isCsTf(R.setup) ? await candleLayer(id, R.setup, get, now).catch((e) => ({ error: (e as Error).message.slice(0, 160) })) : null;
+  const view = { ...toView(analysis, pip, closed(R.setup)!), horizon, roleTf: R, autoPick, suggested, candle };
   let narrative = null as Awaited<ReturnType<typeof narrate>> | null, narrativeError: string | null = null;
   const wantsExplain = body.explain !== false && (analysis.decision !== "NO_TRADE" || analysis.state === "aguardando_confirmacao");
   if (wantsExplain && (deps.narrate || process.env.ANTHROPIC_API_KEY)) {
@@ -173,8 +177,17 @@ export async function handleForexResolve(request: Request, deps: Deps = {}): Pro
 export async function handleForexBacktest(request: Request, deps: Deps = {}): Promise<Response> {
   const url = new URL(request.url);
   const id = (url.searchParams.get("symbol") ?? "EURUSD").toUpperCase();
-  if (!FOREX_YAHOO[id]) return json({ error: "Par de Forex desconhecido" }, 400);
   const get = deps.series ?? fetchSeries;
+  if (url.searchParams.get("mode") === "candle") {
+    const tf = url.searchParams.get("tf") ?? "H1";
+    if (!isCsTf(tf)) return json({ error: "Tempo inválido (M15, H1 ou H4)" }, 400);
+    const ids = id === "ALL" ? Object.keys(FOREX_YAHOO) : [id];
+    if (ids.some((x) => !FOREX_YAHOO[x])) return json({ error: "Par de Forex desconhecido" }, 400);
+    const now = Math.floor((deps.now ?? Date.now)() / 1000);
+    const out = await Promise.allSettled(ids.map(async (x) => ({ symbol: x, ...(await candleLayer(x, tf, get, now)) })));
+    return json({ tf, rules: CS_RULES, pairs: out.map((r, i) => (r.status === "fulfilled" ? r.value : { symbol: ids[i], error: (r.reason as Error).message.slice(0, 160) })) });
+  }
+  if (!FOREX_YAHOO[id]) return json({ error: "Par de Forex desconhecido" }, 400);
   const horizon: Horizon = url.searchParams.get("horizon") === "swing" ? "swing" : "curto";
   const R = HORIZON_TFS[horizon];
   // swing: 1 ano de H1 (o Yahoo limita o 60m a ~2 anos) e 2 anos de D1 para o contexto
@@ -191,6 +204,35 @@ export async function handleForexBacktest(request: Request, deps: Deps = {}): Pr
   });
   const first = c5[0]?.t ?? 0, last = c5.at(-1)?.t ?? 0;
   return json({ symbol: id, label: FOREX_LABEL(id), period: { from: brt(first), to: brt(last), days: Math.round((last - first) / 86400), candlesM5: c5.length, candlesSetup: c5.length, tfSeconds: TF_SECONDS[R.setup] }, horizon, ...result, note: horizon === "swing" ? swingBacktestNote : backtestNote });
+}
+
+/** Backtest das estratégias de vela por par e tempo; guardado 6 h na memória da função (o histórico longo muda pouco). */
+const csCache = new Map<string, { at: number; bt: CsBacktest }>();
+export async function candleBacktest(id: string, tf: CsTf, get: NonNullable<Deps["series"]> | typeof fetchSeries, now: number) {
+  const key = `${id}|${tf}`, hit = csCache.get(key);
+  const raw = await (get as typeof fetchSeries)(id, tf, CS_RANGE[tf]);
+  const c = closedOnly(raw.candles, tf, now);
+  if (hit && now - hit.at < 6 * 3600) return { c, bt: hit.bt };
+  const bt = backtestCandle(c, pipSize(id), costPipsOf(id));
+  csCache.set(key, { at: now, bt });
+  return { c, bt };
+}
+
+export async function candleLayer(id: string, tf: CsTf, get: NonNullable<Deps["series"]> | typeof fetchSeries, now: number) {
+  const { c, bt } = await candleBacktest(id, tf, get, now);
+  const pip = pipSize(id), d = id.includes("JPY") ? 3 : 5, f = (v: number) => Number(v.toFixed(d));
+  const price = c.at(-1)?.c ?? 0;
+  const now_ = candleEntryNow(c, pip, bt, price, buildSeries(c));
+  const ageMin = c.length ? Math.round((now - c.at(-1)!.t) / 60) : null;
+  return {
+    tf, price: f(price), lastCandleBrt: c.length ? brt(c.at(-1)!.t) : null, ageMin,
+    period: { from: bt.from ? brt(bt.from) : null, to: bt.to ? brt(bt.to) : null, days: bt.from && bt.to ? Math.round((bt.to - bt.from) / 86400) : 0, candles: bt.candles },
+    costPips: bt.costPips, rules: CS_RULES,
+    entry: now_.entry && { ...now_.entry, entry: f(now_.entry.entry), sl: f(now_.entry.sl), tp: f(now_.entry.tp), riskPips: Math.round(now_.entry.riskPips * 10) / 10, riskAtr: Math.round(now_.entry.riskAtr * 100) / 100 },
+    signals: now_.signals.map((x) => ({ strategy: x.strategy, label: x.label, dir: x.dir, validated: x.validated })),
+    strategies: Object.values(bt.results).map((r) => ({ strategy: r.strategy, label: r.label, validated: r.validated, reason: r.reason,
+      n: r.all.n, winRate: r.all.winRate, expR: r.all.expR, pf: r.all.pf, devExpR: r.development.expR, valExpR: r.validation.expR, valN: r.validation.n })),
+  };
 }
 
 export interface Suggested { dir: "BUY" | "SELL"; entry: number; sl: number; tps: number[]; rr: number[]; riskPips: number; basis: string[] }
