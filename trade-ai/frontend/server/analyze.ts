@@ -130,6 +130,16 @@ export interface Result extends Reading {
   mode?: PrintMode;
 }
 export type PrintMode = "binarias" | "forex";
+export const PRINT_TFS = ["M1", "M5", "M15", "M30", "H1", "H4", "D1"] as const;
+export type PrintTf = (typeof PRINT_TFS)[number];
+
+/** O tempo marcado pelo usuário substitui o lido; se a IA leu outro, fica registrado como ressalva. */
+export function withUserTf(r: Reading, tf: PrintTf | null): Reading {
+  if (!tf) return r;
+  const read = timeframeMinutes(r.timeframe), chosen = timeframeMinutes(tf);
+  const against = read !== null && read !== chosen ? [...r.against, `O print parece ser ${r.timeframe}, mas vale o tempo que você marcou (${tf}).`] : r.against;
+  return { ...r, timeframe: tf, against, missing: r.missing.filter((m) => !/tempo gr[aá]fico|timeframe/i.test(m)) };
+}
 const isOtc = (s: string | null | undefined) => /\botc\b/i.test(s ?? "");
 
 /** Ajusta a leitura ao modo escolhido: binárias não têm stop nem alvo; OTC é preço da própria corretora. */
@@ -263,7 +273,7 @@ export async function handleAnalyze(request: Request): Promise<Response> {
   if (!process.env.ANTHROPIC_API_KEY)
     return json({ error: "Análise desativada: configure ANTHROPIC_API_KEY no servidor (Vercel → Settings → Environment Variables)." }, 503);
 
-  let body: { image?: string; media_type?: string; image_age_s?: number | null; asset?: string | null; mode?: unknown };
+  let body: { image?: string; media_type?: string; image_age_s?: number | null; asset?: string | null; mode?: unknown; timeframe?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -275,6 +285,8 @@ export async function handleAnalyze(request: Request): Promise<Response> {
 
   const selected = typeof body.asset === "string" && body.asset.trim() ? body.asset.trim().slice(0, 40) : null;
   const mode: PrintMode = body.mode === "forex" ? "forex" : "binarias";
+  // tempo gráfico marcado pelo usuário (quando o print não mostra): vale mais que o lido pela IA
+  const userTf = typeof body.timeframe === "string" && PRINT_TFS.includes(body.timeframe as PrintTf) ? (body.timeframe as PrintTf) : null;
   const client = new Anthropic();
   const calendar = fetchCalendar().catch(() => null); // em paralelo com a leitura da IA
   try {
@@ -289,14 +301,14 @@ export async function handleAnalyze(request: Request): Promise<Response> {
         role: "user",
         content: [
           { type: "image", source: { type: "base64", media_type: media_type as "image/png", data: image } },
-          { type: "text", text: `Ativo selecionado pelo usuário: ${selected ?? "não informado"}. Modo escolhido pelo usuário: ${mode === "forex" ? "FOREX (vai operar compra/venda com stop e alvo em preço; CALL = compra, PUT = venda; capriche no stop_price e no target_price)" : "OPÇÕES BINÁRIAS (vai operar CALL/PUT com expiração; o que importa é a direção e a expiração em velas; stop e alvo não são usados)"}. Analise este print e preencha o JSON.` },
+          { type: "text", text: `Ativo selecionado pelo usuário: ${selected ?? "não informado"}. Modo escolhido pelo usuário: ${mode === "forex" ? "FOREX (vai operar compra/venda com stop e alvo em preço; CALL = compra, PUT = venda; capriche no stop_price e no target_price)" : "OPÇÕES BINÁRIAS (vai operar CALL/PUT com expiração; o que importa é a direção e a expiração em velas; stop e alvo não são usados)"}. ${userTf ? ` Tempo gráfico informado pelo usuário: ${userTf} (use este; a expiração é em velas de ${userTf}).` : ""} Analise este print e preencha o JSON.` },
         ],
       }],
     });
     if (response.stop_reason === "refusal") return json({ error: "A IA recusou analisar esta imagem." }, 422);
     const text = response.content.map((b) => (b.type === "text" ? b.text : "")).join("");
     if (!text) return json({ error: "Resposta vazia da IA" }, 502);
-    const reading = JSON.parse(text) as Reading;
+    const reading = withUserTf(JSON.parse(text) as Reading, userTf);
     const age = typeof body.image_age_s === "number" ? body.image_age_s : null;
     const result = applyMode(applyGuards(reading, age, selected), mode);
     // notícia de 2+ estrelas das moedas do ativo do print (ou do selecionado) em ±15 min: alerta antes de mostrar a entrada

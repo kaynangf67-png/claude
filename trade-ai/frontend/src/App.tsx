@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle, ArrowDownRight, ArrowUpRight, Ban, Camera, Check, ClipboardPaste, ImagePlus, Loader2, RefreshCw, Trash2, X,
 } from "lucide-react";
-import type { PrintMode, Result } from "../server/analyze";
+import type { PrintMode, PrintTf, Result } from "../server/analyze";
 import { STRATEGY_NAMES } from "../server/strategyNames";
 import { prepareImage } from "./lib/image";
 import { breakEven, entryTimes, hhmm, wilson } from "./lib/math";
@@ -54,6 +54,9 @@ export default function App() {
   const [timing, setTiming] = useState<{ entry: Date; expiry: Date } | null>(null);
   // como o print vai ser operado: binárias (CALL/PUT + expiração) ou Forex (compra/venda + stop e alvo)
   const [printMode, setPrintModeState] = useState<PrintMode>(() => { try { return localStorage.getItem("trade-ai:modo-print") === "forex" ? "forex" : "binarias"; } catch { return "binarias"; } });
+  // tempo gráfico do print: "auto" = a IA lê do print; senão vale o marcado
+  const [printTf, setPrintTfState] = useState<PrintTf | "auto">(() => { try { return (localStorage.getItem("trade-ai:tf-print") as PrintTf | null) ?? "auto"; } catch { return "auto"; } });
+  const setPrintTf = (t: PrintTf | "auto") => { setPrintTfState(t); try { localStorage.setItem("trade-ai:tf-print", t); } catch { /* ok */ } };
   const setPrintMode = (m: PrintMode) => { setPrintModeState(m); setResult(null); setTiming(null); try { localStorage.setItem("trade-ai:modo-print", m); } catch { /* ok */ } };
   const [history, setHistory] = useState<Entry[]>(load);
   const [assetId, setAssetId] = useState(() => {
@@ -178,7 +181,7 @@ export default function App() {
         body: JSON.stringify({
           image: img.data, media_type: img.mediaType,
           image_age_s: capturedAt ? (Date.now() - capturedAt) / 1000 : null,
-          asset: asset.label, mode: printMode,
+          asset: asset.label, mode: printMode, timeframe: printTf === "auto" ? null : printTf,
         }),
       });
       const body = await res.json().catch(() => ({
@@ -288,6 +291,20 @@ export default function App() {
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="mt-4">
+            <div className="text-[12px] font-medium text-mute">Tempo gráfico do print</div>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {(["auto", "M1", "M5", "M15", "M30", "H1", "H4", "D1"] as const).map((t) => (
+                <button key={t} onClick={() => setPrintTf(t)}
+                  className={cx("num rounded-lg border px-2.5 py-1.5 text-[12.5px] font-semibold transition-colors",
+                    printTf === t ? "border-buy bg-buy/10 text-ink" : "border-line-2 text-mute hover:border-line")}>
+                  {t === "auto" ? "Ler do print" : t}
+                </button>
+              ))}
+            </div>
+            {printTf === "auto" && <div className="mt-1 text-[11px] text-faint">Se o print não mostrar o tempo gráfico, marque aqui: sem ele não dá para calcular entrada e expiração.</div>}
           </div>
 
           {printMode === "binarias" && <div className="mt-4 flex items-end gap-3">

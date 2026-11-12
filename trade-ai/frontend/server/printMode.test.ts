@@ -36,3 +36,18 @@ describe("estratégias do usuário no print", () => {
     expect(r.setup_quality).toBe("forte"); expect(r.warnings).toEqual([]);
   });
 });
+
+import { timeframeMinutes, withUserTf, type Reading } from "./analyze.js";
+describe("tempo gráfico marcado pelo usuário", () => {
+  const rd = (tf: string | null) => ({ timeframe: tf, against: [], missing: ["tempo gráfico"] }) as unknown as Reading;
+  it("substitui o lido e entende todos os tempos", () => {
+    for (const [tf, m] of [["M1", 1], ["M5", 5], ["M15", 15], ["M30", 30], ["H1", 60], ["H4", 240], ["D1", 1440]] as const) {
+      const r = withUserTf(rd(null), tf);
+      expect(r.timeframe).toBe(tf); expect(timeframeMinutes(r.timeframe)).toBe(m); expect(r.missing).toEqual([]);
+    }
+  });
+  it("registra quando a IA leu outro tempo; sem escolha não muda nada", () => {
+    expect(withUserTf(rd("M1"), "M5").against.join(" ")).toMatch(/parece ser M1/);
+    expect(withUserTf(rd("M5"), null).timeframe).toBe("M5");
+  });
+});
