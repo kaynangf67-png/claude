@@ -76,6 +76,9 @@
   .broker .w{margin-top:4px;font-size:12px}
   .follow{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--mut);margin-top:8px}
   .follow input{width:auto;padding:0}
+  .picks{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .picks button{font-size:11px;padding:4px 8px}
+  .meta{gap:6px;flex-wrap:wrap}
   .dir.PAUSE{background:#2a1a06;color:var(--warn);border:1px solid #78350f;font-weight:600;font-size:13px}
   /* inside the extension panel */
   body.compact header{padding:8px;gap:6px}
@@ -116,8 +119,8 @@
   <label class="f">Payout % (deste ativo)
     <input id="payout" type="number" min="1" max="100" step="1" />
   </label>
-  <label class="f">Valor por entrada ($)
-    <input id="stake" type="number" min="1" step="1" value="10" />
+  <label class="f">Valor por entrada
+    <input id="stake" type="number" min="0.01" step="any" value="10" />
   </label>
 </header>
 
@@ -136,7 +139,11 @@
     <div class="sub broker" id="broker" style="display:none">
       <h3>Na corretora (esta aba)</h3>
       <div id="brokerTxt">Procurando o ativo na página…</div>
-      <label class="follow"><input type="checkbox" id="follow" checked /> Seguir o ativo e o payout da corretora</label>
+      <label class="follow"><input type="checkbox" id="follow" checked /> Seguir mercado, payout e valor da corretora</label>
+      <div class="picks">
+        <button data-pick="asset">Apontar mercado</button><button data-pick="payout">Apontar payout</button>
+        <button data-pick="amount">Apontar valor</button><button data-pick="clear" class="ghost">Esquecer pontos</button>
+      </div>
     </div>
 
     <div class="sub">
@@ -147,7 +154,7 @@
         <span class="timer" id="timer">--:--</span>
       </div>
       <div class="bar"><i id="bar"></i></div>
-      <div class="meta"><span id="mPayout">Payout —</span><span id="mEntry">Entrada —</span><span id="mExp">—</span></div>
+      <div class="meta"><span id="mPayout">Payout —</span><span id="mEntry">Entrada —</span><span id="mStake">Valor —</span><span id="mExp">—</span></div>
     </div>
 
     <div class="sub">
@@ -184,8 +191,8 @@
     <h2>Histórico de sinais</h2>
     <div class="tablewrap">
       <table>
-        <thead><tr><th>Hora</th><th>Ativo</th><th>Estratégia</th><th>Direção</th><th>Entrada</th><th>Saída</th><th>Exp.</th><th>Resultado</th></tr></thead>
-        <tbody id="hist"><tr><td colspan="8" class="m">Nenhum sinal ainda.</td></tr></tbody>
+        <thead><tr><th>Hora</th><th>Ativo</th><th>Estratégia</th><th>Direção</th><th>Entrada</th><th>Saída</th><th>Exp.</th><th>Valor</th><th>Payout</th><th>Resultado</th></tr></thead>
+        <tbody id="hist"><tr><td colspan="10" class="m">Nenhum sinal ainda.</td></tr></tbody>
       </table>
     </div>
   </div>

@@ -16,8 +16,12 @@ e a taxa de acerto real. **Não opera sozinho e não clica em nada na corretora.
 
 - Abra a corretora, clique no ícone (ou **Alt+S**). O painel aparece; arraste pela barra de título,
   redimensione pelo canto, minimize com "–".
-- Com **"Seguir o ativo e o payout da corretora"** marcado, o painel procura o maior "XXX/YYY" visível
-  na página e o "92%" mais próximo dele. Se errar, desmarque e escolha à mão.
+- Com **"Seguir mercado, payout e valor da corretora"** marcado, cada mercado que você abre aparece no
+  painel com o payout e o valor da entrada. Sozinho, ele procura o maior "XXX/YYY" (ou Bitcoin, Gold…)
+  visível, o "92%" mais próximo e o campo "Valor / Investimento / Amount".
+- **Apontar** (funciona em qualquer corretora e com qualquer mercado, inclusive ações como "Apple OTC"):
+  clique em **Apontar mercado** e depois no nome do mercado na corretora; faça o mesmo com **Apontar payout**
+  e **Apontar valor**. Ele lembra esses pontos para aquele site. **Esquecer pontos** volta ao automático.
 - Depois de recarregar a página da corretora, clique no ícone de novo.
 
 ## O que ele segue

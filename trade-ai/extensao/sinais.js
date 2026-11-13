@@ -42,7 +42,8 @@
   const asset = () => ASSETS.find((a) => a.sym === el.asset.value) || ASSETS[0];
   const payoutOf = (sym) => (payouts[sym] ?? (ASSETS.find((a) => a.sym === sym) || {}).payout ?? 85);
   const expiry = () => +el.expiry.value;
-  const stake = () => Math.max(1, +el.stake.value || 1);
+  const stake = () => Math.max(0.01, +el.stake.value || 1);
+  let cur = LS.get("cur", "$");   // currency shown by the broker (R$, $, €…)
 
   // ---------- indicators ----------
   function ema(v, p) {
@@ -116,7 +117,7 @@
     return { w, l, r, n, wr, be, ci, net: stakeV * (w * p - l) };
   }
   const pct = (x) => x == null ? "—" : (x * 100).toFixed(1).replace(".", ",") + "%";
-  const money = (x) => (x < 0 ? "-$" : "$") + Math.abs(x).toFixed(2);
+  const money = (x) => (x < 0 ? "-" : "") + cur + " " + Math.abs(x).toFixed(2).replace(".", cur === "R$" ? "," : ".");
   const decimals = (price) => price < 10 ? 5 : price < 1000 ? 3 : 2;
   const fmt = (x) => x == null ? "—" : x.toFixed(decimals(x));
   const hhmm = (t) => new Date(t).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
@@ -217,6 +218,7 @@
 
   // ---------- live signals ----------
   const openTrade = () => history.find((h) => !h.res && h.sym === asset().sym);
+  const tr0 = () => openTrade();
 
   // trades left open on another asset are resolved over REST once they expire
   let resolvingOther = false;
@@ -249,7 +251,7 @@
     const n = expiry();
     history.unshift({
       id: closed[i].t + strat, sym: asset().sym, name: asset().name, strat, dir, n,
-      payout: payoutOf(asset().sym), entry: closed[i].c, sigT: closed[i].t,
+      payout: payoutOf(asset().sym), stake: stake(), cur, entry: closed[i].c, sigT: closed[i].t,
       expT: closed[i].t + n * MIN, // exit = close of this candle
       endAt: closed[i].t + (n + 1) * MIN, res: null, exit: null,
     });
@@ -279,6 +281,7 @@
 
   function renderPanel() {
     const a = asset(); $("assetName").textContent = a.name;
+    $("mStake").textContent = "Valor " + money(tr0() ? tr0().stake || stake() : stake()).replace(/^-/, "");
     const tr = openTrade();
     const dirEl = $("dir");
     if (tr) {
@@ -301,28 +304,34 @@
       $("mPayout").textContent = `Payout ${payoutOf(a.sym)}%`;
       $("mEntry").textContent = last ? `Preço ${fmt(last.c)}` : "Preço —";
       $("mExp").textContent = `${expiry()} min`;
+      if (paused && lastDetect && lastDetect.raw) {
+        // show the market open on the broker even when there is no real data to signal on
+        $("assetName").textContent = lastDetect.raw;
+        $("mPayout").textContent = lastDetect.payout ? `Payout ${lastDetect.payout}%` : "Payout —";
+        $("mEntry").textContent = "sem preço real";
+      }
     }
     // session stats: all resolved signals, each with the payout it had
     const done = history.filter((h) => h.res && h.res !== "SEM DADO");
     const avgPayout = done.length ? done.reduce((s, h) => s + h.payout, 0) / done.length : payoutOf(a.sym);
     const st = stats(done, avgPayout, stake());
-    st.net = done.reduce((s, h) => s + (h.res === "GANHOU" ? stake() * h.payout / 100 : h.res === "PERDEU" ? -stake() : 0), 0);
+    st.net = done.reduce((s, h) => { const v = h.stake || stake(); return s + (h.res === "GANHOU" ? v * h.payout / 100 : h.res === "PERDEU" ? -v : 0); }, 0);
     $("sW").textContent = st.w; $("sL").textContent = st.l; $("sR").textContent = st.r;
     $("sWR").textContent = pct(st.wr); $("sWR").className = st.wr == null ? "" : st.wr > st.be ? "g" : "r";
     $("sBE").textContent = pct(st.be);
-    $("sStakeLbl").textContent = "$" + stake();
+    $("sStakeLbl").textContent = "valor da entrada";
     $("sNet").textContent = money(st.net); $("sNet").className = st.net > 0 ? "g" : st.net < 0 ? "r" : "";
     $("sCI").textContent = st.ci ? `${pct(st.ci[0])} a ${pct(st.ci[1])}` + (st.n < 30 ? " (poucos sinais)" : "") : "—";
   }
 
   function renderHistory() {
     const tb = $("hist");
-    if (!history.length) { tb.innerHTML = '<tr><td colspan="8" class="m">Nenhum sinal ainda.</td></tr>'; return; }
+    if (!history.length) { tb.innerHTML = '<tr><td colspan="10" class="m">Nenhum sinal ainda.</td></tr>'; return; }
     tb.innerHTML = history.slice(0, 100).map((h) => {
       const cls = h.res === "GANHOU" ? "g" : h.res === "PERDEU" ? "r" : "m";
       return `<tr><td>${hhmm(h.sigT + MIN)}</td><td>${h.name}</td><td>${STRAT_NAMES[h.strat]}</td>
         <td class="${h.dir === "UP" ? "g" : "r"}">${h.dir === "UP" ? "▲ UP" : "▼ DOWN"}</td>
-        <td>${fmt(h.entry)}</td><td>${fmt(h.exit)}</td><td>${h.n} min</td><td class="${cls}"><b>${h.res || "aberto"}</b></td></tr>`;
+        <td>${fmt(h.entry)}</td><td>${fmt(h.exit)}</td><td>${h.n} min</td><td>${h.stake ? (h.cur || "$") + " " + h.stake : "—"}</td><td>${h.payout}%</td><td class="${cls}"><b>${h.res || "aberto"}</b></td></tr>`;
     }).join("");
   }
 
@@ -416,7 +425,7 @@
     const hi = Math.max(0, ...eq), lo = Math.min(0, ...eq), pad = 18, y = (v) => pad + (hi - v) / ((hi - lo) || 1) * (H - 2 * pad);
     const x = (k) => 50 + k / Math.max(1, eq.length - 1) * (W - 60);
     g.strokeStyle = "#334155"; g.beginPath(); g.moveTo(50, y(0)); g.lineTo(W - 10, y(0)); g.stroke();
-    g.fillStyle = "#8a97b3"; g.font = "11px system-ui"; g.fillText(money(hi), 2, y(hi) + 4); g.fillText("$0", 2, y(0) + 4); g.fillText(money(lo), 2, y(lo) + 4);
+    g.fillStyle = "#8a97b3"; g.font = "11px system-ui"; g.fillText(money(hi), 2, y(hi) + 4); g.fillText(cur + " 0", 2, y(0) + 4); g.fillText(money(lo), 2, y(lo) + 4);
     g.strokeStyle = eq[eq.length - 1] >= 0 ? "#22c55e" : "#ef4444"; g.lineWidth = 1.6; g.beginPath();
     eq.forEach((v, k) => k ? g.lineTo(x(k), y(v)) : g.moveTo(x(k), y(v))); g.stroke();
   }
@@ -442,23 +451,29 @@
   function applyDetect(d) {
     paused = null;
     const follow = $("follow").checked;
+    const amt = Number.isFinite(d && d.amount) && d.amount > 0 ? d.amount : null;
+    if (follow && d && d.currency && d.currency !== cur) { cur = d.currency; LS.set("cur", cur); }
+    if (follow && amt && +el.stake.value !== amt) { el.stake.value = amt; LS.set("stake", amt); }
+    const amtTxt = amt ? ` · valor <b>${esc(money(amt))}</b>` : " · valor não encontrado";
     if (!d || !d.raw) {
-      $("brokerTxt").textContent = "Nenhum ativo encontrado na página. Escolha o ativo acima.";
+      $("brokerTxt").innerHTML = "Nenhum mercado encontrado na página." + (d ? amtTxt : "") + "<div class=\"m\">Use <b>Apontar mercado</b> abaixo.</div>";
       renderPanel(); return;
     }
-    const sym = typeof d.sym === "string" && ASSETS.some((a) => a.sym === d.sym) ? d.sym : null;
+    const sym = typeof d.sym === "string" && ASSETS.some((x) => x.sym === d.sym) ? d.sym : null;
     const pay = Number.isFinite(d.payout) && d.payout >= 10 && d.payout <= 100 ? Math.round(d.payout) : null;
-    let html = `Ativo: <b>${esc(d.raw)}</b>` + (pay ? ` · payout <b>${pay}%</b>` : " · payout não encontrado");
+    let html = `Mercado: <b>${esc(d.raw)}</b>` + (pay ? ` · payout <b>${pay}%</b>` : " · payout não encontrado") + amtTxt;
     if (follow) {
       if (d.otc) paused = "OTC é preço gerado pela corretora, não existe dado real para comparar";
-      else if (!sym) paused = "este ativo não tem dados reais grátis aqui";
+      else if (!sym) paused = "este mercado não tem dados reais grátis aqui";
       else {
         if (pay && payouts[sym] !== pay) { payouts[sym] = pay; LS.set("payouts", payouts); }
         if (el.asset.value !== sym) { el.asset.value = sym; el.asset.onchange(); } else syncPayoutInput();
-        html += ` → seguindo <b>${esc(asset().name)}</b>`;
+        html += ` → sinais de <b>${esc(asset().name)}</b>`;
       }
     }
-    if (paused) html += `<div class="w">Sinais pausados: ${esc(paused)}. Troque para um ativo sem OTC (ex.: BTC/USD, EUR/USD).</div>`;
+    if (paused) html += `<div class="w">Sem sinal: ${esc(paused)}. Sinais só em BTC, ETH, SOL, BNB, XRP, EUR/USD e ouro fora do OTC.</div>`;
+    const t = d.taught || {};
+    if (t.asset || t.payout || t.amount) html += `<div class="m" style="font-size:11px;margin-top:4px">Lendo do ponto que você marcou: ${[t.asset && "mercado", t.payout && "payout", t.amount && "valor"].filter(Boolean).join(", ")}</div>`;
     $("brokerTxt").innerHTML = html;
     renderPanel();
   }
@@ -470,8 +485,14 @@
     window.addEventListener("message", (e) => {
       if (e.source !== window.parent) return;
       const d = e.data; if (!d || d.type !== "sh-detect") return;
-      lastDetect = { raw: typeof d.raw === "string" ? d.raw.slice(0, 40) : null, sym: d.sym, otc: !!d.otc, payout: +d.payout };
+      lastDetect = {
+        raw: typeof d.raw === "string" ? d.raw.slice(0, 40) : null, sym: d.sym, otc: !!d.otc, payout: +d.payout, amount: +d.amount,
+        currency: ["R$", "$", "US$", "€", "£"].includes(d.currency) ? d.currency : null, taught: d.taught && typeof d.taught === "object" ? d.taught : {},
+      };
       applyDetect(lastDetect);
+    });
+    document.querySelectorAll("[data-pick]").forEach((b) => {
+      b.onclick = () => { window.parent.postMessage({ type: "sh-pick", field: b.dataset.pick }, "*"); $("brokerTxt").innerHTML = "Agora clique na corretora, no lugar certo. <b>Esc</b> cancela."; };
     });
     window.parent.postMessage({ type: "sh-ready" }, "*");
   }
