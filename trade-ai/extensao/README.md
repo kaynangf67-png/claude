@@ -1,0 +1,46 @@
+# Sinal Honesto — extensão
+
+Painel flutuante de sinais M1 por cima de qualquer corretora na web. Ele lê o ativo e o payout que a
+corretora mostra na tela, troca junto quando você troca de ativo e mostra UP/DOWN, contagem
+e a taxa de acerto real. **Não opera sozinho e não clica em nada na corretora.**
+
+## Instalar (Chrome, Edge, Brave ou Opera no computador)
+
+1. Baixe `sinal-honesto-extensao.zip` e descompacte numa pasta.
+2. Abra `chrome://extensions` (no Edge: `edge://extensions`).
+3. Ligue o **Modo do desenvolvedor** (canto superior direito).
+4. Clique em **Carregar sem compactação** e escolha a pasta descompactada.
+5. Fixe o ícone do robô na barra.
+
+## Usar
+
+- Abra a corretora, clique no ícone (ou **Alt+S**). O painel aparece; arraste pela barra de título,
+  redimensione pelo canto, minimize com "–".
+- Com **"Seguir o ativo e o payout da corretora"** marcado, o painel procura o maior "XXX/YYY" visível
+  na página e o "92%" mais próximo dele. Se errar, desmarque e escolha à mão.
+- Depois de recarregar a página da corretora, clique no ícone de novo.
+
+## O que ele segue
+
+| Na corretora | No painel |
+|---|---|
+| BTC/USD, ETH/USD, SOL/USD, BNB/USD, XRP/USD | o par em USDT da Binance |
+| EUR/USD | EUR/USDT (segue o EUR/USD) |
+| XAU/USD (ouro) | PAXG/USDT |
+| qualquer ativo **OTC** | **sinais pausados**: o preço OTC é gerado pela corretora, não há dado real |
+| outros pares (AUD/CHF, GBP/JPY…) | sinais pausados: sem dado real grátis |
+
+## Privacidade
+
+Permissões só `activeTab` e `scripting`: a extensão só roda na aba em que você clicou no ícone.
+Ela não lê senhas nem saldo, não envia nada da página para lugar nenhum; o único acesso à internet é
+o preço público da Binance.
+
+## Celular
+
+O Chrome do Android não aceita extensões. No celular, use a página `sinais.html` do site.
+
+## Atualizar
+
+O painel é a mesma página do site (`frontend/public/sinais.html` + `sinais.js`).
+Depois de mudar a página, rode `./build.sh` para copiar para cá e gerar o zip.

@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#0b1120" />
+<title>Sinal Honesto — sinais M1 com resultado real</title>
+<style>
+  :root{
+    --bg:#0b1120; --card:#131c31; --card2:#1a2540; --line:#26324f; --txt:#e6ebf5; --mut:#8a97b3;
+    --up:#22c55e; --down:#ef4444; --warn:#f59e0b; --acc:#38bdf8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{display:flex;flex-wrap:wrap;gap:10px;align-items:end;padding:12px 14px;border-bottom:1px solid var(--line);background:#0e1628}
+  header h1{font-size:17px;margin:0 12px 0 0;align-self:center}
+  header h1 small{display:block;font-size:11px;color:var(--mut);font-weight:400}
+  label.f{display:flex;flex-direction:column;font-size:11px;color:var(--mut);gap:3px}
+  select,input,button{font:inherit;color:var(--txt);background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:7px 9px}
+  input[type=number]{width:80px}
+  button{cursor:pointer;background:#1e3a5f;border-color:#2c5282}
+  button:hover{filter:brightness(1.15)}
+  button.ghost{background:transparent}
+  main{display:grid;grid-template-columns:1fr 320px;gap:14px;padding:14px;max-width:1300px;margin:0 auto}
+  @media (max-width:860px){main{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+  .chartwrap{position:relative;height:420px;padding:0;overflow:hidden}
+  @media (max-width:860px){.chartwrap{height:320px}}
+  canvas{display:block;width:100%;height:100%}
+  .status{position:absolute;left:10px;top:8px;font-size:12px;color:var(--mut)}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--mut);margin-right:5px;vertical-align:middle}
+  .dot.on{background:var(--up);box-shadow:0 0 8px var(--up)}
+  .panel{display:flex;flex-direction:column;gap:12px}
+  .brand{display:flex;justify-content:space-between;align-items:center}
+  .brand b{font-size:15px}.brand small{display:block;color:var(--mut);font-size:11px}
+  .live{font-size:10px;color:var(--up);border:1px solid #14532d;background:#052e16;border-radius:20px;padding:2px 8px}
+  .sub{background:var(--card2);border-radius:12px;padding:12px}
+  .sub h3{margin:0 0 6px;font-size:11px;color:var(--mut);font-weight:500}
+  .asset{font-size:20px;font-weight:800;letter-spacing:.3px}
+  .dirrow{display:flex;align-items:center;justify-content:space-between;margin:10px 0}
+  .dir{font-weight:800;border-radius:8px;padding:6px 14px;font-size:15px}
+  .dir.UP{background:#052e16;color:var(--up);border:1px solid #166534}
+  .dir.DOWN{background:#350a0a;color:var(--down);border:1px solid #7f1d1d}
+  .dir.WAIT{background:#1f2937;color:var(--mut);border:1px solid #374151;font-weight:600;font-size:13px}
+  .timer{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums}
+  .bar{height:4px;background:#0b1120;border-radius:4px;overflow:hidden}
+  .bar i{display:block;height:100%;background:var(--up);width:0}
+  .meta{display:flex;justify-content:space-between;font-size:11px;color:var(--mut);margin-top:8px}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);text-align:center;gap:4px}
+  .stats b{display:block;font-size:19px}
+  .stats span{font-size:10px;color:var(--mut)}
+  .g{color:var(--up)}.r{color:var(--down)}.w{color:var(--warn)}.m{color:var(--mut)}
+  .extra{font-size:12px;color:var(--mut);margin-top:8px;display:grid;gap:3px}
+  .extra b{color:var(--txt)}
+  .bot{display:flex;gap:10px;align-items:center}
+  .bubble{background:#0b1120;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:12px;flex:1}
+  section.below{max-width:1300px;margin:0 auto;padding:0 14px 14px;display:grid;gap:14px}
+  h2{font-size:15px;margin:0 0 10px}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th,td{text-align:left;padding:6px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{color:var(--mut);font-weight:500}
+  .tablewrap{overflow-x:auto;max-height:300px;overflow-y:auto}
+  .btgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin:12px 0}
+  .kpi{background:var(--card2);border-radius:10px;padding:10px}
+  .kpi span{font-size:11px;color:var(--mut);display:block}.kpi b{font-size:18px;white-space:nowrap}.kpi b span{display:inline;font-size:inherit}
+  .verdict{border-radius:10px;padding:12px;font-size:13px;border:1px solid var(--line);background:var(--card2)}
+  .verdict.bad{border-color:#7f1d1d;background:#2a0d0d}
+  .verdict.meh{border-color:#78350f;background:#2a1a06}
+  .verdict.ok{border-color:#166534;background:#052e16}
+  .eq{height:180px;margin-top:12px;background:var(--card2);border-radius:10px}
+  .row{display:flex;flex-wrap:wrap;gap:10px;align-items:end}
+  .warn{font-size:12px;color:var(--mut);line-height:1.6}
+  .warn b{color:var(--txt)}
+  .broker{border:1px solid #1e3a5f}
+  .broker #brokerTxt{font-size:13px}
+  .broker .w{margin-top:4px;font-size:12px}
+  .follow{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--mut);margin-top:8px}
+  .follow input{width:auto;padding:0}
+  .dir.PAUSE{background:#2a1a06;color:var(--warn);border:1px solid #78350f;font-weight:600;font-size:13px}
+  /* inside the extension panel */
+  body.compact header{padding:8px;gap:6px}
+  body.compact header h1{display:none}
+  body.compact header select,body.compact header input{padding:5px 6px;font-size:12px}
+  body.compact main{padding:8px;gap:8px}
+  body.compact .chartwrap{height:230px}
+  body.compact section.below{padding:0 8px 8px;gap:8px}
+  body.compact .card{padding:10px}
+  body.compact .bot{display:none}
+  body.compact .panel{order:-1}
+  body.compact .brand{display:none}
+  body.compact .chartwrap{height:200px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Sinal Honesto<small>sinais M1 com taxa de acerto real</small></h1>
+  <label class="f">Ativo
+    <select id="asset"></select>
+  </label>
+  <label class="f">Estratégia
+    <select id="strategy">
+      <option value="rsi">Reversão RSI (14) 30/70</option>
+      <option value="bb">Bollinger (20, 2) — volta à média</option>
+      <option value="ema">Cruzamento EMA 9 × 21</option>
+      <option value="coin">Cara ou coroa (controle)</option>
+    </select>
+  </label>
+  <label class="f">Expiração
+    <select id="expiry">
+      <option value="1">1 min</option>
+      <option value="2">2 min</option>
+      <option value="3">3 min</option>
+      <option value="5">5 min</option>
+    </select>
+  </label>
+  <label class="f">Payout % (deste ativo)
+    <input id="payout" type="number" min="1" max="100" step="1" />
+  </label>
+  <label class="f">Valor por entrada ($)
+    <input id="stake" type="number" min="1" step="1" value="10" />
+  </label>
+</header>
+
+<main>
+  <div class="card chartwrap">
+    <canvas id="chart"></canvas>
+    <div class="status" id="status"><span class="dot" id="dot"></span>conectando…</div>
+  </div>
+
+  <div class="card panel">
+    <div class="brand">
+      <div><b>🤖 Sinal Honesto</b><small>sinais ao vivo · você opera</small></div>
+      <span class="live" id="livebadge">● LIVE</span>
+    </div>
+
+    <div class="sub broker" id="broker" style="display:none">
+      <h3>Na corretora (esta aba)</h3>
+      <div id="brokerTxt">Procurando o ativo na página…</div>
+      <label class="follow"><input type="checkbox" id="follow" checked /> Seguir o ativo e o payout da corretora</label>
+    </div>
+
+    <div class="sub">
+      <h3 id="tradeTitle">Aguardando setup</h3>
+      <div class="asset" id="assetName">—</div>
+      <div class="dirrow">
+        <span class="dir WAIT" id="dir">SEM SINAL</span>
+        <span class="timer" id="timer">--:--</span>
+      </div>
+      <div class="bar"><i id="bar"></i></div>
+      <div class="meta"><span id="mPayout">Payout —</span><span id="mEntry">Entrada —</span><span id="mExp">—</span></div>
+    </div>
+
+    <div class="sub">
+      <h3>Esta sessão (resultado real)</h3>
+      <div class="stats">
+        <div><b class="g" id="sW">0</b><span>Ganhos</span></div>
+        <div><b class="r" id="sL">0</b><span>Perdas</span></div>
+        <div><b id="sR">0</b><span>Empates</span></div>
+        <div><b id="sWR">—</b><span>Acerto</span></div>
+      </div>
+      <div class="extra">
+        <div>Empate do payout: <b id="sBE">—</b> de acerto</div>
+        <div>Resultado com <span id="sStakeLbl">$10</span>/entrada: <b id="sNet">$0.00</b></div>
+        <div>Faixa provável do acerto real (95%): <b id="sCI">—</b></div>
+      </div>
+    </div>
+
+    <div class="bot">
+      <svg width="54" height="58" viewBox="0 0 54 58" aria-hidden="true">
+        <line x1="27" y1="2" x2="27" y2="10" stroke="#e6ebf5" stroke-width="2"/><circle cx="27" cy="3" r="3" fill="#38bdf8"/>
+        <rect x="7" y="10" width="40" height="30" rx="14" fill="#e6ebf5"/>
+        <rect x="12" y="16" width="30" height="18" rx="9" fill="#0b1120"/>
+        <ellipse cx="21" cy="25" rx="4" ry="5" fill="#2dd4bf"/><ellipse cx="33" cy="25" rx="4" ry="5" fill="#2dd4bf"/>
+        <rect x="15" y="42" width="24" height="14" rx="7" fill="#cbd5e1"/>
+      </svg>
+      <div class="bubble" id="bubble">Eu mostro os sinais e conto cada perda. Nenhum sinal é garantido.</div>
+    </div>
+    <button class="ghost" id="resetSession">Zerar sessão</button>
+  </div>
+</main>
+
+<section class="below">
+  <div class="card">
+    <h2>Histórico de sinais</h2>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Hora</th><th>Ativo</th><th>Estratégia</th><th>Direção</th><th>Entrada</th><th>Saída</th><th>Exp.</th><th>Resultado</th></tr></thead>
+        <tbody id="hist"><tr><td colspan="8" class="m">Nenhum sinal ainda.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Backtest — a mesma estratégia nas velas passadas</h2>
+    <div class="row">
+      <label class="f">Velas de 1 min
+        <select id="btSize">
+          <option value="1000">1.000 (~17 h)</option>
+          <option value="3000" selected>3.000 (~2 dias)</option>
+          <option value="5000">5.000 (~3,5 dias)</option>
+          <option value="10000">10.000 (~7 dias)</option>
+        </select>
+      </label>
+      <button id="btRun">Rodar backtest</button>
+      <span class="m" id="btInfo">Usa o ativo, a estratégia, a expiração e o payout escolhidos acima.</span>
+    </div>
+    <div id="btOut" style="display:none">
+      <div class="btgrid">
+        <div class="kpi"><span>Sinais</span><b id="bN">—</b></div>
+        <div class="kpi"><span>Ganhos / Perdas / Empates</span><b id="bWLR">—</b></div>
+        <div class="kpi"><span>Taxa de acerto</span><b id="bWR">—</b></div>
+        <div class="kpi"><span>Precisa para empatar</span><b id="bBE">—</b></div>
+        <div class="kpi"><span>Faixa 95%</span><b id="bCI">—</b></div>
+        <div class="kpi"><span>Resultado</span><b id="bNet">—</b></div>
+        <div class="kpi"><span>Maior sequência de perdas</span><b id="bStreak">—</b></div>
+      </div>
+      <div class="verdict" id="bVerdict"></div>
+      <div class="eq"><canvas id="eq"></canvas></div>
+    </div>
+  </div>
+
+  <div class="card warn">
+    <b>Leia antes de usar.</b><br>
+    • Os preços vêm do mercado real (Binance, dados públicos). <b>Ativos "OTC" de corretoras de binárias não são o mercado real</b>: são preços gerados pela própria corretora, que podem ser diferentes destes.<br>
+    • EUR/USDT segue o EUR/USD, mas tem pouco volume: muitas velas ficam paradas e viram empate.<br>
+    • O app não opera sozinho e não se conecta a nenhuma corretora. Ele mostra o sinal, a contagem e o resultado que o preço real deu.<br>
+    • Com payout de 92% você precisa acertar mais de 52,1% só para empatar. Compare a estratégia com "Cara ou coroa (controle)": se não for claramente melhor, ela não tem vantagem.<br>
+    • Uma taxa de "100%" em live é desenho na tela. Aqui cada perda aparece.
+  </div>
+</section>
+
+<script src="sinais.js"></script>
+</body>
+</html>
