@@ -62,16 +62,10 @@ O indicador precisa de 30 velas para funcionar: em OTC elas são montadas com o 
 começam depois de ~30 minutos com o painel aberto naquele ativo (as velas ficam salvas). O backtest também
 roda nessas velas a partir de 60. O preço OTC é feito pela corretora: acompanhe a taxa de acerto real.
 
-## Sinalizar entrada
+## Sinalizar próxima vela
 
-Botão na aba Sinal. Ao clicar, o scanner percorre as velas e dá a entrada na hora (COMPRA ou VENDA ao preço atual,
-com a expiração da corretora). Ordem da leitura:
-1. **Padrões de vela** nas últimas velas fechadas: estrela da manhã/noite, três soldados/corvos, engolfo, harami,
-   pinça de fundo/topo, martelo, estrela cadente, martelo invertido, enforcado, doji e marubozu. O padrão aparece
-   marcado no gráfico e, quando há histórico, quanto ele acertou neste ativo.
-2. Sem padrão claro: a leitura RSI/Bollinger/EMA no histórico.
-3. Sem histórico: a direção das últimas velas.
-Precisa de só 7 velas fechadas, então em OTC sai entrada rápido (em S5, menos de 1 minuto).
-
-O painel segue o **tempo gráfico** da corretora (S5, S15, S30, M1, M5, M15, H1…). Se não for achado, use
-**Ajustes → Apontar tempo gráfico**.
+Botão na aba Sinal. Ao clicar, o scanner lê as velas (inclusive a que está se formando) e indica se a **próxima vela**
+do tempo gráfico é de COMPRA ou VENDA, com a hora em que ela abre e a contagem. A indicação acompanha o preço ao vivo
+até 2 s antes da abertura e então trava; na abertura começa a entrada e no fechamento dessa vela sai o resultado.
+A expiração é 1 vela do tempo gráfico (use a mesma na corretora). Ordem da leitura: padrões de vela; sem padrão, o
+estado de RSI/Bollinger/EMA no histórico; sem histórico, a direção das últimas velas. Precisa de 7 velas.

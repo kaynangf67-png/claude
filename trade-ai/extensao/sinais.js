@@ -489,40 +489,49 @@
     if (!ana) return;
     setTimeout(finishAnalysis, Math.max(0, SCAN_MS - (now() - ana.scanStart)));
   }
-  // after the scan: the entry is now, at the current price, for the broker's expiration
+  // after the scan: read the candles (the one forming now included) and point the NEXT candle
+  function predictNow() {
+    const cs = srcC();
+    if (cs.length < 7) return { err: `juntando velas ${tfLabel(tf)} (${cs.length}/7)` };
+    const i = cs.length - 1, hist = anaData.cs.length >= 60;
+    const b = bestPattern(cs, i);
+    if (b) {
+      const o = hist ? candleModelFor(1).get(b.name) : null;
+      return { dir: b.dir, kind: "candle", name: b.name, len: b.len, t0: cs[i - b.len + 1].t, t1: cs[i].t, n: o ? o.n : 0, rate: o && o.n ? o.ok / o.n : null };
+    }
+    if (hist && cs.length >= 30) {
+      const pr = predict(modelFor(1), votesAt(indicators(cs), i));
+      if (pr) return { dir: pr.dir, kind: "state", name: "sem padrão de vela · " + pr.level, len: 0, n: pr.n, rate: pr.rate };
+    }
+    return { dir: lastMove(cs, i), kind: "move", name: "sem padrão claro · direção das últimas velas", len: Math.min(5, i), t0: cs[Math.max(0, i - 5)].t, t1: cs[i].t, n: 0, rate: null };
+  }
   function finishAnalysis() {
     if (!ana) return;
     if (ana.key !== mk() || ana.tf !== tf) { startAnalysis(); return; }      // market or timeframe changed meanwhile
-    const closed = srcC().filter((c) => c.closed), i = closed.length - 1, nC = expCandles();
-    if (closed.length < 7) {
-      ana.err = `juntando velas ${tfLabel(tf)} da corretora (${Math.max(0, closed.length)}/7)`; ana.done = true; renderPanel(); draw(); return;
-    }
-    const hist = anaData.cs.length >= 60;
-    // 1st: candle patterns on the last closed candles
-    let pred = null;
-    const b = bestPattern(closed, i);
-    if (b) {
-      const o = hist ? candleModelFor(nC).get(b.name) : null;
-      pred = { dir: b.dir, kind: "candle", name: b.name, len: b.len, t0: closed[i - b.len + 1].t, t1: closed[i].t,
-        n: o ? o.n : 0, rate: o && o.n ? o.ok / o.n : null };
-    }
-    // 2nd: no clear pattern → same RSI/Bollinger/EMA state in the history
-    if (!pred && hist && closed.length >= 30) {
-      const pr = predict(modelFor(nC), votesAt(indicators(closed), i));
-      if (pr) pred = { dir: pr.dir, kind: "state", name: "sem padrão de vela · " + pr.level, len: 0, n: pr.n, rate: pr.rate };
-    }
-    // 3rd: nothing else → direction of the last candles
-    if (!pred) pred = { dir: lastMove(closed, i), kind: "move", name: "sem padrão claro · direção das últimas velas", len: Math.min(5, i), t0: closed[Math.max(0, i - 5)].t, t1: closed[i].t, n: 0, rate: null };
-    const p = lastPrice(), es = expSecNow(), t0 = now();
+    const nx = Math.ceil(now() / TF()) * TF();
+    ana.entryT = nx - now() < 2500 ? nx + TF() : nx;                         // the next candle to open
+    ana.phase = "wait"; ana.done = true;
+    refreshPrediction(); renderPanel(); draw();
+  }
+  function refreshPrediction() { const r = predictNow(); if (r.err) { ana.err = r.err; ana.pred = null; } else { ana.err = null; ana.pred = r; } }
+  // until 2 s before the next candle opens the reading follows the live price; then it locks; at the open the trade starts
+  function tickAnalysis() {
+    if (!ana || ana.phase !== "wait") return;
+    if (ana.key !== mk() || ana.tf !== tf) { startAnalysis(); return; }
+    const left = ana.entryT - now();
+    if (left > 2000) refreshPrediction(); else ana.locked = true;
+    if (left > 0) return;
+    if (!ana.pred) { ana = null; say("Sem velas suficientes: clique de novo."); return; }
+    const pred = ana.pred, p = lastPrice(), t0 = ana.entryT;
     history.unshift({
-      id: t0 + "click", sym: mk(), name: curName(), strat: "scan", dir: pred.dir, n: Math.max(1, Math.round(es / 60)), expSec: es, tf,
+      id: t0 + "scan", sym: mk(), name: curName(), strat: "scan", dir: pred.dir, n: Math.max(1, Math.round(tf / 60)), expSec: tf, tf, next: true,
       shadow: false, src: brokerMode() ? "corretora" : "binance", mode: "now",
-      payout: curPayout(), stake: stake(), cur, entry: p, sigT: t0, entryAt: t0, endAt: t0 + es * 1000,
-      res: null, exit: null, rate: pred.rate, seen: pred.n, level: pred.name, kind: pred.kind, nC,
+      payout: curPayout(), stake: stake(), cur, entry: p, sigT: t0, entryAt: t0, endAt: t0 + TF(),
+      res: null, exit: null, rate: pred.rate, seen: pred.n, level: pred.name, kind: pred.kind, nC: 1,
     });
     history = history.slice(0, 800); LS.set("history", history); renderHistory();
-    lastScan = { key: mk(), tf, id: t0 + "click", pred };
-    ana.done = true; ana = null; beep(); renderPanel(); draw();
+    lastScan = { key: mk(), tf, id: t0 + "scan", pred };
+    ana = null; beep();
   }
   // trades opened "now" end after the expiration, at the price of that moment
   function resolveNow() {
@@ -624,7 +633,9 @@
     const fmtS = (ms) => { const s = Math.ceil(Math.max(0, ms) / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
     const expTxt = () => { const e = expSecNow(); return e < 60 ? e + " s" : Math.round(e / 60) + " min"; };
     const blocked = noMarket() ? "Abra um gráfico na corretora" : brokerMode() && !feedLive() ? "Sem preço lido da tela" : null;
-    if (ab) { ab.textContent = ana ? "ESCANEANDO…" : blocked || "🔍 Sinalizar entrada"; ab.disabled = !!ana || !!blocked; }
+    tickAnalysis();
+    const waiting = ana && ana.phase === "wait";
+    if (ab) { ab.textContent = waiting ? "✕ Cancelar" : ana ? "ESCANEANDO…" : blocked || "🔍 Sinalizar próxima vela"; ab.disabled = (!!ana && !waiting) || (!ana && !!blocked); }
     if (noMarket() && !tr) {
       $("assetName").textContent = "Nenhum gráfico aberto"; $("tradeTitle").textContent = "Esperando a corretora";
       dirEl.className = "dir WAIT"; dirEl.textContent = "SEM SINAL"; $("timer").textContent = "--:--"; $("bar").style.width = "0";
@@ -634,7 +645,18 @@
     }
     if (ai) ai.style.display = ana || (tr && (tr.strat === "scan" || tr.strat === "click")) ? "" : "none";
     const be = 1 / (1 + curPayout() / 100);
-    if (ana) {
+    if (waiting) {
+      const left = ana.entryT - now(), p = ana.pred;
+      $("tradeTitle").textContent = `PRÓXIMA VELA ${tfLabel(tf)} · entra às ${clockStr(ana.entryT, true)}`;
+      if (p) { dirEl.className = "dir " + p.dir; dirEl.textContent = p.dir === "UP" ? "▲ COMPRA" : "▼ VENDA"; }
+      else { dirEl.className = "dir WAIT"; dirEl.textContent = "ANALISANDO…"; }
+      $("timer").textContent = fmtS(left); $("bar").style.width = Math.min(100, 100 * (1 - left / Math.max(1, ana.entryT - ana.scanStart))) + "%";
+      $("mPayout").textContent = `Payout ${curPayout()}%`; $("mExp").textContent = `1 vela ${tfLabel(tf)}`;
+      const lp = lastPrice(); $("mEntry").textContent = lp ? `Preço ${fmt(lp)}` : "Preço —";
+      const head = !p ? esc(ana.err || "") : p.kind === "candle" ? `Padrão: <b>${esc(p.name)}</b>` : esc(p.name);
+      const stat = p && p.n ? ` · no histórico, a vela seguinte foi ${p.dir === "UP" ? "de alta" : "de baixa"} em <b>${pct(p.rate)}</b> de ${p.n} vezes · empate ${pct(be)}` : p ? " · ainda sem histórico para medir o acerto" : "";
+      ai.innerHTML = head + stat + `<div class="m">${ana.locked ? "🔒 travado: entre na abertura da vela" : "acompanha o preço até 2 s antes da vela abrir"}</div>`;
+    } else if (ana) {
       $("tradeTitle").textContent = `Escaneando ${curName()} · ${tfLabel(tf)}`;
       dirEl.className = "dir WAIT"; dirEl.textContent = ana.done ? "SEM SINAL" : "ESCANEANDO…";
       $("timer").textContent = "…"; $("bar").style.width = Math.min(100, 100 * (now() - ana.scanStart) / SCAN_MS) + "%";
@@ -643,7 +665,7 @@
       ai.innerHTML = ana.done ? esc(ana.err || "") : `lendo as velas ${tfLabel(tf)}: engolfo, martelo, estrela, doji, harami, pinça…`;
       if (ana.done && now() - ana.scanStart > 5000) ana = null;
     } else if (tr && tr.mode === "now") {
-      $("tradeTitle").textContent = `ENTRE AGORA · fecha às ${clockStr(tr.endAt, true)}`;
+      $("tradeTitle").textContent = tr.next ? `Vela em andamento · fecha às ${clockStr(tr.endAt, true)}` : `ENTRE AGORA · fecha às ${clockStr(tr.endAt, true)}`;
       dirEl.className = "dir " + tr.dir; dirEl.textContent = tr.dir === "UP" ? "▲ COMPRA" : "▼ VENDA";
       $("timer").textContent = fmtS(tr.endAt - now());
       $("bar").style.width = (100 * Math.min(1, (now() - tr.entryAt) / (tr.endAt - tr.entryAt))).toFixed(1) + "%";
@@ -764,7 +786,7 @@
     });
     // scanner: a line sweeps the candles, then the candles used by the analysis stay selected
     const scanTr = lastScan && lastScan.key === mk() && lastScan.tf === tf && history.find((h) => h.id === lastScan.id && !h.res);
-    const view = ana && ana.key === mk() ? { scanStart: ana.scanStart, pred: null } : scanTr ? { scanStart: 0, pred: lastScan.pred } : null;
+    const view = ana && ana.key === mk() ? { scanStart: ana.scanStart, pred: ana.pred || null } : scanTr ? { scanStart: 0, pred: lastScan.pred } : null;
     if (view) {
       const el = now() - view.scanStart, plotW = W - padR, sel = Math.min(SEL, cs.length);
       g.save();
