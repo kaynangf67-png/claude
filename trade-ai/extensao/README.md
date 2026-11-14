@@ -32,8 +32,8 @@ e a taxa de acerto real. **Não opera sozinho e não clica em nada na corretora.
 | BTC/USD, ETH/USD, SOL/USD, BNB/USD, XRP/USD | o par em USDT da Binance |
 | EUR/USD | EUR/USDT (segue o EUR/USD) |
 | XAU/USD (ouro) | PAXG/USDT |
-| qualquer ativo **OTC** | sinais pausados; **gráfico e tendência** montados com o preço lido da tela da corretora |
-| outros pares (AUD/CHF, GBP/JPY…) | igual ao OTC: gráfico e tendência pelo preço da tela |
+| qualquer ativo **OTC** | sinais, gráfico e tendência com o **preço lido da tela da corretora**; o resultado de cada sinal é conferido nesse mesmo preço |
+| outros pares (AUD/CHF, GBP/JPY…) | igual ao OTC |
 
 ## Privacidade
 
@@ -58,3 +58,9 @@ Em OTC as velas são montadas a partir do preço que a corretora mostra na tela,
 depois de ~16 minutos com o painel aberto naquele ativo (o histórico fica salvo). Se o preço não for achado,
 use **Ajustes → Apontar preço** e clique no número do preço atual. Se a corretora desenha o preço só dentro
 do gráfico (imagem), não há como lê-lo.
+
+## Sinais em OTC
+
+O indicador precisa de 30 velas para funcionar: em OTC elas são montadas com o preço da tela, então os sinais
+começam depois de ~30 minutos com o painel aberto naquele ativo (as velas ficam salvas). O backtest também
+roda nessas velas a partir de 60. O preço OTC é feito pela corretora: acompanhe a taxa de acerto real.

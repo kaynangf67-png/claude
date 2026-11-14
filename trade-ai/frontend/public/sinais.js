@@ -40,8 +40,9 @@
   let ws = null, wsToken = 0, reconnectDelay = 1000;
   let payouts = LS.get("payouts", {});
   let history = LS.get("history", []);      // resolved + open signals
-  let lastEvaluatedT = 0;
-  let paused = null;        // reason why new signals are paused (extension: broker on OTC / unsupported asset)
+  const lastEvalBy = {};      // market -> time of the last candle already evaluated
+  let paused = null;        // reason why new signals are paused
+  let feedMode = false;     // OTC / market without free data: candles come from the price on the broker screen
 
   ASSETS.forEach((a) => {
     const o = document.createElement("option"); o.value = a.sym; o.textContent = a.name; el.asset.appendChild(o);
@@ -184,7 +185,7 @@
     const sym = asset().sym; const token = ++wsToken;
     if (ws) { ws.onclose = null; ws.close(); ws = null; }
     clearInterval(pollTimer);
-    candles = []; lastEvaluatedT = 0; draw(); renderPanel();
+    candles = []; draw(); renderPanel();
     setStatus("carregando " + asset().name + "…", false);
     try {
       const cs = await fetchKlines(sym, 300);
@@ -192,7 +193,7 @@
       const nowT = now();
       candles = cs.map((c) => ({ ...c, closed: c.t + MIN <= nowT }));
       const closed = candles.filter((c) => c.closed);
-      lastEvaluatedT = closed.length ? closed[closed.length - 1].t : 0; // never signal on old candles
+      lastEvalBy[sym] = closed.length ? closed[closed.length - 1].t : 0; // never signal on old candles
       resolveOpen();
       connectWS(sym, token);
     } catch (e) {
@@ -269,12 +270,18 @@
 
   // ---------- broker price feed (OTC and markets without free real data) ----------
   // The extension reads the price shown on the broker's screen and builds 1-minute candles from it.
-  const brokerMode = () => !!(paused && lastDetect && lastDetect.raw);
+  const brokerMode = () => !!(feedMode && lastDetect && lastDetect.raw);
+  // the market being followed now: a Binance symbol, or the broker's own name for OTC
+  const mk = () => brokerMode() ? lastDetect.raw : asset().sym;
+  const curName = () => brokerMode() ? lastDetect.raw : asset().name;
+  const curPayout = () => brokerMode() && lastDetect.payout >= 10 ? Math.round(lastDetect.payout) : payoutOf(asset().sym);
+  const srcC = () => brokerMode() ? feed.candles : candles;
   let feed = { key: null, candles: [], found: false, lastAt: 0 };
   function loadFeed(key) {
     const saved = LS.get("feed_" + key, []);
     const fresh = saved.length && now() - saved[saved.length - 1].t < 5 * MIN;   // gaps break the candles
     feed = { key, candles: fresh ? saved : [], found: false, lastAt: 0 };
+    const cl = feed.candles.filter((c) => c.closed); lastEvalBy[key] = cl.length ? cl[cl.length - 1].t : 0;
   }
   function onBrokerPrice(p) {
     if (!brokerMode() || !(p > 0)) return;
@@ -285,8 +292,9 @@
     else {
       if (last) { last.closed = true; if (t - last.t > 5 * MIN) feed.candles = []; }
       feed.candles.push({ t, o: p, h: p, l: p, c: p, closed: false });
-      if (feed.candles.length > 300) feed.candles.shift();
+      if (feed.candles.length > 1500) feed.candles.shift();
       LS.set("feed_" + feed.key, feed.candles);
+      if (last && last.closed && feed.candles.length > 1) onClose();   // a candle of the broker price just closed
     }    draw();
   }
 
@@ -314,7 +322,7 @@
   }
 
   // ---------- live signals ----------
-  const openTrade = () => history.find((h) => !h.res && !h.shadow && h.sym === asset().sym);
+  const openTrade = () => history.find((h) => !h.res && !h.shadow && h.sym === mk());
   const tr0 = () => openTrade();
 
   // trades left open on another asset are resolved over REST once they expire
@@ -323,7 +331,15 @@
     if (resolvingOther) return; resolvingOther = true;
     try {
       for (const h of history) {
-        if (h.res || h.sym === asset().sym || now() < h.endAt + 3000) continue;
+        if (h.res || h.sym === mk() || now() < h.endAt + 3000) continue;
+        if (!ASSETS.some((x) => x.sym === h.sym)) {
+          // broker-price market: resolve from the candles saved while the panel watched it
+          const c = (LS.get("feed_" + h.sym, []) || []).find((x) => x.t === h.expT && x.closed);
+          if (c) { h.exit = c.c; h.res = outcome(h.dir, h.entry, h.exit); }
+          else if (now() > h.endAt + 10 * MIN) h.res = "SEM DADO";
+          else continue;
+          LS.set("history", history); renderHistory(); continue;
+        }
         const r = await fetch(`${REST}?symbol=${h.sym}&interval=1m&startTime=${h.expT}&limit=1`);
         if (!r.ok) continue;
         const k = (await r.json()).map(parseK)[0];
@@ -336,21 +352,21 @@
 
   function onClose() {
     resolveOpen();
-    const closed = candles.filter((c) => c.closed);
+    const closed = srcC().filter((c) => c.closed);
     const i = closed.length - 1; if (i < 0) return;
-    if (closed[i].t <= lastEvaluatedT) return;
-    lastEvaluatedT = closed[i].t;
+    if (closed[i].t <= (lastEvalBy[mk()] || 0)) return;
+    lastEvalBy[mk()] = closed[i].t;
     if (paused) return;
     const ind = indicators(closed), n = expiry();
     const add = (strat, dir, shadow) => history.unshift({
-      id: closed[i].t + strat, sym: asset().sym, name: asset().name, strat, dir, n, shadow,
-      payout: payoutOf(asset().sym), stake: stake(), cur, entry: closed[i].c, sigT: closed[i].t,
+      id: closed[i].t + strat, sym: mk(), name: curName(), strat, dir, n, shadow, src: brokerMode() ? "corretora" : "binance",
+      payout: curPayout(), stake: stake(), cur, entry: closed[i].c, sigT: closed[i].t,
       expT: closed[i].t + n * MIN, // exit = close of this candle
       endAt: closed[i].t + (n + 1) * MIN, res: null, exit: null,
     });
     // each strategy is also followed on its own, so the panel shows which one is really working
     for (const k of PARTS) {
-      if (history.some((h) => h.shadow && !h.res && h.strat === k && h.sym === asset().sym)) continue;
+      if (history.some((h) => h.shadow && !h.res && h.strat === k && h.sym === mk())) continue;
       const d = signalAt(k, ind, closed, i); if (d) add(k, d, true);
     }
     const dir = openTrade() ? null : comboAt(ind, closed, i);
@@ -365,23 +381,23 @@
     let changed = false;
     for (const h of history) {
       if (h.res) continue;
-      if (h.sym !== asset().sym) continue; // other assets: resolveOtherAssets()
-      const c = candles.find((x) => x.t === h.expT && x.closed);
+      if (h.sym !== mk()) continue; // other assets: resolveOtherAssets()
+      const src = srcC(), c = src.find((x) => x.t === h.expT && x.closed);
       if (c) {
         h.exit = c.c; h.res = outcome(h.dir, h.entry, h.exit); changed = true;
         if (!h.shadow) say(h.res === "GANHOU" ? "Ganhou. Lembre: um acerto não prova nada, olhe a taxa." : h.res === "PERDEU" ? "Perdeu. Faz parte, e eu conto todas." : "Empate: o preço fechou igual à entrada.");
-      } else if (candles.length && candles[0].t > h.expT) { h.res = "SEM DADO"; changed = true; }
+      } else if (src.length && src[0].t > h.expT) { h.res = "SEM DADO"; changed = true; }
     }
     if (changed) { LS.set("history", history); renderHistory(); }
   }
 
   // ---------- UI ----------
-  function say(t) { $("bubble").textContent = t; }
+  function say(t) { const b = $("bubble"); if (b) b.textContent = t; }
   let actx = null;
   function beep() { try { actx = actx || new AudioContext(); const o = actx.createOscillator(), g = actx.createGain(); o.frequency.value = 880; g.gain.value = .05; o.connect(g); g.connect(actx.destination); o.start(); o.stop(actx.currentTime + .15); } catch {} }
 
   function renderPanel() {
-    const a = asset(); $("assetName").textContent = a.name;
+    const a = asset(); $("assetName").textContent = curName();
     $("clock").textContent = clockStr(now(), true);
     $("mStake").textContent = "Valor " + money(tr0() ? tr0().stake || stake() : stake()).replace(/^-/, "");
     const tr = openTrade();
@@ -406,16 +422,16 @@
       $("mPayout").textContent = `Payout ${payoutOf(a.sym)}%`;
       $("mEntry").textContent = last ? `Preço ${fmt(last.c)}` : "Preço —";
       $("mExp").textContent = `${expiry()} min`;
-      if (paused && lastDetect && lastDetect.raw) {
+      if (brokerMode()) {
         // show the market open on the broker even when there is no real data to signal on
         $("assetName").textContent = lastDetect.raw;
         $("mPayout").textContent = lastDetect.payout ? `Payout ${lastDetect.payout}%` : "Payout —";
-        $("mEntry").textContent = "sem preço real";
+        $("mEntry").textContent = "procurando o preço…";
       }
     }
     // session stats: all resolved signals, each with the payout it had
     renderIndicator(); renderTrend();
-    if (brokerMode() && feed.candles.length) $("mEntry").textContent = "Preço " + fmt(feed.candles[feed.candles.length - 1].c);
+    if (brokerMode() && feed.candles.length && !openTrade()) $("mEntry").textContent = "Preço " + fmt(feed.candles[feed.candles.length - 1].c);
     const done = history.filter((h) => !h.shadow && h.res && h.res !== "SEM DADO");
     const avgPayout = done.length ? done.reduce((s, h) => s + h.payout, 0) / done.length : payoutOf(a.sym);
     const st = stats(done, avgPayout, stake());
@@ -432,11 +448,11 @@
   function renderIndicator() {
     const box = $("indRows"); if (!box) return;
     const sub = box.closest(".sub"); if (sub) sub.style.display = paused ? "none" : "";   // OTC: give the space to the chart
-    const cs = candles.filter((c) => c.closed);
-    if (cs.length < 30 || paused) { box.innerHTML = `<div class="m">${paused ? "sinais pausados em " + esc(lastDetect && lastDetect.raw || "este mercado") + " (veja a tendência acima)" : "carregando…"}</div>`; $("indScore").textContent = ""; return; }
+    const cs = srcC().filter((c) => c.closed);
+    if (cs.length < 30 || paused) { box.innerHTML = `<div class="m">${brokerMode() ? `juntando velas do preço da corretora: ${cs.length}/30 (os sinais começam com 30)` : "carregando…"}</div>`; $("indScore").textContent = ""; return; }
     const ind = indicators(cs), i = cs.length - 1, v = votesAt(ind, i);
     const val = { rsi: ind.rsi[i].toFixed(1).replace(".", ","), bb: cs[i].c < ind.bb.lo[i] ? "abaixo" : cs[i].c > ind.bb.up[i] ? "acima" : "dentro", ema: v.ema === "UP" ? "9 > 21" : "9 < 21" };
-    const sym = asset().sym;
+    const sym = mk();
     box.innerHTML = PARTS.map((k) => {
       const d = history.filter((h) => h.strat === k && h.sym === sym && (h.res === "GANHOU" || h.res === "PERDEU"));
       const w = d.filter((h) => h.res === "GANHOU").length;
@@ -490,7 +506,7 @@
     const ind = indicators(src); const off = src.length - cs.length;
     const padR = 70, padT = 30, padB = 24, cw = (W - padR) / N;
     let hi = -Infinity, lo = Infinity; cs.forEach((c) => { hi = Math.max(hi, c.h); lo = Math.min(lo, c.l); });
-    const tr = bm ? null : openTrade(); if (tr && tr.sym === asset().sym) { hi = Math.max(hi, tr.entry); lo = Math.min(lo, tr.entry); }
+    const tr = openTrade(); if (tr && tr.sym === mk()) { hi = Math.max(hi, tr.entry); lo = Math.min(lo, tr.entry); }
     if (hi === lo) { hi += hi * 1e-4; lo -= lo * 1e-4; }
     const y = (p) => padT + (hi - p) / (hi - lo) * (H - padT - padB);
     // grid
@@ -510,12 +526,12 @@
     });
     // signal markers from history on visible src
     history.forEach((h) => {
-      if (h.shadow || h.sym !== asset().sym) return; const k = cs.findIndex((c) => c.t === h.sigT); if (k < 0) return;
+      if (h.shadow || h.sym !== mk()) return; const k = cs.findIndex((c) => c.t === h.sigT); if (k < 0) return;
       const x = k * cw + cw / 2; g.fillStyle = h.dir === "UP" ? "#22c55e" : "#ef4444"; g.font = "bold 12px system-ui";
       g.fillText(h.dir === "UP" ? "▲" : "▼", x - 5, h.dir === "UP" ? y(cs[k].l) + 14 : y(cs[k].h) - 4);
     });
     // open trade line
-    if (tr && tr.sym === asset().sym) {
+    if (tr && tr.sym === mk()) {
       const yy = y(tr.entry); g.setLineDash([5, 4]); g.strokeStyle = tr.dir === "UP" ? "#22c55e" : "#ef4444";
       g.beginPath(); g.moveTo(0, yy); g.lineTo(W - padR, yy); g.stroke(); g.setLineDash([]);
       g.fillStyle = g.strokeStyle; g.fillRect(W - padR, yy - 9, padR, 18); g.fillStyle = "#000"; g.fillText((tr.dir === "UP" ? "▲ " : "▼ ") + fmt(tr.entry), W - padR + 3, yy + 4);
@@ -527,11 +543,15 @@
 
   // ---------- backtest ----------
   async function runBacktest() {
-    const a = asset(), n = expiry(), pay = payoutOf(a.sym), size = +$("btSize").value;
-    $("btRun").disabled = true; $("btInfo").textContent = `Baixando ${size.toLocaleString("pt-BR")} velas de ${a.name}…`;
+    const a = asset(), n = expiry(), pay = curPayout(), size = +$("btSize").value;
+    $("btRun").disabled = true; $("btInfo").textContent = brokerMode() ? "Testando nas velas lidas da corretora…" : `Baixando ${size.toLocaleString("pt-BR")} velas de ${a.name}…`;
     try {
       const nowT = now();
-      const cs = (await fetchKlines(a.sym, size)).filter((c) => c.t + MIN <= nowT);
+      let cs;
+      if (brokerMode()) {
+        cs = feed.candles.filter((c) => c.closed);
+        if (cs.length < 60) throw new Error(`só ${cs.length} velas lidas da corretora em ${lastDetect.raw}. Deixe o painel aberto nesse ativo por mais tempo (mínimo 60).`);
+      } else cs = (await fetchKlines(a.sym, size)).filter((c) => c.t + MIN <= nowT);
       const ind = indicators(cs);
       const run = (strat) => {
         const trades = [];
@@ -558,9 +578,9 @@
       else if (st.ci[1] < st.be) { v.className = "verdict bad"; v.innerHTML = `<b>Indicador perde dinheiro aqui.</b> Acertou ${pct(st.wr)} e precisava de ${pct(st.be)}.`; }
       else { v.className = "verdict meh"; v.innerHTML = `<b>Indicador sem vantagem comprovada.</b> Acertou ${pct(st.wr)}; o real pode estar entre ${pct(st.ci[0])} e ${pct(st.ci[1])}, e o empate é ${pct(st.be)}. Compare com Cara ou coroa.`; }
       if (lucky.length) v.innerHTML += `<br><small>${lucky.join(", ")} passou do empate neste período. Ao testar várias estratégias, uma costuma ir bem por acaso: confirme em outro período.</small>`;
-      $("btInfo").textContent = `${a.name} · expiração ${n} min · ${cs.length.toLocaleString("pt-BR")} velas (${new Date(cs[0].t).toLocaleDateString("pt-BR")} a ${new Date(cs[cs.length - 1].t).toLocaleDateString("pt-BR")})`;
+      $("btInfo").textContent = `${curName()}${brokerMode() ? " (preço lido da corretora)" : ""} · expiração ${n} min · ${cs.length.toLocaleString("pt-BR")} velas (${new Date(cs[0].t).toLocaleDateString("pt-BR")} a ${new Date(cs[cs.length - 1].t).toLocaleDateString("pt-BR")})`;
       lastEq = eq; drawEquity(eq);
-    } catch (e) { $("btInfo").textContent = "Erro ao baixar as velas: " + e.message; }
+    } catch (e) { $("btInfo").textContent = (brokerMode() ? "Ainda não dá: " : "Erro ao baixar as velas: ") + e.message; }
     $("btRun").disabled = false;
   }
   let lastEq = null;
@@ -630,7 +650,7 @@
   // shown by the broker and posts them here.
   let lastDetect = null;
   function applyDetect(d) {
-    paused = null;
+    paused = null; feedMode = false;
     const follow = true;   // market, payout and amount always come from the broker
     const amt = Number.isFinite(d && d.amount) && d.amount > 0 ? d.amount : null;
     if (follow && d && d.currency && d.currency !== cur) { cur = d.currency; LS.set("cur", cur); }
@@ -644,15 +664,14 @@
     const pay = Number.isFinite(d.payout) && d.payout >= 10 && d.payout <= 100 ? Math.round(d.payout) : null;
     let html = `<b>${esc(d.raw)}</b>` + (pay ? ` · <b>${pay}%</b>` : " · payout ?") + amtTxt;
     if (follow) {
-      if (d.otc) paused = "OTC: sinais pausados, gráfico e tendência pelo preço da corretora";
-      else if (!sym) paused = "sem dado grátis deste mercado: gráfico e tendência pelo preço da corretora";
+      if (d.otc || !sym) feedMode = true;
       else {
         if (pay && payouts[sym] !== pay) { payouts[sym] = pay; LS.set("payouts", payouts); }
         if (el.asset.value !== sym) { el.asset.value = sym; el.asset.onchange(); } else syncPayoutInput();
         html += ` → <b>${esc(asset().name)}</b>`;
       }
     }
-    if (paused) html += `<div class="w">${esc(paused)}.</div>`;
+    if (feedMode) html += `<div class="w">${d.otc ? "OTC" : "Sem dado grátis"}: sinais e gráfico pelo preço lido na tela da corretora.</div>`;
     // expiration and time zone, also from the broker
     let expTxt = "não encontrada (usando " + expiry() + " min)";
     if (Number.isFinite(d.expirySec) && d.expirySec > 0) {
