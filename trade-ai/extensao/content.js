@@ -299,8 +299,10 @@
   function pollPrice() {
     if (picking) return;
     let p = null;
+    // a pointed element must still look like a live price (decimals, no "%", not ".000"); if not, look by itself
     const tp = taught.price && readEl(taught.price);
-    if (tp) p = parseAmount(tp.text);
+    const tpt = tp ? tp.text.trim() : "", tpd = (tpt.match(/[.,](\d+)\s*$/) || [])[1] || "";
+    if (tp && !/%/.test(tpt) && tpd && !/^0+$/.test(tpd)) p = parseAmount(tpt);
     else {
       const t0 = Date.now(); let best = null;
       for (const [n, c] of cands) {

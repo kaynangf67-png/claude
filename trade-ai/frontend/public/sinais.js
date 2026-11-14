@@ -197,7 +197,8 @@
     return out;
   }
 
-  function setStatus(txt, on) { $("status").innerHTML = `<span class="dot ${on ? "on" : ""}"></span>${txt}`; if ($("livebadge")) $("livebadge").style.opacity = on ? 1 : .35; }
+  let binStatus = "";
+  function setStatus(txt, on) { binStatus = `<span class="dot ${on ? "on" : ""}"></span>${txt}`; $("status").innerHTML = `<span class="dot ${on ? "on" : ""}"></span>${txt}`; if ($("livebadge")) $("livebadge").style.opacity = on ? 1 : .35; }
 
   async function loadAsset() {
     const sym = asset().sym; const token = ++wsToken;
@@ -291,6 +292,7 @@
   // ---------- broker price feed (OTC and markets without free real data) ----------
   // The extension reads the price shown on the broker's screen and builds 1-minute candles from it.
   const brokerMode = () => !!(feedMode && lastDetect && lastDetect.raw);
+  const noMarket = () => !!(compact && lastDetect && !lastDetect.raw);     // e.g. the broker's "Mercado" or account page
   // the market being followed now: a Binance symbol, or the broker's own name for OTC
   const mk = () => brokerMode() ? lastDetect.raw : asset().sym;
   const curName = () => brokerMode() ? lastDetect.raw : asset().name;
@@ -301,7 +303,7 @@
   const feedLive = () => brokerMode() && feed.key === lastDetect.raw && feed.found && now() - feed.lastAt < 15000;
   const lastPrice = () => { const r = rawC(); return r.length ? r[r.length - 1].c : null; };
   let feed = { key: null, candles: [], sec: [], found: false, lastAt: 0 };
-  const FEED = "feed2_";   // v2: the first version could save a wrong number as the price
+  const FEED = "feed3_";   // v3: older versions could save a wrong number (payout) as the price
   function loadFeed(key) {
     const saved = LS.get(FEED + key, []), savedS = LS.get(FEED + "s_" + key, []);
     const fresh = saved.length && now() - saved[saved.length - 1].t < 5 * MIN;   // gaps break the candles
@@ -311,6 +313,7 @@
   }
   function onBrokerPrice(p) {
     if (!brokerMode() || !(p > 0)) return;
+    if (Number.isInteger(p) || (lastDetect.payout && Math.round(p) === Math.round(lastDetect.payout))) return;   // "91", "93.000": payout or counter
     if (feed.key !== lastDetect.raw) loadFeed(lastDetect.raw);
     feed.found = true; feed.lastAt = now();
     let last = feed.candles[feed.candles.length - 1];
@@ -518,7 +521,15 @@
     const ai = $("anaInfo"), ab = $("anaBtn");
     const fmtS = (ms) => { const s = Math.ceil(Math.max(0, ms) / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
     const expTxt = () => { const e = expSecNow(); return e < 60 ? e + " s" : Math.round(e / 60) + " min"; };
-    if (ab) { ab.textContent = ana ? "ESCANEANDO…" : "🔍 Sinalizar entrada"; ab.disabled = !!ana; }
+    const blocked = noMarket() ? "Abra um gráfico na corretora" : brokerMode() && !feedLive() ? "Sem preço lido da tela" : null;
+    if (ab) { ab.textContent = ana ? "ESCANEANDO…" : blocked || "🔍 Sinalizar entrada"; ab.disabled = !!ana || !!blocked; }
+    if (noMarket() && !tr) {
+      $("assetName").textContent = "Nenhum gráfico aberto"; $("tradeTitle").textContent = "Esperando a corretora";
+      dirEl.className = "dir WAIT"; dirEl.textContent = "SEM SINAL"; $("timer").textContent = "--:--"; $("bar").style.width = "0";
+      $("mPayout").textContent = "Payout —"; $("mEntry").textContent = "Preço —"; $("mExp").textContent = "—";
+      if (ai) ai.style.display = "none";
+      return;
+    }
     if (ai) ai.style.display = ana || (tr && tr.strat === "click") ? "" : "none";
     const be = 1 / (1 + curPayout() / 100);
     if (ana) {
@@ -611,12 +622,21 @@
     const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.fillStyle = "#131c31"; g.fillRect(0, 0, W, H);
     const bm = brokerMode(), src = srcC();
-    $("status").innerHTML = bm ? `<span class="dot ${feedLive() ? "on" : ""}"></span>${esc(lastDetect.raw)} · ${tfLabel(tf)} · preço lido da corretora` : $("status").innerHTML;
+    $("status").innerHTML = noMarket() ? '<span class="dot"></span>nenhum gráfico aberto na corretora'
+      : bm ? `<span class="dot ${feedLive() ? "on" : ""}"></span>${esc(lastDetect.raw)} · ${tfLabel(tf)} · preço lido da corretora` : binStatus;
+    if (noMarket()) {
+      g.fillStyle = "#8a97b3"; g.font = "13px system-ui"; g.textAlign = "center";
+      g.fillText("Abra o gráfico de um ativo na corretora", W / 2, H / 2 - 6);
+      g.font = "11px system-ui"; g.fillText("o painel troca sozinho para ele", W / 2, H / 2 + 12);
+      g.textAlign = "left"; return;
+    }
     if (bm && (!feedLive() || src.length < 2)) {
       g.fillStyle = "#8a97b3"; g.font = "13px system-ui"; g.textAlign = "center";
       const ok = feedLive();
       g.fillText(ok ? `Montando o gráfico de ${lastDetect.raw}…` : `Procurando o preço de ${lastDetect.raw} na tela…`, W / 2, H / 2 - 6);
-      g.font = "11px system-ui"; g.fillText(ok ? `as velas ${tfLabel(tf)} vão aparecendo` : "se não achar: Ajustes → Apontar preço", W / 2, H / 2 + 12);
+      g.font = "11px system-ui";
+      if (ok) g.fillText(`as velas ${tfLabel(tf)} vão aparecendo`, W / 2, H / 2 + 12);
+      else { g.fillText("se a corretora desenha o preço só dentro do gráfico,", W / 2, H / 2 + 12); g.fillText("não há número para ler (Ajustes → Apontar preço)", W / 2, H / 2 + 27); }
       g.textAlign = "left"; return;
     }
     if (!src.length) return;
