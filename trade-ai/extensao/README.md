@@ -35,6 +35,14 @@ e a taxa de acerto real. **Não opera sozinho e não clica em nada na corretora.
 | qualquer ativo **OTC** | sinais e gráfico com o **preço lido da tela da corretora**; o resultado de cada sinal é conferido nesse mesmo preço |
 | outros pares (AUD/CHF, GBP/JPY…) | igual ao OTC |
 
+## Ler print
+
+Aba **Print**: tire um print do gráfico (Win+Shift+S) e cole com Ctrl+V ou **Colar print** (ou arraste/escolha a
+imagem). O painel lê as velas verdes e vermelhas da imagem (cada bloco de cor vira uma vela; fica a sequência mais
+longa e regular, descartando botões, barras e textos), mostra o desenho das velas lidas para você conferir, procura os
+padrões de candle e indica COMPRA ou VENDA para a próxima vela, com a **hora de entrada** (abertura da próxima vela do
+tempo gráfico da corretora) e a **hora de expiração** (1 vela depois). A imagem não sai do computador.
+
 ## Preço automático
 
 Ao abrir um ativo, o preço é lido sozinho: primeiro das cotações que a própria página da corretora recebe ao vivo

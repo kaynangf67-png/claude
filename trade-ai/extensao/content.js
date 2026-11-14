@@ -31,7 +31,7 @@
     <div class="wrap"><div class="box">
       <div class="bar"><span>🤖 Sinal Honesto</span><span class="sp"></span>
         <button class="m" title="Minimizar">–</button><button class="x" title="Fechar (clique no ícone para abrir de novo)">×</button></div>
-      <iframe allow="autoplay"></iframe>
+      <iframe allow="autoplay; clipboard-read; clipboard-write"></iframe>
     </div></div>`;
   const wrap = root.querySelector(".wrap"), bar = root.querySelector(".bar"), frame = root.querySelector("iframe");
   frame.src = chrome.runtime.getURL("sinais.html");

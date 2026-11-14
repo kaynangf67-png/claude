@@ -145,6 +145,16 @@
   .btexp b{color:var(--txt)}
   .ci{display:block;font-size:10px;color:var(--mut);font-weight:400}
   body.compact .extra div:last-child{display:none}
+  .pzone{border:2px dashed var(--line);border-radius:12px;padding:14px;text-align:center;display:flex;flex-direction:column;gap:4px;outline:none}
+  .pzone:focus,.pzone.over{border-color:var(--acc);background:rgba(56,189,248,.06)}
+  .pzone .m{font-size:11px}
+  .pfile{display:inline-block;background:#1e3a5f;border:1px solid #2c5282;border-radius:8px;padding:7px 9px;cursor:pointer;font-size:14px}
+  .pcv{width:100%;height:140px;margin-top:10px;border-radius:10px;background:var(--card2)}
+  .pout{margin-top:10px}
+  .pres{display:flex;align-items:center;gap:12px}
+  .pres .dir{font-size:17px}
+  .ptimes{font-size:13px;display:grid;gap:2px}
+  body.compact .tabs button{font-size:11px;padding:9px 2px}
 </style>
 </head>
 <body>
@@ -249,6 +259,20 @@
         <tbody id="hist"><tr><td colspan="10" class="m">Nenhum sinal ainda.</td></tr></tbody>
       </table>
     </div>
+  </div>
+
+  <div class="card">
+    <h2>Ler print do gráfico</h2>
+    <div id="printZone" class="pzone" tabindex="0">
+      <b>Cole o print aqui (Ctrl+V)</b>
+      <span class="m">tire com Win+Shift+S só a área do gráfico · ou arraste a imagem</span>
+      <div class="row" style="justify-content:center;margin-top:8px">
+        <button id="printPaste">📋 Colar print</button>
+        <label class="pfile">🖼️ Escolher imagem<input id="printFile" type="file" accept="image/*" hidden /></label>
+      </div>
+    </div>
+    <canvas id="printCv" class="pcv"></canvas>
+    <div id="printOut" class="pout"><div class="m">O painel lê as velas verdes e vermelhas do print, procura os padrões de candle e indica compra ou venda para a próxima vela, com a hora de entrada e de expiração. A imagem não sai do seu computador.</div></div>
   </div>
 
   <div class="card">

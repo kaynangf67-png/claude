@@ -913,6 +913,7 @@
   el.payout.oninput = () => { const v = Math.min(100, Math.max(1, +el.payout.value || 0)); if (!v) return; payouts[asset().sym] = v; LS.set("payouts", payouts); renderPanel(); };
   $("resetSession").onclick = () => { if (!confirm("Apagar o histórico e as estatísticas desta sessão?")) return; history = []; LS.set("history", history); renderHistory(); renderPanel(); draw(); };
   $("btRun").onclick = runBacktest;
+  initPrint();
   const btx = document.querySelector(".btexp");
   if (btx) { btx.open = !LS.get("btexpSeen", false); btx.addEventListener("toggle", () => LS.set("btexpSeen", !btx.open)); LS.set("btexpSeen", true); }
   $("anaBtn").onclick = () => { if (ana) { ana = null; renderPanel(); } else startAnalysis(); };
@@ -923,27 +924,178 @@
   setInterval(() => { renderPanel(); }, 250);
   setInterval(resolveOtherAssets, 5000);
 
-  // ---------- compact panel (extension): 4 tabs that fit the window ----------
+  // ---------- "Ler print": candles read from a screenshot of the chart ----------
+  // Everything happens here in the panel: the image is not sent anywhere.
+  // Green and red pixels are grouped into candles; body = rows filled across the candle, wick = the thin line.
+  function readCandlesFromImage(img) {
+    const scale = Math.min(1, 1600 / img.width), W = Math.round(img.width * scale), H = Math.round(img.height * scale);
+    const cv2 = document.createElement("canvas"); cv2.width = W; cv2.height = H;
+    const g = cv2.getContext("2d", { willReadFrequently: true }); g.drawImage(img, 0, 0, W, H);
+    const px = g.getImageData(0, 0, W, H).data;
+    const kind = new Uint8Array(W * H);          // 1 = green, 2 = red
+    for (let i = 0, k = 0; i < px.length; i += 4, k++) {
+      const r = px[i], gg = px[i + 1], b = px[i + 2];
+      if (gg > 100 && gg > r * 1.35 && gg > b * 1.05) kind[k] = 1;
+      else if (r > 130 && r > gg * 1.6 && r > b * 1.35) kind[k] = 2;
+    }
+    // each connected blob of one colour is a candidate candle (body + wick touch each other)
+    const seen = new Uint8Array(W * H), stack = new Int32Array(W * H), comps = [];
+    for (let s = 0; s < W * H; s++) {
+      if (!kind[s] || seen[s]) continue;
+      const k = kind[s]; let n = 0, sp = 0, x0 = W, x1 = -1, y0 = H, y1 = -1; const pts = [];
+      stack[sp++] = s; seen[s] = 1;
+      while (sp) {
+        const q = stack[--sp], x = q % W, y = (q - x) / W; n++;
+        if (pts.length < 20000) pts.push(q);
+        if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+        if (x > 0 && kind[q - 1] === k && !seen[q - 1]) { seen[q - 1] = 1; stack[sp++] = q - 1; }
+        if (x < W - 1 && kind[q + 1] === k && !seen[q + 1]) { seen[q + 1] = 1; stack[sp++] = q + 1; }
+        if (y > 0 && kind[q - W] === k && !seen[q - W]) { seen[q - W] = 1; stack[sp++] = q - W; }
+        if (y < H - 1 && kind[q + W] === k && !seen[q + W]) { seen[q + W] = 1; stack[sp++] = q + W; }
+      }
+      const w = x1 - x0 + 1, h = y1 - y0 + 1;
+      if (w < 2 || w > 40 || h < 2 || h > H * 0.6 || n < 6) continue;   // dots, text bits, buttons, side bars
+      // body = rows filled across most of the blob width; wick = the rest
+      const rows = new Uint16Array(h); for (const q of pts) rows[((q - (q % W)) / W) - y0]++;
+      let top = -1, bot = -1; for (let r = 0; r < h; r++) if (rows[r] >= w * 0.6) { if (top < 0) top = r; bot = r; }
+      if (top < 0) continue;
+      comps.push({ x: (x0 + x1) / 2, w, k, top: y0 + top, bot: y0 + bot, wTop: y0, wBot: y1, area: n });
+    }
+    // one candle per x: if two blobs overlap sideways keep the bigger one
+    comps.sort((a, b) => a.x - b.x);
+    const uniq = [];
+    for (const c of comps) { const l = uniq[uniq.length - 1]; if (l && Math.abs(c.x - l.x) < Math.max(c.w, l.w) * 0.6) { if (c.area > l.area) uniq[uniq.length - 1] = c; } else uniq.push(c); }
+    // candle width = the usual width among the taller blobs; thinner/wider bits (grid dots, text) are left out
+    const tall = uniq.filter((c) => c.wBot - c.wTop >= 8).map((c) => c.w).sort((a, b) => a - b);
+    const medW = tall.length ? tall[Math.floor(tall.length / 2)] : 0;
+    const cand = medW ? uniq.filter((c) => c.w >= medW * 0.5 && c.w <= medW * 2) : uniq;
+    // the chart is the longest run of evenly spaced candles
+    const gaps = cand.slice(1).map((c, i) => c.x - cand[i].x).sort((a, b) => a - b);
+    const step = gaps.length ? gaps[Math.floor(gaps.length / 2)] : 0;
+    let best = [], cur = [];
+    for (const c of cand) {
+      const l = cur[cur.length - 1];
+      if (l && c.x - l.x > step * 3.5) { if (cur.length >= best.length) best = cur; cur = []; }
+      cur.push(c);
+    }
+    if (cur.length >= best.length) best = cur;
+    // a "candle" far above or below its neighbours is something else on the screen (a label, a button)
+    const kept = [];
+    for (const c of best) {
+      const prev = kept.slice(-6);
+      if (prev.length >= 3) {
+        const avg = prev.reduce((s, p) => s + (p.wBot - p.wTop + 1), 0) / prev.length;
+        const top = Math.min(...prev.map((p) => p.wTop)) - avg * 4, bot = Math.max(...prev.map((p) => p.wBot)) + avg * 4;
+        if (c.wBot < top || c.wTop > bot) continue;
+      }
+      kept.push(c);
+    }
+    best = kept;
+    // pixel rows → prices (up is higher)
+    return best.map((c) => {
+      const hi = H - c.wTop, lo = H - c.wBot, bt = H - c.top, bb = H - c.bot;
+      return c.k === 1 ? { o: bb, c: bt, h: hi, l: lo, x: c.x } : { o: bt, c: bb, h: hi, l: lo, x: c.x };
+    });
+  }
+
+  let printRes = null;
+  async function readPrint(blob) {
+    const out = $("printOut");
+    if (!blob || !/^image\//.test(blob.type)) { out.innerHTML = '<div class="m">Isso não é uma imagem. Tire um print do gráfico e cole aqui.</div>'; return; }
+    out.innerHTML = '<div class="m">lendo as velas do print…</div>';
+    let img;
+    try { img = await createImageBitmap(blob); } catch { out.innerHTML = '<div class="m">Não deu para abrir a imagem.</div>'; return; }
+    const cs = readCandlesFromImage(img);
+    if (cs.length < 7) {
+      printRes = null;
+      out.innerHTML = `<div class="w">Achei ${cs.length} vela(s) no print; preciso de pelo menos 7. Tire o print só da área do gráfico, com velas verdes e vermelhas visíveis.</div>`;
+      drawPrint(cs, null); return;
+    }
+    const i = cs.length - 1, b = bestPattern(cs, i);
+    const pred = b ? { dir: b.dir, kind: "candle", name: b.name, len: b.len, from: i - b.len + 1 }
+      : { dir: lastMove(cs, i), kind: "move", name: "sem padrão claro · direção das últimas velas", len: Math.min(5, i), from: Math.max(0, i - 5) };
+    // hit rate of that pattern in the history of the market open in the panel (if it is the same market as the print)
+    const o = b && anaData.cs.length >= 60 && anaData.key && anaData.key.startsWith(mk() + "|") ? candleModelFor(1).get(b.name) : null;
+    const t = now(), nx = Math.ceil(t / TF()) * TF(), entryT = nx - t < 1200 ? nx + TF() : nx;
+    printRes = { cs, pred, entryT, expT: entryT + TF(), tf, rate: o && o.n ? o.ok / o.n : null, seen: o ? o.n : 0, at: t };
+    drawPrint(cs, pred);
+    renderPrint();
+  }
+  function renderPrint() {
+    const out = $("printOut"); if (!out || !printRes) return;
+    const r = printRes, p = r.pred, left = r.entryT - now(), be = 1 / (1 + curPayout() / 100);
+    if (r.expT < now()) { out.innerHTML = `<div class="m">Esse sinal já expirou (${clockStr(r.expT, true)}). Cole um print novo.</div>`; return; }
+    const fmtS2 = (ms) => { const s = Math.ceil(Math.max(0, ms) / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+    out.innerHTML = `
+      <div class="pres"><span class="dir ${p.dir}">${p.dir === "UP" ? "▲ COMPRA" : "▼ VENDA"}</span>
+        <div class="ptimes"><div>Entrada <b>${clockStr(r.entryT, true)}</b> ${left > 0 ? `<span class="m">em ${fmtS2(left)}</span>` : '<b class="g">agora</b>'}</div>
+        <div>Expiração <b>${clockStr(r.expT, true)}</b> <span class="m">(1 vela ${tfLabel(r.tf)})</span></div></div></div>
+      <div class="anainfo">${p.kind === "candle" ? `Padrão no print: <b>${esc(p.name)}</b>` : esc(p.name)} · ${r.cs.length} velas lidas
+        ${r.seen ? ` · no histórico de ${esc(curName())} a vela seguinte foi ${p.dir === "UP" ? "de alta" : "de baixa"} em <b>${pct(r.rate)}</b> de ${r.seen} vezes (empate ${pct(be)})` : ""}</div>
+      <div class="m" style="font-size:11px;margin-top:4px">Confira no desenho acima se as velas foram lidas certo. O tempo gráfico usado é o da corretora (${tfLabel(r.tf)}); a entrada é a abertura da próxima vela.</div>`;
+  }
+  function drawPrint(cs, pred) {
+    const c = $("printCv"); if (!c) return;
+    const dpr = window.devicePixelRatio || 1, W = c.clientWidth, H = c.clientHeight;
+    c.width = W * dpr; c.height = H * dpr; const g = c.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.fillStyle = "#131c31"; g.fillRect(0, 0, W, H);
+    if (!cs.length) { g.fillStyle = "#8a97b3"; g.font = "12px system-ui"; g.textAlign = "center"; g.fillText("nenhuma vela reconhecida", W / 2, H / 2); g.textAlign = "left"; return; }
+    const show = cs.slice(-40), off = cs.length - show.length, cw = (W - 10) / show.length;
+    let hi = -Infinity, lo = Infinity; show.forEach((k) => { hi = Math.max(hi, k.h); lo = Math.min(lo, k.l); });
+    const y = (v) => 10 + (hi - v) / Math.max(1e-9, hi - lo) * (H - 20);
+    if (pred) {
+      const a = Math.max(0, pred.from - off), x0 = a * cw, x1 = show.length * cw;
+      g.fillStyle = "rgba(56,189,248,.12)"; g.fillRect(x0, 4, x1 - x0, H - 8);
+      g.setLineDash([4, 3]); g.strokeStyle = "#38bdf8"; g.strokeRect(x0, 4, x1 - x0, H - 8); g.setLineDash([]);
+    }
+    show.forEach((k, j) => {
+      const x = j * cw + cw / 2; g.strokeStyle = g.fillStyle = k.c >= k.o ? "#22c55e" : "#ef4444";
+      g.beginPath(); g.moveTo(x, y(k.h)); g.lineTo(x, y(k.l)); g.stroke();
+      g.fillRect(x - cw * .35, Math.min(y(k.o), y(k.c)), cw * .7, Math.max(1, Math.abs(y(k.o) - y(k.c))));
+    });
+  }
+  function initPrint() {
+    const zone = $("printZone"); if (!zone) return;
+    document.addEventListener("paste", (e) => {
+      const item = [...(e.clipboardData ? e.clipboardData.items : [])].find((x) => x.type.startsWith("image/"));
+      if (item) { e.preventDefault(); readPrint(item.getAsFile()); }
+    });
+    $("printPaste").onclick = async () => {
+      try {
+        const items = await navigator.clipboard.read();
+        for (const it of items) { const t = it.types.find((x) => x.startsWith("image/")); if (t) { readPrint(await it.getType(t)); return; } }
+        $("printOut").innerHTML = '<div class="m">Não há imagem copiada. Tire o print (Win+Shift+S) e clique de novo, ou use Ctrl+V aqui.</div>';
+      } catch { $("printOut").innerHTML = '<div class="m">O navegador não deixou ler a área de transferência: clique aqui no painel e aperte Ctrl+V.</div>'; }
+    };
+    $("printFile").onchange = (e) => { const f = e.target.files && e.target.files[0]; if (f) readPrint(f); e.target.value = ""; };
+    zone.addEventListener("dragover", (e) => { e.preventDefault(); zone.classList.add("over"); });
+    zone.addEventListener("dragleave", () => zone.classList.remove("over"));
+    zone.addEventListener("drop", (e) => { e.preventDefault(); zone.classList.remove("over"); const f = e.dataTransfer.files && e.dataTransfer.files[0]; if (f) readPrint(f); });
+    setInterval(() => { if (printRes) renderPrint(); }, 500);
+  }
+
+  // ---------- compact panel (extension): tabs that fit the window ----------
   function buildTabs() {
-    const mk = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html) e.innerHTML = html; return e; };
-    const nav = mk("nav", "tabs");
-    const tabs = { sinal: "Sinal", hist: "Histórico", bt: "Backtest", cfg: "Ajustes" };
+    const mkEl = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html) e.innerHTML = html; return e; };
+    const nav = mkEl("nav", "tabs");
+    const tabs = { sinal: "Sinal", print: "Print", hist: "Histórico", bt: "Backtest", cfg: "Ajustes" };
     const pane = {};
     for (const [k, label] of Object.entries(tabs)) {
-      const b = mk("button", "", label); b.dataset.tab = k; nav.appendChild(b);
-      pane[k] = mk("div", "pane"); pane[k].dataset.tab = k;
+      const b = mkEl("button", "", label); b.dataset.tab = k; nav.appendChild(b);
+      pane[k] = mkEl("div", "pane"); pane[k].dataset.tab = k;
     }
     // grab everything first: once moved into a detached pane, getElementById no longer finds it
     const r = {
       brokerLine: $("brokerTxt"), signal: $("dir").closest(".sub"), session: $("sW").closest(".sub"), chart: document.querySelector(".chartwrap"),
-      bt: $("btRun").closest(".card"), header: document.querySelector("header"), broker: $("broker"), reset: $("resetSession"), warn: document.querySelector(".warn"),
+      bt: $("btRun").closest(".card"), print: $("printZone").closest(".card"), header: document.querySelector("header"), broker: $("broker"), reset: $("resetSession"), warn: document.querySelector(".warn"),
     };
     r.brokerLine.classList.add("sub", "brokerline");
     r.broker.querySelector("h3").textContent = "Ler da corretora";
     pane.sinal.append(r.brokerLine, r.signal, r.session, r.chart);
-    const hl = mk("div", "card"); hl.innerHTML = '<div id="histList" class="hlist"></div>'; pane.hist.append(hl);
+    pane.print.append(r.print);
+    const hl = mkEl("div", "card"); hl.innerHTML = '<div id="histList" class="hlist"></div>'; pane.hist.append(hl);
     pane.bt.append(r.bt);
-    const cfg = mk("div", "card cfg");
+    const cfg = mkEl("div", "card cfg");
     cfg.append(r.header, r.broker, r.reset, r.warn);
     pane.cfg.append(cfg);
     document.body.innerHTML = "";
@@ -951,7 +1103,7 @@
     const show = (k) => {
       nav.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.tab === k));
       Object.values(pane).forEach((p) => p.classList.toggle("on", p.dataset.tab === k));
-      LS.set("tab", k); draw(); if (k === "bt" && lastEq) drawEquity(lastEq);
+      LS.set("tab", k); draw(); if (k === "bt" && lastEq) drawEquity(lastEq); if (k === "print" && printRes) drawPrint(printRes.cs, printRes.pred);
       if (k === "bt" && btDone !== mk() + "|" + expiry() && !$("btRun").disabled) runBacktest();   // runs by itself when the tab opens
     };
     nav.onclick = (e) => { const b = e.target.closest("button"); if (b) show(b.dataset.tab); };
