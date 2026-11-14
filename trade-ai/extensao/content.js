@@ -305,6 +305,7 @@
   const wsTicks = new Map();
   let curKey = null;     // normalised name of the market open on the page
   let hookStats = null;  // what hook.js saw (diagnostic)
+  let matchedBy = null;  // stream name picked by price, when the names did not match
   window.addEventListener("message", (e) => {
     if (e.source !== window || !e.data) return;
     if (e.data.__sinalHonesto === "stats") { hookStats = { msgs: +e.data.msgs || 0, from: e.data.from || {}, names: (e.data.names || []).slice(0, 8).map(String) }; return; }
@@ -316,9 +317,21 @@
     if (!curKey) return null;
     const keys = [curKey, curKey.replace(/otc$/, ""), curKey + "otc"];
     for (const k of keys) { const v = wsTicks.get(k); if (v && Date.now() - v.t < 5000) return v.p; }
-    // looser: a stream name that contains the same pair ("frxUSDBRL", "USDBRL-OTC.x"…), OTC wanted only for OTC
-    const pair = curKey.replace(/otc$/, ""), wantOtc = /otc$/.test(curKey);
-    for (const [k, v] of wsTicks) if (k.includes(pair) && /otc/.test(k) === wantOtc && Date.now() - v.t < 5000) return v.p;
+    // looser: a stream name that contains the same pair, also with the currencies the other way round
+    // ("frxUSDBRL", "BRLUSD_otc" for a USD/BRL shown as 0.18…), OTC wanted only for OTC
+    const pair = curKey.replace(/otc$/, ""), wantOtc = /otc$/.test(curKey), half = pair.length / 2;
+    const rev = Number.isInteger(half) && half >= 3 ? pair.slice(half) + pair.slice(0, half) : null;
+    const fresh = [...wsTicks].filter(([k, v]) => Date.now() - v.t < 5000 && /otc/.test(k) === wantOtc);
+    for (const [k, v] of fresh) if (k.includes(pair)) return v.p;
+    if (rev) for (const [k, v] of fresh) if (k.includes(rev)) return v.p;
+    // last resort: the quote whose price sits among the numbers drawn on the chart axis
+    const nums = [...cands.keys()].filter((el) => el.isConnected).map((el) => parseAmount((el.textContent || "").trim())).filter((x) => x > 0);
+    let best = null;
+    for (const [k, v] of fresh) {
+      const near = nums.filter((x) => Math.abs(x / v.p - 1) < 0.02).length;
+      if (near >= 3 && (!best || near > best.near)) best = { near, p: v.p, k };
+    }
+    if (best) { matchedBy = best.k; return best.p; }
     return null;
   }
 
@@ -402,7 +415,7 @@
       msg.tfSec = tt ? (tfToSec(tt.text) || tfToSec((tt.text.match(/[SMH]\s?\d{1,2}|\d{1,2}\s?(?:min|m|h|s)\b/i) || [""])[0])) : findTimeframe();
       if (!a) curKey = null;
     } catch (e) { /* page changed under us; try again next tick */ }
-    msg.hook = hookStats ? { msgs: hookStats.msgs, from: hookStats.from, names: hookStats.names, key: curKey, got: !!wsPrice() } : null;
+    msg.hook = hookStats ? { msgs: hookStats.msgs, from: hookStats.from, names: hookStats.names, key: curKey + (matchedBy ? " → " + matchedBy : ""), got: !!wsPrice() } : null;
     const key = JSON.stringify(msg);
     if (force === true || key !== lastKey) { lastKey = key; frame.contentWindow && frame.contentWindow.postMessage(msg, "*"); }
   }
