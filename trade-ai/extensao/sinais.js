@@ -1070,22 +1070,23 @@
     const h = history.find((x) => x.id === id); if (!h || h.res) return;
     h.res = res; h.manual = true; LS.set("history", history); renderPrintHist();
   }
+  // only the score: green, loss and the profit (value × payout on green, − value on loss)
   function renderPrintHist() {
     const box = $("printHist"); if (!box) return;
     const list = history.filter((h) => h.strat === "print");
-    const g = list.filter((h) => h.res === "GANHOU").length, l = list.filter((h) => h.res === "PERDEU").length, e = list.filter((h) => h.res === "EMPATE").length;
-    const fmtS3 = (ms) => { const s = Math.ceil(Math.max(0, ms) / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
-    const rows = list.slice(0, 50).map((h) => {
-      const tag = h.res === "GANHOU" ? '<b class="tag green">GREEN</b>' : h.res === "PERDEU" ? '<b class="tag loss">LOSS</b>' : h.res === "EMPATE" ? '<b class="tag m">EMPATE</b>'
-        : now() < h.endAt ? `<span class="m">${now() < h.entryAt ? "entra em " + fmtS3(h.entryAt - now()) : "fecha em " + fmtS3(h.endAt - now())}</span>`
-        : `<span class="pbtn"><button data-mark="GANHOU" data-id="${h.id}">Green</button><button data-mark="PERDEU" data-id="${h.id}">Loss</button></span>`;
-      const px = h.entry != null && h.exit != null ? `${fmt(h.entry)} → ${fmt(h.exit)}` : h.entry != null ? `entrada ${fmt(h.entry)}` : "sem preço lido: marque o resultado";
-      return `<div class="hrow"><div><b>${clockStr(h.entryAt, false)}</b> <span class="${h.dir === "UP" ? "g" : "r"}">${h.dir === "UP" ? "▲ COMPRA" : "▼ VENDA"}</span> ${esc(h.name.split(" ")[0])}
-        <small>${esc(px)} · ${h.expSec < 60 ? h.expSec + " s" : Math.round(h.expSec / 60) + " min"}${h.manual ? " · marcado à mão" : ""}</small></div>${tag}</div>`;
-    }).join("");
-    const n = g + l;
-    box.innerHTML = `<div class="pscore"><span class="g"><b>${g}</b> green</span><span class="r"><b>${l}</b> loss</span>${e ? `<span class="m"><b>${e}</b> empate</span>` : ""}<span>acerto <b>${n ? pct(g / n) : "—"}</b></span>
-      <button class="ghost" id="printClear" title="Apagar o histórico dos prints">Zerar</button></div>` + (rows || '<div class="m">Os sinais dos prints aparecem aqui, com GREEN ou LOSS na expiração.</div>');
+    const g = list.filter((h) => h.res === "GANHOU").length, l = list.filter((h) => h.res === "PERDEU").length;
+    const profit = list.reduce((s, h) => { const v = h.stake || stake(), py = (h.payout || curPayout()) / 100; return s + (h.res === "GANHOU" ? v * py : h.res === "PERDEU" ? -v : 0); }, 0);
+    // a signal that ended with no price read is marked by hand
+    const open = list.find((h) => !h.res && now() >= h.endAt && h.entry == null);
+    const key = `${g}|${l}|${profit.toFixed(2)}|${open ? open.id : ""}`;
+    if (box.dataset.key === key) return; box.dataset.key = key;
+    box.innerHTML = `<div class="pscore">
+        <div class="pbox green"><b>${g}</b><span>GREEN</span></div>
+        <div class="pbox loss"><b>${l}</b><span>LOSS</span></div>
+        <div class="pbox ${profit > 0 ? "green" : profit < 0 ? "loss" : ""}"><b>${money(profit)}</b><span>LUCRO</span></div>
+      </div>
+      ${open ? `<div class="pmark">Sinal das ${clockStr(open.entryAt, false)} sem preço lido: <span class="pbtn"><button data-mark="GANHOU" data-id="${open.id}">Green</button><button data-mark="PERDEU" data-id="${open.id}">Loss</button></span></div>` : ""}
+      <div style="text-align:right;margin-top:6px"><button class="ghost" id="printClear" style="font-size:11px;padding:3px 8px">Zerar</button></div>`;
   }
   function initPrint() {
     const zone = $("printZone"); if (!zone) return;
@@ -1107,7 +1108,7 @@
     setInterval(() => { if (printRes) { registerPrint(); renderPrint(); } renderPrintHist(); }, 500);
     document.addEventListener("click", (e) => {
       const b = e.target.closest("[data-mark]"); if (b) { markPrint(b.dataset.id, b.dataset.mark); return; }
-      if (e.target.id === "printClear" && confirm("Apagar o histórico dos prints?")) { history = history.filter((h) => h.strat !== "print"); LS.set("history", history); renderPrintHist(); }
+      if (e.target.id === "printClear" && confirm("Zerar green, loss e lucro?")) { history = history.filter((h) => h.strat !== "print"); LS.set("history", history); renderPrintHist(); }
     });
     renderPrintHist();
   }
@@ -1131,7 +1132,7 @@
     r.broker.querySelector("h3").textContent = "Ler da corretora";
     // Sinal and Backtest are not shown; their parts stay in the page (hidden) because the price feed uses them
     const hidden = mkEl("div"); hidden.style.display = "none"; hidden.append(r.brokerLine, r.signal, r.session, r.chart);
-    const ph = mkEl("div", "card"); ph.innerHTML = '<h2>Histórico dos prints</h2><div id="printHist" class="hlist"></div>';
+    const ph = mkEl("div", "card"); ph.innerHTML = '<div id="printHist"></div>';
     pane.print.append(r.print, ph);
     const hl = mkEl("div", "card"); hl.innerHTML = '<div id="histList" class="hlist"></div>'; hidden.append(hl, r.bt);
     const cfg = mkEl("div", "card cfg");

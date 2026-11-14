@@ -43,9 +43,9 @@ longa e regular, descartando botões, barras e textos), mostra o desenho das vel
 padrões de candle e indica COMPRA ou VENDA para a próxima vela, com a **hora de entrada** (abertura da próxima vela do
 tempo gráfico da corretora) e a **hora de expiração** (1 vela depois). A imagem não sai do computador.
 
-O painel tem só as abas **Print** e **Ajustes**. Embaixo do print fica o **histórico dos prints**: cada sinal entra na
-hora de entrada e é conferido na expiração pelo preço do ativo aberto (**GREEN** ou **LOSS**), com o placar e o
-acerto. Se o preço do ativo não estiver sendo lido, aparecem os botões Green e Loss para marcar à mão.
+O painel tem só as abas **Print** e **Ajustes**. Embaixo do print fica o placar (**GREEN**, **LOSS** e **LUCRO**): cada sinal entra na
+hora de entrada e é conferido na expiração pelo preço do ativo aberto (GREEN ou LOSS); o lucro é valor × payout no green e − valor no loss. O
+placar não lista os sinais. Se o preço do ativo não estiver sendo lido, aparecem os botões Green e Loss para marcar à mão.
 
 ## Preço automático
 
