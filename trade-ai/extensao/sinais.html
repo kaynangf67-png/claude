@@ -134,6 +134,8 @@
   table.bt tr.main td{font-weight:700;background:var(--card2)}
   body.compact #assetLbl{display:none}
   body.compact table.bt{font-size:11px}
+  .autoinfo{display:grid;gap:3px;font-size:13px;margin-top:4px}
+  body.compact .cfg header{display:none}
 </style>
 </head>
 <body>
@@ -179,10 +181,11 @@
     <div class="sub broker" id="broker" style="display:none">
       <h3>Na corretora (esta aba)</h3>
       <div id="brokerTxt">Procurando o ativo na página…</div>
-      <div class="m" style="font-size:12px;margin-top:6px">Mercado, payout e valor vêm da corretora automaticamente. Se algum não for achado, aponte:</div>
+      <div id="autoInfo" class="autoinfo">Procurando na corretora…</div>
+      <div class="m" style="font-size:12px;margin-top:8px">Tudo vem da corretora sozinho. Se algo aparecer "não encontrado", aponte:</div>
       <div class="picks">
         <button data-pick="asset">Apontar mercado</button><button data-pick="payout">Apontar payout</button>
-        <button data-pick="amount">Apontar valor</button><button data-pick="clear" class="ghost">Esquecer pontos</button>
+        <button data-pick="amount">Apontar valor</button><button data-pick="expiry">Apontar expiração</button><button data-pick="clear" class="ghost">Esquecer pontos</button>
       </div>
     </div>
 

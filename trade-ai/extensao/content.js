@@ -102,6 +102,57 @@
     return null;
   }
   // the visible input whose surroundings say "Valor / Amount / Investimento…"
+  // expiration: "00:01:00", "01:00", "1 min", "M1", "30s"… next to "Tempo / Time / Expiração"
+  const EXP_WORDS = /(tempo|time|expira|expiration|expiry|duração|duracao|duration|prazo|período|periodo)/i;
+  function parseExpiry(t) {
+    t = String(t).trim();
+    let m = t.match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
+    if (m) return +m[1] * 3600 + +m[2] * 60 + +m[3];
+    m = t.match(/^(\d{1,2}):(\d{2})$/);
+    if (m) return +m[1] < 6 ? +m[1] * 60 + +m[2] : null;      // "21:05" is a clock time, not a duration
+    m = t.match(/^([MS])\s?(\d{1,2})$/i);
+    if (m) return m[1].toUpperCase() === "M" ? +m[2] * 60 : +m[2];
+    m = t.match(/^(\d{1,3})\s*(s|seg|sec|segundos?|seconds?|m|min|mins|minutos?|minutes?|h|hora)$/i);
+    if (m) { const u = m[2].toLowerCase(); return u.startsWith("h") ? +m[1] * 3600 : u.startsWith("m") ? +m[1] * 60 : +m[1]; }
+    return null;
+  }
+  function findExpiry() {
+    let best = null;
+    const consider = (el, text) => {
+      const sec = parseExpiry(text); if (!sec || sec < 5 || sec > 4 * 3600) return;
+      let ctx = "", node = el;
+      for (let k = 0; k < 4 && node; k++, node = node.parentElement) { ctx = node.textContent || ""; if (ctx.length > 200) break; }
+      const own = [el.getAttribute && el.getAttribute("aria-label"), el.name, el.id, el.placeholder].join(" ");
+      if (!EXP_WORDS.test(own + " " + ctx)) return;
+      const score = EXP_WORDS.test(own) ? 2 : 1;
+      if (!best || score > best.score) best = { score, sec };
+    };
+    for (const inp of document.querySelectorAll("input")) {
+      if (host.contains(inp) || !visibleEl(inp)) continue;
+      consider(inp, inp.value || "");
+    }
+    if (best) return best.sec;
+    const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT); let n, k = 0;
+    while ((n = w.nextNode()) && k++ < 20000) {
+      const t = n.nodeValue.trim(); if (t.length < 2 || t.length > 12) continue;
+      const el = n.parentElement; if (!el || host.contains(el) || !visibleEl(el)) continue;
+      consider(el, t);
+    }
+    return best ? best.sec : null;
+  }
+  // time zone shown by the broker ("UTC-3", "UTC −03:00", "GMT+1")
+  function findTz() {
+    const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT); let n, k = 0;
+    while ((n = w.nextNode()) && k++ < 20000) {
+      const t = n.nodeValue; if (t.length > 60) continue;
+      const m = t.match(/(?:UTC|GMT)\s*([+\-−–])\s*(\d{1,2})(?::?(\d{2}))?/);
+      if (!m || !n.parentElement || host.contains(n.parentElement) || !visibleEl(n.parentElement)) continue;
+      const h = +m[2] + (m[3] ? +m[3] / 60 : 0); if (h > 14) continue;
+      return (m[1] === "+" ? 1 : -1) * h;
+    }
+    return null;
+  }
+
   function findAmount() {
     let best = null;
     for (const inp of document.querySelectorAll("input")) {
@@ -181,7 +232,8 @@
   function scan(force) {
     if (picking) return;
     let msg = { type: "sh-detect", raw: null, sym: null, otc: false, payout: null, amount: null, currency: null,
-      taught: { asset: !!taught.asset, payout: !!taught.payout, amount: !!taught.amount } };
+      expirySec: null, tz: null,
+      taught: { asset: !!taught.asset, payout: !!taught.payout, amount: !!taught.amount, expiry: !!taught.expiry } };
     try {
       // market
       let a = null;
@@ -205,6 +257,10 @@
       const tv = taught.amount && readEl(taught.amount);
       if (tv) { msg.amount = parseAmount(tv.text); msg.currency = currencyOf(tv.text + " " + (tv.el.parentElement ? tv.el.parentElement.textContent.slice(0, 120) : "")); }
       else { const f = findAmount(); if (f) { msg.amount = f.amount; msg.currency = f.currency; } }
+      // expiration and time zone
+      const te = taught.expiry && readEl(taught.expiry);
+      msg.expirySec = te ? parseExpiry(te.text) : findExpiry();
+      msg.tz = findTz();
     } catch (e) { /* page changed under us; try again next tick */ }
     const key = JSON.stringify(msg);
     if (force === true || key !== lastKey) { lastKey = key; frame.contentWindow && frame.contentWindow.postMessage(msg, "*"); }
@@ -212,7 +268,7 @@
 
   // ---------- "Apontar": click once on the broker to teach where each value is ----------
   const hl = root.querySelector(".hl"), tip = root.querySelector(".tip");
-  const LABEL = { asset: "o NOME DO MERCADO", payout: "o PAYOUT (ex.: 92%)", amount: "o VALOR da entrada" };
+  const LABEL = { asset: "o NOME DO MERCADO", payout: "o PAYOUT (ex.: 92%)", amount: "o VALOR da entrada", expiry: "a EXPIRAÇÃO / TEMPO (ex.: 00:01:00)" };
   let picking = null;
   const under = (e) => { const t = document.elementFromPoint(e.clientX, e.clientY); return t && !host.contains(t) && t !== host ? t : null; };
   function onMove(e) {

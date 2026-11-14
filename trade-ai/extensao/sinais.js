@@ -52,7 +52,11 @@
 
   const asset = () => ASSETS.find((a) => a.sym === el.asset.value) || ASSETS[0];
   const payoutOf = (sym) => (payouts[sym] ?? (ASSETS.find((a) => a.sym === sym) || {}).payout ?? 85);
-  const expiry = () => +el.expiry.value;
+  const expiry = () => Math.max(1, Math.min(60, Math.round(+el.expiry.value) || 1));
+  function setExpiry(n) {
+    if (![...el.expiry.options].some((o) => +o.value === n)) { const o = document.createElement("option"); o.value = n; o.textContent = n + " min"; el.expiry.appendChild(o); }
+    if (+el.expiry.value !== n) { el.expiry.value = String(n); LS.set("expiry", n); }
+  }
   const stake = () => Math.max(0.01, +el.stake.value || 1);
   let cur = LS.get("cur", "$");   // currency shown by the broker (R$, $, €…)
 
@@ -601,8 +605,20 @@
       }
     }
     if (paused) html += `<div class="w">Sem sinal: ${esc(paused)}. Sinais em BTC, ETH, SOL, BNB, XRP, EUR/USD e ouro sem OTC.</div>`;
+    // expiration and time zone, also from the broker
+    let expTxt = "não encontrada (usando " + expiry() + " min)";
+    if (Number.isFinite(d.expirySec) && d.expirySec > 0) {
+      const n = Math.max(1, Math.round(d.expirySec / 60)); setExpiry(n);
+      expTxt = d.expirySec < 60 ? `${d.expirySec} s na corretora → o painel usa 1 min (velas de 1 min)` : `${n} min`;
+    }
+    const newTz = Number.isFinite(d.tz) ? String(d.tz) : "local";
+    if (newTz !== tz) { tz = newTz; LS.set("tz", tz); renderHistory(); }
+    const pay2 = Number.isFinite(d.payout) && d.payout >= 10 && d.payout <= 100 ? Math.round(d.payout) + "%" : "não encontrado";
+    const tzTxt = tz === "local" ? "do computador" : "UTC" + (+tz >= 0 ? "+" : "") + tz;
+    if ($("autoInfo")) $("autoInfo").innerHTML = `<div>Mercado: <b>${esc(d.raw || "não encontrado")}</b></div><div>Expiração: <b>${esc(expTxt)}</b></div>
+      <div>Payout: <b>${pay2}</b></div><div>Valor: <b>${amt ? esc(money(amt)) : "não encontrado"}</b></div><div>Horário: <b>${tzTxt}</b> · agora ${clockStr(now(), true)}</div>`;
     const t = d.taught || {};
-    if (t.asset || t.payout || t.amount) html += `<div class="m" style="font-size:11px">pontos marcados: ${[t.asset && "mercado", t.payout && "payout", t.amount && "valor"].filter(Boolean).join(", ")}</div>`;
+    if (t.asset || t.payout || t.amount || t.expiry) html += `<div class="m" style="font-size:11px">pontos marcados: ${[t.asset && "mercado", t.payout && "payout", t.amount && "valor", t.expiry && "expiração"].filter(Boolean).join(", ")}</div>`;
     $("brokerTxt").innerHTML = html;
     renderPanel();
   }
@@ -615,7 +631,8 @@
       const d = e.data; if (!d || d.type !== "sh-detect") return;
       lastDetect = {
         raw: typeof d.raw === "string" ? d.raw.slice(0, 40) : null, sym: d.sym, otc: !!d.otc, payout: +d.payout, amount: +d.amount,
-        currency: ["R$", "$", "US$", "€", "£"].includes(d.currency) ? d.currency : null, taught: d.taught && typeof d.taught === "object" ? d.taught : {},
+        currency: ["R$", "$", "US$", "€", "£"].includes(d.currency) ? d.currency : null,
+        expirySec: +d.expirySec, tz: d.tz == null ? null : +d.tz, taught: d.taught && typeof d.taught === "object" ? d.taught : {},
       };
       applyDetect(lastDetect);
     });
