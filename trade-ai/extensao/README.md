@@ -66,6 +66,6 @@ roda nessas velas a partir de 60. O preço OTC é feito pela corretora: acompanh
 
 Botão na aba Sinal. Ao clicar, o scanner lê as velas (inclusive a que está se formando) e indica se a **próxima vela**
 do tempo gráfico é de COMPRA ou VENDA, com a hora em que ela abre e a contagem. A indicação acompanha o preço ao vivo
-até 2 s antes da abertura e então trava; na abertura começa a entrada e no fechamento dessa vela sai o resultado.
+até 1 s antes da abertura e então trava; na abertura começa a entrada e no fechamento dessa vela sai o resultado.
 A expiração é 1 vela do tempo gráfico (use a mesma na corretora). Ordem da leitura: padrões de vela; sem padrão, o
 estado de RSI/Bollinger/EMA no histórico; sem histórico, a direção das últimas velas. Precisa de 7 velas.

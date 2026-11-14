@@ -478,16 +478,16 @@
 
   let ana = null;        // the scan in progress: { key, tf, scanStart, err, done }
   let lastScan = null;   // the chart keeps the selection for the trade the scan opened
-  const SCAN_MS = 1200, SEL = 20;     // scanner animation; candles the analysis looks at (RSI 14 / Bollinger 20)
+  const SCAN_MS = 400, SEL = 20;     // scanner animation; candles the analysis looks at (RSI 14 / Bollinger 20)
   const scanning = () => !!(ana && now() - ana.scanStart < SCAN_MS);
   async function startAnalysis() {
     ana = { key: mk(), tf, scanStart: now(), err: null, done: false };
     renderPanel();
     const anim = () => { draw(); if (ana && !ana.done) requestAnimationFrame(anim); };
     requestAnimationFrame(anim);
-    try { await ensureAnaData(); } catch (e) { if (ana) ana.err = "não deu para baixar o histórico (" + e.message + ")"; }
-    if (!ana) return;
-    setTimeout(finishAnalysis, Math.max(0, SCAN_MS - (now() - ana.scanStart)));
+    // the answer does not wait for the history: patterns only need the candles on screen; the hit rate fills in when it arrives
+    ensureAnaData().catch(() => {});
+    setTimeout(finishAnalysis, SCAN_MS);
   }
   // after the scan: read the candles (the one forming now included) and point the NEXT candle
   function predictNow() {
@@ -509,7 +509,7 @@
     if (!ana) return;
     if (ana.key !== mk() || ana.tf !== tf) { startAnalysis(); return; }      // market or timeframe changed meanwhile
     const nx = Math.ceil(now() / TF()) * TF();
-    ana.entryT = nx - now() < 2500 ? nx + TF() : nx;                         // the next candle to open
+    ana.entryT = nx - now() < 1200 ? nx + TF() : nx;                         // the next candle to open
     ana.phase = "wait"; ana.done = true;
     refreshPrediction(); renderPanel(); draw();
   }
@@ -519,7 +519,7 @@
     if (!ana || ana.phase !== "wait") return;
     if (ana.key !== mk() || ana.tf !== tf) { startAnalysis(); return; }
     const left = ana.entryT - now();
-    if (left > 2000) refreshPrediction(); else ana.locked = true;
+    if (left > 1000) refreshPrediction(); else ana.locked = true;
     if (left > 0) return;
     if (!ana.pred) { ana = null; say("Sem velas suficientes: clique de novo."); return; }
     const pred = ana.pred, p = lastPrice(), t0 = ana.entryT;
@@ -655,7 +655,7 @@
       const lp = lastPrice(); $("mEntry").textContent = lp ? `Preço ${fmt(lp)}` : "Preço —";
       const head = !p ? esc(ana.err || "") : p.kind === "candle" ? `Padrão: <b>${esc(p.name)}</b>` : esc(p.name);
       const stat = p && p.n ? ` · no histórico, a vela seguinte foi ${p.dir === "UP" ? "de alta" : "de baixa"} em <b>${pct(p.rate)}</b> de ${p.n} vezes · empate ${pct(be)}` : p ? " · ainda sem histórico para medir o acerto" : "";
-      ai.innerHTML = head + stat + `<div class="m">${ana.locked ? "🔒 travado: entre na abertura da vela" : "acompanha o preço até 2 s antes da vela abrir"}</div>`;
+      ai.innerHTML = head + stat + `<div class="m">${ana.locked ? "🔒 travado: entre na abertura da vela" : "acompanha o preço até 1 s antes da vela abrir"}</div>`;
     } else if (ana) {
       $("tradeTitle").textContent = `Escaneando ${curName()} · ${tfLabel(tf)}`;
       dirEl.className = "dir WAIT"; dirEl.textContent = ana.done ? "SEM SINAL" : "ESCANEANDO…";
