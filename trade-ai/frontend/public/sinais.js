@@ -172,7 +172,7 @@
     return { w, l, r, n, wr, be, ci, net: stakeV * (w * p - l) };
   }
   const pct = (x) => x == null ? "—" : (x * 100).toFixed(1).replace(".", ",") + "%";
-  const money = (x) => (x < 0 ? "-" : "") + cur + " " + Math.abs(x).toFixed(2).replace(".", cur === "R$" ? "," : ".");
+  const money = (x) => (x < 0 ? "-" : "") + cur + " " + Math.abs(x).toLocaleString(cur === "R$" ? "pt-BR" : "en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const decimals = (price) => price < 10 ? 5 : price < 1000 ? 3 : 2;
   const fmt = (x) => x == null ? "—" : x.toFixed(decimals(x));
   let tz = LS.get("tz", "local");   // "local" or hours from UTC, to match the broker's clock
@@ -1078,13 +1078,18 @@
     const profit = list.reduce((s, h) => { const v = h.stake || stake(), py = (h.payout || curPayout()) / 100; return s + (h.res === "GANHOU" ? v * py : h.res === "PERDEU" ? -v : 0); }, 0);
     // a signal that ended with no price read is marked by hand
     const open = list.find((h) => !h.res && now() >= h.endAt && h.entry == null);
-    const key = `${g}|${l}|${profit.toFixed(2)}|${open ? open.id : ""}`;
+    const last = list.find((h) => h.res === "GANHOU" || h.res === "PERDEU");
+    const key = `${g}|${l}|${profit.toFixed(2)}|${open ? open.id : ""}|${last ? last.id + last.res : ""}`;
     if (box.dataset.key === key) return; box.dataset.key = key;
     box.innerHTML = `<div class="pscore">
         <div class="pbox green"><b>${g}</b><span>GREEN</span></div>
         <div class="pbox loss"><b>${l}</b><span>LOSS</span></div>
         <div class="pbox ${profit > 0 ? "green" : profit < 0 ? "loss" : ""}"><b>${money(profit)}</b><span>LUCRO</span></div>
       </div>
+      ${last ? `<div class="pmark">Último: <span class="${last.dir === "UP" ? "g" : "r"}">${last.dir === "UP" ? "▲ COMPRA" : "▼ VENDA"}</span>
+        ${last.entry != null && last.exit != null ? `${fmt(last.entry)} → ${fmt(last.exit)}` : ""} = <b class="${last.res === "GANHOU" ? "g" : "r"}">${last.res === "GANHOU" ? "GREEN" : "LOSS"}</b>${last.manual ? " (corrigido)" : ""}
+        <button class="fix" data-flip="${last.id}">Corrigir para ${last.res === "GANHOU" ? "LOSS" : "GREEN"}</button></div>
+        <div class="m" style="font-size:11px">Conferido pelo preço que o painel lê, na abertura e no fechamento da vela. Se a corretora deu outro resultado, corrija: vale o da corretora.</div>` : ""}
       ${open ? `<div class="pmark">Sinal das ${clockStr(open.entryAt, false)} sem preço lido: <span class="pbtn"><button data-mark="GANHOU" data-id="${open.id}">Green</button><button data-mark="PERDEU" data-id="${open.id}">Loss</button></span></div>` : ""}
       <div style="text-align:right;margin-top:6px"><button class="ghost" id="printClear" style="font-size:11px;padding:3px 8px">Zerar</button></div>`;
   }
@@ -1108,6 +1113,8 @@
     setInterval(() => { if (printRes) { registerPrint(); renderPrint(); } renderPrintHist(); }, 500);
     document.addEventListener("click", (e) => {
       const b = e.target.closest("[data-mark]"); if (b) { markPrint(b.dataset.id, b.dataset.mark); return; }
+      const f = e.target.closest("[data-flip]");
+      if (f) { const h = history.find((x) => x.id === f.dataset.flip); if (h && h.res) { h.res = h.res === "GANHOU" ? "PERDEU" : "GANHOU"; h.manual = true; LS.set("history", history); renderPrintHist(); } return; }
       if (e.target.id === "printClear" && confirm("Zerar green, loss e lucro?")) { history = history.filter((h) => h.strat !== "print"); LS.set("history", history); renderPrintHist(); }
     });
     renderPrintHist();
