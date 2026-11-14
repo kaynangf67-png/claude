@@ -104,12 +104,24 @@
   // the visible input whose surroundings say "Valor / Amount / Investimento…"
   // expiration: "00:01:00", "01:00", "1 min", "M1", "30s"… next to "Tempo / Time / Expiração"
   const EXP_WORDS = /(tempo|time|expira|expiration|expiry|duração|duracao|duration|prazo|período|periodo)/i;
+  // "21:05" as the time the trade ends -> seconds from now (only if it is within the next hour)
+  function clockToSec(h, mi) {
+    if (h > 23 || mi > 59) return null;
+    const d = new Date(), end = new Date(d); end.setHours(h, mi, 0, 0);
+    let sec = Math.round((end - d) / 1000); if (sec < -60) sec += 86400;
+    return sec > 0 && sec <= 3600 ? Math.ceil(sec / 60) * 60 : null;
+  }
   function parseExpiry(t) {
-    t = String(t).trim();
+    t = String(t).replace(/\s+/g, " ").trim().replace(/\s*:\s*/g, ":");
     let m = t.match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
     if (m) return +m[1] * 3600 + +m[2] * 60 + +m[3];
     m = t.match(/^(\d{1,2}):(\d{2})$/);
-    if (m) return +m[1] < 6 ? +m[1] * 60 + +m[2] : null;      // "21:05" is a clock time, not a duration
+    if (m) {
+      // "00:30"/"01:00" = duration (min:s); a time that falls within the next hour = when the trade ends
+      if (+m[1] === 0) return +m[2];
+      const c = clockToSec(+m[1], +m[2]);
+      return c != null ? c : +m[1] < 6 ? +m[1] * 60 + +m[2] : null;
+    }
     m = t.match(/^([MS])\s?(\d{1,2})$/i);
     if (m) return m[1].toUpperCase() === "M" ? +m[2] * 60 : +m[2];
     m = t.match(/^(\d{1,3})\s*(s|seg|sec|segundos?|seconds?|m|min|mins|minutos?|minutes?|h|hora)$/i);
@@ -133,10 +145,18 @@
     }
     if (best) return best.sec;
     const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT); let n, k = 0;
+    const seen = new Set();
     while ((n = w.nextNode()) && k++ < 20000) {
-      const t = n.nodeValue.trim(); if (t.length < 2 || t.length > 12) continue;
-      const el = n.parentElement; if (!el || host.contains(el) || !visibleEl(el)) continue;
-      consider(el, t);
+      const t = n.nodeValue.trim(); if (!t || t.length > 12) continue;
+      let el = n.parentElement; if (!el || host.contains(el) || !visibleEl(el)) continue;
+      if (t.length >= 2) consider(el, t);
+      // the time may be split in pieces ("00" ":" "01" ":" "00"): try the parents' whole text too
+      for (let up = 0; up < 3 && el && !seen.has(el); up++, el = el.parentElement) {
+        seen.add(el);
+        const whole = (el.textContent || "").trim();
+        if (whole.length > 14) break;
+        if (whole !== t) consider(el, whole);
+      }
     }
     return best ? best.sec : null;
   }
@@ -259,7 +279,16 @@
       else { const f = findAmount(); if (f) { msg.amount = f.amount; msg.currency = f.currency; } }
       // expiration and time zone
       const te = taught.expiry && readEl(taught.expiry);
-      msg.expirySec = te ? parseExpiry(te.text) : findExpiry();
+      if (te) {
+        let sec = null;
+        for (let e = te.el, up = 0; e && up < 4 && sec == null; e = e.parentElement, up++) {
+          const txt = /^(INPUT|TEXTAREA|SELECT)$/.test(e.tagName) ? e.value : (e.textContent || "");
+          if (txt.length > 40) break;
+          sec = parseExpiry(txt);
+          if (sec == null) { const m = txt.match(/(\d{1,2}\s*:\s*\d{2}(?:\s*:\s*\d{2})?|[MS]\s?\d{1,2}\b|\d{1,3}\s*(?:s|seg|sec|min|m)\b)/i); if (m) sec = parseExpiry(m[1]); }
+        }
+        msg.expirySec = sec;
+      } else msg.expirySec = findExpiry();
       msg.tz = findTz();
     } catch (e) { /* page changed under us; try again next tick */ }
     const key = JSON.stringify(msg);
