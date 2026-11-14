@@ -64,3 +64,11 @@ do gráfico (imagem), não há como lê-lo.
 O indicador precisa de 30 velas para funcionar: em OTC elas são montadas com o preço da tela, então os sinais
 começam depois de ~30 minutos com o painel aberto naquele ativo (as velas ficam salvas). O backtest também
 roda nessas velas a partir de 60. O preço OTC é feito pela corretora: acompanhe a taxa de acerto real.
+
+## Analisar próxima vela
+
+Botão na aba Sinal. Ao clicar, ele procura no histórico do ativo (5.000 velas, ou as velas lidas da corretora em
+OTC) todas as vezes em que RSI, Bollinger e EMA estavam como agora e conta o que o preço fez na expiração atual.
+Mostra COMPRA ou VENDA, quantas vezes o padrão foi visto, a taxa e se ela passa do empate do payout. Até a vela
+abrir a resposta acompanha o preço ao vivo, a expiração e o mercado da corretora; na abertura a entrada é travada e
+o resultado é conferido como os outros sinais. O backtest mostra como esse botão foi em dados que ele não tinha visto.

@@ -141,6 +141,14 @@
   .trend.up{background:#052e16;color:var(--up);border:1px solid #166534}
   .trend.down{background:#350a0a;color:var(--down);border:1px solid #7f1d1d}
   .trend.side{background:#1f2937;color:#cbd5e1;border:1px solid #374151}
+  .anabtn{width:100%;margin-top:8px;background:#0c4a6e;border-color:#0369a1;font-weight:700}
+  .anainfo{font-size:11.5px;margin-top:6px;color:var(--mut);line-height:1.35}
+  .anainfo b{color:var(--txt)}
+  .btexp{font-size:12px;color:var(--mut);line-height:1.5;margin:4px 0 10px;background:var(--card2);border-radius:10px;padding:8px 10px}
+  .btexp summary{cursor:pointer;color:var(--txt);font-weight:600}
+  .btexp b{color:var(--txt)}
+  .ci{display:block;font-size:10px;color:var(--mut);font-weight:400}
+  body.compact .extra div:last-child{display:none}
 </style>
 </head>
 <body>
@@ -204,6 +212,8 @@
       </div>
       <div class="bar"><i id="bar"></i></div>
       <div class="meta"><span id="mPayout">Payout —</span><span id="mEntry">Entrada —</span><span id="mStake">Valor —</span><span id="mExp">—</span></div>
+      <div id="anaInfo" class="anainfo" style="display:none"></div>
+      <button id="anaBtn" class="anabtn">🔍 Analisar próxima vela</button>
     </div>
 
     <div class="sub">
@@ -252,9 +262,18 @@
   </div>
 
   <div class="card">
-    <h2>Backtest — todas as estratégias nas velas passadas</h2>
+    <h2>Backtest — as estratégias funcionariam?</h2>
+    <details class="btexp" open><summary>Para que serve</summary>
+      Antes de arriscar dinheiro, o backtest aplica cada estratégia nas velas que <b>já aconteceram</b> e conta quantas
+      vezes ela teria acertado, com o payout e a expiração de agora. O número que importa é o <b>empate</b>: o acerto
+      mínimo para os ganhos pagarem as perdas (com 85% de payout, 54,1%). Se no passado a estratégia não passa do empate,
+      não há motivo para achar que vai passar agora.<br>
+      <b>Como ler:</b> ✅ lucro mesmo no pior caso provável · ❌ perde mesmo no melhor caso · ⚠️ pode ser sorte ou azar,
+      ainda não dá para saber · a faixa pequena embaixo do acerto é onde o acerto real provavelmente está.
+      "Cara ou coroa" é a régua: o que não for claramente melhor que ela não tem vantagem.
+    </details>
     <div class="row">
-      <label class="f">Velas de 1 min
+      <label class="f">Período testado
         <select id="btSize">
           <option value="1000">1.000 (~17 h)</option>
           <option value="3000" selected>3.000 (~2 dias)</option>
@@ -263,10 +282,10 @@
         </select>
       </label>
       <button id="btRun">Rodar backtest</button>
-      <span class="m" id="btInfo">Testa o indicador e cada estratégia com o ativo, a expiração e o payout atuais.</span>
+      <span class="m" id="btInfo">Usa o ativo, a expiração e o payout da corretora. Roda sozinho ao abrir esta aba.</span>
     </div>
     <div id="btOut" style="display:none">
-      <table class="bt"><thead><tr><th>Estratégia</th><th>Sinais</th><th>Acerto</th><th>Faixa 95%</th><th>Resultado</th></tr></thead><tbody id="btRows"></tbody></table>
+      <table class="bt"><thead><tr><th>Estratégia</th><th>Sinais</th><th>Acerto</th><th>Resultado</th><th>Veredito</th></tr></thead><tbody id="btRows"></tbody></table>
       <div class="m" id="btBE" style="font-size:12px;margin:8px 0"></div>
       <div class="verdict" id="bVerdict"></div>
       <div class="eq"><canvas id="eq"></canvas></div>

@@ -21,7 +21,7 @@
       const { serverTime } = await r.json(); if (serverTime) clockOff = serverTime - (t0 + t1) / 2;
     } catch {}
   }
-  const STRAT_NAMES = { combo: "Indicador", rsi: "RSI 14", bb: "Bollinger 20", ema: "EMA 9×21", coin: "Cara ou coroa" };
+  const STRAT_NAMES = { click: "Análise (botão)", combo: "Indicador", rsi: "RSI 14", bb: "Bollinger 20", ema: "EMA 9×21", coin: "Cara ou coroa" };
   const PARTS = ["rsi", "bb", "ema"];   // the strategies the indicator combines
   const LS = {
     get(k, d) { try { const v = localStorage.getItem("sh_" + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
@@ -321,6 +321,69 @@
       : `${tr.kind === "ALTA" ? "▲" : "▼"} <b>TENDÊNCIA DE ${tr.kind}</b> <small>${force} · ${Math.round(tr.er * 100)}%</small>`;
   }
 
+  // ---------- "Analisar próxima vela" ----------
+  // Looks for every past moment when RSI, Bollinger and EMA were in the same state as now
+  // and counts what the price did over the chosen expiration. No guess: just what happened before.
+  function wilson(k, n) {
+    if (!n) return null; const z = 1.96, ph = k / n, d = 1 + z * z / n, c = (ph + z * z / (2 * n)) / d;
+    const h = (z * Math.sqrt(ph * (1 - ph) / n + z * z / (4 * n * n))) / d; return [Math.max(0, c - h), Math.min(1, c + h)];
+  }
+  const patKey = (v) => `${v.rsi || "-"}|${v.bb || "-"}|${v.ema || "-"}`;
+  function learnPatterns(cs, ind, n, from, to) {
+    const full = new Map(), ema = new Map();
+    for (let i = Math.max(25, from); i < to && i + n < cs.length; i++) {
+      const v = votesAt(ind, i), d = cs[i + n].c - cs[i].c; if (!d) continue;
+      for (const [m, k] of [[full, patKey(v)], [ema, v.ema || "-"]]) { const o = m.get(k) || { up: 0, dn: 0 }; if (d > 0) o.up++; else o.dn++; m.set(k, o); }
+    }
+    return { full, ema };
+  }
+  function predict(model, v) {
+    let o = model.full.get(patKey(v)), level = "mesmo RSI, Bollinger e EMA";
+    if (!o || o.up + o.dn < 20) { o = model.ema.get(v.ema || "-"); level = "mesma EMA (o padrão completo é raro)"; }
+    if (!o || o.up + o.dn === 0) return null;
+    const n = o.up + o.dn, dir = o.up >= o.dn ? "UP" : "DOWN", hits = Math.max(o.up, o.dn);
+    return { dir, n, rate: hits / n, ci: wilson(hits, n), level };
+  }
+  let anaData = { key: null, at: 0, cs: [], ind: null, models: {} };
+  async function ensureAnaData() {
+    const key = mk();
+    if (brokerMode()) {
+      const cs = feed.candles.filter((c) => c.closed);
+      anaData = { key, at: now(), cs, ind: indicators(cs), models: {} };
+    } else if (anaData.key !== key || now() - anaData.at > 15 * MIN) {
+      const cs = (await fetchKlines(asset().sym, 5000)).filter((c) => c.t + MIN <= now());
+      anaData = { key, at: now(), cs, ind: indicators(cs), models: {} };
+    }
+  }
+  const modelFor = (n) => anaData.models[n] || (anaData.models[n] = learnPatterns(anaData.cs, anaData.ind, n, 0, anaData.cs.length));
+
+  let ana = null;   // { key, entryT, startedAt, loading, pred, v, err }
+  async function startAnalysis() {
+    const nx = Math.ceil(now() / MIN) * MIN;
+    ana = { key: mk(), entryT: nx - now() < 5000 ? nx + MIN : nx, startedAt: now(), loading: true };
+    renderPanel();
+    try { await ensureAnaData(); } catch (e) { if (ana) ana.err = "não deu para baixar o histórico (" + e.message + ")"; }
+    if (ana) { ana.loading = false; updateAnalysis(); }
+  }
+  function updateAnalysis() {
+    if (!ana || ana.loading) return;
+    if (ana.key !== mk()) { startAnalysis(); return; }          // market changed on the broker: scan the new one
+    if (now() > ana.entryT + 8000) { ana = null; say("A análise expirou. Clique de novo."); return; }
+    const live = srcC();
+    if (live.length < 30 || anaData.cs.length < 100) { ana.err = brokerMode() ? `poucas velas lidas da corretora (${anaData.cs.length}); com o painel aberto elas vão juntando` : "carregando o histórico…"; ana.pred = null; if (brokerMode() && now() - anaData.at > 60000) ensureAnaData(); return; }
+    ana.err = null;
+    const ind = indicators(live), i = live.length - 1;     // the forming candle counts with the live price
+    ana.v = votesAt(ind, i); ana.pred = predict(modelFor(expiry()), ana.v);
+  }
+  function lockAnalysis(closed, i) {
+    const n = expiry(), ind = indicators(closed), v = votesAt(ind, i), pred = predict(modelFor(n), v);
+    ana = null;
+    if (!pred) { say("Sem histórico suficiente para esta análise."); return; }
+    addTrade(closed, i, "click", pred.dir, false, { rate: pred.rate, seen: pred.n });
+    history = history.slice(0, 800); LS.set("history", history); renderHistory();
+    say(pred.dir === "UP" ? "Análise travada: COMPRA." : "Análise travada: VENDA."); beep();
+  }
+
   // ---------- live signals ----------
   const openTrade = () => history.find((h) => !h.res && !h.shadow && h.sym === mk());
   const tr0 = () => openTrade();
@@ -350,20 +413,27 @@
     } catch {} finally { resolvingOther = false; }
   }
 
+  function addTrade(closed, i, strat, dir, shadow, extra) {
+    const n = expiry();
+    history.unshift({
+      id: closed[i].t + strat, sym: mk(), name: curName(), strat, dir, n, shadow, src: brokerMode() ? "corretora" : "binance",
+      payout: curPayout(), stake: stake(), cur, entry: closed[i].c, sigT: closed[i].t,
+      expT: closed[i].t + n * MIN, // exit = close of this candle
+      endAt: closed[i].t + (n + 1) * MIN, res: null, exit: null, ...(extra || {}),
+    });
+  }
+
   function onClose() {
     resolveOpen();
     const closed = srcC().filter((c) => c.closed);
     const i = closed.length - 1; if (i < 0) return;
+    // the "next candle" analysis locks its direction when the candle it was about opens
+    if (ana && !ana.loading && ana.key === mk() && closed[i].t === ana.entryT - MIN) lockAnalysis(closed, i);
     if (closed[i].t <= (lastEvalBy[mk()] || 0)) return;
     lastEvalBy[mk()] = closed[i].t;
     if (paused) return;
-    const ind = indicators(closed), n = expiry();
-    const add = (strat, dir, shadow) => history.unshift({
-      id: closed[i].t + strat, sym: mk(), name: curName(), strat, dir, n, shadow, src: brokerMode() ? "corretora" : "binance",
-      payout: curPayout(), stake: stake(), cur, entry: closed[i].c, sigT: closed[i].t,
-      expT: closed[i].t + n * MIN, // exit = close of this candle
-      endAt: closed[i].t + (n + 1) * MIN, res: null, exit: null,
-    });
+    const ind = indicators(closed);
+    const add = (strat, dir, shadow) => addTrade(closed, i, strat, dir, shadow);
     // each strategy is also followed on its own, so the panel shows which one is really working
     for (const k of PARTS) {
       if (history.some((h) => h.shadow && !h.res && h.strat === k && h.sym === mk())) continue;
@@ -402,7 +472,28 @@
     $("mStake").textContent = "Valor " + money(tr0() ? tr0().stake || stake() : stake()).replace(/^-/, "");
     const tr = openTrade();
     const dirEl = $("dir");
-    if (tr) {
+    updateAnalysis();
+    const ai = $("anaInfo"), ab = $("anaBtn");
+    if (ab) ab.textContent = ana ? "✕ Cancelar análise" : "🔍 Analisar próxima vela";
+    if (ai) ai.style.display = ana ? "" : "none";
+    if (ana) {
+      const left = Math.max(0, ana.entryT - now()), s = Math.ceil(left / 1000);
+      $("tradeTitle").textContent = `Próxima vela · entra às ${clockStr(ana.entryT, true)}`;
+      $("timer").textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+      $("bar").style.width = (100 * (1 - left / Math.max(1, ana.entryT - ana.startedAt))).toFixed(1) + "%";
+      $("mExp").textContent = `${expiry()} min`;
+      $("mPayout").textContent = `Payout ${curPayout()}%`;
+      const lastP = srcC().length ? srcC()[srcC().length - 1].c : null; $("mEntry").textContent = lastP ? `Preço ${fmt(lastP)}` : "Preço —";
+      const p = ana.pred, be = 1 / (1 + curPayout() / 100);
+      if (ana.loading || ana.err || !p) {
+        dirEl.className = "dir WAIT"; dirEl.textContent = "ANALISANDO…";
+        ai.innerHTML = ana.err ? esc(ana.err) : "escaneando o histórico do mercado…";
+      } else {
+        dirEl.className = "dir " + p.dir; dirEl.textContent = p.dir === "UP" ? "▲ COMPRA" : "▼ VENDA";
+        const tag = p.ci[0] > be ? '<b class="g">acima do empate</b>' : p.rate < be ? '<b class="r">abaixo do empate: não compensa</b>' : '<b class="w">fraco: pode ser sorte</b>';
+        ai.innerHTML = `Visto <b>${p.n}×</b> (${p.level}): ${p.dir === "UP" ? "subiu" : "caiu"} em <b>${pct(p.rate)}</b> das vezes em ${expiry()} min · empate ${pct(be)} · ${tag}`;
+      }
+    } else if (tr) {
       $("tradeTitle").textContent = "Trade aberto";
       dirEl.className = "dir " + tr.dir; dirEl.textContent = tr.dir === "UP" ? "▲ UP" : "▼ DOWN";
       const left = Math.max(0, tr.endAt - now()), tot = tr.n * MIN;
@@ -447,7 +538,7 @@
   // live votes of each strategy + how each one is doing in this session
   function renderIndicator() {
     const box = $("indRows"); if (!box) return;
-    const sub = box.closest(".sub"); if (sub) sub.style.display = paused ? "none" : "";   // OTC: give the space to the chart
+    const sub = box.closest(".sub"); if (sub) sub.style.display = paused || (compact && ana) ? "none" : "";   // give the space to the chart
     const cs = srcC().filter((c) => c.closed);
     if (cs.length < 30 || paused) { box.innerHTML = `<div class="m">${brokerMode() ? `juntando velas do preço da corretora: ${cs.length}/30 (os sinais começam com 30)` : "carregando…"}</div>`; $("indScore").textContent = ""; return; }
     const ind = indicators(cs), i = cs.length - 1, v = votesAt(ind, i);
@@ -563,11 +654,20 @@
         return { strat, trades, st: stats(trades, pay, stake()) };
       };
       const all = ["combo", ...PARTS, "coin"].map(run);
+      // the "next candle" button, tested honestly: learn the patterns on the first half, test on the second half only
+      const mid = Math.floor(cs.length / 2), model = learnPatterns(cs, ind, n, 0, mid), clickTrades = [];
+      for (let i = Math.max(mid, 25); i + n < cs.length; i += n) {
+        const pr = predict(model, votesAt(ind, i)); if (!pr) continue;
+        clickTrades.push({ dir: pr.dir, res: outcome(pr.dir, cs[i].c, cs[i + n].c) });
+      }
+      all.unshift({ strat: "click", trades: clickTrades, st: stats(clickTrades, pay, stake()) });
+      const verdictOf = (st) => st.n < 30 ? '<span class="m">❔ poucos</span>' : st.ci[0] > st.be ? '<span class="g">✅ lucro</span>'
+        : st.ci[1] < st.be ? '<span class="r">❌ perde</span>' : '<span class="w">⚠️ incerto</span>';
       $("btOut").style.display = "";
-      $("btRows").innerHTML = all.map(({ strat, st }) => `<tr class="${strat === "combo" ? "main" : ""}"><td>${STRAT_NAMES[strat]}${strat === "coin" ? " <small>(controle)</small>" : ""}</td>
-        <td>${st.n + st.r}</td><td class="${st.wr == null ? "" : st.wr > st.be ? "g" : "r"}">${pct(st.wr)}</td>
-        <td>${st.ci ? pct(st.ci[0]) + "–" + pct(st.ci[1]) : "—"}</td><td class="${st.net >= 0 ? "g" : "r"}">${money(st.net)}</td></tr>`).join("");
-      const combo = all[0], st = combo.st;
+      $("btRows").innerHTML = all.map(({ strat, st }) => `<tr class="${strat === "click" || strat === "combo" ? "main" : ""}"><td>${STRAT_NAMES[strat]}${strat === "coin" ? " <small>(controle)</small>" : strat === "click" ? " <small>(2ª metade)</small>" : ""}</td>
+        <td>${st.n + st.r}</td><td class="${st.wr == null ? "" : st.wr > st.be ? "g" : "r"}">${pct(st.wr)}${st.ci ? `<small class="ci">${pct(st.ci[0])}–${pct(st.ci[1])}</small>` : ""}</td>
+        <td class="${st.net >= 0 ? "g" : "r"}">${money(st.net)}</td><td>${verdictOf(st)}</td></tr>`).join("");
+      const combo = all[1], st = combo.st, clickSt = all[0].st;
       $("btBE").textContent = `Payout ${pay}% → precisa acertar ${pct(st.be)} para empatar. Valor ${money(stake())} por entrada.`;
       const eq = [0];
       combo.trades.forEach((t) => eq.push(eq[eq.length - 1] + (t.res === "GANHOU" ? stake() * pay / 100 : t.res === "PERDEU" ? -stake() : 0)));
@@ -577,13 +677,14 @@
       else if (st.ci[0] > st.be) { v.className = "verdict ok"; v.innerHTML = `<b>Indicador acima do empate neste período</b> (pior caso ${pct(st.ci[0])} &gt; ${pct(st.be)}). Teste em outros ativos e tamanhos antes de acreditar.`; }
       else if (st.ci[1] < st.be) { v.className = "verdict bad"; v.innerHTML = `<b>Indicador perde dinheiro aqui.</b> Acertou ${pct(st.wr)} e precisava de ${pct(st.be)}.`; }
       else { v.className = "verdict meh"; v.innerHTML = `<b>Indicador sem vantagem comprovada.</b> Acertou ${pct(st.wr)}; o real pode estar entre ${pct(st.ci[0])} e ${pct(st.ci[1])}, e o empate é ${pct(st.be)}. Compare com Cara ou coroa.`; }
+      v.innerHTML += `<br><small>Botão "Analisar próxima vela": ${clickSt.n < 30 ? "poucos casos para avaliar" : `acertou ${pct(clickSt.wr)} na metade que ele não tinha visto (empate ${pct(clickSt.be)}): ${clickSt.ci[0] > clickSt.be ? "acima do empate" : clickSt.ci[1] < clickSt.be ? "perde dinheiro" : "sem vantagem comprovada"}`}.</small>`;
       if (lucky.length) v.innerHTML += `<br><small>${lucky.join(", ")} passou do empate neste período. Ao testar várias estratégias, uma costuma ir bem por acaso: confirme em outro período.</small>`;
       $("btInfo").textContent = `${curName()}${brokerMode() ? " (preço lido da corretora)" : ""} · expiração ${n} min · ${cs.length.toLocaleString("pt-BR")} velas (${new Date(cs[0].t).toLocaleDateString("pt-BR")} a ${new Date(cs[cs.length - 1].t).toLocaleDateString("pt-BR")})`;
-      lastEq = eq; drawEquity(eq);
+      lastEq = eq; drawEquity(eq); btDone = mk() + "|" + n;
     } catch (e) { $("btInfo").textContent = (brokerMode() ? "Ainda não dá: " : "Erro ao baixar as velas: ") + e.message; }
     $("btRun").disabled = false;
   }
-  let lastEq = null;
+  let lastEq = null, btDone = null;
   function drawEquity(eq) {
     const c = $("eq"), dpr = window.devicePixelRatio || 1, W = c.clientWidth, H = c.clientHeight;
     c.width = W * dpr; c.height = H * dpr; const g = c.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -602,6 +703,9 @@
   el.payout.oninput = () => { const v = Math.min(100, Math.max(1, +el.payout.value || 0)); if (!v) return; payouts[asset().sym] = v; LS.set("payouts", payouts); renderPanel(); };
   $("resetSession").onclick = () => { if (!confirm("Apagar o histórico e as estatísticas desta sessão?")) return; history = []; LS.set("history", history); renderHistory(); renderPanel(); draw(); };
   $("btRun").onclick = runBacktest;
+  const btx = document.querySelector(".btexp");
+  if (btx) { btx.open = !LS.get("btexpSeen", false); btx.addEventListener("toggle", () => LS.set("btexpSeen", !btx.open)); LS.set("btexpSeen", true); }
+  $("anaBtn").onclick = () => { if (ana) { ana = null; renderPanel(); } else startAnalysis(); };
   $("tz").value = String(tz);
   $("tz").onchange = () => { tz = $("tz").value; LS.set("tz", tz); renderHistory(); draw(); renderPanel(); };
   syncClock(); setInterval(syncClock, 10 * MIN);
@@ -638,6 +742,7 @@
       nav.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.tab === k));
       Object.values(pane).forEach((p) => p.classList.toggle("on", p.dataset.tab === k));
       LS.set("tab", k); draw(); if (k === "bt" && lastEq) drawEquity(lastEq);
+      if (k === "bt" && btDone !== mk() + "|" + expiry() && !$("btRun").disabled) runBacktest();   // runs by itself when the tab opens
     };
     nav.onclick = (e) => { const b = e.target.closest("button"); if (b) show(b.dataset.tab); };
     show(LS.get("tab", "sinal"));
