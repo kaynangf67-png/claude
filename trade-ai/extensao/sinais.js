@@ -21,7 +21,7 @@
       const { serverTime } = await r.json(); if (serverTime) clockOff = serverTime - (t0 + t1) / 2;
     } catch {}
   }
-  const STRAT_NAMES = { click: "Análise (botão)", combo: "Indicador", rsi: "RSI 14", bb: "Bollinger 20", ema: "EMA 9×21", coin: "Cara ou coroa" };
+  const STRAT_NAMES = { click: "Sinalizar (botão)", combo: "Indicador", rsi: "RSI 14", bb: "Bollinger 20", ema: "EMA 9×21", coin: "Cara ou coroa" };
   const PARTS = ["rsi", "bb", "ema"];   // the strategies the indicator combines
   const LS = {
     get(k, d) { try { const v = localStorage.getItem("sh_" + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
@@ -298,7 +298,7 @@
     }    draw();
   }
 
-  // ---------- "Analisar próxima vela" ----------
+  // ---------- "Sinalizar próxima vela" (button + candle scanner) ----------
   // Looks for every past moment when RSI, Bollinger and EMA were in the same state as now
   // and counts what the price did over the chosen expiration. No guess: just what happened before.
   function wilson(k, n) {
@@ -334,18 +334,22 @@
   }
   const modelFor = (n) => anaData.models[n] || (anaData.models[n] = learnPatterns(anaData.cs, anaData.ind, n, 0, anaData.cs.length));
 
-  let ana = null;   // { key, entryT, startedAt, loading, pred, v, err }
+  let ana = null;   // { key, entryT, startedAt, scanStart, loading, pred, v, err }
+  const SCAN_MS = 2600, SEL = 20;     // scanner animation length; candles the analysis looks at (RSI 14 / Bollinger 20)
+  const scanning = () => !!(ana && ana.scanStart && now() - ana.scanStart < SCAN_MS);
   async function startAnalysis() {
     const nx = Math.ceil(now() / MIN) * MIN;
-    ana = { key: mk(), entryT: nx - now() < 5000 ? nx + MIN : nx, startedAt: now(), loading: true };
+    ana = { key: mk(), entryT: nx - now() < 8000 ? nx + MIN : nx, startedAt: now(), scanStart: now(), loading: true };
     renderPanel();
+    const anim = () => { draw(); if (scanning()) requestAnimationFrame(anim); else { renderPanel(); draw(); } };
+    requestAnimationFrame(anim);
     try { await ensureAnaData(); } catch (e) { if (ana) ana.err = "não deu para baixar o histórico (" + e.message + ")"; }
     if (ana) { ana.loading = false; updateAnalysis(); }
   }
   function updateAnalysis() {
     if (!ana || ana.loading) return;
     if (ana.key !== mk()) { startAnalysis(); return; }          // market changed on the broker: scan the new one
-    if (now() > ana.entryT + 8000) { ana = null; say("A análise expirou. Clique de novo."); return; }
+    if (now() > ana.entryT + 8000) { ana = null; say("O sinal expirou. Clique de novo."); return; }
     const live = srcC();
     if (live.length < 30 || anaData.cs.length < 100) { ana.err = brokerMode() ? `poucas velas lidas da corretora (${anaData.cs.length}); com o painel aberto elas vão juntando` : "carregando o histórico…"; ana.pred = null; if (brokerMode() && now() - anaData.at > 60000) ensureAnaData(); return; }
     ana.err = null;
@@ -408,20 +412,6 @@
     if (ana && !ana.loading && ana.key === mk() && closed[i].t === ana.entryT - MIN) lockAnalysis(closed, i);
     if (closed[i].t <= (lastEvalBy[mk()] || 0)) return;
     lastEvalBy[mk()] = closed[i].t;
-    if (paused) return;
-    const ind = indicators(closed);
-    const add = (strat, dir, shadow) => addTrade(closed, i, strat, dir, shadow);
-    // each strategy is also followed on its own, so the panel shows which one is really working
-    for (const k of PARTS) {
-      if (history.some((h) => h.shadow && !h.res && h.strat === k && h.sym === mk())) continue;
-      const d = signalAt(k, ind, closed, i); if (d) add(k, d, true);
-    }
-    const dir = openTrade() ? null : comboAt(ind, closed, i);
-    if (dir) add("combo", dir, false);
-    history = history.slice(0, 800); LS.set("history", history); renderHistory();
-    if (!dir) return;
-    say(dir === "UP" ? "Sinal de ALTA. Confira o preço na sua corretora antes de entrar." : "Sinal de BAIXA. Confira o preço na sua corretora antes de entrar.");
-    beep();
   }
 
   function resolveOpen() {
@@ -451,7 +441,7 @@
     const dirEl = $("dir");
     updateAnalysis();
     const ai = $("anaInfo"), ab = $("anaBtn");
-    if (ab) ab.textContent = ana ? "✕ Cancelar análise" : "🔍 Analisar próxima vela";
+    if (ab) ab.textContent = ana ? "✕ Cancelar" : "🔍 Sinalizar próxima vela";
     if (ai) ai.style.display = ana ? "" : "none";
     if (ana) {
       const left = Math.max(0, ana.entryT - now()), s = Math.ceil(left / 1000);
@@ -462,9 +452,9 @@
       $("mPayout").textContent = `Payout ${curPayout()}%`;
       const lastP = srcC().length ? srcC()[srcC().length - 1].c : null; $("mEntry").textContent = lastP ? `Preço ${fmt(lastP)}` : "Preço —";
       const p = ana.pred, be = 1 / (1 + curPayout() / 100);
-      if (ana.loading || ana.err || !p) {
-        dirEl.className = "dir WAIT"; dirEl.textContent = "ANALISANDO…";
-        ai.innerHTML = ana.err ? esc(ana.err) : "escaneando o histórico do mercado…";
+      if (ana.loading || ana.err || !p || scanning()) {
+        dirEl.className = "dir WAIT"; dirEl.textContent = "ESCANEANDO…";
+        ai.innerHTML = ana.err && !scanning() ? esc(ana.err) : `selecionando as últimas ${SEL} velas e procurando o mesmo padrão no histórico…`;
       } else {
         dirEl.className = "dir " + p.dir; dirEl.textContent = p.dir === "UP" ? "▲ COMPRA" : "▼ VENDA";
         const tag = p.ci[0] > be ? '<b class="g">acima do empate</b>' : p.rate < be ? '<b class="r">abaixo do empate: não compensa</b>' : '<b class="w">fraco: pode ser sorte</b>';
@@ -481,7 +471,7 @@
       $("mEntry").textContent = `Entrada ${fmt(tr.entry)}`;
       $("mExp").textContent = `${tr.n} min`;
     } else {
-      $("tradeTitle").textContent = paused ? "Sinais pausados" : "Aguardando o indicador";
+      $("tradeTitle").textContent = paused ? "Sinais pausados" : "Clique em Sinalizar";
       if (paused) { dirEl.className = "dir PAUSE"; dirEl.textContent = "PAUSADO"; }
       else { dirEl.className = "dir WAIT"; dirEl.textContent = "SEM SINAL"; }
       const last = candles[candles.length - 1];
@@ -498,7 +488,6 @@
       }
     }
     // session stats: all resolved signals, each with the payout it had
-    renderIndicator();
     if (brokerMode() && feed.candles.length && !openTrade()) $("mEntry").textContent = "Preço " + fmt(feed.candles[feed.candles.length - 1].c);
     const done = history.filter((h) => !h.shadow && h.res && h.res !== "SEM DADO");
     const avgPayout = done.length ? done.reduce((s, h) => s + h.payout, 0) / done.length : payoutOf(a.sym);
@@ -510,25 +499,6 @@
     $("sStakeLbl").textContent = "valor da entrada";
     $("sNet").textContent = money(st.net); $("sNet").className = st.net > 0 ? "g" : st.net < 0 ? "r" : "";
     $("sCI").textContent = st.ci ? `${pct(st.ci[0])} a ${pct(st.ci[1])}` + (st.n < 30 ? " (poucos sinais)" : "") : "—";
-  }
-
-  // live votes of each strategy + how each one is doing in this session
-  function renderIndicator() {
-    const box = $("indRows"); if (!box) return;
-    const sub = box.closest(".sub"); if (sub) sub.style.display = paused || (compact && ana) ? "none" : "";   // give the space to the chart
-    const cs = srcC().filter((c) => c.closed);
-    if (cs.length < 30 || paused) { box.innerHTML = `<div class="m">${brokerMode() ? `juntando velas do preço da corretora: ${cs.length}/30 (os sinais começam com 30)` : "carregando…"}</div>`; $("indScore").textContent = ""; return; }
-    const ind = indicators(cs), i = cs.length - 1, v = votesAt(ind, i);
-    const val = { rsi: ind.rsi[i].toFixed(1).replace(".", ","), bb: cs[i].c < ind.bb.lo[i] ? "abaixo" : cs[i].c > ind.bb.up[i] ? "acima" : "dentro", ema: v.ema === "UP" ? "9 > 21" : "9 < 21" };
-    const sym = mk();
-    box.innerHTML = PARTS.map((k) => {
-      const d = history.filter((h) => h.strat === k && h.sym === sym && (h.res === "GANHOU" || h.res === "PERDEU"));
-      const w = d.filter((h) => h.res === "GANHOU").length;
-      const vt = v[k] === "UP" ? '<b class="g">▲ alta</b>' : v[k] === "DOWN" ? '<b class="r">▼ baixa</b>' : '<b class="m">— neutro</b>';
-      return `<div class="irow"><span>${STRAT_NAMES[k]}</span><span class="m">${val[k]}</span>${vt}<span class="m">${d.length ? `${w}/${d.length} acertos` : "sem sinais"}</span></div>`;
-    }).join("");
-    const up = PARTS.filter((k) => v[k] === "UP").length, dn = PARTS.filter((k) => v[k] === "DOWN").length;
-    $("indScore").innerHTML = up >= 2 ? `<b class="g">▲ ${up}/3 alta</b>` : dn >= 2 ? `<b class="r">▼ ${dn}/3 baixa</b>` : `<b class="m">dividido</b>`;
   }
 
   function renderHistory() {
@@ -571,7 +541,6 @@
     if (!src.length) return;
     const N = Math.max(20, Math.min(80, Math.floor(W / 9)));
     const cs = src.slice(-N);
-    const ind = indicators(src); const off = src.length - cs.length;
     const padR = 70, padT = 30, padB = 24, cw = (W - padR) / N;
     let hi = -Infinity, lo = Infinity; cs.forEach((c) => { hi = Math.max(hi, c.h); lo = Math.min(lo, c.l); });
     const tr = openTrade(); if (tr && tr.sym === mk()) { hi = Math.max(hi, tr.entry); lo = Math.min(lo, tr.entry); }
@@ -582,16 +551,44 @@
     const lastC = src[src.length - 1].c;
     for (let k = 0; k <= 4; k++) { const p = lo + (hi - lo) * k / 4, yy = y(p); g.beginPath(); g.moveTo(0, yy); g.lineTo(W - padR, yy); g.stroke(); if (Math.abs(yy - y(lastC)) > 14) g.fillText(fmt(p), W - padR + 6, yy + 4); }
     cs.forEach((c, k) => { if (k % 10 === 0) g.fillText(hhmm(c.t), k * cw, H - 6); });
-    // EMAs
-    const line = (arr, col) => { g.strokeStyle = col; g.lineWidth = 1.2; g.beginPath(); let st = false; cs.forEach((_, k) => { const v = arr[off + k]; if (v == null) return; const xx = k * cw + cw / 2; st ? g.lineTo(xx, y(v)) : g.moveTo(xx, y(v)); st = true; }); g.stroke(); };
-    line(ind.bb.up, "#334155"); line(ind.bb.lo, "#334155");
-    line(ind.e9, "#38bdf8"); line(ind.e21, "#f59e0b");
     // src
     cs.forEach((c, k) => {
       const x = k * cw + cw / 2, up = c.c >= c.o; g.strokeStyle = g.fillStyle = up ? "#22c55e" : "#ef4444";
       g.beginPath(); g.moveTo(x, y(c.h)); g.lineTo(x, y(c.l)); g.stroke();
       const bh = Math.max(1, Math.abs(y(c.o) - y(c.c))); g.fillRect(x - cw * .35, Math.min(y(c.o), y(c.c)), cw * .7, bh);
     });
+    // scanner: a line sweeps the candles, then the candles used by the analysis stay selected
+    if (ana && ana.key === mk() && ana.scanStart) {
+      const el = now() - ana.scanStart, plotW = W - padR, sel = Math.min(SEL, cs.length);
+      g.save();
+      if (el < SCAN_MS) {
+        const x = (el / SCAN_MS) * plotW;
+        g.fillStyle = "rgba(56,189,248,.08)"; g.fillRect(0, 0, x, H - padB);
+        cs.forEach((c, k) => {
+          const cx = k * cw + cw / 2; if (cx > x) return;
+          g.strokeStyle = "rgba(56,189,248,.75)"; g.lineWidth = 1; g.strokeRect(cx - cw * .45, y(c.h) - 2, cw * .9, y(c.l) - y(c.h) + 4);
+        });
+        g.strokeStyle = "#38bdf8"; g.lineWidth = 2; g.shadowColor = "#38bdf8"; g.shadowBlur = 10;
+        g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H - padB); g.stroke(); g.shadowBlur = 0;
+        const done = cs.filter((_, k) => k * cw + cw / 2 <= x).length;
+        g.fillStyle = "#38bdf8"; g.font = "bold 11px system-ui"; g.fillText(`ESCANEANDO VELAS ${done}/${cs.length}`, 8, 40);
+      } else {
+        const k0 = cs.length - sel, part = cs.slice(k0);
+        let sh = -Infinity, sl = Infinity; part.forEach((c) => { sh = Math.max(sh, c.h); sl = Math.min(sl, c.l); });
+        const x0 = k0 * cw, x1 = cs.length * cw, y0 = y(sh) - 6, y1 = y(sl) + 6;
+        g.fillStyle = "rgba(56,189,248,.10)"; g.fillRect(x0, y0, x1 - x0, y1 - y0);
+        g.setLineDash([5, 3]); g.strokeStyle = "#38bdf8"; g.lineWidth = 1.5; g.strokeRect(x0, y0, x1 - x0, y1 - y0); g.setLineDash([]);
+        g.fillStyle = "#38bdf8"; g.font = "bold 10px system-ui"; g.fillText(`${sel} VELAS SELECIONADAS`, Math.max(2, x0), Math.max(38, y0 - 4));
+        const p = ana.pred;
+        if (p && !ana.err) {
+          const txt = (p.dir === "UP" ? "▲ COMPRA " : "▼ VENDA ") + pct(p.rate);
+          g.font = "bold 12px system-ui"; const tw = g.measureText(txt).width + 12, bx = Math.max(2, Math.min(x0, W - padR - tw - 2)), by = Math.min(H - padB - 22, y1 + 4);
+          g.fillStyle = p.dir === "UP" ? "#16a34a" : "#dc2626"; g.fillRect(bx, by, tw, 20);
+          g.fillStyle = "#fff"; g.fillText(txt, bx + 6, by + 14);
+        }
+      }
+      g.restore();
+    }
     // signal markers from history on visible src
     history.forEach((h) => {
       if (h.shadow || h.sym !== mk()) return; const k = cs.findIndex((c) => c.t === h.sigT); if (k < 0) return;
@@ -654,7 +651,7 @@
       else if (st.ci[0] > st.be) { v.className = "verdict ok"; v.innerHTML = `<b>Indicador acima do empate neste período</b> (pior caso ${pct(st.ci[0])} &gt; ${pct(st.be)}). Teste em outros ativos e tamanhos antes de acreditar.`; }
       else if (st.ci[1] < st.be) { v.className = "verdict bad"; v.innerHTML = `<b>Indicador perde dinheiro aqui.</b> Acertou ${pct(st.wr)} e precisava de ${pct(st.be)}.`; }
       else { v.className = "verdict meh"; v.innerHTML = `<b>Indicador sem vantagem comprovada.</b> Acertou ${pct(st.wr)}; o real pode estar entre ${pct(st.ci[0])} e ${pct(st.ci[1])}, e o empate é ${pct(st.be)}. Compare com Cara ou coroa.`; }
-      v.innerHTML += `<br><small>Botão "Analisar próxima vela": ${clickSt.n < 30 ? "poucos casos para avaliar" : `acertou ${pct(clickSt.wr)} na metade que ele não tinha visto (empate ${pct(clickSt.be)}): ${clickSt.ci[0] > clickSt.be ? "acima do empate" : clickSt.ci[1] < clickSt.be ? "perde dinheiro" : "sem vantagem comprovada"}`}.</small>`;
+      v.innerHTML += `<br><small>Botão "Sinalizar": ${clickSt.n < 30 ? "poucos casos para avaliar" : `acertou ${pct(clickSt.wr)} na metade que ele não tinha visto (empate ${pct(clickSt.be)}): ${clickSt.ci[0] > clickSt.be ? "acima do empate" : clickSt.ci[1] < clickSt.be ? "perde dinheiro" : "sem vantagem comprovada"}`}.</small>`;
       if (lucky.length) v.innerHTML += `<br><small>${lucky.join(", ")} passou do empate neste período. Ao testar várias estratégias, uma costuma ir bem por acaso: confirme em outro período.</small>`;
       $("btInfo").textContent = `${curName()}${brokerMode() ? " (preço lido da corretora)" : ""} · expiração ${n} min · ${cs.length.toLocaleString("pt-BR")} velas (${new Date(cs[0].t).toLocaleDateString("pt-BR")} a ${new Date(cs[cs.length - 1].t).toLocaleDateString("pt-BR")})`;
       lastEq = eq; drawEquity(eq); btDone = mk() + "|" + n;
@@ -702,12 +699,12 @@
     }
     // grab everything first: once moved into a detached pane, getElementById no longer finds it
     const r = {
-      brokerLine: $("brokerTxt"), signal: $("dir").closest(".sub"), ind: $("indRows").closest(".sub"), session: $("sW").closest(".sub"), chart: document.querySelector(".chartwrap"),
+      brokerLine: $("brokerTxt"), signal: $("dir").closest(".sub"), session: $("sW").closest(".sub"), chart: document.querySelector(".chartwrap"),
       bt: $("btRun").closest(".card"), header: document.querySelector("header"), broker: $("broker"), reset: $("resetSession"), warn: document.querySelector(".warn"),
     };
     r.brokerLine.classList.add("sub", "brokerline");
     r.broker.querySelector("h3").textContent = "Ler da corretora";
-    pane.sinal.append(r.brokerLine, r.signal, r.ind, r.session, r.chart);
+    pane.sinal.append(r.brokerLine, r.signal, r.session, r.chart);
     const hl = mk("div", "card"); hl.innerHTML = '<div id="histList" class="hlist"></div>'; pane.hist.append(hl);
     pane.bt.append(r.bt);
     const cfg = mk("div", "card cfg");
