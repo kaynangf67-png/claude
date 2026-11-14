@@ -45,7 +45,10 @@ tempo gráfico da corretora) e a **hora de expiração** (1 vela depois). A imag
 
 O painel tem só as abas **Print** e **Ajustes**. Embaixo do print fica o placar (**GREEN**, **LOSS** e **LUCRO**): cada sinal entra na
 hora de entrada e é conferido na expiração pelo preço do ativo aberto (GREEN ou LOSS); o lucro é valor × payout no green e − valor no loss. O
-placar não lista os sinais. Se o preço do ativo não estiver sendo lido, aparecem os botões Green e Loss para marcar à mão.
+placar não lista os sinais. Quando a corretora manda o resultado das operações pela conexão da página (preço de abertura e fechamento,
+valor, lucro), o painel liga a operação ao sinal do print do mesmo horário e usa o **resultado e o lucro reais da
+corretora** (marcado "✔ corretora"). Sem isso, vale a conferência pelo preço lido, com o botão de corrigir; sem preço
+lido, os botões Green e Loss.
 
 ## Preço automático
 

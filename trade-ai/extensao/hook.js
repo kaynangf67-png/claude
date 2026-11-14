@@ -37,8 +37,35 @@
     if (candles.length >= 20 || ticks.length >= 50)
       window.postMessage({ __sinalHonesto: "history", asset: am ? am[1] : null, ticks, candles }, "*");
   }
+  // closed trades the broker sends (profit, open/close price…): the real result of your operations
+  const seenDeals = new Set();
+  const DEAL = /\{[^{}]*"(?:profit|win|isWin|result)"[^{}]*\}/g;
+  function scanDeals(text) {
+    if (!/"(?:profit|isWin|win)"/.test(text) || !/"(?:closePrice|close_price|closeTimestamp|closeTime|close_time|closed|closeMs)"/.test(text)) return;
+    const out = []; let m; DEAL.lastIndex = 0;
+    while ((m = DEAL.exec(text)) && out.length < 50) {
+      let o = null; try { o = JSON.parse(m[0]); } catch { continue; }
+      const num = (...ks) => { for (const k of ks) if (o[k] != null && o[k] !== "" && isFinite(+o[k])) return +o[k]; return null; };
+      const str = (...ks) => { for (const k of ks) if (typeof o[k] === "string") return o[k]; return null; };
+      const d = {
+        id: String(o.id ?? o.ticket ?? o.uid ?? o.dealId ?? ""), asset: str("asset", "symbol", "pair", "active"),
+        profit: num("profit", "income", "win_amount", "winAmount"), amount: num("amount", "investment", "sum", "stake", "openAmount"),
+        open: num("openPrice", "open_price", "openRate", "open_rate"), close: num("closePrice", "close_price", "closeRate", "close_rate"),
+        openT: num("openTimestamp", "openTime", "open_time", "openMs", "created_at", "createdAt", "timestamp"),
+        closeT: num("closeTimestamp", "closeTime", "close_time", "closeMs", "expiration", "expirationTime"),
+        win: typeof o.isWin === "boolean" ? o.isWin : typeof o.win === "boolean" ? o.win : null,
+        cmd: o.command ?? o.action ?? o.direction ?? o.type ?? null,
+      };
+      if (d.close == null && d.win == null) continue;           // still open
+      const key = d.id || `${d.asset}|${d.openT}|${d.amount}`;
+      if (seenDeals.has(key + "|" + d.close + "|" + d.profit)) continue; seenDeals.add(key + "|" + d.close + "|" + d.profit);
+      out.push(d);
+    }
+    if (out.length) window.postMessage({ __sinalHonesto: "deals", deals: out }, "*");
+  }
   function scan(text) {
     if (!text || text.length > 2000000) return;
+    try { scanDeals(text); } catch {}
     try { scanHistory(text); } catch {}
     if (text.length > 400000) return;
     let m;

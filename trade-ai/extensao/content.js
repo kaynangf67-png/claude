@@ -310,6 +310,9 @@
     if (e.source !== window || !e.data) return;
     if (e.data.__sinalHonesto === "stats") { hookStats = { msgs: +e.data.msgs || 0, from: e.data.from || {}, names: (e.data.names || []).slice(0, 8).map(String) }; return; }
     if (e.data.__sinalHonesto === "history") { onHistory(e.data); return; }
+    if (e.data.__sinalHonesto === "deals" && Array.isArray(e.data.deals)) {
+      frame.contentWindow && frame.contentWindow.postMessage({ type: "sh-deals", deals: e.data.deals.slice(0, 50) }, "*"); return;
+    }
     if (e.data.__sinalHonesto !== "ticks" || !Array.isArray(e.data.ticks)) return;
     const t = Date.now();
     for (const [sym, p] of e.data.ticks) if (typeof sym === "string" && p > 0) wsTicks.set(norm(sym), { p: +p, t });

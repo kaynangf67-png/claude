@@ -537,7 +537,7 @@
   function resolveNow() {
     let changed = false;
     for (const h of history) {
-      if (h.res || h.mode !== "now" || h.sym !== mk() || now() < h.endAt || h.entry == null) continue;
+      if (h.res || h.fromBroker || h.mode !== "now" || h.sym !== mk() || now() < h.endAt || h.entry == null) continue;
       const p = lastPrice(); if (p == null) continue;
       h.exit = p; h.res = outcome(h.dir, h.entry, h.exit); changed = true;
       say(h.res === "GANHOU" ? "Ganhou." : h.res === "PERDEU" ? "Perdeu." : "Empate.");
@@ -1055,8 +1055,8 @@
     });
   }
   // ---------- print signals: open at the entry time, checked at the expiration (GREEN / LOSS) ----------
-  function registerPrint() {
-    const r = printRes; if (!r || r.registered || now() < r.entryT) return;
+  function registerPrint(force) {
+    const r = printRes; if (!r || r.registered || (!force && now() < r.entryT)) return;
     r.registered = true;
     const p = lastPrice();
     history.unshift({
@@ -1065,6 +1065,38 @@
       payout: curPayout(), stake: stake(), cur, entry: p, sigT: r.entryT, entryAt: r.entryT, endAt: r.expT, res: null, exit: null,
     });
     history = history.slice(0, 800); LS.set("history", history); renderPrintHist();
+  }
+  // closed trades read from the broker: they decide GREEN / LOSS and the profit of the print signal of the same time
+  function onDeals(deals) {
+    let changed = false;
+    const ms = (t) => (t == null ? null : t < 1e12 ? t * 1000 : t);
+    for (const raw of deals) {
+      if (!raw || typeof raw !== "object") continue;
+      const n = (v) => (v == null || v === "" || !isFinite(+v) ? null : +v);
+      const d = { id: String(raw.id || "").slice(0, 60), profit: n(raw.profit), amount: n(raw.amount), open: n(raw.open), close: n(raw.close),
+        openT: ms(n(raw.openT)), closeT: ms(n(raw.closeT)), win: typeof raw.win === "boolean" ? raw.win : null };
+      if (d.win == null && !(d.close > 0)) continue;                      // not closed yet
+      if (d.closeT && d.closeT > now() + 3000) continue;                  // still running
+      const c = String(raw.cmd ?? "").toLowerCase();
+      const dir = /^(0|call|up|buy|higher|high)$/.test(c) ? "UP" : /^(1|put|down|sell|lower|low)$/.test(c) ? "DOWN" : null;
+      let res = d.win === true ? "GANHOU" : d.win === false ? "PERDEU" : null;
+      if (!res && d.profit != null) res = d.profit > 0 ? (d.amount && Math.abs(d.profit - d.amount) < 1e-6 ? "EMPATE" : "GANHOU") : "PERDEU";
+      if (!res && d.open != null && d.close != null && dir) res = d.close === d.open ? "EMPATE" : (d.close > d.open) === (dir === "UP") ? "GANHOU" : "PERDEU";
+      if (!res) continue;
+      let net = null;
+      if (d.amount) net = res === "GANHOU" ? (d.profit > d.amount ? d.profit - d.amount : d.profit != null ? d.profit : null) : res === "PERDEU" ? -d.amount : 0;
+      // the print signal this trade belongs to: opened around its entry time, same direction when known
+      const t = d.openT || (d.closeT ? d.closeT - 60000 : null); if (!t) continue;
+      // you may enter at the broker before the candle opens: the print signal is registered right then
+      if (printRes && !printRes.registered && t >= printRes.entryT - 90000 && t <= printRes.expT && (!dir || dir === printRes.pred.dir)) registerPrint(true);
+      const h = history.filter((x) => x.strat === "print" && !x.manual && (!x.dealId || x.dealId === (d.id || String(t))) && (!dir || x.dir === dir)
+        && t >= x.entryAt - 90000 && t <= x.endAt + 5000).sort((a, b) => Math.abs(a.entryAt - t) - Math.abs(b.entryAt - t))[0];
+      if (!h) continue;
+      h.res = res; h.fromBroker = true; h.dealId = d.id || String(t);
+      if (d.open != null) h.entry = d.open; if (d.close != null) h.exit = d.close; if (d.amount) h.stake = d.amount; if (net != null) h.net = net;
+      changed = true;
+    }
+    if (changed) { LS.set("history", history); renderPrintHist(); }
   }
   function markPrint(id, res) {
     const h = history.find((x) => x.id === id); if (!h || h.res) return;
@@ -1075,11 +1107,13 @@
     const box = $("printHist"); if (!box) return;
     const list = history.filter((h) => h.strat === "print");
     const g = list.filter((h) => h.res === "GANHOU").length, l = list.filter((h) => h.res === "PERDEU").length;
-    const profit = list.reduce((s, h) => { const v = h.stake || stake(), py = (h.payout || curPayout()) / 100; return s + (h.res === "GANHOU" ? v * py : h.res === "PERDEU" ? -v : 0); }, 0);
+    const profit = list.reduce((s, h) => {
+      if (h.net != null && h.fromBroker && !h.manual) return s + h.net;                       // real profit from the broker
+      const v = h.stake || stake(), py = (h.payout || curPayout()) / 100; return s + (h.res === "GANHOU" ? v * py : h.res === "PERDEU" ? -v : 0); }, 0);
     // a signal that ended with no price read is marked by hand
     const open = list.find((h) => !h.res && now() >= h.endAt && h.entry == null);
     const last = list.find((h) => h.res === "GANHOU" || h.res === "PERDEU");
-    const key = `${g}|${l}|${profit.toFixed(2)}|${open ? open.id : ""}|${last ? last.id + last.res : ""}`;
+    const key = `${g}|${l}|${profit.toFixed(2)}|${open ? open.id : ""}|${last ? last.id + last.res + (last.fromBroker ? "b" : "") : ""}`;
     if (box.dataset.key === key) return; box.dataset.key = key;
     box.innerHTML = `<div class="pscore">
         <div class="pbox green"><b>${g}</b><span>GREEN</span></div>
@@ -1087,9 +1121,9 @@
         <div class="pbox ${profit > 0 ? "green" : profit < 0 ? "loss" : ""}"><b>${money(profit)}</b><span>LUCRO</span></div>
       </div>
       ${last ? `<div class="pmark">Último: <span class="${last.dir === "UP" ? "g" : "r"}">${last.dir === "UP" ? "▲ COMPRA" : "▼ VENDA"}</span>
-        ${last.entry != null && last.exit != null ? `${fmt(last.entry)} → ${fmt(last.exit)}` : ""} = <b class="${last.res === "GANHOU" ? "g" : "r"}">${last.res === "GANHOU" ? "GREEN" : "LOSS"}</b>${last.manual ? " (corrigido)" : ""}
+        ${last.entry != null && last.exit != null ? `${fmt(last.entry)} → ${fmt(last.exit)}` : ""} = <b class="${last.res === "GANHOU" ? "g" : "r"}">${last.res === "GANHOU" ? "GREEN" : "LOSS"}</b>${last.manual ? " (corrigido)" : last.fromBroker ? " ✔ corretora" : ""}
         <button class="fix" data-flip="${last.id}">Corrigir para ${last.res === "GANHOU" ? "LOSS" : "GREEN"}</button></div>
-        <div class="m" style="font-size:11px">Conferido pelo preço que o painel lê, na abertura e no fechamento da vela. Se a corretora deu outro resultado, corrija: vale o da corretora.</div>` : ""}
+        <div class="m" style="font-size:11px">${last.fromBroker && !last.manual ? "Resultado lido da sua operação na corretora." : "Conferido pelo preço que o painel lê (a corretora não mandou o resultado desta operação). Se ela deu outro, corrija."}</div>` : ""}
       ${open ? `<div class="pmark">Sinal das ${clockStr(open.entryAt, false)} sem preço lido: <span class="pbtn"><button data-mark="GANHOU" data-id="${open.id}">Green</button><button data-mark="PERDEU" data-id="${open.id}">Loss</button></span></div>` : ""}
       <div style="text-align:right;margin-top:6px"><button class="ghost" id="printClear" style="font-size:11px;padding:3px 8px">Zerar</button></div>`;
   }
@@ -1114,7 +1148,7 @@
     document.addEventListener("click", (e) => {
       const b = e.target.closest("[data-mark]"); if (b) { markPrint(b.dataset.id, b.dataset.mark); return; }
       const f = e.target.closest("[data-flip]");
-      if (f) { const h = history.find((x) => x.id === f.dataset.flip); if (h && h.res) { h.res = h.res === "GANHOU" ? "PERDEU" : "GANHOU"; h.manual = true; LS.set("history", history); renderPrintHist(); } return; }
+      if (f) { const h = history.find((x) => x.id === f.dataset.flip); if (h && h.res) { h.res = h.res === "GANHOU" ? "PERDEU" : "GANHOU"; h.manual = true; h.net = null; LS.set("history", history); renderPrintHist(); } return; }
       if (e.target.id === "printClear" && confirm("Zerar green, loss e lucro?")) { history = history.filter((h) => h.strat !== "print"); LS.set("history", history); renderPrintHist(); }
     });
     renderPrintHist();
@@ -1217,6 +1251,7 @@
     window.addEventListener("message", (e) => {
       if (e.source !== window.parent) return;
       const d = e.data; if (!d) return;
+      if (d.type === "sh-deals") { if (Array.isArray(d.deals)) onDeals(d.deals); return; }
       if (d.type === "sh-history") { onBrokerHistory(Array.isArray(d.ticks) ? d.ticks : [], Array.isArray(d.candles) ? d.candles : []); return; }
       if (d.type === "sh-price") { onBrokerPrice(+d.p); if ($("autoPrice")) $("autoPrice").textContent = +d.p > 0 ? fmt(+d.p) + " (lido da tela)" : "não encontrado"; return; }
       if (d.type !== "sh-detect") return;
