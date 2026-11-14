@@ -308,7 +308,9 @@
   let matchedBy = null;  // stream name picked by price, when the names did not match
   window.addEventListener("message", (e) => {
     if (e.source !== window || !e.data) return;
-    if (e.data.__sinalHonesto === "stats") { hookStats = { msgs: +e.data.msgs || 0, from: e.data.from || {}, names: (e.data.names || []).slice(0, 8).map(String) }; return; }
+    if (e.data.__sinalHonesto === "stats") { const dl = e.data.deals || {};
+      hookStats = { msgs: +e.data.msgs || 0, from: e.data.from || {}, names: (e.data.names || []).slice(0, 8).map(String),
+        deals: { profitMsgs: +dl.profitMsgs || 0, deals: +dl.deals || 0, keys: Array.isArray(dl.keys) ? dl.keys.slice(0, 25).map((k) => String(k).slice(0, 24)) : [] } }; return; }
     if (e.data.__sinalHonesto === "history") { onHistory(e.data); return; }
     if (e.data.__sinalHonesto === "deals" && Array.isArray(e.data.deals)) {
       frame.contentWindow && frame.contentWindow.postMessage({ type: "sh-deals", deals: e.data.deals.slice(0, 50) }, "*"); return;
@@ -441,7 +443,7 @@
       msg.tfSec = tt ? (tfToSec(tt.text) || tfToSec((tt.text.match(/[SMH]\s?\d{1,2}|\d{1,2}\s?(?:min|m|h|s)\b/i) || [""])[0])) : findTimeframe();
       if (!a) curKey = null;
     } catch (e) { /* page changed under us; try again next tick */ }
-    msg.hook = hookStats ? { msgs: hookStats.msgs, from: hookStats.from, names: hookStats.names, key: curKey + (matchedBy ? " → " + matchedBy : ""), got: !!wsPrice() } : null;
+    msg.hook = hookStats ? { msgs: hookStats.msgs, from: hookStats.from, names: hookStats.names, deals: hookStats.deals, key: curKey + (matchedBy ? " → " + matchedBy : ""), got: !!wsPrice() } : null;
     const key = JSON.stringify(msg);
     if (force === true || key !== lastKey) { lastKey = key; frame.contentWindow && frame.contentWindow.postMessage(msg, "*"); }
   }

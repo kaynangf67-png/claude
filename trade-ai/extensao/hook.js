@@ -2,8 +2,8 @@
 // (WebSocket, or a worker that holds the WebSocket). It only reads "symbol, time, price" ticks and hands
 // them to content.js in the same tab with window.postMessage. Nothing is sent anywhere else.
 (() => {
-  if ((window.__sinalHonestoHookV || 0) >= 2) return;   // v2 also reads workers; an older v1 hook may already be here
-  window.__sinalHonestoHookV = 2;
+  if ((window.__sinalHonestoHookV || 0) >= 3) return;   // v3 also reads trade results; an older hook may already be here
+  window.__sinalHonestoHookV = 3;
   const desc = Object.getOwnPropertyDescriptor(MessageEvent.prototype, "data");
   if (!desc || !desc.get) return;
   const seen = new WeakSet(), dec = new TextDecoder();
@@ -40,8 +40,20 @@
   // closed trades the broker sends (profit, open/close price…): the real result of your operations
   const seenDeals = new Set();
   const DEAL = /\{[^{}]*"(?:profit|win|isWin|result)"[^{}]*\}/g;
+  const dstats = { profitMsgs: 0, deals: 0, keys: [] };
+  const toMs = (v) => {
+    if (v == null || v === "") return null;
+    if (typeof v === "number" || /^\d+(\.\d+)?$/.test(String(v))) { const n = +v; return n < 1e12 ? n * 1000 : n; }
+    const t = Date.parse(/[zZ]|[+-]\d\d:?\d\d$/.test(v) ? v : String(v).replace(" ", "T") + "Z");   // "2026-11-14 14:46:00" is UTC
+    return isFinite(t) ? t : null;
+  };
   function scanDeals(text) {
-    if (!/"(?:profit|isWin|win)"/.test(text) || !/"(?:closePrice|close_price|closeTimestamp|closeTime|close_time|closed|closeMs)"/.test(text)) return;
+    if (!/"(?:profit|isWin|win)"/.test(text)) return;
+    dstats.profitMsgs++;
+    if (!/"(?:closePrice|close_price|closeTimestamp|closeTime|close_time|closed|closeMs|closeRate|close_rate|isWin|win)"/.test(text)) {
+      const k = text.match(/\{[^{}]*"profit"[^{}]*\}/); if (k) try { dstats.keys = Object.keys(JSON.parse(k[0])).slice(0, 25); } catch {}
+      return;
+    }
     const out = []; let m; DEAL.lastIndex = 0;
     while ((m = DEAL.exec(text)) && out.length < 50) {
       let o = null; try { o = JSON.parse(m[0]); } catch { continue; }
@@ -51,16 +63,18 @@
         id: String(o.id ?? o.ticket ?? o.uid ?? o.dealId ?? ""), asset: str("asset", "symbol", "pair", "active"),
         profit: num("profit", "income", "win_amount", "winAmount"), amount: num("amount", "investment", "sum", "stake", "openAmount"),
         open: num("openPrice", "open_price", "openRate", "open_rate"), close: num("closePrice", "close_price", "closeRate", "close_rate"),
-        openT: num("openTimestamp", "openTime", "open_time", "openMs", "created_at", "createdAt", "timestamp"),
-        closeT: num("closeTimestamp", "closeTime", "close_time", "closeMs", "expiration", "expirationTime"),
+        openT: toMs(o.openTimestamp ?? o.openTime ?? o.open_time ?? o.openMs ?? o.created_at ?? o.createdAt ?? o.timestamp),
+        closeT: toMs(o.closeTimestamp ?? o.closeTime ?? o.close_time ?? o.closeMs ?? o.expiration ?? o.expirationTime ?? o.expiredAt),
         win: typeof o.isWin === "boolean" ? o.isWin : typeof o.win === "boolean" ? o.win : null,
         cmd: o.command ?? o.action ?? o.direction ?? o.type ?? null,
       };
+      dstats.keys = Object.keys(o).slice(0, 25);
       if (d.close == null && d.win == null) continue;           // still open
       const key = d.id || `${d.asset}|${d.openT}|${d.amount}`;
       if (seenDeals.has(key + "|" + d.close + "|" + d.profit)) continue; seenDeals.add(key + "|" + d.close + "|" + d.profit);
       out.push(d);
     }
+    dstats.deals += out.length;
     if (out.length) window.postMessage({ __sinalHonesto: "deals", deals: out }, "*");
   }
   function scan(text) {
@@ -86,6 +100,20 @@
     : (typeof Worker !== "undefined" && t instanceof Worker) ? "worker"
     : (typeof SharedWorker !== "undefined" && t instanceof MessagePort) ? "porta"
     : (typeof BroadcastChannel !== "undefined" && t instanceof BroadcastChannel) ? "canal" : null;
+  try {
+    const of = window.fetch;
+    window.fetch = function (...a) {
+      const pr = of.apply(this, a);
+      pr.then((r) => { try { const ct = r.headers.get("content-type") || ""; if (/json|text/.test(ct)) r.clone().text().then((t) => { if (t.length < 2000000) { try { scanDeals(t); } catch {} } }, () => {}); } catch {} }, () => {});
+      return pr;
+    };
+    const oo = XMLHttpRequest.prototype.open, os = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.send = function (...a) {
+      this.addEventListener("load", () => { try { if ((this.responseType === "" || this.responseType === "text") && this.responseText && this.responseText.length < 2000000) scanDeals(this.responseText); } catch {} });
+      return os.apply(this, a);
+    };
+    void oo;
+  } catch {}
   Object.defineProperty(MessageEvent.prototype, "data", {
     configurable: true, enumerable: desc.enumerable,
     get() {
@@ -103,6 +131,6 @@
   // what the extension is getting, for the diagnostic in Ajustes
   setInterval(() => {
     const names = [...stats.names].sort((a, b) => b[1] - a[1]).slice(0, 8).map((x) => x[0]);
-    window.postMessage({ __sinalHonesto: "stats", msgs: stats.msgs, from: stats.from, names }, "*");
+    window.postMessage({ __sinalHonesto: "stats", msgs: stats.msgs, from: stats.from, names, deals: { ...dstats } }, "*");
   }, 2000);
 })();
