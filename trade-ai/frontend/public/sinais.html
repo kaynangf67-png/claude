@@ -126,21 +126,21 @@
   .hlist{display:flex;flex-direction:column;gap:6px}
   .hrow{display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--card2);border-radius:8px;padding:7px 9px;font-size:12px}
   .hrow small{display:block;color:var(--mut);font-size:11px}
+  .irows{display:grid;gap:3px}
+  .irow{display:grid;grid-template-columns:1.1fr .8fr .9fr 1.1fr;gap:6px;font-size:12px;align-items:center}
+  .irow span:last-child{text-align:right;font-size:11px}
+  table.bt{font-size:12px;margin-top:10px}
+  table.bt td,table.bt th{padding:5px 4px;white-space:normal}
+  table.bt tr.main td{font-weight:700;background:var(--card2)}
+  body.compact #assetLbl{display:none}
+  body.compact table.bt{font-size:11px}
 </style>
 </head>
 <body>
 <header>
   <h1>Sinal Honesto<small>sinais M1 com taxa de acerto real</small></h1>
-  <label class="f">Ativo
+  <label class="f" id="assetLbl">Ativo
     <select id="asset"></select>
-  </label>
-  <label class="f">Estratégia
-    <select id="strategy">
-      <option value="rsi">Reversão RSI (14) 30/70</option>
-      <option value="bb">Bollinger (20, 2) — volta à média</option>
-      <option value="ema">Cruzamento EMA 9 × 21</option>
-      <option value="coin">Cara ou coroa (controle)</option>
-    </select>
   </label>
   <label class="f">Expiração
     <select id="expiry">
@@ -153,9 +153,7 @@
   <label class="f">Payout % (deste ativo)
     <input id="payout" type="number" min="1" max="100" step="1" />
   </label>
-  <label class="f">Valor por entrada
-    <input id="stake" type="number" min="0.01" step="any" value="10" />
-  </label>
+  <input id="stake" type="hidden" value="10" />
   <label class="f">Horário (igual ao da corretora)
     <select id="tz">
       <option value="local">do computador</option>
@@ -181,7 +179,7 @@
     <div class="sub broker" id="broker" style="display:none">
       <h3>Na corretora (esta aba)</h3>
       <div id="brokerTxt">Procurando o ativo na página…</div>
-      <label class="follow"><input type="checkbox" id="follow" checked /> Seguir mercado, payout e valor da corretora</label>
+      <div class="m" style="font-size:12px;margin-top:6px">Mercado, payout e valor vêm da corretora automaticamente. Se algum não for achado, aponte:</div>
       <div class="picks">
         <button data-pick="asset">Apontar mercado</button><button data-pick="payout">Apontar payout</button>
         <button data-pick="amount">Apontar valor</button><button data-pick="clear" class="ghost">Esquecer pontos</button>
@@ -197,6 +195,11 @@
       </div>
       <div class="bar"><i id="bar"></i></div>
       <div class="meta"><span id="mPayout">Payout —</span><span id="mEntry">Entrada —</span><span id="mStake">Valor —</span><span id="mExp">—</span></div>
+    </div>
+
+    <div class="sub">
+      <h3 class="th"><span>Indicador · RSI + Bollinger + EMA</span><span id="indScore"></span></h3>
+      <div id="indRows" class="irows"></div>
     </div>
 
     <div class="sub">
@@ -240,7 +243,7 @@
   </div>
 
   <div class="card">
-    <h2>Backtest — a mesma estratégia nas velas passadas</h2>
+    <h2>Backtest — todas as estratégias nas velas passadas</h2>
     <div class="row">
       <label class="f">Velas de 1 min
         <select id="btSize">
@@ -251,18 +254,11 @@
         </select>
       </label>
       <button id="btRun">Rodar backtest</button>
-      <span class="m" id="btInfo">Usa o ativo, a estratégia, a expiração e o payout escolhidos acima.</span>
+      <span class="m" id="btInfo">Testa o indicador e cada estratégia com o ativo, a expiração e o payout atuais.</span>
     </div>
     <div id="btOut" style="display:none">
-      <div class="btgrid">
-        <div class="kpi"><span>Sinais</span><b id="bN">—</b></div>
-        <div class="kpi"><span>Ganhos / Perdas / Empates</span><b id="bWLR">—</b></div>
-        <div class="kpi"><span>Taxa de acerto</span><b id="bWR">—</b></div>
-        <div class="kpi"><span>Precisa para empatar</span><b id="bBE">—</b></div>
-        <div class="kpi"><span>Faixa 95%</span><b id="bCI">—</b></div>
-        <div class="kpi"><span>Resultado</span><b id="bNet">—</b></div>
-        <div class="kpi"><span>Maior sequência de perdas</span><b id="bStreak">—</b></div>
-      </div>
+      <table class="bt"><thead><tr><th>Estratégia</th><th>Sinais</th><th>Acerto</th><th>Faixa 95%</th><th>Resultado</th></tr></thead><tbody id="btRows"></tbody></table>
+      <div class="m" id="btBE" style="font-size:12px;margin:8px 0"></div>
       <div class="verdict" id="bVerdict"></div>
       <div class="eq"><canvas id="eq"></canvas></div>
     </div>

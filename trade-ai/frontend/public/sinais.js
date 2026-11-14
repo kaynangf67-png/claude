@@ -21,7 +21,8 @@
       const { serverTime } = await r.json(); if (serverTime) clockOff = serverTime - (t0 + t1) / 2;
     } catch {}
   }
-  const STRAT_NAMES = { rsi: "RSI 30/70", bb: "Bollinger", ema: "EMA 9×21", coin: "Cara ou coroa" };
+  const STRAT_NAMES = { combo: "Indicador", rsi: "RSI 14", bb: "Bollinger 20", ema: "EMA 9×21", coin: "Cara ou coroa" };
+  const PARTS = ["rsi", "bb", "ema"];   // the strategies the indicator combines
   const LS = {
     get(k, d) { try { const v = localStorage.getItem("sh_" + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
     set(k, v) { try { localStorage.setItem("sh_" + k, JSON.stringify(v)); } catch {} },
@@ -46,7 +47,6 @@
     const o = document.createElement("option"); o.value = a.sym; o.textContent = a.name; el.asset.appendChild(o);
   });
   el.asset.value = LS.get("asset", "BTCUSDT");
-  el.strategy.value = LS.get("strategy", "rsi");
   el.expiry.value = String(LS.get("expiry", 1));
   el.stake.value = LS.get("stake", 10);
 
@@ -111,6 +111,27 @@
     }
     return null;
   }
+  // what each strategy says right now (state, not only the crossing moment)
+  function votesAt(ind, i) {
+    const { c, rsi: r, e9, e21, bb } = ind;
+    return {
+      rsi: r[i] == null ? null : r[i] < 30 ? "UP" : r[i] > 70 ? "DOWN" : null,
+      bb: bb.lo[i] == null ? null : c[i] < bb.lo[i] ? "UP" : c[i] > bb.up[i] ? "DOWN" : null,
+      ema: e21[i] == null ? null : e9[i] > e21[i] ? "UP" : "DOWN",
+    };
+  }
+  // indicator: one of the strategies fires AND at least 2 of the 3 point the same way
+  function comboAt(ind, cs, i) {
+    if (i < 25) return null;
+    const v = votesAt(ind, i);
+    for (const k of PARTS) {
+      const dir = signalAt(k, ind, cs, i); if (!dir) continue;
+      if (PARTS.filter((p) => v[p] === dir).length >= 2) return dir;
+    }
+    return null;
+  }
+  const signalOf = (strat, ind, cs, i) => strat === "combo" ? comboAt(ind, cs, i) : signalAt(strat, ind, cs, i);
+
   function outcome(dir, entry, exit) {
     if (exit === entry) return "EMPATE";
     return (dir === "UP") === (exit > entry) ? "GANHOU" : "PERDEU";
@@ -243,7 +264,7 @@
   }
 
   // ---------- live signals ----------
-  const openTrade = () => history.find((h) => !h.res && h.sym === asset().sym);
+  const openTrade = () => history.find((h) => !h.res && !h.shadow && h.sym === asset().sym);
   const tr0 = () => openTrade();
 
   // trades left open on another asset are resolved over REST once they expire
@@ -269,19 +290,23 @@
     const i = closed.length - 1; if (i < 0) return;
     if (closed[i].t <= lastEvaluatedT) return;
     lastEvaluatedT = closed[i].t;
-    if (openTrade()) return; // one trade at a time
     if (paused) return;
-    const strat = el.strategy.value;
-    const dir = signalAt(strat, indicators(closed), closed, i);
-    if (!dir) return;
-    const n = expiry();
-    history.unshift({
-      id: closed[i].t + strat, sym: asset().sym, name: asset().name, strat, dir, n,
+    const ind = indicators(closed), n = expiry();
+    const add = (strat, dir, shadow) => history.unshift({
+      id: closed[i].t + strat, sym: asset().sym, name: asset().name, strat, dir, n, shadow,
       payout: payoutOf(asset().sym), stake: stake(), cur, entry: closed[i].c, sigT: closed[i].t,
       expT: closed[i].t + n * MIN, // exit = close of this candle
       endAt: closed[i].t + (n + 1) * MIN, res: null, exit: null,
     });
-    history = history.slice(0, 500); LS.set("history", history); renderHistory();
+    // each strategy is also followed on its own, so the panel shows which one is really working
+    for (const k of PARTS) {
+      if (history.some((h) => h.shadow && !h.res && h.strat === k && h.sym === asset().sym)) continue;
+      const d = signalAt(k, ind, closed, i); if (d) add(k, d, true);
+    }
+    const dir = openTrade() ? null : comboAt(ind, closed, i);
+    if (dir) add("combo", dir, false);
+    history = history.slice(0, 800); LS.set("history", history); renderHistory();
+    if (!dir) return;
     say(dir === "UP" ? "Sinal de ALTA. Confira o preço na sua corretora antes de entrar." : "Sinal de BAIXA. Confira o preço na sua corretora antes de entrar.");
     beep();
   }
@@ -294,7 +319,7 @@
       const c = candles.find((x) => x.t === h.expT && x.closed);
       if (c) {
         h.exit = c.c; h.res = outcome(h.dir, h.entry, h.exit); changed = true;
-        say(h.res === "GANHOU" ? "Ganhou. Lembre: um acerto não prova nada, olhe a taxa." : h.res === "PERDEU" ? "Perdeu. Faz parte, e eu conto todas." : "Empate: o preço fechou igual à entrada.");
+        if (!h.shadow) say(h.res === "GANHOU" ? "Ganhou. Lembre: um acerto não prova nada, olhe a taxa." : h.res === "PERDEU" ? "Perdeu. Faz parte, e eu conto todas." : "Empate: o preço fechou igual à entrada.");
       } else if (candles.length && candles[0].t > h.expT) { h.res = "SEM DADO"; changed = true; }
     }
     if (changed) { LS.set("history", history); renderHistory(); }
@@ -322,7 +347,7 @@
       $("mEntry").textContent = `Entrada ${fmt(tr.entry)}`;
       $("mExp").textContent = `${tr.n} min`;
     } else {
-      $("tradeTitle").textContent = paused ? "Sinais pausados" : "Aguardando setup · " + STRAT_NAMES[el.strategy.value];
+      $("tradeTitle").textContent = paused ? "Sinais pausados" : "Aguardando o indicador";
       if (paused) { dirEl.className = "dir PAUSE"; dirEl.textContent = "PAUSADO"; }
       else { dirEl.className = "dir WAIT"; dirEl.textContent = "SEM SINAL"; }
       const last = candles[candles.length - 1];
@@ -339,7 +364,8 @@
       }
     }
     // session stats: all resolved signals, each with the payout it had
-    const done = history.filter((h) => h.res && h.res !== "SEM DADO");
+    renderIndicator();
+    const done = history.filter((h) => !h.shadow && h.res && h.res !== "SEM DADO");
     const avgPayout = done.length ? done.reduce((s, h) => s + h.payout, 0) / done.length : payoutOf(a.sym);
     const st = stats(done, avgPayout, stake());
     st.net = done.reduce((s, h) => { const v = h.stake || stake(); return s + (h.res === "GANHOU" ? v * h.payout / 100 : h.res === "PERDEU" ? -v : 0); }, 0);
@@ -351,10 +377,29 @@
     $("sCI").textContent = st.ci ? `${pct(st.ci[0])} a ${pct(st.ci[1])}` + (st.n < 30 ? " (poucos sinais)" : "") : "—";
   }
 
+  // live votes of each strategy + how each one is doing in this session
+  function renderIndicator() {
+    const box = $("indRows"); if (!box) return;
+    const cs = candles.filter((c) => c.closed);
+    if (cs.length < 30 || paused) { box.innerHTML = `<div class="m">${paused ? "pausado" : "carregando…"}</div>`; $("indScore").textContent = ""; return; }
+    const ind = indicators(cs), i = cs.length - 1, v = votesAt(ind, i);
+    const val = { rsi: ind.rsi[i].toFixed(1).replace(".", ","), bb: cs[i].c < ind.bb.lo[i] ? "abaixo" : cs[i].c > ind.bb.up[i] ? "acima" : "dentro", ema: v.ema === "UP" ? "9 > 21" : "9 < 21" };
+    const sym = asset().sym;
+    box.innerHTML = PARTS.map((k) => {
+      const d = history.filter((h) => h.strat === k && h.sym === sym && (h.res === "GANHOU" || h.res === "PERDEU"));
+      const w = d.filter((h) => h.res === "GANHOU").length;
+      const vt = v[k] === "UP" ? '<b class="g">▲ alta</b>' : v[k] === "DOWN" ? '<b class="r">▼ baixa</b>' : '<b class="m">— neutro</b>';
+      return `<div class="irow"><span>${STRAT_NAMES[k]}</span><span class="m">${val[k]}</span>${vt}<span class="m">${d.length ? `${w}/${d.length} acertos` : "sem sinais"}</span></div>`;
+    }).join("");
+    const up = PARTS.filter((k) => v[k] === "UP").length, dn = PARTS.filter((k) => v[k] === "DOWN").length;
+    $("indScore").innerHTML = up >= 2 ? `<b class="g">▲ ${up}/3 alta</b>` : dn >= 2 ? `<b class="r">▼ ${dn}/3 baixa</b>` : `<b class="m">dividido</b>`;
+  }
+
   function renderHistory() {
     if (compact) {
       const box = $("histList"); if (!box) return;
-      box.innerHTML = history.length ? history.slice(0, 50).map((h) => {
+      const main = history.filter((h) => !h.shadow);
+      box.innerHTML = main.length ? main.slice(0, 50).map((h) => {
         const cls = h.res === "GANHOU" ? "g" : h.res === "PERDEU" ? "r" : "m";
         return `<div class="hrow"><div><b>${hhmm(h.sigT + MIN)}</b> <span class="${h.dir === "UP" ? "g" : "r"}">${h.dir === "UP" ? "▲ UP" : "▼ DOWN"}</span> ${esc(h.name.split(" ")[0])}
           <small>${fmt(h.entry)} → ${fmt(h.exit)} · ${h.n} min · ${h.stake ? esc((h.cur || "$") + " " + h.stake) : ""} · ${h.payout}%</small></div><b class="${cls}">${h.res || "aberto"}</b></div>`;
@@ -362,8 +407,9 @@
       return;
     }
     const tb = $("hist");
-    if (!history.length) { tb.innerHTML = '<tr><td colspan="10" class="m">Nenhum sinal ainda.</td></tr>'; return; }
-    tb.innerHTML = history.slice(0, 100).map((h) => {
+    const main = history.filter((h) => !h.shadow);
+    if (!main.length) { tb.innerHTML = '<tr><td colspan="10" class="m">Nenhum sinal ainda.</td></tr>'; return; }
+    tb.innerHTML = main.slice(0, 100).map((h) => {
       const cls = h.res === "GANHOU" ? "g" : h.res === "PERDEU" ? "r" : "m";
       return `<tr><td>${hhmm(h.sigT + MIN)}</td><td>${h.name}</td><td>${STRAT_NAMES[h.strat]}</td>
         <td class="${h.dir === "UP" ? "g" : "r"}">${h.dir === "UP" ? "▲ UP" : "▼ DOWN"}</td>
@@ -394,8 +440,8 @@
     cs.forEach((c, k) => { if (k % 10 === 0) g.fillText(hhmm(c.t), k * cw, H - 6); });
     // EMAs
     const line = (arr, col) => { g.strokeStyle = col; g.lineWidth = 1.2; g.beginPath(); let st = false; cs.forEach((_, k) => { const v = arr[off + k]; if (v == null) return; const xx = k * cw + cw / 2; st ? g.lineTo(xx, y(v)) : g.moveTo(xx, y(v)); st = true; }); g.stroke(); };
-    if (el.strategy.value === "ema") { line(ind.e9, "#38bdf8"); line(ind.e21, "#f59e0b"); }
-    if (el.strategy.value === "bb") { line(ind.bb.up, "#64748b"); line(ind.bb.lo, "#64748b"); line(ind.bb.mid, "#475569"); }
+    line(ind.bb.up, "#334155"); line(ind.bb.lo, "#334155");
+    line(ind.e9, "#38bdf8"); line(ind.e21, "#f59e0b");
     // candles
     cs.forEach((c, k) => {
       const x = k * cw + cw / 2, up = c.c >= c.o; g.strokeStyle = g.fillStyle = up ? "#22c55e" : "#ef4444";
@@ -404,7 +450,7 @@
     });
     // signal markers from history on visible candles
     history.forEach((h) => {
-      if (h.sym !== asset().sym) return; const k = cs.findIndex((c) => c.t === h.sigT); if (k < 0) return;
+      if (h.shadow || h.sym !== asset().sym) return; const k = cs.findIndex((c) => c.t === h.sigT); if (k < 0) return;
       const x = k * cw + cw / 2; g.fillStyle = h.dir === "UP" ? "#22c55e" : "#ef4444"; g.font = "bold 12px system-ui";
       g.fillText(h.dir === "UP" ? "▲" : "▼", x - 5, h.dir === "UP" ? y(cs[k].l) + 14 : y(cs[k].h) - 4);
     });
@@ -429,37 +475,38 @@
 
   // ---------- backtest ----------
   async function runBacktest() {
-    const a = asset(), strat = el.strategy.value, n = expiry(), pay = payoutOf(a.sym), size = +$("btSize").value;
+    const a = asset(), n = expiry(), pay = payoutOf(a.sym), size = +$("btSize").value;
     $("btRun").disabled = true; $("btInfo").textContent = `Baixando ${size.toLocaleString("pt-BR")} velas de ${a.name}…`;
     try {
       const nowT = now();
       const cs = (await fetchKlines(a.sym, size)).filter((c) => c.t + MIN <= nowT);
-      const ind = indicators(cs); const trades = [];
-      for (let i = 25; i + n < cs.length; i++) {
-        const dir = signalAt(strat, ind, cs, i); if (!dir) continue;
-        trades.push({ dir, res: outcome(dir, cs[i].c, cs[i + n].c) });
-        i += n - 1; // one trade at a time, same as live
-      }
-      const st = stats(trades, pay, stake());
-      let streak = 0, best = 0; const eq = [0];
-      trades.forEach((t) => {
-        if (t.res === "PERDEU") { streak++; best = Math.max(best, streak); } else if (t.res === "GANHOU") streak = 0;
-        eq.push(eq[eq.length - 1] + (t.res === "GANHOU" ? stake() * pay / 100 : t.res === "PERDEU" ? -stake() : 0));
-      });
+      const ind = indicators(cs);
+      const run = (strat) => {
+        const trades = [];
+        for (let i = 25; i + n < cs.length; i++) {
+          const dir = signalOf(strat, ind, cs, i); if (!dir) continue;
+          trades.push({ dir, res: outcome(dir, cs[i].c, cs[i + n].c) });
+          i += n - 1; // one trade at a time, same as live
+        }
+        return { strat, trades, st: stats(trades, pay, stake()) };
+      };
+      const all = ["combo", ...PARTS, "coin"].map(run);
       $("btOut").style.display = "";
-      $("bN").textContent = trades.length;
-      $("bWLR").innerHTML = `<span class="g">${st.w}</span> / <span class="r">${st.l}</span> / ${st.r}`;
-      $("bWR").textContent = pct(st.wr); $("bWR").className = st.wr == null ? "" : st.wr > st.be ? "g" : "r";
-      $("bBE").textContent = pct(st.be);
-      $("bCI").textContent = st.ci ? `${pct(st.ci[0])} – ${pct(st.ci[1])}` : "—";
-      $("bNet").textContent = money(st.net); $("bNet").className = st.net >= 0 ? "g" : "r";
-      $("bStreak").textContent = best;
+      $("btRows").innerHTML = all.map(({ strat, st }) => `<tr class="${strat === "combo" ? "main" : ""}"><td>${STRAT_NAMES[strat]}${strat === "coin" ? " <small>(controle)</small>" : ""}</td>
+        <td>${st.n + st.r}</td><td class="${st.wr == null ? "" : st.wr > st.be ? "g" : "r"}">${pct(st.wr)}</td>
+        <td>${st.ci ? pct(st.ci[0]) + "–" + pct(st.ci[1]) : "—"}</td><td class="${st.net >= 0 ? "g" : "r"}">${money(st.net)}</td></tr>`).join("");
+      const combo = all[0], st = combo.st;
+      $("btBE").textContent = `Payout ${pay}% → precisa acertar ${pct(st.be)} para empatar. Valor ${money(stake())} por entrada.`;
+      const eq = [0];
+      combo.trades.forEach((t) => eq.push(eq[eq.length - 1] + (t.res === "GANHOU" ? stake() * pay / 100 : t.res === "PERDEU" ? -stake() : 0)));
       const v = $("bVerdict");
-      if (st.n < 30) { v.className = "verdict meh"; v.innerHTML = `<b>Poucos sinais (${st.n}) para concluir qualquer coisa.</b> Aumente o número de velas.`; }
-      else if (st.ci[0] > st.be) { v.className = "verdict ok"; v.innerHTML = `<b>Acima do empate neste período</b> (mesmo o pior caso da faixa, ${pct(st.ci[0])}, passa de ${pct(st.be)}). Antes de acreditar, rode em outro ativo e em outro tamanho: resultado bom em um período costuma não se repetir. E os preços OTC da corretora não são estes.`; }
-      else if (st.ci[1] < st.be) { v.className = "verdict bad"; v.innerHTML = `<b>Perde dinheiro.</b> Acertou ${pct(st.wr)} e precisava de ${pct(st.be)}. Com ${money(stake())} por entrada, o resultado foi ${money(st.net)}.`; }
-      else { v.className = "verdict meh"; v.innerHTML = `<b>Não dá para dizer que tem vantagem.</b> Acertou ${pct(st.wr)}, mas o acerto real pode estar entre ${pct(st.ci[0])} e ${pct(st.ci[1])}, e o empate é ${pct(st.be)}. Com essa quantidade de sinais, o resultado ainda pode ser sorte. Compare com a estratégia "Cara ou coroa (controle)" e teste com mais velas.`; }
-      $("btInfo").textContent = `${a.name} · ${STRAT_NAMES[strat]} · expiração ${n} min · payout ${pay}% · ${cs.length.toLocaleString("pt-BR")} velas de ${new Date(cs[0].t).toLocaleString("pt-BR")} a ${new Date(cs[cs.length - 1].t).toLocaleString("pt-BR")}`;
+      const lucky = all.slice(1, 4).filter((x) => x.st.n >= 30 && x.st.ci[0] > x.st.be).map((x) => STRAT_NAMES[x.strat]);
+      if (st.n < 30) { v.className = "verdict meh"; v.innerHTML = `<b>Indicador: poucos sinais (${st.n}) para concluir.</b> Aumente o número de velas.`; }
+      else if (st.ci[0] > st.be) { v.className = "verdict ok"; v.innerHTML = `<b>Indicador acima do empate neste período</b> (pior caso ${pct(st.ci[0])} &gt; ${pct(st.be)}). Teste em outros ativos e tamanhos antes de acreditar.`; }
+      else if (st.ci[1] < st.be) { v.className = "verdict bad"; v.innerHTML = `<b>Indicador perde dinheiro aqui.</b> Acertou ${pct(st.wr)} e precisava de ${pct(st.be)}.`; }
+      else { v.className = "verdict meh"; v.innerHTML = `<b>Indicador sem vantagem comprovada.</b> Acertou ${pct(st.wr)}; o real pode estar entre ${pct(st.ci[0])} e ${pct(st.ci[1])}, e o empate é ${pct(st.be)}. Compare com Cara ou coroa.`; }
+      if (lucky.length) v.innerHTML += `<br><small>${lucky.join(", ")} passou do empate neste período. Ao testar várias estratégias, uma costuma ir bem por acaso: confirme em outro período.</small>`;
+      $("btInfo").textContent = `${a.name} · expiração ${n} min · ${cs.length.toLocaleString("pt-BR")} velas (${new Date(cs[0].t).toLocaleDateString("pt-BR")} a ${new Date(cs[cs.length - 1].t).toLocaleDateString("pt-BR")})`;
       lastEq = eq; drawEquity(eq);
     } catch (e) { $("btInfo").textContent = "Erro ao baixar as velas: " + e.message; }
     $("btRun").disabled = false;
@@ -471,7 +518,7 @@
     const hi = Math.max(0, ...eq), lo = Math.min(0, ...eq), pad = 18, y = (v) => pad + (hi - v) / ((hi - lo) || 1) * (H - 2 * pad);
     const x = (k) => 50 + k / Math.max(1, eq.length - 1) * (W - 60);
     g.strokeStyle = "#334155"; g.beginPath(); g.moveTo(50, y(0)); g.lineTo(W - 10, y(0)); g.stroke();
-    g.fillStyle = "#8a97b3"; g.font = "11px system-ui"; g.fillText(money(hi), 2, y(hi) + 4); g.fillText(cur + " 0", 2, y(0) + 4); g.fillText(money(lo), 2, y(lo) + 4);
+    g.fillStyle = "#8a97b3"; g.font = "11px system-ui"; g.fillText(cur + " 0", 2, y(0) + 4); if (y(0) - y(hi) > 14) g.fillText(money(hi), 2, y(hi) + 4); if (y(lo) - y(0) > 14) g.fillText(money(lo), 2, y(lo) + 4);
     g.strokeStyle = eq[eq.length - 1] >= 0 ? "#22c55e" : "#ef4444"; g.lineWidth = 1.6; g.beginPath();
     eq.forEach((v, k) => k ? g.lineTo(x(k), y(v)) : g.moveTo(x(k), y(v))); g.stroke();
   }
@@ -479,10 +526,8 @@
   // ---------- events ----------
   function syncPayoutInput() { el.payout.value = payoutOf(asset().sym); }
   el.asset.onchange = () => { LS.set("asset", el.asset.value); syncPayoutInput(); $("btOut").style.display = "none"; loadAsset(); };
-  el.strategy.onchange = () => { LS.set("strategy", el.strategy.value); draw(); renderPanel(); };
   el.expiry.onchange = () => { LS.set("expiry", +el.expiry.value); renderPanel(); };
   el.payout.oninput = () => { const v = Math.min(100, Math.max(1, +el.payout.value || 0)); if (!v) return; payouts[asset().sym] = v; LS.set("payouts", payouts); renderPanel(); };
-  el.stake.oninput = () => { LS.set("stake", stake()); renderPanel(); };
   $("resetSession").onclick = () => { if (!confirm("Apagar o histórico e as estatísticas desta sessão?")) return; history = []; LS.set("history", history); renderHistory(); renderPanel(); draw(); };
   $("btRun").onclick = runBacktest;
   $("tz").value = String(tz);
@@ -504,12 +549,12 @@
     }
     // grab everything first: once moved into a detached pane, getElementById no longer finds it
     const r = {
-      brokerLine: $("brokerTxt"), signal: $("dir").closest(".sub"), session: $("sW").closest(".sub"), chart: document.querySelector(".chartwrap"),
+      brokerLine: $("brokerTxt"), signal: $("dir").closest(".sub"), ind: $("indRows").closest(".sub"), session: $("sW").closest(".sub"), chart: document.querySelector(".chartwrap"),
       bt: $("btRun").closest(".card"), header: document.querySelector("header"), broker: $("broker"), reset: $("resetSession"), warn: document.querySelector(".warn"),
     };
     r.brokerLine.classList.add("sub", "brokerline");
     r.broker.querySelector("h3").textContent = "Ler da corretora";
-    pane.sinal.append(r.brokerLine, r.signal, r.session, r.chart);
+    pane.sinal.append(r.brokerLine, r.signal, r.ind, r.session, r.chart);
     const hl = mk("div", "card"); hl.innerHTML = '<div id="histList" class="hlist"></div>'; pane.hist.append(hl);
     pane.bt.append(r.bt);
     const cfg = mk("div", "card cfg");
@@ -534,7 +579,7 @@
   let lastDetect = null;
   function applyDetect(d) {
     paused = null;
-    const follow = $("follow").checked;
+    const follow = true;   // market, payout and amount always come from the broker
     const amt = Number.isFinite(d && d.amount) && d.amount > 0 ? d.amount : null;
     if (follow && d && d.currency && d.currency !== cur) { cur = d.currency; LS.set("cur", cur); }
     if (follow && amt && +el.stake.value !== amt) { el.stake.value = amt; LS.set("stake", amt); }
@@ -565,8 +610,6 @@
     document.body.classList.add("compact");
     buildTabs();
     $("broker").style.display = "";
-    $("follow").checked = LS.get("follow", true);
-    $("follow").onchange = () => { LS.set("follow", $("follow").checked); applyDetect(lastDetect); };
     window.addEventListener("message", (e) => {
       if (e.source !== window.parent) return;
       const d = e.data; if (!d || d.type !== "sh-detect") return;
