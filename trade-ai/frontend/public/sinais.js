@@ -12,6 +12,15 @@
   const REST = "https://data-api.binance.vision/api/v3/klines";
   const WS = "wss://data-stream.binance.vision/ws/";
   const MIN = 60000;
+  // clock synced with the exchange (a PC clock a few seconds off makes the countdown wrong)
+  let clockOff = 0;
+  const now = () => Date.now() + clockOff;
+  async function syncClock() {
+    try {
+      const t0 = Date.now(); const r = await fetch("https://data-api.binance.vision/api/v3/time"); const t1 = Date.now();
+      const { serverTime } = await r.json(); if (serverTime) clockOff = serverTime - (t0 + t1) / 2;
+    } catch {}
+  }
   const STRAT_NAMES = { rsi: "RSI 30/70", bb: "Bollinger", ema: "EMA 9×21", coin: "Cara ou coroa" };
   const LS = {
     get(k, d) { try { const v = localStorage.getItem("sh_" + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
@@ -19,6 +28,8 @@
   };
 
   const $ = (id) => document.getElementById(id);
+  const esc = (t) => String(t).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+  const compact = window.top !== window;   // running inside the extension panel
   const el = {
     asset: $("asset"), strategy: $("strategy"), expiry: $("expiry"), payout: $("payout"), stake: $("stake"),
   };
@@ -120,7 +131,11 @@
   const money = (x) => (x < 0 ? "-" : "") + cur + " " + Math.abs(x).toFixed(2).replace(".", cur === "R$" ? "," : ".");
   const decimals = (price) => price < 10 ? 5 : price < 1000 ? 3 : 2;
   const fmt = (x) => x == null ? "—" : x.toFixed(decimals(x));
-  const hhmm = (t) => new Date(t).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  let tz = LS.get("tz", "local");   // "local" or hours from UTC, to match the broker's clock
+  const clockStr = (t, sec) => tz === "local"
+    ? new Date(t).toLocaleTimeString("pt-BR", sec ? { hour: "2-digit", minute: "2-digit", second: "2-digit" } : { hour: "2-digit", minute: "2-digit" })
+    : new Date(t + (+tz) * 3600000).toISOString().slice(11, sec ? 19 : 16);
+  const hhmm = (t) => clockStr(t, false);
 
   // ---------- data ----------
   const parseK = (k) => ({ t: k[0], o: +k[1], h: +k[2], l: +k[3], c: +k[4] });
@@ -138,7 +153,7 @@
     return out;
   }
 
-  function setStatus(txt, on) { $("status").innerHTML = `<span class="dot ${on ? "on" : ""}"></span>${txt}`; $("livebadge").style.opacity = on ? 1 : .35; }
+  function setStatus(txt, on) { $("status").innerHTML = `<span class="dot ${on ? "on" : ""}"></span>${txt}`; if ($("livebadge")) $("livebadge").style.opacity = on ? 1 : .35; }
 
   async function loadAsset() {
     const sym = asset().sym; const token = ++wsToken;
@@ -149,8 +164,8 @@
     try {
       const cs = await fetchKlines(sym, 300);
       if (token !== wsToken) return;
-      const now = Date.now();
-      candles = cs.map((c) => ({ ...c, closed: c.t + MIN <= now }));
+      const nowT = now();
+      candles = cs.map((c) => ({ ...c, closed: c.t + MIN <= nowT }));
       const closed = candles.filter((c) => c.closed);
       lastEvaluatedT = closed.length ? closed[closed.length - 1].t : 0; // never signal on old candles
       resolveOpen();
@@ -181,13 +196,24 @@
   let pollTimer = null, wsFails = 0;
   function connectWS(sym, token) {
     if (wsFails >= 2) return startPolling(sym, token); // WebSocket blocked on this network
-    const s = new WebSocket(WS + sym.toLowerCase() + "@kline_1m"); ws = s; let opened = false;
+    const l = sym.toLowerCase();
+    const s = new WebSocket(`wss://data-stream.binance.vision/stream?streams=${l}@kline_1m/${l}@aggTrade`); ws = s; let opened = false;
     s.onopen = () => { opened = true; wsFails = 0; reconnectDelay = 1000; setStatus(asset().name + " · ao vivo · M1", true); };
+    let pending = false;
+    const paint = () => { if (pending) return; pending = true; requestAnimationFrame(() => { pending = false; draw(); renderPanel(); }); };
     s.onmessage = (ev) => {
       if (token !== wsToken) return;
-      const k = JSON.parse(ev.data).k; if (!k) return;
-      if (applyKline({ t: k.t, o: +k.o, h: +k.h, l: +k.l, c: +k.c, closed: k.x })) onClose();
-      draw(); renderPanel();
+      const d = JSON.parse(ev.data).data; if (!d) return;
+      let closed = false;
+      if (d.e === "kline") { const k = d.k; closed = applyKline({ t: k.t, o: +k.o, h: +k.h, l: +k.l, c: +k.c, closed: k.x }); }
+      else if (d.e === "aggTrade") {
+        // every trade moves the current candle right away (the kline stream only updates every ~2 s)
+        const p = +d.p, t = Math.floor(d.T / MIN) * MIN, last = candles[candles.length - 1];
+        if (last && t === last.t) { last.c = p; last.h = Math.max(last.h, p); last.l = Math.min(last.l, p); }
+        else if (last && t > last.t) closed = applyKline({ t, o: p, h: p, l: p, c: p, closed: false });
+      }
+      if (closed) onClose();
+      paint();
     };
     s.onclose = () => {
       if (token !== wsToken) return;
@@ -200,20 +226,20 @@
   }
   function startPolling(sym, token) {
     clearInterval(pollTimer);
-    setStatus(asset().name + " · ao vivo · M1 (atualiza a cada 2 s)", true);
+    setStatus(asset().name + " · ao vivo · M1 (atualiza a cada 1 s)", true);
     const tick = async () => {
       if (token !== wsToken) return clearInterval(pollTimer);
       try {
         const r = await fetch(`${REST}?symbol=${sym}&interval=1m&limit=2`); if (!r.ok) throw 0;
-        const now = Date.now(); let closed = false;
-        for (const k of (await r.json()).map(parseK)) if (applyKline({ ...k, closed: k.t + MIN <= now })) closed = true;
+        const nowT = now(); let closed = false;
+        for (const k of (await r.json()).map(parseK)) if (applyKline({ ...k, closed: k.t + MIN <= nowT })) closed = true;
         if (token !== wsToken) return;
         if (closed) onClose();
-        setStatus(asset().name + " · ao vivo · M1 (atualiza a cada 2 s)", true);
+        setStatus(asset().name + " · ao vivo · M1 (atualiza a cada 1 s)", true);
         draw(); renderPanel();
       } catch { setStatus("sem resposta dos dados, tentando…", false); }
     };
-    pollTimer = setInterval(tick, 2000); tick();
+    pollTimer = setInterval(tick, 1000); tick();
   }
 
   // ---------- live signals ----------
@@ -226,7 +252,7 @@
     if (resolvingOther) return; resolvingOther = true;
     try {
       for (const h of history) {
-        if (h.res || h.sym === asset().sym || Date.now() < h.endAt + 3000) continue;
+        if (h.res || h.sym === asset().sym || now() < h.endAt + 3000) continue;
         const r = await fetch(`${REST}?symbol=${h.sym}&interval=1m&startTime=${h.expT}&limit=1`);
         if (!r.ok) continue;
         const k = (await r.json()).map(parseK)[0];
@@ -281,13 +307,14 @@
 
   function renderPanel() {
     const a = asset(); $("assetName").textContent = a.name;
+    $("clock").textContent = clockStr(now(), true);
     $("mStake").textContent = "Valor " + money(tr0() ? tr0().stake || stake() : stake()).replace(/^-/, "");
     const tr = openTrade();
     const dirEl = $("dir");
     if (tr) {
       $("tradeTitle").textContent = "Trade aberto";
       dirEl.className = "dir " + tr.dir; dirEl.textContent = tr.dir === "UP" ? "▲ UP" : "▼ DOWN";
-      const left = Math.max(0, tr.endAt - Date.now()), tot = tr.n * MIN;
+      const left = Math.max(0, tr.endAt - now()), tot = tr.n * MIN;
       const s = Math.ceil(left / 1000);
       $("timer").textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
       $("bar").style.width = (100 * (1 - left / tot)).toFixed(1) + "%";
@@ -299,8 +326,8 @@
       if (paused) { dirEl.className = "dir PAUSE"; dirEl.textContent = "PAUSADO"; }
       else { dirEl.className = "dir WAIT"; dirEl.textContent = "SEM SINAL"; }
       const last = candles[candles.length - 1];
-      if (last) { const s = Math.max(0, Math.ceil((last.t + MIN - Date.now()) / 1000)); $("timer").textContent = `0:${String(s % 60).padStart(2, "0")}`; $("bar").style.width = (100 * (1 - s / 60)) + "%"; }
-      else { $("timer").textContent = "--:--"; $("bar").style.width = "0"; }
+      const nx = Math.ceil(now() / MIN) * MIN, s = Math.max(0, Math.ceil((nx - now()) / 1000));
+      $("timer").textContent = `0:${String(s % 60).padStart(2, "0")}`; $("bar").style.width = (100 * (1 - s / 60)) + "%";
       $("mPayout").textContent = `Payout ${payoutOf(a.sym)}%`;
       $("mEntry").textContent = last ? `Preço ${fmt(last.c)}` : "Preço —";
       $("mExp").textContent = `${expiry()} min`;
@@ -325,6 +352,15 @@
   }
 
   function renderHistory() {
+    if (compact) {
+      const box = $("histList"); if (!box) return;
+      box.innerHTML = history.length ? history.slice(0, 50).map((h) => {
+        const cls = h.res === "GANHOU" ? "g" : h.res === "PERDEU" ? "r" : "m";
+        return `<div class="hrow"><div><b>${hhmm(h.sigT + MIN)}</b> <span class="${h.dir === "UP" ? "g" : "r"}">${h.dir === "UP" ? "▲ UP" : "▼ DOWN"}</span> ${esc(h.name.split(" ")[0])}
+          <small>${fmt(h.entry)} → ${fmt(h.exit)} · ${h.n} min · ${h.stake ? esc((h.cur || "$") + " " + h.stake) : ""} · ${h.payout}%</small></div><b class="${cls}">${h.res || "aberto"}</b></div>`;
+      }).join("") : '<div class="m">Nenhum sinal ainda.</div>';
+      return;
+    }
     const tb = $("hist");
     if (!history.length) { tb.innerHTML = '<tr><td colspan="10" class="m">Nenhum sinal ainda.</td></tr>'; return; }
     tb.innerHTML = history.slice(0, 100).map((h) => {
@@ -353,7 +389,8 @@
     const y = (p) => padT + (hi - p) / (hi - lo) * (H - padT - padB);
     // grid
     g.strokeStyle = "#1f2a44"; g.lineWidth = 1; g.fillStyle = "#8a97b3"; g.font = "11px system-ui";
-    for (let k = 0; k <= 4; k++) { const p = lo + (hi - lo) * k / 4, yy = y(p); g.beginPath(); g.moveTo(0, yy); g.lineTo(W - padR, yy); g.stroke(); g.fillText(fmt(p), W - padR + 6, yy + 4); }
+    const lastC = candles[candles.length - 1].c;
+    for (let k = 0; k <= 4; k++) { const p = lo + (hi - lo) * k / 4, yy = y(p); g.beginPath(); g.moveTo(0, yy); g.lineTo(W - padR, yy); g.stroke(); if (Math.abs(yy - y(lastC)) > 14) g.fillText(fmt(p), W - padR + 6, yy + 4); }
     cs.forEach((c, k) => { if (k % 10 === 0) g.fillText(hhmm(c.t), k * cw, H - 6); });
     // EMAs
     const line = (arr, col) => { g.strokeStyle = col; g.lineWidth = 1.2; g.beginPath(); let st = false; cs.forEach((_, k) => { const v = arr[off + k]; if (v == null) return; const xx = k * cw + cw / 2; st ? g.lineTo(xx, y(v)) : g.moveTo(xx, y(v)); st = true; }); g.stroke(); };
@@ -379,6 +416,14 @@
     }
     // current price
     const last = candles[candles.length - 1], yy = y(last.c);
+    $("status").style.visibility = paused && lastDetect && lastDetect.raw ? "hidden" : "";
+    if (paused && lastDetect && lastDetect.raw) {
+      g.fillStyle = "rgba(11,17,32,.82)"; g.fillRect(0, 0, W, H);
+      g.fillStyle = "#f59e0b"; g.font = "bold 13px system-ui"; g.textAlign = "center";
+      g.fillText(`${lastDetect.raw}: sem gráfico real`, W / 2, H / 2 - 6);
+      g.fillStyle = "#8a97b3"; g.font = "12px system-ui"; g.fillText("preço gerado pela corretora", W / 2, H / 2 + 12); g.textAlign = "left";
+      return;
+    }
     g.fillStyle = "#38bdf8"; g.fillRect(W - padR, yy - 9, padR, 18); g.fillStyle = "#001018"; g.font = "bold 11px system-ui"; g.fillText(fmt(last.c), W - padR + 4, yy + 4);
   }
 
@@ -387,8 +432,8 @@
     const a = asset(), strat = el.strategy.value, n = expiry(), pay = payoutOf(a.sym), size = +$("btSize").value;
     $("btRun").disabled = true; $("btInfo").textContent = `Baixando ${size.toLocaleString("pt-BR")} velas de ${a.name}…`;
     try {
-      const now = Date.now();
-      const cs = (await fetchKlines(a.sym, size)).filter((c) => c.t + MIN <= now);
+      const nowT = now();
+      const cs = (await fetchKlines(a.sym, size)).filter((c) => c.t + MIN <= nowT);
       const ind = indicators(cs); const trades = [];
       for (let i = 25; i + n < cs.length; i++) {
         const dir = signalAt(strat, ind, cs, i); if (!dir) continue;
@@ -415,10 +460,11 @@
       else if (st.ci[1] < st.be) { v.className = "verdict bad"; v.innerHTML = `<b>Perde dinheiro.</b> Acertou ${pct(st.wr)} e precisava de ${pct(st.be)}. Com ${money(stake())} por entrada, o resultado foi ${money(st.net)}.`; }
       else { v.className = "verdict meh"; v.innerHTML = `<b>Não dá para dizer que tem vantagem.</b> Acertou ${pct(st.wr)}, mas o acerto real pode estar entre ${pct(st.ci[0])} e ${pct(st.ci[1])}, e o empate é ${pct(st.be)}. Com essa quantidade de sinais, o resultado ainda pode ser sorte. Compare com a estratégia "Cara ou coroa (controle)" e teste com mais velas.`; }
       $("btInfo").textContent = `${a.name} · ${STRAT_NAMES[strat]} · expiração ${n} min · payout ${pay}% · ${cs.length.toLocaleString("pt-BR")} velas de ${new Date(cs[0].t).toLocaleString("pt-BR")} a ${new Date(cs[cs.length - 1].t).toLocaleString("pt-BR")}`;
-      drawEquity(eq);
+      lastEq = eq; drawEquity(eq);
     } catch (e) { $("btInfo").textContent = "Erro ao baixar as velas: " + e.message; }
     $("btRun").disabled = false;
   }
+  let lastEq = null;
   function drawEquity(eq) {
     const c = $("eq"), dpr = window.devicePixelRatio || 1, W = c.clientWidth, H = c.clientHeight;
     c.width = W * dpr; c.height = H * dpr; const g = c.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -439,14 +485,52 @@
   el.stake.oninput = () => { LS.set("stake", stake()); renderPanel(); };
   $("resetSession").onclick = () => { if (!confirm("Apagar o histórico e as estatísticas desta sessão?")) return; history = []; LS.set("history", history); renderHistory(); renderPanel(); draw(); };
   $("btRun").onclick = runBacktest;
+  $("tz").value = String(tz);
+  $("tz").onchange = () => { tz = $("tz").value; LS.set("tz", tz); renderHistory(); draw(); renderPanel(); };
+  syncClock(); setInterval(syncClock, 10 * MIN);
   window.addEventListener("resize", draw);
   setInterval(() => { renderPanel(); }, 250);
   setInterval(resolveOtherAssets, 5000);
 
+  // ---------- compact panel (extension): 4 tabs that fit the window ----------
+  function buildTabs() {
+    const mk = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html) e.innerHTML = html; return e; };
+    const nav = mk("nav", "tabs");
+    const tabs = { sinal: "Sinal", hist: "Histórico", bt: "Backtest", cfg: "Ajustes" };
+    const pane = {};
+    for (const [k, label] of Object.entries(tabs)) {
+      const b = mk("button", "", label); b.dataset.tab = k; nav.appendChild(b);
+      pane[k] = mk("div", "pane"); pane[k].dataset.tab = k;
+    }
+    // grab everything first: once moved into a detached pane, getElementById no longer finds it
+    const r = {
+      brokerLine: $("brokerTxt"), signal: $("dir").closest(".sub"), session: $("sW").closest(".sub"), chart: document.querySelector(".chartwrap"),
+      bt: $("btRun").closest(".card"), header: document.querySelector("header"), broker: $("broker"), reset: $("resetSession"), warn: document.querySelector(".warn"),
+    };
+    r.brokerLine.classList.add("sub", "brokerline");
+    r.broker.querySelector("h3").textContent = "Ler da corretora";
+    pane.sinal.append(r.brokerLine, r.signal, r.session, r.chart);
+    const hl = mk("div", "card"); hl.innerHTML = '<div id="histList" class="hlist"></div>'; pane.hist.append(hl);
+    pane.bt.append(r.bt);
+    const cfg = mk("div", "card cfg");
+    cfg.append(r.header, r.broker, r.reset, r.warn);
+    pane.cfg.append(cfg);
+    document.body.innerHTML = "";
+    document.body.append(nav, ...Object.values(pane));
+    const show = (k) => {
+      nav.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.tab === k));
+      Object.values(pane).forEach((p) => p.classList.toggle("on", p.dataset.tab === k));
+      LS.set("tab", k); draw(); if (k === "bt" && lastEq) drawEquity(lastEq);
+    };
+    nav.onclick = (e) => { const b = e.target.closest("button"); if (b) show(b.dataset.tab); };
+    show(LS.get("tab", "sinal"));
+    new ResizeObserver(() => draw()).observe(document.querySelector(".chartwrap"));
+    renderHistory();
+  }
+
   // ---------- extension bridge ----------
   // Inside the extension the page runs in an iframe; content.js reads the asset and payout
   // shown by the broker and posts them here.
-  const esc = (t) => String(t).replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
   let lastDetect = null;
   function applyDetect(d) {
     paused = null;
@@ -454,31 +538,32 @@
     const amt = Number.isFinite(d && d.amount) && d.amount > 0 ? d.amount : null;
     if (follow && d && d.currency && d.currency !== cur) { cur = d.currency; LS.set("cur", cur); }
     if (follow && amt && +el.stake.value !== amt) { el.stake.value = amt; LS.set("stake", amt); }
-    const amtTxt = amt ? ` · valor <b>${esc(money(amt))}</b>` : " · valor não encontrado";
+    const amtTxt = amt ? ` · <b>${esc(money(amt))}</b>` : " · valor ?";
     if (!d || !d.raw) {
-      $("brokerTxt").innerHTML = "Nenhum mercado encontrado na página." + (d ? amtTxt : "") + "<div class=\"m\">Use <b>Apontar mercado</b> abaixo.</div>";
+      $("brokerTxt").innerHTML = "Nenhum mercado encontrado na página." + "<div class=\"m\">Em <b>Ajustes</b>, use <b>Apontar mercado</b>.</div>";
       renderPanel(); return;
     }
     const sym = typeof d.sym === "string" && ASSETS.some((x) => x.sym === d.sym) ? d.sym : null;
     const pay = Number.isFinite(d.payout) && d.payout >= 10 && d.payout <= 100 ? Math.round(d.payout) : null;
-    let html = `Mercado: <b>${esc(d.raw)}</b>` + (pay ? ` · payout <b>${pay}%</b>` : " · payout não encontrado") + amtTxt;
+    let html = `<b>${esc(d.raw)}</b>` + (pay ? ` · <b>${pay}%</b>` : " · payout ?") + amtTxt;
     if (follow) {
-      if (d.otc) paused = "OTC é preço gerado pela corretora, não existe dado real para comparar";
-      else if (!sym) paused = "este mercado não tem dados reais grátis aqui";
+      if (d.otc) paused = "OTC é preço da própria corretora";
+      else if (!sym) paused = "sem dado real deste mercado";
       else {
         if (pay && payouts[sym] !== pay) { payouts[sym] = pay; LS.set("payouts", payouts); }
         if (el.asset.value !== sym) { el.asset.value = sym; el.asset.onchange(); } else syncPayoutInput();
-        html += ` → sinais de <b>${esc(asset().name)}</b>`;
+        html += ` → <b>${esc(asset().name)}</b>`;
       }
     }
-    if (paused) html += `<div class="w">Sem sinal: ${esc(paused)}. Sinais só em BTC, ETH, SOL, BNB, XRP, EUR/USD e ouro fora do OTC.</div>`;
+    if (paused) html += `<div class="w">Sem sinal: ${esc(paused)}. Sinais em BTC, ETH, SOL, BNB, XRP, EUR/USD e ouro sem OTC.</div>`;
     const t = d.taught || {};
-    if (t.asset || t.payout || t.amount) html += `<div class="m" style="font-size:11px;margin-top:4px">Lendo do ponto que você marcou: ${[t.asset && "mercado", t.payout && "payout", t.amount && "valor"].filter(Boolean).join(", ")}</div>`;
+    if (t.asset || t.payout || t.amount) html += `<div class="m" style="font-size:11px">pontos marcados: ${[t.asset && "mercado", t.payout && "payout", t.amount && "valor"].filter(Boolean).join(", ")}</div>`;
     $("brokerTxt").innerHTML = html;
     renderPanel();
   }
-  if (window.top !== window) {
+  if (compact) {
     document.body.classList.add("compact");
+    buildTabs();
     $("broker").style.display = "";
     $("follow").checked = LS.get("follow", true);
     $("follow").onchange = () => { LS.set("follow", $("follow").checked); applyDetect(lastDetect); };

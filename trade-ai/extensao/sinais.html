@@ -92,6 +92,40 @@
   body.compact .panel{order:-1}
   body.compact .brand{display:none}
   body.compact .chartwrap{height:200px}
+  .th{display:flex;justify-content:space-between;gap:8px}
+  .clock{font-variant-numeric:tabular-nums;color:var(--txt);font-weight:600}
+  /* extension panel: tabs, no scrollbars */
+  body.compact{height:100vh;overflow:hidden;display:flex;flex-direction:column}
+  body.compact *{scrollbar-width:none}
+  body.compact ::-webkit-scrollbar{display:none}
+  .tabs{display:flex;border-bottom:1px solid var(--line);background:#0e1628;flex:none}
+  .tabs button{flex:1;border:0;border-radius:0;background:transparent;color:var(--mut);padding:9px 4px;font-size:12px;font-weight:600;border-bottom:2px solid transparent}
+  .tabs button.on{color:var(--txt);border-bottom-color:var(--acc)}
+  .pane{display:none;flex:1;min-height:0;flex-direction:column;gap:8px;padding:8px;overflow-y:auto;overflow-x:hidden}
+  .pane.on{display:flex}
+  .pane[data-tab=sinal]{overflow:hidden}
+  .pane[data-tab=sinal] .chartwrap{flex:1;min-height:110px;height:auto!important}
+  .pane .sub{padding:10px}
+  .brokerline{font-size:12px;line-height:1.4;flex:none}
+  .brokerline .w{font-size:11px}
+  body.compact .asset{font-size:17px}
+  body.compact .dirrow{margin:6px 0}
+  body.compact .timer{font-size:24px}
+  body.compact .extra{grid-template-columns:1fr;font-size:11px;margin-top:6px}
+  body.compact .stats b{font-size:17px}
+  body.compact .cfg header{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0;background:none;border:0}
+  body.compact .cfg header label:first-of-type,body.compact .cfg header label:nth-of-type(2){grid-column:1/-1}
+  body.compact .cfg header select,body.compact .cfg header input{width:100%}
+  body.compact .cfg{display:flex;flex-direction:column;gap:10px}
+  body.compact .cfg .warn{font-size:11px;padding:0;border:0;background:none}
+  body.compact .card{border-radius:12px}
+  body.compact .btgrid{grid-template-columns:1fr 1fr}
+  body.compact #btInfo{display:block;font-size:11px;margin-top:6px}
+  body.compact .verdict{font-size:12px}
+  body.compact .eq{height:140px}
+  .hlist{display:flex;flex-direction:column;gap:6px}
+  .hrow{display:flex;justify-content:space-between;align-items:center;gap:8px;background:var(--card2);border-radius:8px;padding:7px 9px;font-size:12px}
+  .hrow small{display:block;color:var(--mut);font-size:11px}
 </style>
 </head>
 <body>
@@ -122,6 +156,14 @@
   <label class="f">Valor por entrada
     <input id="stake" type="number" min="0.01" step="any" value="10" />
   </label>
+  <label class="f">Horário (igual ao da corretora)
+    <select id="tz">
+      <option value="local">do computador</option>
+      <option value="-5">UTC-5</option><option value="-4">UTC-4</option><option value="-3">UTC-3 (Brasília)</option>
+      <option value="-2">UTC-2</option><option value="0">UTC</option><option value="1">UTC+1</option>
+      <option value="2">UTC+2</option><option value="3">UTC+3</option><option value="4">UTC+4</option>
+    </select>
+  </label>
 </header>
 
 <main>
@@ -147,7 +189,7 @@
     </div>
 
     <div class="sub">
-      <h3 id="tradeTitle">Aguardando setup</h3>
+      <h3 class="th"><span id="tradeTitle">Aguardando setup</span><span id="clock" class="clock"></span></h3>
       <div class="asset" id="assetName">—</div>
       <div class="dirrow">
         <span class="dir WAIT" id="dir">SEM SINAL</span>
@@ -167,7 +209,7 @@
       </div>
       <div class="extra">
         <div>Empate do payout: <b id="sBE">—</b> de acerto</div>
-        <div>Resultado com <span id="sStakeLbl">$10</span>/entrada: <b id="sNet">$0.00</b></div>
+        <div>Resultado<span id="sStakeLbl" hidden></span>: <b id="sNet">$0.00</b></div>
         <div>Faixa provável do acerto real (95%): <b id="sCI">—</b></div>
       </div>
     </div>

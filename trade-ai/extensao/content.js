@@ -8,7 +8,7 @@
   const root = host.attachShadow({ mode: "closed" });
   root.innerHTML = `
     <style>
-      .box{width:390px;height:640px;min-width:300px;min-height:260px;max-width:95vw;max-height:92vh;display:flex;flex-direction:column;
+      .box{width:400px;height:660px;min-width:300px;min-height:260px;max-width:95vw;max-height:92vh;display:flex;flex-direction:column;
         background:#0b1120;border:1px solid #26324f;border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,.55);overflow:hidden;resize:both}
       .bar{display:flex;align-items:center;gap:6px;padding:6px 8px 6px 12px;background:#0e1628;color:#e6ebf5;
         font:600 13px system-ui,sans-serif;cursor:move;user-select:none;border-bottom:1px solid #26324f}
