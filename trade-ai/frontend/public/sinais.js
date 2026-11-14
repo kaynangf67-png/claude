@@ -493,7 +493,6 @@
   function renderPanel() {
     const a = asset(); $("assetName").textContent = curName();
     $("clock").textContent = clockStr(now(), true);
-    $("mStake").textContent = "Valor " + money(tr0() ? tr0().stake || stake() : stake()).replace(/^-/, "");
     const tr = openTrade();
     const dirEl = $("dir");
     resolveNow();
@@ -798,14 +797,13 @@
     const amt = Number.isFinite(d && d.amount) && d.amount > 0 ? d.amount : null;
     if (follow && d && d.currency && d.currency !== cur) { cur = d.currency; LS.set("cur", cur); }
     if (follow && amt && +el.stake.value !== amt) { el.stake.value = amt; LS.set("stake", amt); }
-    const amtTxt = amt ? ` · <b>${esc(money(amt))}</b>` : " · valor ?";
     if (!d || !d.raw) {
       $("brokerTxt").innerHTML = "Nenhum mercado encontrado na página." + "<div class=\"m\">Em <b>Ajustes</b>, use <b>Apontar mercado</b>.</div>";
       renderPanel(); return;
     }
     const sym = typeof d.sym === "string" && ASSETS.some((x) => x.sym === d.sym) ? d.sym : null;
     const pay = Number.isFinite(d.payout) && d.payout >= 10 && d.payout <= 100 ? Math.round(d.payout) : null;
-    let html = `<b>${esc(d.raw)}</b>` + (pay ? ` · <b>${pay}%</b>` : " · payout ?") + amtTxt;
+    let html = `<b>${esc(d.raw)}</b>` + (pay ? ` · <b>${pay}%</b>` : " · payout ?");
     if (follow) {
       if (d.otc || !sym) feedMode = true;
       else {
