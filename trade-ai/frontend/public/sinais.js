@@ -537,12 +537,12 @@
   function resolveNow() {
     let changed = false;
     for (const h of history) {
-      if (h.res || h.mode !== "now" || h.sym !== mk() || now() < h.endAt) continue;
+      if (h.res || h.mode !== "now" || h.sym !== mk() || now() < h.endAt || h.entry == null) continue;
       const p = lastPrice(); if (p == null) continue;
       h.exit = p; h.res = outcome(h.dir, h.entry, h.exit); changed = true;
       say(h.res === "GANHOU" ? "Ganhou." : h.res === "PERDEU" ? "Perdeu." : "Empate.");
     }
-    if (changed) { LS.set("history", history); renderHistory(); }
+    if (changed) { LS.set("history", history); renderHistory(); renderPrintHist(); }
   }
 
   // ---------- live signals ----------
@@ -1054,6 +1054,39 @@
       g.fillRect(x - cw * .35, Math.min(y(k.o), y(k.c)), cw * .7, Math.max(1, Math.abs(y(k.o) - y(k.c))));
     });
   }
+  // ---------- print signals: open at the entry time, checked at the expiration (GREEN / LOSS) ----------
+  function registerPrint() {
+    const r = printRes; if (!r || r.registered || now() < r.entryT) return;
+    r.registered = true;
+    const p = lastPrice();
+    history.unshift({
+      id: r.entryT + "print", sym: mk(), name: curName(), strat: "print", dir: r.pred.dir, n: Math.max(1, Math.round(r.tf / 60)), expSec: r.tf, tf: r.tf,
+      shadow: false, src: brokerMode() ? "corretora" : "binance", mode: "now", pattern: r.pred.name,
+      payout: curPayout(), stake: stake(), cur, entry: p, sigT: r.entryT, entryAt: r.entryT, endAt: r.expT, res: null, exit: null,
+    });
+    history = history.slice(0, 800); LS.set("history", history); renderPrintHist();
+  }
+  function markPrint(id, res) {
+    const h = history.find((x) => x.id === id); if (!h || h.res) return;
+    h.res = res; h.manual = true; LS.set("history", history); renderPrintHist();
+  }
+  function renderPrintHist() {
+    const box = $("printHist"); if (!box) return;
+    const list = history.filter((h) => h.strat === "print");
+    const g = list.filter((h) => h.res === "GANHOU").length, l = list.filter((h) => h.res === "PERDEU").length, e = list.filter((h) => h.res === "EMPATE").length;
+    const fmtS3 = (ms) => { const s = Math.ceil(Math.max(0, ms) / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+    const rows = list.slice(0, 50).map((h) => {
+      const tag = h.res === "GANHOU" ? '<b class="tag green">GREEN</b>' : h.res === "PERDEU" ? '<b class="tag loss">LOSS</b>' : h.res === "EMPATE" ? '<b class="tag m">EMPATE</b>'
+        : now() < h.endAt ? `<span class="m">${now() < h.entryAt ? "entra em " + fmtS3(h.entryAt - now()) : "fecha em " + fmtS3(h.endAt - now())}</span>`
+        : `<span class="pbtn"><button data-mark="GANHOU" data-id="${h.id}">Green</button><button data-mark="PERDEU" data-id="${h.id}">Loss</button></span>`;
+      const px = h.entry != null && h.exit != null ? `${fmt(h.entry)} → ${fmt(h.exit)}` : h.entry != null ? `entrada ${fmt(h.entry)}` : "sem preço lido: marque o resultado";
+      return `<div class="hrow"><div><b>${clockStr(h.entryAt, false)}</b> <span class="${h.dir === "UP" ? "g" : "r"}">${h.dir === "UP" ? "▲ COMPRA" : "▼ VENDA"}</span> ${esc(h.name.split(" ")[0])}
+        <small>${esc(px)} · ${h.expSec < 60 ? h.expSec + " s" : Math.round(h.expSec / 60) + " min"}${h.manual ? " · marcado à mão" : ""}</small></div>${tag}</div>`;
+    }).join("");
+    const n = g + l;
+    box.innerHTML = `<div class="pscore"><span class="g"><b>${g}</b> green</span><span class="r"><b>${l}</b> loss</span>${e ? `<span class="m"><b>${e}</b> empate</span>` : ""}<span>acerto <b>${n ? pct(g / n) : "—"}</b></span>
+      <button class="ghost" id="printClear" title="Apagar o histórico dos prints">Zerar</button></div>` + (rows || '<div class="m">Os sinais dos prints aparecem aqui, com GREEN ou LOSS na expiração.</div>');
+  }
   function initPrint() {
     const zone = $("printZone"); if (!zone) return;
     document.addEventListener("paste", (e) => {
@@ -1071,14 +1104,19 @@
     zone.addEventListener("dragover", (e) => { e.preventDefault(); zone.classList.add("over"); });
     zone.addEventListener("dragleave", () => zone.classList.remove("over"));
     zone.addEventListener("drop", (e) => { e.preventDefault(); zone.classList.remove("over"); const f = e.dataTransfer.files && e.dataTransfer.files[0]; if (f) readPrint(f); });
-    setInterval(() => { if (printRes) renderPrint(); }, 500);
+    setInterval(() => { if (printRes) { registerPrint(); renderPrint(); } renderPrintHist(); }, 500);
+    document.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-mark]"); if (b) { markPrint(b.dataset.id, b.dataset.mark); return; }
+      if (e.target.id === "printClear" && confirm("Apagar o histórico dos prints?")) { history = history.filter((h) => h.strat !== "print"); LS.set("history", history); renderPrintHist(); }
+    });
+    renderPrintHist();
   }
 
   // ---------- compact panel (extension): tabs that fit the window ----------
   function buildTabs() {
     const mkEl = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html) e.innerHTML = html; return e; };
     const nav = mkEl("nav", "tabs");
-    const tabs = { sinal: "Sinal", print: "Print", hist: "Histórico", bt: "Backtest", cfg: "Ajustes" };
+    const tabs = { print: "Print", cfg: "Ajustes" };
     const pane = {};
     for (const [k, label] of Object.entries(tabs)) {
       const b = mkEl("button", "", label); b.dataset.tab = k; nav.appendChild(b);
@@ -1091,15 +1129,16 @@
     };
     r.brokerLine.classList.add("sub", "brokerline");
     r.broker.querySelector("h3").textContent = "Ler da corretora";
-    pane.sinal.append(r.brokerLine, r.signal, r.session, r.chart);
-    pane.print.append(r.print);
-    const hl = mkEl("div", "card"); hl.innerHTML = '<div id="histList" class="hlist"></div>'; pane.hist.append(hl);
-    pane.bt.append(r.bt);
+    // Sinal and Backtest are not shown; their parts stay in the page (hidden) because the price feed uses them
+    const hidden = mkEl("div"); hidden.style.display = "none"; hidden.append(r.brokerLine, r.signal, r.session, r.chart);
+    const ph = mkEl("div", "card"); ph.innerHTML = '<h2>Histórico dos prints</h2><div id="printHist" class="hlist"></div>';
+    pane.print.append(r.print, ph);
+    const hl = mkEl("div", "card"); hl.innerHTML = '<div id="histList" class="hlist"></div>'; hidden.append(hl, r.bt);
     const cfg = mkEl("div", "card cfg");
     cfg.append(r.header, r.broker, r.reset, r.warn);
     pane.cfg.append(cfg);
     document.body.innerHTML = "";
-    document.body.append(nav, ...Object.values(pane));
+    document.body.append(nav, ...Object.values(pane), hidden);
     const show = (k) => {
       nav.querySelectorAll("button").forEach((b) => b.classList.toggle("on", b.dataset.tab === k));
       Object.values(pane).forEach((p) => p.classList.toggle("on", p.dataset.tab === k));
@@ -1107,7 +1146,7 @@
       if (k === "bt" && btDone !== mk() + "|" + expiry() && !$("btRun").disabled) runBacktest();   // runs by itself when the tab opens
     };
     nav.onclick = (e) => { const b = e.target.closest("button"); if (b) show(b.dataset.tab); };
-    show(LS.get("tab", "sinal"));
+    show(tabs[LS.get("tab", "print")] ? LS.get("tab", "print") : "print");
     new ResizeObserver(() => draw()).observe(document.querySelector(".chartwrap"));
     renderHistory();
   }
