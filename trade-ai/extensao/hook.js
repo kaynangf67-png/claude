@@ -1,37 +1,57 @@
 // Runs in the broker page itself (not isolated) so it can see the live quotes the page already receives
-// over its own WebSocket. It only reads "symbol, time, price" ticks and hands them to content.js in the
-// same tab with window.postMessage. Nothing is sent anywhere else.
+// (WebSocket, or a worker that holds the WebSocket). It only reads "symbol, time, price" ticks and hands
+// them to content.js in the same tab with window.postMessage. Nothing is sent anywhere else.
 (() => {
-  if (window.__sinalHonestoHook) return;
-  window.__sinalHonestoHook = true;
+  if ((window.__sinalHonestoHookV || 0) >= 2) return;   // v2 also reads workers; an older v1 hook may already be here
+  window.__sinalHonestoHookV = 2;
   const desc = Object.getOwnPropertyDescriptor(MessageEvent.prototype, "data");
   if (!desc || !desc.get) return;
   const seen = new WeakSet(), dec = new TextDecoder();
-  // ["EURUSD_otc", 1731600000.123, 1.08523, ...]  or  {"asset":"EURUSD_otc","price":1.08523}
-  const TICK = /\["([A-Za-z0-9#._\/-]{3,24})",\s*(1\d{9}(?:\.\d+)?),\s*(\d{1,7}(?:\.\d+)?)/g;
-  const OBJ = /"(?:asset|symbol|pair|instrument|active)"\s*:\s*"([A-Za-z0-9#._\/-]{3,24})"[^{}]{0,200}?"(?:price|value|close|rate|quote|bid)"\s*:\s*(\d{1,7}(?:\.\d+)?)/g;
+  const NUM = `"?(\\d{1,7}(?:\\.\\d+)?)"?`;
+  // ["EURUSD_otc", 1731600000.123, 1.08523, ...]   (time in seconds or milliseconds, numbers may be quoted)
+  const TICK = new RegExp(`\\["([A-Za-z0-9#._\\/ ()-]{3,30})",\\s*"?(1\\d{9,12}(?:\\.\\d+)?)"?,\\s*${NUM}`, "g");
+  // {"asset":"EURUSD_otc", ... "price":1.08523}
+  const OBJ = new RegExp(`"(?:asset|symbol|pair|instrument|active|ticker|s)"\\s*:\\s*"([A-Za-z0-9#._\\/ ()-]{3,30})"[^{}]{0,300}?"(?:price|value|close|rate|quote|bid|p|c)"\\s*:\\s*${NUM}`, "g");
   let pending = new Map(), timer = null;
+  const stats = { msgs: 0, from: {}, names: new Map() };
   const flush = () => { timer = null; if (!pending.size) return; window.postMessage({ __sinalHonesto: "ticks", ticks: [...pending] }, "*"); pending = new Map(); };
   function scan(text) {
-    if (!text || text.length > 300000) return;
+    if (!text || text.length > 400000) return;
     let m;
-    TICK.lastIndex = 0; while ((m = TICK.exec(text))) pending.set(m[1], +m[3]);
-    OBJ.lastIndex = 0; while ((m = OBJ.exec(text))) pending.set(m[1], +m[2]);
+    TICK.lastIndex = 0; while ((m = TICK.exec(text))) { pending.set(m[1], +m[3]); stats.names.set(m[1], Date.now()); }
+    OBJ.lastIndex = 0; while ((m = OBJ.exec(text))) { pending.set(m[1], +m[2]); stats.names.set(m[1], Date.now()); }
     if (pending.size && !timer) timer = setTimeout(flush, 200);
   }
   function read(v) {
     try {
       if (typeof v === "string") scan(v);
       else if (v instanceof ArrayBuffer) scan(dec.decode(new Uint8Array(v)));
-      else if (v instanceof Blob && v.size < 300000) v.text().then(scan, () => {});
+      else if (ArrayBuffer.isView(v)) scan(dec.decode(v));
+      else if (v instanceof Blob) { if (v.size < 400000) v.text().then(scan, () => {}); }
+      else if (v && typeof v === "object") { const s = JSON.stringify(v); if (s && s.length < 400000) scan(s); }
     } catch {}
   }
+  const sourceOf = (t) => (typeof WebSocket !== "undefined" && t instanceof WebSocket) ? "websocket"
+    : (typeof Worker !== "undefined" && t instanceof Worker) ? "worker"
+    : (typeof SharedWorker !== "undefined" && t instanceof MessagePort) ? "porta"
+    : (typeof BroadcastChannel !== "undefined" && t instanceof BroadcastChannel) ? "canal" : null;
   Object.defineProperty(MessageEvent.prototype, "data", {
     configurable: true, enumerable: desc.enumerable,
     get() {
       const v = desc.get.call(this);
-      try { if (!seen.has(this) && this.target instanceof WebSocket) { seen.add(this); read(v); } } catch {}
+      try {
+        if (!seen.has(this)) {
+          seen.add(this);
+          const src = sourceOf(this.target);
+          if (src) { stats.msgs++; stats.from[src] = (stats.from[src] || 0) + 1; read(v); }
+        }
+      } catch {}
       return v;
     },
   });
+  // what the extension is getting, for the diagnostic in Ajustes
+  setInterval(() => {
+    const names = [...stats.names].sort((a, b) => b[1] - a[1]).slice(0, 8).map((x) => x[0]);
+    window.postMessage({ __sinalHonesto: "stats", msgs: stats.msgs, from: stats.from, names }, "*");
+  }, 2000);
 })();

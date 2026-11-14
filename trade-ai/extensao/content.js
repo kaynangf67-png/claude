@@ -1,6 +1,11 @@
 // Floating panel + reading the asset and payout the broker is showing.
 (() => {
-  if (window.__sinalHonesto) { window.__sinalHonesto.toggle(); return; }
+  const VERSION = chrome.runtime.getManifest().version;
+  if (window.__sinalHonesto) {
+    if (window.__sinalHonesto.v === VERSION) { window.__sinalHonesto.toggle(); return; }
+    // a panel from an older version of the extension is still on the page: take it away and start fresh
+    try { if (window.__sinalHonesto.remove) window.__sinalHonesto.remove(); else window.__sinalHonesto.toggle(false); } catch {}
+  }
 
   // ---------- panel ----------
   const host = document.createElement("div");
@@ -60,7 +65,7 @@
       collectPriceCands(); candTimer = setInterval(collectPriceCands, 4000); priceTimer = setInterval(pollPrice, 500);
     }
   }
-  window.__sinalHonesto = { toggle };
+  window.__sinalHonesto = { v: VERSION, toggle, remove: () => { toggle(false); host.remove(); window.__sinalHonesto = null; } };
 
   // ---------- reading the broker page ----------
   const CRYPTO = ["BTC", "ETH", "SOL", "BNB", "XRP"];
@@ -299,8 +304,11 @@
   const norm = (t) => String(t).toLowerCase().replace(/[^a-z0-9]/g, "");
   const wsTicks = new Map();
   let curKey = null;     // normalised name of the market open on the page
+  let hookStats = null;  // what hook.js saw (diagnostic)
   window.addEventListener("message", (e) => {
-    if (e.source !== window || !e.data || e.data.__sinalHonesto !== "ticks" || !Array.isArray(e.data.ticks)) return;
+    if (e.source !== window || !e.data) return;
+    if (e.data.__sinalHonesto === "stats") { hookStats = { msgs: +e.data.msgs || 0, from: e.data.from || {}, names: (e.data.names || []).slice(0, 8).map(String) }; return; }
+    if (e.data.__sinalHonesto !== "ticks" || !Array.isArray(e.data.ticks)) return;
     const t = Date.now();
     for (const [sym, p] of e.data.ticks) if (typeof sym === "string" && p > 0) wsTicks.set(norm(sym), { p: +p, t });
   });
@@ -308,6 +316,9 @@
     if (!curKey) return null;
     const keys = [curKey, curKey.replace(/otc$/, ""), curKey + "otc"];
     for (const k of keys) { const v = wsTicks.get(k); if (v && Date.now() - v.t < 5000) return v.p; }
+    // looser: a stream name that contains the same pair ("frxUSDBRL", "USDBRL-OTC.x"…), OTC wanted only for OTC
+    const pair = curKey.replace(/otc$/, ""), wantOtc = /otc$/.test(curKey);
+    for (const [k, v] of wsTicks) if (k.includes(pair) && /otc/.test(k) === wantOtc && Date.now() - v.t < 5000) return v.p;
     return null;
   }
 
@@ -391,6 +402,7 @@
       msg.tfSec = tt ? (tfToSec(tt.text) || tfToSec((tt.text.match(/[SMH]\s?\d{1,2}|\d{1,2}\s?(?:min|m|h|s)\b/i) || [""])[0])) : findTimeframe();
       if (!a) curKey = null;
     } catch (e) { /* page changed under us; try again next tick */ }
+    msg.hook = hookStats ? { msgs: hookStats.msgs, from: hookStats.from, names: hookStats.names, key: curKey, got: !!wsPrice() } : null;
     const key = JSON.stringify(msg);
     if (force === true || key !== lastKey) { lastKey = key; frame.contentWindow && frame.contentWindow.postMessage(msg, "*"); }
   }

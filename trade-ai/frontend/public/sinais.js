@@ -707,7 +707,7 @@
       g.fillText(ok ? `Montando o gráfico de ${lastDetect.raw}…` : `Procurando o preço de ${lastDetect.raw} na tela…`, W / 2, H / 2 - 6);
       g.font = "11px system-ui";
       if (ok) g.fillText(`as velas ${tfLabel(tf)} vão aparecendo`, W / 2, H / 2 + 12);
-      else { g.fillText("se a corretora desenha o preço só dentro do gráfico,", W / 2, H / 2 + 12); g.fillText("não há número para ler (Ajustes → Apontar preço)", W / 2, H / 2 + 27); }
+      else { g.fillText("recarregue a corretora (F5) e clique no robô;", W / 2, H / 2 + 12); g.fillText("se continuar, veja o diagnóstico em Ajustes", W / 2, H / 2 + 27); }
       g.textAlign = "left"; return;
     }
     if (!src.length) return;
@@ -948,6 +948,8 @@
     const tzTxt = tz === "local" ? "do computador" : "UTC" + (+tz >= 0 ? "+" : "") + tz;
     if ($("autoInfo")) $("autoInfo").innerHTML = `<div>Mercado: <b>${esc(d.raw || "não encontrado")}</b></div><div>Expiração: <b>${esc(expTxt)}</b></div>
       <div>Payout: <b>${pay2}</b></div><div>Valor: <b>${amt ? esc(money(amt)) : "não encontrado"}</b></div><div>Tempo gráfico: <b>${Number.isFinite(d.tfSec) && d.tfSec > 0 ? tfLabel(Math.round(d.tfSec)) : "não encontrado (M1)"}</b></div><div>Horário: <b>${tzTxt}</b> · agora ${clockStr(now(), true)}</div>
+      <div>Cotações da página: <b>${d.hook ? (d.hook.msgs ? `${d.hook.msgs} mensagens (${esc(Object.entries(d.hook.from).map(([k, v]) => k + " " + v).join(", "))})` : "nenhuma mensagem vista") : "leitor não ativo (recarregue a página e clique no robô)"}</b></div>
+      ${d.hook && d.hook.msgs ? `<div class="m" style="font-size:11px">ativos vistos: ${esc(d.hook.names.join(", ") || "nenhum com preço")} · procurando: ${esc(d.hook.key || "?")} ${d.hook.got ? "✅" : "❌"}</div>` : ""}
       <div>Preço na tela: <b id="autoPrice">${feed.found ? fmt(feed.candles[feed.candles.length - 1].c) + " (lido da tela)" : "—"}</b></div>`;
     const t = d.taught || {};
     if (t.asset || t.payout || t.amount || t.expiry || t.price || t.tf) html += `<div class="m" style="font-size:11px">pontos marcados: ${[t.asset && "mercado", t.payout && "payout", t.amount && "valor", t.expiry && "expiração", t.price && "preço", t.tf && "tempo gráfico"].filter(Boolean).join(", ")}</div>`;
@@ -966,7 +968,8 @@
       lastDetect = {
         raw: typeof d.raw === "string" ? d.raw.slice(0, 40) : null, sym: d.sym, otc: !!d.otc, payout: +d.payout, amount: +d.amount,
         currency: ["R$", "$", "US$", "€", "£"].includes(d.currency) ? d.currency : null,
-        expirySec: +d.expirySec, tfSec: +d.tfSec, tz: d.tz == null ? null : +d.tz, taught: d.taught && typeof d.taught === "object" ? d.taught : {},
+        expirySec: +d.expirySec, tfSec: +d.tfSec, tz: d.tz == null ? null : +d.tz,
+        hook: d.hook && typeof d.hook === "object" ? { msgs: +d.hook.msgs || 0, from: d.hook.from && typeof d.hook.from === "object" ? Object.fromEntries(Object.entries(d.hook.from).slice(0, 5).map(([k, v]) => [String(k).slice(0, 12), +v || 0])) : {}, names: Array.isArray(d.hook.names) ? d.hook.names.slice(0, 8).map((x) => String(x).slice(0, 30)) : [], key: typeof d.hook.key === "string" ? d.hook.key.slice(0, 30) : null, got: !!d.hook.got } : null, taught: d.taught && typeof d.taught === "object" ? d.taught : {},
       };
       applyDetect(lastDetect);
     });
