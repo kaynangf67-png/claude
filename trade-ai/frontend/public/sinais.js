@@ -13,12 +13,15 @@
   const WS = "wss://data-stream.binance.vision/ws/";
   const MIN = 60000;
   // chart timeframe in minutes, follows the broker; 1-minute data is grouped into it
-  let tf = 1;
-  const TF = () => tf * MIN;
-  const tfLabel = (m) => m >= 60 ? "H" + m / 60 : "M" + m;
-  function group(cs, m) {
-    if (m === 1) return cs;
-    const out = [], len = m * MIN, nowT = now();
+  let tf = 60;                                  // seconds: 5 = S5, 60 = M1, 300 = M5…
+  const TF = () => tf * 1000;
+  const tfLabel = (sec) => sec < 60 ? "S" + sec : sec < 3600 ? "M" + sec / 60 : "H" + sec / 3600;
+  const RES = () => tf < 60 ? 1 : 60;           // resolution of the raw candles: 1 s for second charts, else 1 min
+  const RESMS = () => RES() * 1000;
+  let candlesRes = 60;                          // resolution of the Binance candles loaded now
+  function group(cs, sec, res) {
+    if (sec === res) return cs;
+    const out = [], len = sec * 1000, nowT = now();
     for (const c of cs) {
       const t = Math.floor(c.t / len) * len, last = out[out.length - 1];
       if (last && last.t === t) { last.h = Math.max(last.h, c.h); last.l = Math.min(last.l, c.l); last.c = c.c; }
@@ -203,11 +206,12 @@
     candles = []; draw(); renderPanel();
     setStatus("carregando " + asset().name + "…", false);
     try {
-      const cs = await fetchKlines(sym, Math.min(5000, Math.max(300, tf * 120)));
+      const res = RES(), cs = await fetchKlines(sym, res === 1 ? Math.min(3000, Math.max(600, tf * 120)) : Math.min(5000, Math.max(300, tf / 60 * 120)), res === 1 ? "1s" : "1m");
+      candlesRes = res;
       prefetch();
       if (token !== wsToken) return;
       const nowT = now();
-      candles = cs.map((c) => ({ ...c, closed: c.t + MIN <= nowT }));
+      candles = cs.map((c) => ({ ...c, closed: c.t + candlesRes * 1000 <= nowT }));
       const closed = candles.filter((c) => c.closed);
       lastEvalBy[sym] = closed.length ? closed[closed.length - 1].t : 0; // never signal on old candles
       resolveOpen();
@@ -226,7 +230,7 @@
     if (last && last.t === c.t) { closedNow = c.closed && !last.closed; candles[candles.length - 1] = c; }
     else if (!last || c.t > last.t) {
       if (last && !last.closed) { last.closed = true; closedNow = true; }
-      candles.push(c); if (candles.length > Math.min(5000, Math.max(400, tf * 130))) candles.shift();
+      candles.push(c); if (candles.length > (candlesRes === 1 ? 3600 : Math.min(5000, Math.max(400, tf / 60 * 130)))) candles.shift();
       if (c.closed) closedNow = true;
     } else {
       const i = candles.findIndex((x) => x.t === c.t);
@@ -239,7 +243,7 @@
   function connectWS(sym, token) {
     if (wsFails >= 2) return startPolling(sym, token); // WebSocket blocked on this network
     const l = sym.toLowerCase();
-    const s = new WebSocket(`wss://data-stream.binance.vision/stream?streams=${l}@kline_1m/${l}@aggTrade`); ws = s; let opened = false;
+    const s = new WebSocket(`wss://data-stream.binance.vision/stream?streams=${l}@kline_${candlesRes === 1 ? "1s" : "1m"}/${l}@aggTrade`); ws = s; let opened = false;
     s.onopen = () => { opened = true; wsFails = 0; reconnectDelay = 1000; setStatus(asset().name + " · ao vivo · " + tfLabel(tf), true); };
     let pending = false;
     const paint = () => { if (pending) return; pending = true; requestAnimationFrame(() => { pending = false; draw(); renderPanel(); }); };
@@ -250,7 +254,7 @@
       if (d.e === "kline") { const k = d.k; closed = applyKline({ t: k.t, o: +k.o, h: +k.h, l: +k.l, c: +k.c, closed: k.x }); }
       else if (d.e === "aggTrade") {
         // every trade moves the current candle right away (the kline stream only updates every ~2 s)
-        const p = +d.p, t = Math.floor(d.T / MIN) * MIN, last = candles[candles.length - 1];
+        const rm = candlesRes * 1000, p = +d.p, t = Math.floor(d.T / rm) * rm, last = candles[candles.length - 1];
         if (last && t === last.t) { last.c = p; last.h = Math.max(last.h, p); last.l = Math.min(last.l, p); }
         else if (last && t > last.t) closed = applyKline({ t, o: p, h: p, l: p, c: p, closed: false });
       }
@@ -272,9 +276,9 @@
     const tick = async () => {
       if (token !== wsToken) return clearInterval(pollTimer);
       try {
-        const r = await fetch(`${REST}?symbol=${sym}&interval=1m&limit=2`); if (!r.ok) throw 0;
+        const r = await fetch(`${REST}?symbol=${sym}&interval=${candlesRes === 1 ? "1s" : "1m"}&limit=3`); if (!r.ok) throw 0;
         const nowT = now(); let closed = false;
-        for (const k of (await r.json()).map(parseK)) if (applyKline({ ...k, closed: k.t + MIN <= nowT })) closed = true;
+        for (const k of (await r.json()).map(parseK)) if (applyKline({ ...k, closed: k.t + candlesRes * 1000 <= nowT })) closed = true;
         if (token !== wsToken) return;
         if (closed) onClose();
         setStatus(asset().name + " · ao vivo · " + tfLabel(tf) + " (atualiza a cada 1 s)", true);
@@ -291,14 +295,18 @@
   const mk = () => brokerMode() ? lastDetect.raw : asset().sym;
   const curName = () => brokerMode() ? lastDetect.raw : asset().name;
   const curPayout = () => brokerMode() && lastDetect.payout >= 10 ? Math.round(lastDetect.payout) : payoutOf(asset().sym);
-  const rawC = () => brokerMode() ? feed.candles : candles;          // 1-minute candles
-  const srcC = () => group(rawC(), tf);                                // candles of the chart timeframe
+  const rawC = () => brokerMode() ? (tf < 60 ? feed.sec : feed.candles) : candles;
+  const rawRes = () => brokerMode() ? RES() : candlesRes;
+  const srcC = () => group(rawC(), tf, rawRes());                      // candles of the chart timeframe
+  const feedLive = () => brokerMode() && feed.key === lastDetect.raw && feed.found && now() - feed.lastAt < 15000;
   const lastPrice = () => { const r = rawC(); return r.length ? r[r.length - 1].c : null; };
-  let feed = { key: null, candles: [], found: false, lastAt: 0 };
+  let feed = { key: null, candles: [], sec: [], found: false, lastAt: 0 };
+  const FEED = "feed2_";   // v2: the first version could save a wrong number as the price
   function loadFeed(key) {
-    const saved = LS.get("feed_" + key, []);
+    const saved = LS.get(FEED + key, []), savedS = LS.get(FEED + "s_" + key, []);
     const fresh = saved.length && now() - saved[saved.length - 1].t < 5 * MIN;   // gaps break the candles
-    feed = { key, candles: fresh ? saved : [], found: false, lastAt: 0 };
+    const freshS = savedS.length && now() - savedS[savedS.length - 1].t < 30000;
+    feed = { key, candles: fresh ? saved : [], sec: freshS ? savedS : [], found: false, lastAt: 0, savedAt: 0 };
     const cl = feed.candles.filter((c) => c.closed); lastEvalBy[key] = cl.length ? cl[cl.length - 1].t : 0;
   }
   function onBrokerPrice(p) {
@@ -306,14 +314,24 @@
     if (feed.key !== lastDetect.raw) loadFeed(lastDetect.raw);
     feed.found = true; feed.lastAt = now();
     let last = feed.candles[feed.candles.length - 1];
-    if (last && Math.abs(p / last.c - 1) > 0.05) { feed.candles = []; last = null; }   // a different number than before: start again
+    if (last && Math.abs(p / last.c - 1) > 0.05) { feed.candles = []; feed.sec = []; last = null; }   // a different number than before: start again
+    // 1-second series
+    const ts = Math.floor(now() / 1000) * 1000, ls = feed.sec[feed.sec.length - 1];
+    if (ls && ls.t === ts) { ls.c = p; ls.h = Math.max(ls.h, p); ls.l = Math.min(ls.l, p); }
+    else {
+      if (ls) ls.closed = true;
+      if (ls && ts - ls.t > 30000) feed.sec = [];
+      feed.sec.push({ t: ts, o: p, h: p, l: p, c: p, closed: false });
+      if (feed.sec.length > 3600) feed.sec.shift();
+      if (now() - feed.savedAt > 10000) { feed.savedAt = now(); LS.set(FEED + "s_" + feed.key, feed.sec); }
+    }
     const t = Math.floor(now() / MIN) * MIN;
     if (last && last.t === t) { last.c = p; last.h = Math.max(last.h, p); last.l = Math.min(last.l, p); }
     else {
       if (last) { last.closed = true; if (t - last.t > 5 * MIN) feed.candles = []; }
       feed.candles.push({ t, o: p, h: p, l: p, c: p, closed: false });
       if (feed.candles.length > 1500) feed.candles.shift();
-      LS.set("feed_" + feed.key, feed.candles);
+      LS.set(FEED + feed.key, feed.candles);
       if (last && last.closed && feed.candles.length > 1) onClose();   // a candle of the broker price just closed
     }    draw();
   }
@@ -342,7 +360,7 @@
     return { dir, n, rate: hits / n, ci: wilson(hits, n), level };
   }
   let anaData = { key: null, at: 0, cs: [], ind: null, models: {} };
-  const NATIVE = { 1: "1m", 3: "3m", 5: "5m", 15: "15m", 30: "30m", 60: "1h", 120: "2h", 240: "4h" };
+  const NATIVE = { 1: "1s", 60: "1m", 180: "3m", 300: "5m", 900: "15m", 1800: "30m", 3600: "1h", 7200: "2h", 14400: "4h" };
   let anaLoading = null;
   async function ensureAnaData() {
     const key = mk() + "|" + tf;
@@ -354,7 +372,8 @@
       if (anaLoading && anaLoading.key === key) return anaLoading.p;
       const p = (async () => {
         const sym = asset().sym, nowT = now();
-        const raw = NATIVE[tf] ? await fetchKlines(sym, 5000, NATIVE[tf]) : group(await fetchKlines(sym, 5000), tf);
+        const raw = NATIVE[tf] ? await fetchKlines(sym, 5000, NATIVE[tf])
+          : tf < 60 ? group(await fetchKlines(sym, 5000, "1s"), tf, 1) : group(await fetchKlines(sym, 5000), tf, 60);
         const cs = raw.filter((c) => c.t + TF() <= nowT);
         if (mk() + "|" + tf === key) anaData = { key, at: now(), cs, ind: indicators(cs), models: {} };
       })();
@@ -363,7 +382,7 @@
   }
   const prefetch = () => { ensureAnaData().catch(() => {}); };   // so the click answers right away
   const expSecNow = () => (lastDetect && lastDetect.expirySec > 0 ? lastDetect.expirySec : expiry() * 60);
-  const expCandles = () => Math.max(1, Math.round(expSecNow() / (tf * 60)));
+  const expCandles = () => Math.max(1, Math.round(expSecNow() / tf));
   const modelFor = (n) => anaData.models[n] || (anaData.models[n] = learnPatterns(anaData.cs, anaData.ind, n, 0, anaData.cs.length));
 
   let ana = null;        // the scan in progress: { key, tf, scanStart, err, done }
@@ -429,14 +448,14 @@
             const k = r.ok ? (await r.json()).map(parseK)[0] : null;
             if (k) { h.exit = k.o; h.res = outcome(h.dir, h.entry, h.exit); } else h.res = "SEM DADO";
           } else {
-            const c = (LS.get("feed_" + h.sym, []) || []).find((x) => x.t <= h.endAt && h.endAt < x.t + MIN);
+            const c = (LS.get(FEED + h.sym, []) || []).find((x) => x.t <= h.endAt && h.endAt < x.t + MIN);
             if (c) { h.exit = c.c; h.res = outcome(h.dir, h.entry, h.exit); } else if (now() > h.endAt + 10 * MIN) h.res = "SEM DADO"; else continue;
           }
           LS.set("history", history); renderHistory(); continue;
         }
         if (!ASSETS.some((x) => x.sym === h.sym)) {
           // broker-price market: resolve from the candles saved while the panel watched it
-          const c = (LS.get("feed_" + h.sym, []) || []).find((x) => x.t === h.expT && x.closed);
+          const c = (LS.get(FEED + h.sym, []) || []).find((x) => x.t === h.expT && x.closed);
           if (c) { h.exit = c.c; h.res = outcome(h.dir, h.entry, h.exit); }
           else if (now() > h.endAt + 10 * MIN) h.res = "SEM DADO";
           else continue;
@@ -520,7 +539,7 @@
       $("mExp").textContent = tr.expSec < 60 ? tr.expSec + " s" : Math.round(tr.expSec / 60) + " min";
       const ci = wilson(Math.round(tr.rate * tr.seen), tr.seen);
       const tag = ci[0] > be ? '<b class="g">acima do empate</b>' : tr.rate < be ? '<b class="r">abaixo do empate: não compensa</b>' : '<b class="w">fraco: pode ser sorte</b>';
-      ai.innerHTML = `Visto <b>${tr.seen}×</b> (${tr.level}): ${tr.dir === "UP" ? "subiu" : "caiu"} em <b>${pct(tr.rate)}</b> das vezes em ${tr.nC} vela(s) ${tfLabel(tr.tf || 1)} · empate ${pct(be)} · ${tag}`;
+      ai.innerHTML = `Visto <b>${tr.seen}×</b> (${tr.level}): ${tr.dir === "UP" ? "subiu" : "caiu"} em <b>${pct(tr.rate)}</b> das vezes em ${tr.nC} vela(s) ${tfLabel(tr.tf > 1 ? tr.tf : 60)} · empate ${pct(be)} · ${tag}`;
     } else if (tr) {
       $("tradeTitle").textContent = "Trade aberto";
       dirEl.className = "dir " + tr.dir; dirEl.textContent = tr.dir === "UP" ? "▲ UP" : "▼ DOWN";
@@ -592,11 +611,12 @@
     const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.fillStyle = "#131c31"; g.fillRect(0, 0, W, H);
     const bm = brokerMode(), src = srcC();
-    $("status").innerHTML = bm ? `<span class="dot ${feed.candles.length ? "on" : ""}"></span>${esc(lastDetect.raw)} · ${tfLabel(tf)} · preço lido da corretora` : $("status").innerHTML;
-    if (bm && feed.candles.length < 2) {
+    $("status").innerHTML = bm ? `<span class="dot ${feedLive() ? "on" : ""}"></span>${esc(lastDetect.raw)} · ${tfLabel(tf)} · preço lido da corretora` : $("status").innerHTML;
+    if (bm && (!feedLive() || src.length < 2)) {
       g.fillStyle = "#8a97b3"; g.font = "13px system-ui"; g.textAlign = "center";
-      g.fillText(feed.found ? `Montando o gráfico de ${lastDetect.raw}…` : `Procurando o preço de ${lastDetect.raw} na tela…`, W / 2, H / 2 - 6);
-      g.font = "11px system-ui"; g.fillText(feed.found ? "as velas aparecem a cada minuto" : "se não achar: Ajustes → Apontar preço", W / 2, H / 2 + 12);
+      const ok = feedLive();
+      g.fillText(ok ? `Montando o gráfico de ${lastDetect.raw}…` : `Procurando o preço de ${lastDetect.raw} na tela…`, W / 2, H / 2 - 6);
+      g.font = "11px system-ui"; g.fillText(ok ? `as velas ${tfLabel(tf)} vão aparecendo` : "se não achar: Ajustes → Apontar preço", W / 2, H / 2 + 12);
       g.textAlign = "left"; return;
     }
     if (!src.length) return;
@@ -611,7 +631,7 @@
     g.strokeStyle = "#1f2a44"; g.lineWidth = 1; g.fillStyle = "#8a97b3"; g.font = "11px system-ui";
     const lastC = src[src.length - 1].c;
     for (let k = 0; k <= 4; k++) { const p = lo + (hi - lo) * k / 4, yy = y(p); g.beginPath(); g.moveTo(0, yy); g.lineTo(W - padR, yy); g.stroke(); if (Math.abs(yy - y(lastC)) > 14) g.fillText(fmt(p), W - padR + 6, yy + 4); }
-    cs.forEach((c, k) => { if (k % 10 === 0) g.fillText(hhmm(c.t), k * cw, H - 6); });
+    cs.forEach((c, k) => { if (k % 10 === 0) g.fillText(tf < 60 ? clockStr(c.t, true) : hhmm(c.t), k * cw, H - 6); });
     // src
     cs.forEach((c, k) => {
       const x = k * cw + cw / 2, up = c.c >= c.o; g.strokeStyle = g.fillStyle = up ? "#22c55e" : "#ef4444";
@@ -821,14 +841,15 @@
       expTxt = d.expirySec < 60 ? `${d.expirySec} s` : `${n} min`;
     }
     // chart timeframe of the broker
-    const newTf = Number.isFinite(d.tfSec) && d.tfSec >= 60 ? Math.round(d.tfSec / 60) : 1;
-    if (newTf !== tf) { tf = newTf; if (!brokerMode()) loadAsset(); draw(); prefetch(); }
+    const newTf = Number.isFinite(d.tfSec) && d.tfSec >= 1 ? Math.round(d.tfSec) : 60;
+    if (newTf !== tf) { const resChanged = (newTf < 60) !== (tf < 60); tf = newTf; if (!brokerMode() && (resChanged || tf > 60)) loadAsset(); draw(); prefetch(); }
+    if (feedMode && feed.key !== d.raw) loadFeed(d.raw);
     const newTz = Number.isFinite(d.tz) ? String(d.tz) : "local";
     if (newTz !== tz) { tz = newTz; LS.set("tz", tz); renderHistory(); }
     const pay2 = Number.isFinite(d.payout) && d.payout >= 10 && d.payout <= 100 ? Math.round(d.payout) + "%" : "não encontrado";
     const tzTxt = tz === "local" ? "do computador" : "UTC" + (+tz >= 0 ? "+" : "") + tz;
     if ($("autoInfo")) $("autoInfo").innerHTML = `<div>Mercado: <b>${esc(d.raw || "não encontrado")}</b></div><div>Expiração: <b>${esc(expTxt)}</b></div>
-      <div>Payout: <b>${pay2}</b></div><div>Valor: <b>${amt ? esc(money(amt)) : "não encontrado"}</b></div><div>Tempo gráfico: <b>${Number.isFinite(d.tfSec) && d.tfSec > 0 ? (d.tfSec < 60 ? d.tfSec + " s (o painel usa M1)" : tfLabel(Math.round(d.tfSec / 60))) : "não encontrado (M1)"}</b></div><div>Horário: <b>${tzTxt}</b> · agora ${clockStr(now(), true)}</div>
+      <div>Payout: <b>${pay2}</b></div><div>Valor: <b>${amt ? esc(money(amt)) : "não encontrado"}</b></div><div>Tempo gráfico: <b>${Number.isFinite(d.tfSec) && d.tfSec > 0 ? tfLabel(Math.round(d.tfSec)) : "não encontrado (M1)"}</b></div><div>Horário: <b>${tzTxt}</b> · agora ${clockStr(now(), true)}</div>
       <div>Preço na tela: <b id="autoPrice">${feed.found ? fmt(feed.candles[feed.candles.length - 1].c) + " (lido da tela)" : "—"}</b></div>`;
     const t = d.taught || {};
     if (t.asset || t.payout || t.amount || t.expiry || t.price || t.tf) html += `<div class="m" style="font-size:11px">pontos marcados: ${[t.asset && "mercado", t.payout && "payout", t.amount && "valor", t.expiry && "expiração", t.price && "preço", t.tf && "tempo gráfico"].filter(Boolean).join(", ")}</div>`;

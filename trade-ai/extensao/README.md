@@ -63,5 +63,5 @@ Botão na aba Sinal (o único que gera sinal). Ao clicar, um scanner percorre as
 preço fez na expiração da corretora. A entrada sai na hora: COMPRA ou VENDA ao preço atual, com a contagem até o fim
 da expiração, e o resultado é conferido no preço desse momento. O histórico é baixado antes do clique, por isso é rápido.
 
-O painel segue o **tempo gráfico** da corretora (M1, M5, M15, H1…): as velas do gráfico e da análise mudam junto.
+O painel segue o **tempo gráfico** da corretora (S5, S15, S30, M1, M5, M15, H1…): as velas do gráfico e da análise mudam junto.
 Se não for achado, use **Ajustes → Apontar tempo gráfico**.
