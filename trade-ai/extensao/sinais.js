@@ -298,29 +298,6 @@
     }    draw();
   }
 
-  // trend of the last 15 closed candles: efficiency ratio (how straight the move was) + EMA 9 vs 21
-  const TREND_N = 15;
-  function trendOf(cs) {
-    const c = cs.filter((x) => x.closed).map((x) => x.c);
-    if (c.length < TREND_N + 1) return { need: TREND_N + 1 - c.length };
-    const i = c.length - 1, move = c[i] - c[i - TREND_N];
-    let path = 0; for (let k = i - TREND_N + 1; k <= i; k++) path += Math.abs(c[k] - c[k - 1]);
-    const er = path ? Math.abs(move) / path : 0;
-    const e9 = ema(c, 9)[i], e21 = c.length >= 21 ? ema(c, 21)[i] : null;
-    const emaDir = e21 == null ? Math.sign(move) : Math.sign(e9 - e21);
-    if (er < 0.25 || Math.sign(move) !== emaDir) return { kind: "LATERAL", er };
-    return { kind: move > 0 ? "ALTA" : "BAIXA", er };
-  }
-  function renderTrend() {
-    const el2 = $("trend"); if (!el2) return;
-    const tr = trendOf(brokerMode() ? feed.candles : candles);
-    if (tr.need) { el2.className = "trend m"; el2.textContent = `Tendência: juntando velas (faltam ${tr.need})`; return; }
-    const force = tr.er >= 0.5 ? "forte" : tr.er >= 0.35 ? "moderada" : "fraca";
-    el2.className = "trend " + (tr.kind === "ALTA" ? "up" : tr.kind === "BAIXA" ? "down" : "side");
-    el2.innerHTML = tr.kind === "LATERAL" ? "↔ <b>LATERALIZADO</b> <small>sem direção clara</small>"
-      : `${tr.kind === "ALTA" ? "▲" : "▼"} <b>TENDÊNCIA DE ${tr.kind}</b> <small>${force} · ${Math.round(tr.er * 100)}%</small>`;
-  }
-
   // ---------- "Analisar próxima vela" ----------
   // Looks for every past moment when RSI, Bollinger and EMA were in the same state as now
   // and counts what the price did over the chosen expiration. No guess: just what happened before.
@@ -521,7 +498,7 @@
       }
     }
     // session stats: all resolved signals, each with the payout it had
-    renderIndicator(); renderTrend();
+    renderIndicator();
     if (brokerMode() && feed.candles.length && !openTrade()) $("mEntry").textContent = "Preço " + fmt(feed.candles[feed.candles.length - 1].c);
     const done = history.filter((h) => !h.shadow && h.res && h.res !== "SEM DADO");
     const avgPayout = done.length ? done.reduce((s, h) => s + h.payout, 0) / done.length : payoutOf(a.sym);
