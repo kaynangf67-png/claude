@@ -295,11 +295,29 @@
     }
     cands = next;
   }
+  // live quotes from the broker's own data connection (hook.js), by normalised symbol: "usdjpyotc" -> price
+  const norm = (t) => String(t).toLowerCase().replace(/[^a-z0-9]/g, "");
+  const wsTicks = new Map();
+  let curKey = null;     // normalised name of the market open on the page
+  window.addEventListener("message", (e) => {
+    if (e.source !== window || !e.data || e.data.__sinalHonesto !== "ticks" || !Array.isArray(e.data.ticks)) return;
+    const t = Date.now();
+    for (const [sym, p] of e.data.ticks) if (typeof sym === "string" && p > 0) wsTicks.set(norm(sym), { p: +p, t });
+  });
+  function wsPrice() {
+    if (!curKey) return null;
+    const keys = [curKey, curKey.replace(/otc$/, ""), curKey + "otc"];
+    for (const k of keys) { const v = wsTicks.get(k); if (v && Date.now() - v.t < 5000) return v.p; }
+    return null;
+  }
+
   let lastPriceSent = null;
   function pollPrice() {
     if (picking) return;
     let p = null;
     // a pointed element must still look like a live price (decimals, no "%", not ".000"); if not, look by itself
+    const fromWs = wsPrice();
+    if (fromWs) { lastPriceSent = fromWs; frame.contentWindow && frame.contentWindow.postMessage({ type: "sh-price", p: fromWs, src: "ws" }, "*"); return; }
     const tp = taught.price && readEl(taught.price);
     const tpt = tp ? tp.text.trim() : "", tpd = (tpt.match(/[.,](\d+)\s*$/) || [])[1] || "";
     if (tp && !/%/.test(tpt) && tpd && !/^0+$/.test(tpd)) p = parseAmount(tpt);
@@ -346,6 +364,7 @@
         msg.raw = a.raw || (a.base ? `${a.base}/${a.quote}${otc && !/otc/i.test(a.base + a.quote) ? " OTC" : ""}` : a.text.slice(0, 40));
         if (a.raw && otc && !/otc/i.test(msg.raw)) msg.raw += " OTC";
         msg.sym = a.base ? toSym(a.base, a.quote) : null; msg.otc = otc;
+        curKey = a.base ? norm(a.base + a.quote + (otc ? "otc" : "")) : norm(msg.raw);
       }
       // payout
       const tp = taught.payout && readEl(taught.payout);
@@ -370,6 +389,7 @@
       msg.tz = findTz();
       const tt = taught.tf && readEl(taught.tf);
       msg.tfSec = tt ? (tfToSec(tt.text) || tfToSec((tt.text.match(/[SMH]\s?\d{1,2}|\d{1,2}\s?(?:min|m|h|s)\b/i) || [""])[0])) : findTimeframe();
+      if (!a) curKey = null;
     } catch (e) { /* page changed under us; try again next tick */ }
     const key = JSON.stringify(msg);
     if (force === true || key !== lastKey) { lastKey = key; frame.contentWindow && frame.contentWindow.postMessage(msg, "*"); }

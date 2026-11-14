@@ -3,6 +3,8 @@
 chrome.action.onClicked.addListener(async (tab) => {
   if (!tab.id || !/^https?:/.test(tab.url || "")) return;
   try {
+    // hook.js reads the live quotes the broker page already receives (for brokers that draw the price only inside the chart)
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["hook.js"], world: "MAIN" }).catch(() => {});
     await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["content.js"] });
   } catch (e) {
     console.warn("Sinal Honesto: não deu para abrir nesta página.", e);

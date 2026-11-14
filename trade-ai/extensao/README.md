@@ -35,6 +35,12 @@ e a taxa de acerto real. **Não opera sozinho e não clica em nada na corretora.
 | qualquer ativo **OTC** | sinais e gráfico com o **preço lido da tela da corretora**; o resultado de cada sinal é conferido nesse mesmo preço |
 | outros pares (AUD/CHF, GBP/JPY…) | igual ao OTC |
 
+## Preço automático
+
+Ao abrir um ativo, o preço é lido sozinho: primeiro das cotações que a própria página da corretora recebe ao vivo
+(`hook.js`, roda na página e só lê "ativo, hora, preço"), depois de um número que muda na tela, e por último do ponto
+marcado em **Apontar preço**. Nada disso sai do seu computador.
+
 ## Privacidade
 
 Permissões só `activeTab` e `scripting`: a extensão só roda na aba em que você clicou no ícone.
