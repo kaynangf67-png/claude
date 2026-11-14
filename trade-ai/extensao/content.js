@@ -309,10 +309,33 @@
   window.addEventListener("message", (e) => {
     if (e.source !== window || !e.data) return;
     if (e.data.__sinalHonesto === "stats") { hookStats = { msgs: +e.data.msgs || 0, from: e.data.from || {}, names: (e.data.names || []).slice(0, 8).map(String) }; return; }
+    if (e.data.__sinalHonesto === "history") { onHistory(e.data); return; }
     if (e.data.__sinalHonesto !== "ticks" || !Array.isArray(e.data.ticks)) return;
     const t = Date.now();
     for (const [sym, p] of e.data.ticks) if (typeof sym === "string" && p > 0) wsTicks.set(norm(sym), { p: +p, t });
   });
+  // chart history sent by the broker: forward it to the panel when it is for the market open now
+  let pendingHistory = null;
+  function historyFits(h) {
+    if (!curKey) return false;
+    const last = h.candles.length ? h.candles[h.candles.length - 1][2] : h.ticks.length ? h.ticks[h.ticks.length - 1][1] : null;
+    if (h.asset) {
+      const k = norm(h.asset), pair = curKey.replace(/otc$/, ""), half = pair.length / 2;
+      const rev = Number.isInteger(half) ? pair.slice(half) + pair.slice(0, half) : "";
+      if (k === curKey || k.includes(pair) || (rev && k.includes(rev)) || k === matchedBy) return true;
+    }
+    const p = wsPrice();                                   // no name: accept it if its last price is next to the live one
+    return !!(p && last && Math.abs(last / p - 1) < 0.01);
+  }
+  function onHistory(d) {
+    const h = { asset: typeof d.asset === "string" ? d.asset : null,
+      ticks: Array.isArray(d.ticks) ? d.ticks.filter((x) => Array.isArray(x) && x.length >= 2).slice(-20000) : [],
+      candles: Array.isArray(d.candles) ? d.candles.filter((x) => Array.isArray(x) && x.length >= 5).slice(-5000) : [] };
+    if (historyFits(h)) frame.contentWindow && frame.contentWindow.postMessage({ type: "sh-history", ticks: h.ticks, candles: h.candles }, "*");
+    else pendingHistory = h;                               // the market may be recognised a moment later
+  }
+  setInterval(() => { if (pendingHistory && historyFits(pendingHistory)) { const h = pendingHistory; pendingHistory = null; frame.contentWindow && frame.contentWindow.postMessage({ type: "sh-history", ticks: h.ticks, candles: h.candles }, "*"); } }, 1000);
+
   function wsPrice() {
     if (!curKey) return null;
     const keys = [curKey, curKey.replace(/otc$/, ""), curKey + "otc"];

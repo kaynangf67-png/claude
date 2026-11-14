@@ -15,8 +15,32 @@
   let pending = new Map(), timer = null;
   const stats = { msgs: 0, from: {}, names: new Map() };
   const flush = () => { timer = null; if (!pending.size) return; window.postMessage({ __sinalHonesto: "ticks", ticks: [...pending] }, "*"); pending = new Map(); };
+  // chart history the broker sends when an asset is opened: ticks [time, price] or candles [time, a, b, c, d]
+  const N = "(-?\\d{1,7}(?:\\.\\d+)?)";
+  const H_TICK = new RegExp(`\\[\\s*(1\\d{9}(?:\\.\\d+)?)\\s*,\\s*${N}\\s*(?:,\\s*-?[\\d.]+\\s*)?\\]`, "g");
+  const H_CANDLE = new RegExp(`\\[\\s*(1\\d{9})\\s*,\\s*${N}\\s*,\\s*${N}\\s*,\\s*${N}\\s*,\\s*${N}[^\\[\\]]*\\]`, "g");
+  const H_OBJ = /\{[^{}]*?"time"\s*:\s*(1\d{9})[^{}]*?\}/g;
+  const H_ASSET = /"(?:asset|symbol|pair|instrument|active)"\s*:\s*"([A-Za-z0-9#._\/ ()-]{3,30})"/;
+  function scanHistory(text) {
+    if (text.length < 400) return;
+    const am = text.match(H_ASSET);
+    const ticks = [], candles = [];
+    let m;
+    H_CANDLE.lastIndex = 0; while ((m = H_CANDLE.exec(text)) && candles.length < 5000) candles.push([+m[1], +m[2], +m[3], +m[4], +m[5]]);
+    H_OBJ.lastIndex = 0;
+    while ((m = H_OBJ.exec(text)) && candles.length < 5000) {
+      const o = m[0], g = (k) => { const x = o.match(new RegExp(`"${k}"\\s*:\\s*"?(-?[\\d.]+)`)); return x ? +x[1] : null; };
+      const op = g("open"), cl = g("close"), hi = g("high"), lo = g("low");
+      if ([op, cl, hi, lo].every((x) => x != null)) candles.push([+m[1], op, cl, hi, lo, "named"]);
+    }
+    if (!candles.length) { H_TICK.lastIndex = 0; while ((m = H_TICK.exec(text)) && ticks.length < 20000) ticks.push([+m[1], +m[2]]); }
+    if (candles.length >= 20 || ticks.length >= 50)
+      window.postMessage({ __sinalHonesto: "history", asset: am ? am[1] : null, ticks, candles }, "*");
+  }
   function scan(text) {
-    if (!text || text.length > 400000) return;
+    if (!text || text.length > 2000000) return;
+    try { scanHistory(text); } catch {}
+    if (text.length > 400000) return;
     let m;
     TICK.lastIndex = 0; while ((m = TICK.exec(text))) { pending.set(m[1], +m[3]); stats.names.set(m[1], Date.now()); }
     OBJ.lastIndex = 0; while ((m = OBJ.exec(text))) { pending.set(m[1], +m[2]); stats.names.set(m[1], Date.now()); }

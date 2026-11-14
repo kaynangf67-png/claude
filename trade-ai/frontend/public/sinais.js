@@ -311,6 +311,39 @@
     feed = { key, candles: fresh ? saved : [], sec: freshS ? savedS : [], found: false, lastAt: 0, savedAt: 0 };
     const cl = feed.candles.filter((c) => c.closed); lastEvalBy[key] = cl.length ? cl[cl.length - 1].t : 0;
   }
+  // history from the broker (when it opens an asset): candles [t, a, b, c, d] or ticks [t, price]
+  function onBrokerHistory(ticks, candles) {
+    if (!brokerMode()) return;
+    if (feed.key !== lastDetect.raw) loadFeed(lastDetect.raw);
+    const nowT = now(), m1 = new Map(), s1 = new Map();
+    const put = (map, len, t, o, h, l, c) => {
+      const k = Math.floor(t / len) * len, x = map.get(k);
+      if (!x) map.set(k, { t: k, o, h, l, c });
+      else { x.h = Math.max(x.h, h); x.l = Math.min(x.l, l); x.c = c; }
+    };
+    if (candles.length) {
+      // the order of the 4 prices varies by broker: use the one where high/low really are the extremes
+      const ok = (a) => candles.filter((x) => { const [o, h, l, c] = a.map((i) => +x[i]); return h >= Math.max(o, c) && l <= Math.min(o, c); }).length;
+      const orders = [[1, 3, 4, 2], [1, 2, 3, 4]];          // [t, open, close, high, low] or [t, open, high, low, close]
+      const named = candles.some((x) => x[5] === "named");
+      const ord = named ? orders[0] : orders.sort((a, b) => ok(b) - ok(a))[0];
+      for (const x of candles) { const t = +x[0] * (x[0] < 1e12 ? 1000 : 1); const [o, h, l, c] = ord.map((i) => +x[i]); if (t < nowT) put(m1, MIN, t, o, h, l, c); }
+    } else {
+      for (const [t0, p0] of ticks) { const t = +t0 * (t0 < 1e12 ? 1000 : 1), p = +p0; if (!(p > 0) || t > nowT) continue; put(m1, MIN, t, p, p, p, p); if (nowT - t < 3600000) put(s1, 1000, t, p, p, p, p); }
+    }
+    const hist = [...m1.values()].sort((a, b) => a.t - b.t);
+    if (hist.length < 2) return;
+    const live = feed.candles.length ? feed.candles[feed.candles.length - 1].c : hist[hist.length - 1].c;
+    if (Math.abs(hist[hist.length - 1].c / live - 1) > 0.05) return;     // not the same series
+    const lastHist = hist[hist.length - 1].t;
+    feed.candles = hist.map((c) => ({ ...c, closed: c.t + MIN <= nowT })).concat(feed.candles.filter((c) => c.t > lastHist)).slice(-1500);
+    if (s1.size) { const sh = [...s1.values()].sort((a, b) => a.t - b.t), ls = sh[sh.length - 1].t;
+      feed.sec = sh.map((c) => ({ ...c, closed: c.t + 1000 <= nowT })).concat(feed.sec.filter((c) => c.t > ls)).slice(-3600); }
+    feed.found = true; feed.lastAt = Math.max(feed.lastAt, nowT - 1000);
+    LS.set(FEED + feed.key, feed.candles);
+    anaData.key = null;                                                   // the scanner uses the new history
+    draw(); renderPanel();
+  }
   function onBrokerPrice(p) {
     if (!brokerMode() || !(p > 0)) return;
     if (Number.isInteger(p) || (lastDetect.payout && Math.round(p) === Math.round(lastDetect.payout))) return;   // "91", "93.000": payout or counter
@@ -701,7 +734,7 @@
       g.font = "11px system-ui"; g.fillText("o painel troca sozinho para ele", W / 2, H / 2 + 12);
       g.textAlign = "left"; return;
     }
-    if (bm && (!feedLive() || src.length < 2)) {
+    if (bm && (!feedLive() || src.length < 1)) {
       g.fillStyle = "#8a97b3"; g.font = "13px system-ui"; g.textAlign = "center";
       const ok = feedLive();
       g.fillText(ok ? `Montando o gráfico de ${lastDetect.raw}…` : `Procurando o preço de ${lastDetect.raw} na tela…`, W / 2, H / 2 - 6);
@@ -963,6 +996,7 @@
     window.addEventListener("message", (e) => {
       if (e.source !== window.parent) return;
       const d = e.data; if (!d) return;
+      if (d.type === "sh-history") { onBrokerHistory(Array.isArray(d.ticks) ? d.ticks : [], Array.isArray(d.candles) ? d.candles : []); return; }
       if (d.type === "sh-price") { onBrokerPrice(+d.p); if ($("autoPrice")) $("autoPrice").textContent = +d.p > 0 ? fmt(+d.p) + " (lido da tela)" : "não encontrado"; return; }
       if (d.type !== "sh-detect") return;
       lastDetect = {
