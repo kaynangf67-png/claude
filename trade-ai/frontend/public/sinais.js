@@ -39,7 +39,7 @@
       const { serverTime } = await r.json(); if (serverTime) clockOff = serverTime - (t0 + t1) / 2;
     } catch {}
   }
-  const STRAT_NAMES = { click: "Sinalizar (botão)", combo: "Indicador", rsi: "RSI 14", bb: "Bollinger 20", ema: "EMA 9×21", coin: "Cara ou coroa" };
+  const STRAT_NAMES = { scan: "Sinalizar (botão)", candle: "Padrões de vela", click: "Leitura RSI/BB/EMA", combo: "Indicador", rsi: "RSI 14", bb: "Bollinger 20", ema: "EMA 9×21", coin: "Cara ou coroa" };
   const PARTS = ["rsi", "bb", "ema"];   // the strategies the indicator combines
   const LS = {
     get(k, d) { try { const v = localStorage.getItem("sh_" + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
@@ -388,6 +388,61 @@
   const expCandles = () => Math.max(1, Math.round(expSecNow() / tf));
   const modelFor = (n) => anaData.models[n] || (anaData.models[n] = learnPatterns(anaData.cs, anaData.ind, n, 0, anaData.cs.length));
 
+  // ---------- candlestick patterns ("estudos de candles") ----------
+  // Looks at the last closed candles. Each pattern says its direction and how many candles it uses.
+  function candlePatterns(cs, i) {
+    if (i < 6) return [];
+    const C = (k) => cs[i - k], c = C(0), p = C(1), q = C(2);
+    const body = (x) => Math.abs(x.c - x.o), rng = (x) => Math.max(x.h - x.l, 1e-12);
+    const up = (x) => x.c > x.o, dn = (x) => x.c < x.o;
+    const upper = (x) => x.h - Math.max(x.o, x.c), lower = (x) => Math.min(x.o, x.c) - x.l;
+    let avg = 0; for (let k = 1; k <= 6; k++) avg += body(C(k)); avg = avg / 6 || 1e-12;
+    const fall = cs[i - 1].c < cs[i - 6].c, rise = cs[i - 1].c > cs[i - 6].c;   // what the market did before
+    const out = [], add = (name, dir, len, w) => out.push({ name, dir, len, w });
+    // 3 candles
+    if (dn(q) && body(q) > avg && body(p) < body(q) * 0.4 && up(c) && c.c > (q.o + q.c) / 2) add("Estrela da manhã", "UP", 3, 3);
+    if (up(q) && body(q) > avg && body(p) < body(q) * 0.4 && dn(c) && c.c < (q.o + q.c) / 2) add("Estrela da noite", "DOWN", 3, 3);
+    if (up(q) && up(p) && up(c) && p.c > q.c && c.c > p.c && body(c) > avg * 0.6 && body(p) > avg * 0.6) add("Três soldados", "UP", 3, 2.5);
+    if (dn(q) && dn(p) && dn(c) && p.c < q.c && c.c < p.c && body(c) > avg * 0.6 && body(p) > avg * 0.6) add("Três corvos", "DOWN", 3, 2.5);
+    // 2 candles
+    if (dn(p) && up(c) && c.o <= p.c && c.c >= p.o && body(c) > body(p)) add("Engolfo de alta", "UP", 2, 2.5);
+    if (up(p) && dn(c) && c.o >= p.c && c.c <= p.o && body(c) > body(p)) add("Engolfo de baixa", "DOWN", 2, 2.5);
+    if (dn(p) && body(p) > avg && up(c) && c.o > p.c && c.c < p.o && body(c) < body(p) * 0.6) add("Harami de alta", "UP", 2, 1.5);
+    if (up(p) && body(p) > avg && dn(c) && c.o < p.c && c.c > p.o && body(c) < body(p) * 0.6) add("Harami de baixa", "DOWN", 2, 1.5);
+    if (fall && dn(p) && up(c) && Math.abs(c.l - p.l) <= rng(c) * 0.1) add("Pinça de fundo", "UP", 2, 2);
+    if (rise && up(p) && dn(c) && Math.abs(c.h - p.h) <= rng(c) * 0.1) add("Pinça de topo", "DOWN", 2, 2);
+    // 1 candle
+    const smallBody = body(c) <= rng(c) * 0.35;
+    if (fall && smallBody && lower(c) >= body(c) * 2 && upper(c) <= rng(c) * 0.15) add("Martelo", "UP", 1, 2);
+    if (rise && smallBody && upper(c) >= body(c) * 2 && lower(c) <= rng(c) * 0.15) add("Estrela cadente", "DOWN", 1, 2);
+    if (fall && smallBody && upper(c) >= body(c) * 2 && lower(c) <= rng(c) * 0.15) add("Martelo invertido", "UP", 1, 1.5);
+    if (rise && smallBody && lower(c) >= body(c) * 2 && upper(c) <= rng(c) * 0.15) add("Enforcado", "DOWN", 1, 1.5);
+    if (body(c) <= rng(c) * 0.1 && rng(c) > 0) { if (rise) add("Doji no topo", "DOWN", 1, 1); else if (fall) add("Doji no fundo", "UP", 1, 1); }
+    if (body(c) >= rng(c) * 0.9 && body(c) > avg * 1.3) add(up(c) ? "Marubozu de alta" : "Marubozu de baixa", up(c) ? "UP" : "DOWN", 1, 1.5);
+    return out;
+  }
+  // the strongest reading: the side with more weight wins, and its heaviest pattern names it
+  function bestPattern(cs, i) {
+    const ps = candlePatterns(cs, i); if (!ps.length) return null;
+    const w = { UP: 0, DOWN: 0 }; ps.forEach((x) => (w[x.dir] += x.w));
+    if (w.UP === w.DOWN) return null;
+    const dir = w.UP > w.DOWN ? "UP" : "DOWN";
+    return ps.filter((x) => x.dir === dir).sort((a, b) => b.w - a.w)[0];
+  }
+  // how each pattern did in this market's history, for the expiration in candles n
+  function learnCandles(cs, n) {
+    const m = new Map();
+    for (let i = 6; i + n < cs.length; i++) {
+      const b = bestPattern(cs, i); if (!b) continue;
+      const d = cs[i + n].c - cs[i].c; if (!d) continue;
+      const o = m.get(b.name) || { ok: 0, n: 0 }; o.n++; if ((d > 0) === (b.dir === "UP")) o.ok++; m.set(b.name, o);
+    }
+    return m;
+  }
+  const candleModelFor = (n) => anaData.models["c" + n] || (anaData.models["c" + n] = learnCandles(anaData.cs, n));
+  // momentum of the last candles, used only when there is no clear pattern and no history
+  function lastMove(cs, i) { const k = Math.max(0, i - 5); return cs[i].c >= cs[k].c ? "UP" : "DOWN"; }
+
   let ana = null;        // the scan in progress: { key, tf, scanStart, err, done }
   let lastScan = null;   // the chart keeps the selection for the trade the scan opened
   const SCAN_MS = 1200, SEL = 20;     // scanner animation; candles the analysis looks at (RSI 14 / Bollinger 20)
@@ -405,18 +460,32 @@
   function finishAnalysis() {
     if (!ana) return;
     if (ana.key !== mk() || ana.tf !== tf) { startAnalysis(); return; }      // market or timeframe changed meanwhile
-    const live = srcC();
-    if (!ana.err && (live.length < 30 || anaData.cs.length < 100))
-      ana.err = brokerMode() ? `poucas velas da corretora em ${tfLabel(tf)} (${anaData.cs.length}); com o painel aberto elas vão juntando` : "sem histórico suficiente";
-    const ind = ana.err ? null : indicators(live), nC = expCandles();
-    const pred = ind && predict(modelFor(nC), votesAt(ind, live.length - 1));
-    if (!pred) { ana.err = ana.err || "padrão sem histórico"; ana.done = true; renderPanel(); draw(); return; }
+    const closed = srcC().filter((c) => c.closed), i = closed.length - 1, nC = expCandles();
+    if (closed.length < 7) {
+      ana.err = `juntando velas ${tfLabel(tf)} da corretora (${Math.max(0, closed.length)}/7)`; ana.done = true; renderPanel(); draw(); return;
+    }
+    const hist = anaData.cs.length >= 60;
+    // 1st: candle patterns on the last closed candles
+    let pred = null;
+    const b = bestPattern(closed, i);
+    if (b) {
+      const o = hist ? candleModelFor(nC).get(b.name) : null;
+      pred = { dir: b.dir, kind: "candle", name: b.name, len: b.len, t0: closed[i - b.len + 1].t, t1: closed[i].t,
+        n: o ? o.n : 0, rate: o && o.n ? o.ok / o.n : null };
+    }
+    // 2nd: no clear pattern → same RSI/Bollinger/EMA state in the history
+    if (!pred && hist && closed.length >= 30) {
+      const pr = predict(modelFor(nC), votesAt(indicators(closed), i));
+      if (pr) pred = { dir: pr.dir, kind: "state", name: "sem padrão de vela · " + pr.level, len: 0, n: pr.n, rate: pr.rate };
+    }
+    // 3rd: nothing else → direction of the last candles
+    if (!pred) pred = { dir: lastMove(closed, i), kind: "move", name: "sem padrão claro · direção das últimas velas", len: Math.min(5, i), t0: closed[Math.max(0, i - 5)].t, t1: closed[i].t, n: 0, rate: null };
     const p = lastPrice(), es = expSecNow(), t0 = now();
     history.unshift({
-      id: t0 + "click", sym: mk(), name: curName(), strat: "click", dir: pred.dir, n: Math.max(1, Math.round(es / 60)), expSec: es, tf,
+      id: t0 + "click", sym: mk(), name: curName(), strat: "scan", dir: pred.dir, n: Math.max(1, Math.round(es / 60)), expSec: es, tf,
       shadow: false, src: brokerMode() ? "corretora" : "binance", mode: "now",
       payout: curPayout(), stake: stake(), cur, entry: p, sigT: t0, entryAt: t0, endAt: t0 + es * 1000,
-      res: null, exit: null, rate: pred.rate, seen: pred.n, level: pred.level, nC,
+      res: null, exit: null, rate: pred.rate, seen: pred.n, level: pred.name, kind: pred.kind, nC,
     });
     history = history.slice(0, 800); LS.set("history", history); renderHistory();
     lastScan = { key: mk(), tf, id: t0 + "click", pred };
@@ -530,7 +599,7 @@
       if (ai) ai.style.display = "none";
       return;
     }
-    if (ai) ai.style.display = ana || (tr && tr.strat === "click") ? "" : "none";
+    if (ai) ai.style.display = ana || (tr && (tr.strat === "scan" || tr.strat === "click")) ? "" : "none";
     const be = 1 / (1 + curPayout() / 100);
     if (ana) {
       $("tradeTitle").textContent = `Escaneando ${curName()} · ${tfLabel(tf)}`;
@@ -538,7 +607,7 @@
       $("timer").textContent = "…"; $("bar").style.width = Math.min(100, 100 * (now() - ana.scanStart) / SCAN_MS) + "%";
       $("mPayout").textContent = `Payout ${curPayout()}%`; $("mExp").textContent = expTxt();
       const lp = lastPrice(); $("mEntry").textContent = lp ? `Preço ${fmt(lp)}` : "Preço —";
-      ai.innerHTML = ana.done ? esc(ana.err || "") : `selecionando as últimas ${SEL} velas ${tfLabel(tf)} e procurando o mesmo padrão no histórico…`;
+      ai.innerHTML = ana.done ? esc(ana.err || "") : `lendo as velas ${tfLabel(tf)}: engolfo, martelo, estrela, doji, harami, pinça…`;
       if (ana.done && now() - ana.scanStart > 5000) ana = null;
     } else if (tr && tr.mode === "now") {
       $("tradeTitle").textContent = `ENTRE AGORA · fecha às ${clockStr(tr.endAt, true)}`;
@@ -548,9 +617,11 @@
       $("mPayout").textContent = `Payout ${tr.payout}%`;
       $("mEntry").textContent = `Entrada ${fmt(tr.entry)}`;
       $("mExp").textContent = tr.expSec < 60 ? tr.expSec + " s" : Math.round(tr.expSec / 60) + " min";
-      const ci = wilson(Math.round(tr.rate * tr.seen), tr.seen);
-      const tag = ci[0] > be ? '<b class="g">acima do empate</b>' : tr.rate < be ? '<b class="r">abaixo do empate: não compensa</b>' : '<b class="w">fraco: pode ser sorte</b>';
-      ai.innerHTML = `Visto <b>${tr.seen}×</b> (${tr.level}): ${tr.dir === "UP" ? "subiu" : "caiu"} em <b>${pct(tr.rate)}</b> das vezes em ${tr.nC} vela(s) ${tfLabel(tr.tf > 1 ? tr.tf : 60)} · empate ${pct(be)} · ${tag}`;
+      const ci = tr.seen ? wilson(Math.round(tr.rate * tr.seen), tr.seen) : [0, 1];
+      const tag = !tr.seen ? "" : ci[0] > be ? '<b class="g">acima do empate</b>' : tr.rate < be ? '<b class="r">abaixo do empate: não compensa</b>' : '<b class="w">fraco: pode ser sorte</b>';
+      const tfl = tfLabel(tr.tf > 1 ? tr.tf : 60), head = tr.kind === "candle" ? `Padrão: <b>${esc(tr.level)}</b>` : esc(tr.level);
+      ai.innerHTML = tr.seen ? `${head} · no histórico deste ativo acertou <b>${pct(tr.rate)}</b> em ${tr.seen} vezes (${tr.nC} vela(s) ${tfl}) · empate ${pct(be)} · ${tag}`
+        : `${head} · ainda sem histórico para medir o acerto · empate ${pct(be)}`;
     } else if (tr) {
       $("tradeTitle").textContent = "Trade aberto";
       dirEl.className = "dir " + tr.dir; dirEl.textContent = tr.dir === "UP" ? "▲ UP" : "▼ DOWN";
@@ -676,15 +747,18 @@
         const done = cs.filter((_, k) => k * cw + cw / 2 <= x).length;
         g.fillStyle = "#38bdf8"; g.font = "bold 11px system-ui"; g.fillText(`ESCANEANDO VELAS ${done}/${cs.length}`, 8, 40);
       } else {
-        const k0 = cs.length - sel, part = cs.slice(k0);
+        const pv = view.pred;
+        let k0 = cs.length - sel, k1 = cs.length;
+        if (pv && pv.t0 != null) { const a = cs.findIndex((c) => c.t === pv.t0), b = cs.findIndex((c) => c.t === pv.t1); if (a >= 0 && b >= a) { k0 = a; k1 = b + 1; } }
+        const part = cs.slice(k0, k1);
         let sh = -Infinity, sl = Infinity; part.forEach((c) => { sh = Math.max(sh, c.h); sl = Math.min(sl, c.l); });
-        const x0 = k0 * cw, x1 = cs.length * cw, y0 = y(sh) - 6, y1 = y(sl) + 6;
+        const x0 = k0 * cw, x1 = k1 * cw, y0 = y(sh) - 6, y1 = y(sl) + 6;
         g.fillStyle = "rgba(56,189,248,.10)"; g.fillRect(x0, y0, x1 - x0, y1 - y0);
         g.setLineDash([5, 3]); g.strokeStyle = "#38bdf8"; g.lineWidth = 1.5; g.strokeRect(x0, y0, x1 - x0, y1 - y0); g.setLineDash([]);
-        g.fillStyle = "#38bdf8"; g.font = "bold 10px system-ui"; g.fillText(`${sel} VELAS SELECIONADAS`, Math.max(2, x0), Math.max(38, y0 - 4));
+        g.fillStyle = "#38bdf8"; g.font = "bold 10px system-ui"; g.fillText(pv && pv.kind === "candle" ? pv.name.toUpperCase() : pv && pv.kind === "move" ? "ÚLTIMAS VELAS" : `${sel} VELAS SELECIONADAS`, Math.max(2, Math.min(x0, W - padR - 150)), Math.max(38, y0 - 4));
         const p = view.pred;
         if (p) {
-          const txt = (p.dir === "UP" ? "▲ COMPRA " : "▼ VENDA ") + pct(p.rate);
+          const txt = (p.dir === "UP" ? "▲ COMPRA" : "▼ VENDA") + (p.rate != null ? " " + pct(p.rate) : "");
           g.font = "bold 12px system-ui"; const tw = g.measureText(txt).width + 12, bx = Math.max(2, Math.min(x0, W - padR - tw - 2)), by = Math.min(H - padB - 22, y1 + 4);
           g.fillStyle = p.dir === "UP" ? "#16a34a" : "#dc2626"; g.fillRect(bx, by, tw, 20);
           g.fillStyle = "#fff"; g.fillText(txt, bx + 6, by + 14);
@@ -738,13 +812,16 @@
         clickTrades.push({ dir: pr.dir, res: outcome(pr.dir, cs[i].c, cs[i + n].c) });
       }
       all.unshift({ strat: "click", trades: clickTrades, st: stats(clickTrades, pay, stake()) });
+      const candleTrades = [];
+      for (let i = 6; i + n < cs.length; i++) { const b = bestPattern(cs, i); if (!b) continue; candleTrades.push({ dir: b.dir, res: outcome(b.dir, cs[i].c, cs[i + n].c) }); i += n - 1; }
+      all.unshift({ strat: "candle", trades: candleTrades, st: stats(candleTrades, pay, stake()) });
       const verdictOf = (st) => st.n < 30 ? '<span class="m">❔ poucos</span>' : st.ci[0] > st.be ? '<span class="g">✅ lucro</span>'
         : st.ci[1] < st.be ? '<span class="r">❌ perde</span>' : '<span class="w">⚠️ incerto</span>';
       $("btOut").style.display = "";
-      $("btRows").innerHTML = all.map(({ strat, st }) => `<tr class="${strat === "click" || strat === "combo" ? "main" : ""}"><td>${STRAT_NAMES[strat]}${strat === "coin" ? " <small>(controle)</small>" : strat === "click" ? " <small>(2ª metade)</small>" : ""}</td>
+      $("btRows").innerHTML = all.map(({ strat, st }) => `<tr class="${strat === "candle" || strat === "combo" ? "main" : ""}"><td>${STRAT_NAMES[strat]}${strat === "coin" ? " <small>(controle)</small>" : strat === "click" ? " <small>(2ª metade)</small>" : ""}</td>
         <td>${st.n + st.r}</td><td class="${st.wr == null ? "" : st.wr > st.be ? "g" : "r"}">${pct(st.wr)}${st.ci ? `<small class="ci">${pct(st.ci[0])}–${pct(st.ci[1])}</small>` : ""}</td>
         <td class="${st.net >= 0 ? "g" : "r"}">${money(st.net)}</td><td>${verdictOf(st)}</td></tr>`).join("");
-      const combo = all[1], st = combo.st, clickSt = all[0].st;
+      const combo = all[2], st = combo.st, clickSt = all[1].st, candleSt = all[0].st;
       $("btBE").textContent = `Payout ${pay}% → precisa acertar ${pct(st.be)} para empatar. Valor ${money(stake())} por entrada.`;
       const eq = [0];
       combo.trades.forEach((t) => eq.push(eq[eq.length - 1] + (t.res === "GANHOU" ? stake() * pay / 100 : t.res === "PERDEU" ? -stake() : 0)));
@@ -754,7 +831,8 @@
       else if (st.ci[0] > st.be) { v.className = "verdict ok"; v.innerHTML = `<b>Indicador acima do empate neste período</b> (pior caso ${pct(st.ci[0])} &gt; ${pct(st.be)}). Teste em outros ativos e tamanhos antes de acreditar.`; }
       else if (st.ci[1] < st.be) { v.className = "verdict bad"; v.innerHTML = `<b>Indicador perde dinheiro aqui.</b> Acertou ${pct(st.wr)} e precisava de ${pct(st.be)}.`; }
       else { v.className = "verdict meh"; v.innerHTML = `<b>Indicador sem vantagem comprovada.</b> Acertou ${pct(st.wr)}; o real pode estar entre ${pct(st.ci[0])} e ${pct(st.ci[1])}, e o empate é ${pct(st.be)}. Compare com Cara ou coroa.`; }
-      v.innerHTML += `<br><small>Botão "Sinalizar": ${clickSt.n < 30 ? "poucos casos para avaliar" : `acertou ${pct(clickSt.wr)} na metade que ele não tinha visto (empate ${pct(clickSt.be)}): ${clickSt.ci[0] > clickSt.be ? "acima do empate" : clickSt.ci[1] < clickSt.be ? "perde dinheiro" : "sem vantagem comprovada"}`}.</small>`;
+      v.innerHTML += `<br><small>Padrões de vela: ${candleSt.n < 30 ? "poucos casos" : `acertaram ${pct(candleSt.wr)} (empate ${pct(candleSt.be)})`}.</small>`;
+      v.innerHTML += `<br><small>Leitura RSI/BB/EMA do botão: ${clickSt.n < 30 ? "poucos casos para avaliar" : `acertou ${pct(clickSt.wr)} na metade que ele não tinha visto (empate ${pct(clickSt.be)}): ${clickSt.ci[0] > clickSt.be ? "acima do empate" : clickSt.ci[1] < clickSt.be ? "perde dinheiro" : "sem vantagem comprovada"}`}.</small>`;
       if (lucky.length) v.innerHTML += `<br><small>${lucky.join(", ")} passou do empate neste período. Ao testar várias estratégias, uma costuma ir bem por acaso: confirme em outro período.</small>`;
       $("btInfo").textContent = `${curName()}${brokerMode() ? " (preço lido da corretora)" : ""} · expiração ${n} min · ${cs.length.toLocaleString("pt-BR")} velas (${new Date(cs[0].t).toLocaleDateString("pt-BR")} a ${new Date(cs[cs.length - 1].t).toLocaleDateString("pt-BR")})`;
       lastEq = eq; drawEquity(eq); btDone = mk() + "|" + n;

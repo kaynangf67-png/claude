@@ -58,10 +58,14 @@ roda nessas velas a partir de 60. O preço OTC é feito pela corretora: acompanh
 
 ## Sinalizar entrada
 
-Botão na aba Sinal (o único que gera sinal). Ao clicar, um scanner percorre as velas do gráfico (~1 s), seleciona as
-últimas 20 e procura no histórico do ativo as vezes em que RSI, Bollinger e EMA estavam como agora, contando o que o
-preço fez na expiração da corretora. A entrada sai na hora: COMPRA ou VENDA ao preço atual, com a contagem até o fim
-da expiração, e o resultado é conferido no preço desse momento. O histórico é baixado antes do clique, por isso é rápido.
+Botão na aba Sinal. Ao clicar, o scanner percorre as velas e dá a entrada na hora (COMPRA ou VENDA ao preço atual,
+com a expiração da corretora). Ordem da leitura:
+1. **Padrões de vela** nas últimas velas fechadas: estrela da manhã/noite, três soldados/corvos, engolfo, harami,
+   pinça de fundo/topo, martelo, estrela cadente, martelo invertido, enforcado, doji e marubozu. O padrão aparece
+   marcado no gráfico e, quando há histórico, quanto ele acertou neste ativo.
+2. Sem padrão claro: a leitura RSI/Bollinger/EMA no histórico.
+3. Sem histórico: a direção das últimas velas.
+Precisa de só 7 velas fechadas, então em OTC sai entrada rápido (em S5, menos de 1 minuto).
 
-O painel segue o **tempo gráfico** da corretora (S5, S15, S30, M1, M5, M15, H1…): as velas do gráfico e da análise mudam junto.
-Se não for achado, use **Ajustes → Apontar tempo gráfico**.
+O painel segue o **tempo gráfico** da corretora (S5, S15, S30, M1, M5, M15, H1…). Se não for achado, use
+**Ajustes → Apontar tempo gráfico**.
