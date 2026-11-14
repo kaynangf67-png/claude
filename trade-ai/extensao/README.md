@@ -56,11 +56,12 @@ O indicador precisa de 30 velas para funcionar: em OTC elas são montadas com o 
 começam depois de ~30 minutos com o painel aberto naquele ativo (as velas ficam salvas). O backtest também
 roda nessas velas a partir de 60. O preço OTC é feito pela corretora: acompanhe a taxa de acerto real.
 
-## Sinalizar próxima vela
+## Sinalizar entrada
 
-Botão na aba Sinal (o único que gera sinal; não há mais sinais automáticos nem caixa de indicadores). Ao clicar,
-um scanner percorre as velas do gráfico, seleciona as últimas 20 e então ele procura no histórico do ativo (5.000 velas, ou as velas lidas da corretora em
-OTC) todas as vezes em que RSI, Bollinger e EMA estavam como agora e conta o que o preço fez na expiração atual.
-Mostra COMPRA ou VENDA, quantas vezes o padrão foi visto, a taxa e se ela passa do empate do payout. Até a vela
-abrir a resposta acompanha o preço ao vivo, a expiração e o mercado da corretora; na abertura a entrada é travada e
-o resultado é conferido como os outros sinais. O backtest mostra como esse botão foi em dados que ele não tinha visto.
+Botão na aba Sinal (o único que gera sinal). Ao clicar, um scanner percorre as velas do gráfico (~1 s), seleciona as
+últimas 20 e procura no histórico do ativo as vezes em que RSI, Bollinger e EMA estavam como agora, contando o que o
+preço fez na expiração da corretora. A entrada sai na hora: COMPRA ou VENDA ao preço atual, com a contagem até o fim
+da expiração, e o resultado é conferido no preço desse momento. O histórico é baixado antes do clique, por isso é rápido.
+
+O painel segue o **tempo gráfico** da corretora (M1, M5, M15, H1…): as velas do gráfico e da análise mudam junto.
+Se não for achado, use **Ajustes → Apontar tempo gráfico**.

@@ -164,6 +164,33 @@
     }
     return best ? best.sec : null;
   }
+  // chart timeframe: "M1", "M5", "H1", "5m", "15 min"… the visible one, or the one marked active in a list
+  const TF_RX = /^(?:([SMH])\s?(\d{1,2})|(\d{1,2})\s?(s|m|min|h))$/i;
+  function tfToSec(t) {
+    const m = String(t).trim().match(TF_RX); if (!m) return null;
+    const u = (m[1] || m[4]).toLowerCase(), v = +(m[2] || m[3]);
+    return u === "h" ? v * 3600 : u === "s" ? v : v * 60;
+  }
+  function findTimeframe() {
+    const groups = new Map(), all = [];
+    const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT); let n, k = 0;
+    while ((n = w.nextNode()) && k++ < 20000) {
+      const t = n.nodeValue.trim(); if (t.length < 2 || t.length > 7) continue;
+      const sec = tfToSec(t); if (!sec) continue;
+      const el = n.parentElement; if (!el || host.contains(el) || !visibleEl(el)) continue;
+      let ctx = "", node = el; for (let i = 0; i < 3 && node; i++, node = node.parentElement) ctx = node.textContent || "";
+      if (EXP_WORDS.test(ctx.slice(0, 120)) && !/time ?frame|tempo gr|gráfico|grafico|candle|vela|interval/i.test(ctx.slice(0, 120))) continue;
+      const cls = [el, el.parentElement, el.parentElement && el.parentElement.parentElement].filter(Boolean)
+        .map((e) => (e.className && e.className.baseVal !== undefined ? e.className.baseVal : e.className) + " " + (e.getAttribute("aria-selected") || "") + (e.getAttribute("aria-pressed") || "") + (e.getAttribute("aria-checked") || "")).join(" ");
+      const item = { sec, active: /active|selected|current|checked|true/i.test(cls) };
+      all.push(item);
+      const g = el.parentElement && el.parentElement.parentElement; groups.set(g, (groups.get(g) || []).concat(item));
+    }
+    const act = all.find((x) => x.active); if (act) return act.sec;
+    const single = [...groups.values()].filter((g) => g.length === 1);   // a lone "M5" button, not a whole menu
+    return single.length === 1 ? single[0][0].sec : null;
+  }
+
   // time zone shown by the broker ("UTC-3", "UTC −03:00", "GMT+1")
   function findTz() {
     const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT); let n, k = 0;
@@ -279,11 +306,18 @@
       for (const [n, c] of cands) {
         const v = (n.textContent || "").trim();
         if (!NUM.test(v)) continue;
-        if (v !== c.v) { c.v = v; c.changes.push(t0); }
+        if (v !== c.v) {
+          const a = parseAmount(c.v), b = parseAmount(v);
+          // a price moves a tiny bit per tick; counters, payouts and timers jump
+          if (a && b && Math.abs(b / a - 1) > 0.005) c.jumps = (c.jumps || 0) + 1;
+          c.v = v; c.changes.push(t0);
+        }
         c.changes = c.changes.filter((x) => t0 - x < 20000);
         if (!n.isConnected || c.changes.length < 3 || t0 - c.changes[c.changes.length - 1] > 8000) continue;
-        const dec = (v.split(/[.,]/).pop() || "").length;
-        const score = c.changes.length + dec;
+        const decs = (v.split(/[.,]/).pop() || "");
+        if (/^0+$/.test(decs)) continue;                       // "93.000" is not a live price
+        if ((c.jumps || 0) * 3 > c.changes.length) continue;   // mostly jumps
+        const score = c.changes.length + decs.length * 2;
         if (!best || score > best.score) best = { score, v };
       }
       if (best) p = parseAmount(best.v);
@@ -294,8 +328,8 @@
   function scan(force) {
     if (picking) return;
     let msg = { type: "sh-detect", raw: null, sym: null, otc: false, payout: null, amount: null, currency: null,
-      expirySec: null, tz: null,
-      taught: { asset: !!taught.asset, payout: !!taught.payout, amount: !!taught.amount, expiry: !!taught.expiry, price: !!taught.price } };
+      expirySec: null, tfSec: null, tz: null,
+      taught: { asset: !!taught.asset, payout: !!taught.payout, amount: !!taught.amount, expiry: !!taught.expiry, price: !!taught.price, tf: !!taught.tf } };
     try {
       // market
       let a = null;
@@ -332,6 +366,8 @@
         msg.expirySec = sec;
       } else msg.expirySec = findExpiry();
       msg.tz = findTz();
+      const tt = taught.tf && readEl(taught.tf);
+      msg.tfSec = tt ? (tfToSec(tt.text) || tfToSec((tt.text.match(/[SMH]\s?\d{1,2}|\d{1,2}\s?(?:min|m|h|s)\b/i) || [""])[0])) : findTimeframe();
     } catch (e) { /* page changed under us; try again next tick */ }
     const key = JSON.stringify(msg);
     if (force === true || key !== lastKey) { lastKey = key; frame.contentWindow && frame.contentWindow.postMessage(msg, "*"); }
@@ -339,7 +375,7 @@
 
   // ---------- "Apontar": click once on the broker to teach where each value is ----------
   const hl = root.querySelector(".hl"), tip = root.querySelector(".tip");
-  const LABEL = { asset: "o NOME DO MERCADO", payout: "o PAYOUT (ex.: 92%)", amount: "o VALOR da entrada", expiry: "a EXPIRAÇÃO / TEMPO (ex.: 00:01:00)", price: "o PREÇO atual (o número que muda junto com o gráfico)" };
+  const LABEL = { asset: "o NOME DO MERCADO", payout: "o PAYOUT (ex.: 92%)", amount: "o VALOR da entrada", expiry: "a EXPIRAÇÃO / TEMPO (ex.: 00:01:00)", price: "o PREÇO atual (o número que muda junto com o gráfico)", tf: "o TEMPO GRÁFICO (ex.: M1, M5)" };
   let picking = null;
   const under = (e) => { const t = document.elementFromPoint(e.clientX, e.clientY); return t && !host.contains(t) && t !== host ? t : null; };
   function onMove(e) {
