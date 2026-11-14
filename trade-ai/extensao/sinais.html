@@ -136,6 +136,11 @@
   body.compact table.bt{font-size:11px}
   .autoinfo{display:grid;gap:3px;font-size:13px;margin-top:4px}
   body.compact .cfg header{display:none}
+  .trend{font-size:13px;margin-top:4px;padding:4px 8px;border-radius:8px;display:inline-block}
+  .trend small{font-size:11px;opacity:.8;margin-left:4px}
+  .trend.up{background:#052e16;color:var(--up);border:1px solid #166534}
+  .trend.down{background:#350a0a;color:var(--down);border:1px solid #7f1d1d}
+  .trend.side{background:#1f2937;color:#cbd5e1;border:1px solid #374151}
 </style>
 </head>
 <body>
@@ -185,13 +190,14 @@
       <div class="m" style="font-size:12px;margin-top:8px">Tudo vem da corretora sozinho. Se algo aparecer "não encontrado", aponte:</div>
       <div class="picks">
         <button data-pick="asset">Apontar mercado</button><button data-pick="payout">Apontar payout</button>
-        <button data-pick="amount">Apontar valor</button><button data-pick="expiry">Apontar expiração</button><button data-pick="clear" class="ghost">Esquecer pontos</button>
+        <button data-pick="amount">Apontar valor</button><button data-pick="expiry">Apontar expiração</button><button data-pick="price">Apontar preço</button><button data-pick="clear" class="ghost">Esquecer pontos</button>
       </div>
     </div>
 
     <div class="sub">
       <h3 class="th"><span id="tradeTitle">Aguardando setup</span><span id="clock" class="clock"></span></h3>
       <div class="asset" id="assetName">—</div>
+      <div class="trend m" id="trend">Tendência: —</div>
       <div class="dirrow">
         <span class="dir WAIT" id="dir">SEM SINAL</span>
         <span class="timer" id="timer">--:--</span>

@@ -267,6 +267,52 @@
     pollTimer = setInterval(tick, 1000); tick();
   }
 
+  // ---------- broker price feed (OTC and markets without free real data) ----------
+  // The extension reads the price shown on the broker's screen and builds 1-minute candles from it.
+  const brokerMode = () => !!(paused && lastDetect && lastDetect.raw);
+  let feed = { key: null, candles: [], found: false, lastAt: 0 };
+  function loadFeed(key) {
+    const saved = LS.get("feed_" + key, []);
+    const fresh = saved.length && now() - saved[saved.length - 1].t < 5 * MIN;   // gaps break the candles
+    feed = { key, candles: fresh ? saved : [], found: false, lastAt: 0 };
+  }
+  function onBrokerPrice(p) {
+    if (!brokerMode() || !(p > 0)) return;
+    if (feed.key !== lastDetect.raw) loadFeed(lastDetect.raw);
+    feed.found = true; feed.lastAt = now();
+    const t = Math.floor(now() / MIN) * MIN, last = feed.candles[feed.candles.length - 1];
+    if (last && last.t === t) { last.c = p; last.h = Math.max(last.h, p); last.l = Math.min(last.l, p); }
+    else {
+      if (last) { last.closed = true; if (t - last.t > 5 * MIN) feed.candles = []; }
+      feed.candles.push({ t, o: p, h: p, l: p, c: p, closed: false });
+      if (feed.candles.length > 300) feed.candles.shift();
+      LS.set("feed_" + feed.key, feed.candles);
+    }    draw();
+  }
+
+  // trend of the last 15 closed candles: efficiency ratio (how straight the move was) + EMA 9 vs 21
+  const TREND_N = 15;
+  function trendOf(cs) {
+    const c = cs.filter((x) => x.closed).map((x) => x.c);
+    if (c.length < TREND_N + 1) return { need: TREND_N + 1 - c.length };
+    const i = c.length - 1, move = c[i] - c[i - TREND_N];
+    let path = 0; for (let k = i - TREND_N + 1; k <= i; k++) path += Math.abs(c[k] - c[k - 1]);
+    const er = path ? Math.abs(move) / path : 0;
+    const e9 = ema(c, 9)[i], e21 = c.length >= 21 ? ema(c, 21)[i] : null;
+    const emaDir = e21 == null ? Math.sign(move) : Math.sign(e9 - e21);
+    if (er < 0.25 || Math.sign(move) !== emaDir) return { kind: "LATERAL", er };
+    return { kind: move > 0 ? "ALTA" : "BAIXA", er };
+  }
+  function renderTrend() {
+    const el2 = $("trend"); if (!el2) return;
+    const tr = trendOf(brokerMode() ? feed.candles : candles);
+    if (tr.need) { el2.className = "trend m"; el2.textContent = `Tendência: juntando velas (faltam ${tr.need})`; return; }
+    const force = tr.er >= 0.5 ? "forte" : tr.er >= 0.35 ? "moderada" : "fraca";
+    el2.className = "trend " + (tr.kind === "ALTA" ? "up" : tr.kind === "BAIXA" ? "down" : "side");
+    el2.innerHTML = tr.kind === "LATERAL" ? "↔ <b>LATERALIZADO</b> <small>sem direção clara</small>"
+      : `${tr.kind === "ALTA" ? "▲" : "▼"} <b>TENDÊNCIA DE ${tr.kind}</b> <small>${force} · ${Math.round(tr.er * 100)}%</small>`;
+  }
+
   // ---------- live signals ----------
   const openTrade = () => history.find((h) => !h.res && !h.shadow && h.sym === asset().sym);
   const tr0 = () => openTrade();
@@ -368,7 +414,8 @@
       }
     }
     // session stats: all resolved signals, each with the payout it had
-    renderIndicator();
+    renderIndicator(); renderTrend();
+    if (brokerMode() && feed.candles.length) $("mEntry").textContent = "Preço " + fmt(feed.candles[feed.candles.length - 1].c);
     const done = history.filter((h) => !h.shadow && h.res && h.res !== "SEM DADO");
     const avgPayout = done.length ? done.reduce((s, h) => s + h.payout, 0) / done.length : payoutOf(a.sym);
     const st = stats(done, avgPayout, stake());
@@ -384,8 +431,9 @@
   // live votes of each strategy + how each one is doing in this session
   function renderIndicator() {
     const box = $("indRows"); if (!box) return;
+    const sub = box.closest(".sub"); if (sub) sub.style.display = paused ? "none" : "";   // OTC: give the space to the chart
     const cs = candles.filter((c) => c.closed);
-    if (cs.length < 30 || paused) { box.innerHTML = `<div class="m">${paused ? "pausado" : "carregando…"}</div>`; $("indScore").textContent = ""; return; }
+    if (cs.length < 30 || paused) { box.innerHTML = `<div class="m">${paused ? "sinais pausados em " + esc(lastDetect && lastDetect.raw || "este mercado") + " (veja a tendência acima)" : "carregando…"}</div>`; $("indScore").textContent = ""; return; }
     const ind = indicators(cs), i = cs.length - 1, v = votesAt(ind, i);
     const val = { rsi: ind.rsi[i].toFixed(1).replace(".", ","), bb: cs[i].c < ind.bb.lo[i] ? "abaixo" : cs[i].c > ind.bb.up[i] ? "acima" : "dentro", ema: v.ema === "UP" ? "9 > 21" : "9 < 21" };
     const sym = asset().sym;
@@ -428,31 +476,39 @@
     if (cv.width !== W * dpr || cv.height !== H * dpr) { cv.width = W * dpr; cv.height = H * dpr; }
     const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0);
     g.fillStyle = "#131c31"; g.fillRect(0, 0, W, H);
-    if (!candles.length) return;
+    const bm = brokerMode(), src = bm ? feed.candles : candles;
+    $("status").innerHTML = bm ? `<span class="dot ${feed.candles.length ? "on" : ""}"></span>${esc(lastDetect.raw)} · preço lido da corretora` : $("status").innerHTML;
+    if (bm && feed.candles.length < 2) {
+      g.fillStyle = "#8a97b3"; g.font = "13px system-ui"; g.textAlign = "center";
+      g.fillText(feed.found ? `Montando o gráfico de ${lastDetect.raw}…` : `Procurando o preço de ${lastDetect.raw} na tela…`, W / 2, H / 2 - 6);
+      g.font = "11px system-ui"; g.fillText(feed.found ? "as velas aparecem a cada minuto" : "se não achar: Ajustes → Apontar preço", W / 2, H / 2 + 12);
+      g.textAlign = "left"; return;
+    }
+    if (!src.length) return;
     const N = Math.max(20, Math.min(80, Math.floor(W / 9)));
-    const cs = candles.slice(-N);
-    const ind = indicators(candles); const off = candles.length - cs.length;
+    const cs = src.slice(-N);
+    const ind = indicators(src); const off = src.length - cs.length;
     const padR = 70, padT = 30, padB = 24, cw = (W - padR) / N;
     let hi = -Infinity, lo = Infinity; cs.forEach((c) => { hi = Math.max(hi, c.h); lo = Math.min(lo, c.l); });
-    const tr = openTrade(); if (tr && tr.sym === asset().sym) { hi = Math.max(hi, tr.entry); lo = Math.min(lo, tr.entry); }
+    const tr = bm ? null : openTrade(); if (tr && tr.sym === asset().sym) { hi = Math.max(hi, tr.entry); lo = Math.min(lo, tr.entry); }
     if (hi === lo) { hi += hi * 1e-4; lo -= lo * 1e-4; }
     const y = (p) => padT + (hi - p) / (hi - lo) * (H - padT - padB);
     // grid
     g.strokeStyle = "#1f2a44"; g.lineWidth = 1; g.fillStyle = "#8a97b3"; g.font = "11px system-ui";
-    const lastC = candles[candles.length - 1].c;
+    const lastC = src[src.length - 1].c;
     for (let k = 0; k <= 4; k++) { const p = lo + (hi - lo) * k / 4, yy = y(p); g.beginPath(); g.moveTo(0, yy); g.lineTo(W - padR, yy); g.stroke(); if (Math.abs(yy - y(lastC)) > 14) g.fillText(fmt(p), W - padR + 6, yy + 4); }
     cs.forEach((c, k) => { if (k % 10 === 0) g.fillText(hhmm(c.t), k * cw, H - 6); });
     // EMAs
     const line = (arr, col) => { g.strokeStyle = col; g.lineWidth = 1.2; g.beginPath(); let st = false; cs.forEach((_, k) => { const v = arr[off + k]; if (v == null) return; const xx = k * cw + cw / 2; st ? g.lineTo(xx, y(v)) : g.moveTo(xx, y(v)); st = true; }); g.stroke(); };
     line(ind.bb.up, "#334155"); line(ind.bb.lo, "#334155");
     line(ind.e9, "#38bdf8"); line(ind.e21, "#f59e0b");
-    // candles
+    // src
     cs.forEach((c, k) => {
       const x = k * cw + cw / 2, up = c.c >= c.o; g.strokeStyle = g.fillStyle = up ? "#22c55e" : "#ef4444";
       g.beginPath(); g.moveTo(x, y(c.h)); g.lineTo(x, y(c.l)); g.stroke();
       const bh = Math.max(1, Math.abs(y(c.o) - y(c.c))); g.fillRect(x - cw * .35, Math.min(y(c.o), y(c.c)), cw * .7, bh);
     });
-    // signal markers from history on visible candles
+    // signal markers from history on visible src
     history.forEach((h) => {
       if (h.shadow || h.sym !== asset().sym) return; const k = cs.findIndex((c) => c.t === h.sigT); if (k < 0) return;
       const x = k * cw + cw / 2; g.fillStyle = h.dir === "UP" ? "#22c55e" : "#ef4444"; g.font = "bold 12px system-ui";
@@ -465,15 +521,7 @@
       g.fillStyle = g.strokeStyle; g.fillRect(W - padR, yy - 9, padR, 18); g.fillStyle = "#000"; g.fillText((tr.dir === "UP" ? "▲ " : "▼ ") + fmt(tr.entry), W - padR + 3, yy + 4);
     }
     // current price
-    const last = candles[candles.length - 1], yy = y(last.c);
-    $("status").style.visibility = paused && lastDetect && lastDetect.raw ? "hidden" : "";
-    if (paused && lastDetect && lastDetect.raw) {
-      g.fillStyle = "rgba(11,17,32,.82)"; g.fillRect(0, 0, W, H);
-      g.fillStyle = "#f59e0b"; g.font = "bold 13px system-ui"; g.textAlign = "center";
-      g.fillText(`${lastDetect.raw}: sem gráfico real`, W / 2, H / 2 - 6);
-      g.fillStyle = "#8a97b3"; g.font = "12px system-ui"; g.fillText("preço gerado pela corretora", W / 2, H / 2 + 12); g.textAlign = "left";
-      return;
-    }
+    const last = src[src.length - 1], yy = y(last.c);
     g.fillStyle = "#38bdf8"; g.fillRect(W - padR, yy - 9, padR, 18); g.fillStyle = "#001018"; g.font = "bold 11px system-ui"; g.fillText(fmt(last.c), W - padR + 4, yy + 4);
   }
 
@@ -596,15 +644,15 @@
     const pay = Number.isFinite(d.payout) && d.payout >= 10 && d.payout <= 100 ? Math.round(d.payout) : null;
     let html = `<b>${esc(d.raw)}</b>` + (pay ? ` · <b>${pay}%</b>` : " · payout ?") + amtTxt;
     if (follow) {
-      if (d.otc) paused = "OTC é preço da própria corretora";
-      else if (!sym) paused = "sem dado real deste mercado";
+      if (d.otc) paused = "OTC: sinais pausados, gráfico e tendência pelo preço da corretora";
+      else if (!sym) paused = "sem dado grátis deste mercado: gráfico e tendência pelo preço da corretora";
       else {
         if (pay && payouts[sym] !== pay) { payouts[sym] = pay; LS.set("payouts", payouts); }
         if (el.asset.value !== sym) { el.asset.value = sym; el.asset.onchange(); } else syncPayoutInput();
         html += ` → <b>${esc(asset().name)}</b>`;
       }
     }
-    if (paused) html += `<div class="w">Sem sinal: ${esc(paused)}. Sinais em BTC, ETH, SOL, BNB, XRP, EUR/USD e ouro sem OTC.</div>`;
+    if (paused) html += `<div class="w">${esc(paused)}.</div>`;
     // expiration and time zone, also from the broker
     let expTxt = "não encontrada (usando " + expiry() + " min)";
     if (Number.isFinite(d.expirySec) && d.expirySec > 0) {
@@ -616,9 +664,10 @@
     const pay2 = Number.isFinite(d.payout) && d.payout >= 10 && d.payout <= 100 ? Math.round(d.payout) + "%" : "não encontrado";
     const tzTxt = tz === "local" ? "do computador" : "UTC" + (+tz >= 0 ? "+" : "") + tz;
     if ($("autoInfo")) $("autoInfo").innerHTML = `<div>Mercado: <b>${esc(d.raw || "não encontrado")}</b></div><div>Expiração: <b>${esc(expTxt)}</b></div>
-      <div>Payout: <b>${pay2}</b></div><div>Valor: <b>${amt ? esc(money(amt)) : "não encontrado"}</b></div><div>Horário: <b>${tzTxt}</b> · agora ${clockStr(now(), true)}</div>`;
+      <div>Payout: <b>${pay2}</b></div><div>Valor: <b>${amt ? esc(money(amt)) : "não encontrado"}</b></div><div>Horário: <b>${tzTxt}</b> · agora ${clockStr(now(), true)}</div>
+      <div>Preço na tela: <b id="autoPrice">${feed.found ? fmt(feed.candles[feed.candles.length - 1].c) + " (lido da tela)" : "—"}</b></div>`;
     const t = d.taught || {};
-    if (t.asset || t.payout || t.amount || t.expiry) html += `<div class="m" style="font-size:11px">pontos marcados: ${[t.asset && "mercado", t.payout && "payout", t.amount && "valor", t.expiry && "expiração"].filter(Boolean).join(", ")}</div>`;
+    if (t.asset || t.payout || t.amount || t.expiry || t.price) html += `<div class="m" style="font-size:11px">pontos marcados: ${[t.asset && "mercado", t.payout && "payout", t.amount && "valor", t.expiry && "expiração", t.price && "preço"].filter(Boolean).join(", ")}</div>`;
     $("brokerTxt").innerHTML = html;
     renderPanel();
   }
@@ -628,7 +677,9 @@
     $("broker").style.display = "";
     window.addEventListener("message", (e) => {
       if (e.source !== window.parent) return;
-      const d = e.data; if (!d || d.type !== "sh-detect") return;
+      const d = e.data; if (!d) return;
+      if (d.type === "sh-price") { onBrokerPrice(+d.p); if ($("autoPrice")) $("autoPrice").textContent = +d.p > 0 ? fmt(+d.p) + " (lido da tela)" : "não encontrado"; return; }
+      if (d.type !== "sh-detect") return;
       lastDetect = {
         raw: typeof d.raw === "string" ? d.raw.slice(0, 40) : null, sym: d.sym, otc: !!d.otc, payout: +d.payout, amount: +d.amount,
         currency: ["R$", "$", "US$", "€", "£"].includes(d.currency) ? d.currency : null,

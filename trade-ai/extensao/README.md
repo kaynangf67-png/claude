@@ -32,8 +32,8 @@ e a taxa de acerto real. **Não opera sozinho e não clica em nada na corretora.
 | BTC/USD, ETH/USD, SOL/USD, BNB/USD, XRP/USD | o par em USDT da Binance |
 | EUR/USD | EUR/USDT (segue o EUR/USD) |
 | XAU/USD (ouro) | PAXG/USDT |
-| qualquer ativo **OTC** | **sinais pausados**: o preço OTC é gerado pela corretora, não há dado real |
-| outros pares (AUD/CHF, GBP/JPY…) | sinais pausados: sem dado real grátis |
+| qualquer ativo **OTC** | sinais pausados; **gráfico e tendência** montados com o preço lido da tela da corretora |
+| outros pares (AUD/CHF, GBP/JPY…) | igual ao OTC: gráfico e tendência pelo preço da tela |
 
 ## Privacidade
 
@@ -49,3 +49,12 @@ O Chrome do Android não aceita extensões. No celular, use a página `sinais.ht
 
 O painel é a mesma página do site (`frontend/public/sinais.html` + `sinais.js`).
 Depois de mudar a página, rode `./build.sh` para copiar para cá e gerar o zip.
+
+## Tendência
+
+Em qualquer ativo o painel mostra **tendência de alta**, **tendência de baixa** ou **lateralizado**, olhando as
+últimas 15 velas fechadas: quão reto foi o movimento (índice de eficiência) e a EMA 9 contra a EMA 21.
+Em OTC as velas são montadas a partir do preço que a corretora mostra na tela, então a tendência aparece
+depois de ~16 minutos com o painel aberto naquele ativo (o histórico fica salvo). Se o preço não for achado,
+use **Ajustes → Apontar preço** e clique no número do preço atual. Se a corretora desenha o preço só dentro
+do gráfico (imagem), não há como lê-lo.

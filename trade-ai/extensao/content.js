@@ -49,12 +49,16 @@
     bar.addEventListener("pointermove", move); bar.addEventListener("pointerup", up);
   });
 
-  let visible = true, timer = null;
+  let visible = true, timer = null, priceTimer = null, candTimer = null;
   function toggle(force) {
     visible = typeof force === "boolean" ? force : !visible;
     host.style.display = visible ? "" : "none";
     clearInterval(timer);
-    if (visible) { timer = setInterval(scan, 1500); scan(true); }
+    clearInterval(priceTimer); clearInterval(candTimer);
+    if (visible) {
+      timer = setInterval(scan, 1500); scan(true);
+      collectPriceCands(); candTimer = setInterval(collectPriceCands, 4000); priceTimer = setInterval(pollPrice, 500);
+    }
   }
   window.__sinalHonesto = { toggle };
 
@@ -248,12 +252,50 @@
     return null;
   }
 
+  // ---------- current price shown by the broker ----------
+  // Candidates are numbers with decimals; the price is the one that keeps changing.
+  const NUM = /^[+-]?\d{1,3}(?:[.,\s]?\d{3})*(?:[.,]\d{2,6})$|^\d+[.,]\d{2,6}$/;
+  let cands = new Map();      // element -> { v, changes: [times] } (pages replace the text node on every tick)
+  function collectPriceCands() {
+    const next = new Map();
+    const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT); let n, k = 0;
+    while ((n = w.nextNode()) && k++ < 30000 && next.size < 400) {
+      const t = n.nodeValue.trim(); if (t.length < 4 || t.length > 14 || !NUM.test(t)) continue;
+      const el = n.parentElement; if (!el || host.contains(el) || !visibleEl(el)) continue;
+      if (/%|\$|R\$|€/.test((el.textContent || "").slice(0, 20))) continue;     // payout, balance, amount
+      if ((el.textContent || "").trim() !== t) continue;
+      next.set(el, cands.get(el) || { v: t, changes: [] });
+    }
+    cands = next;
+  }
+  let lastPriceSent = null;
+  function pollPrice() {
+    if (picking) return;
+    let p = null;
+    const tp = taught.price && readEl(taught.price);
+    if (tp) p = parseAmount(tp.text);
+    else {
+      const t0 = Date.now(); let best = null;
+      for (const [n, c] of cands) {
+        const v = (n.textContent || "").trim();
+        if (!NUM.test(v)) continue;
+        if (v !== c.v) { c.v = v; c.changes.push(t0); }
+        c.changes = c.changes.filter((x) => t0 - x < 20000);
+        if (!n.isConnected || c.changes.length < 3 || t0 - c.changes[c.changes.length - 1] > 8000) continue;
+        const dec = (v.split(/[.,]/).pop() || "").length;
+        const score = c.changes.length + dec;
+        if (!best || score > best.score) best = { score, v };
+      }
+      if (best) p = parseAmount(best.v);
+    }
+    if (p !== lastPriceSent || p) { lastPriceSent = p; frame.contentWindow && frame.contentWindow.postMessage({ type: "sh-price", p }, "*"); }
+  }
   let lastKey = "";
   function scan(force) {
     if (picking) return;
     let msg = { type: "sh-detect", raw: null, sym: null, otc: false, payout: null, amount: null, currency: null,
       expirySec: null, tz: null,
-      taught: { asset: !!taught.asset, payout: !!taught.payout, amount: !!taught.amount, expiry: !!taught.expiry } };
+      taught: { asset: !!taught.asset, payout: !!taught.payout, amount: !!taught.amount, expiry: !!taught.expiry, price: !!taught.price } };
     try {
       // market
       let a = null;
@@ -297,7 +339,7 @@
 
   // ---------- "Apontar": click once on the broker to teach where each value is ----------
   const hl = root.querySelector(".hl"), tip = root.querySelector(".tip");
-  const LABEL = { asset: "o NOME DO MERCADO", payout: "o PAYOUT (ex.: 92%)", amount: "o VALOR da entrada", expiry: "a EXPIRAÇÃO / TEMPO (ex.: 00:01:00)" };
+  const LABEL = { asset: "o NOME DO MERCADO", payout: "o PAYOUT (ex.: 92%)", amount: "o VALOR da entrada", expiry: "a EXPIRAÇÃO / TEMPO (ex.: 00:01:00)", price: "o PREÇO atual (o número que muda junto com o gráfico)" };
   let picking = null;
   const under = (e) => { const t = document.elementFromPoint(e.clientX, e.clientY); return t && !host.contains(t) && t !== host ? t : null; };
   function onMove(e) {
