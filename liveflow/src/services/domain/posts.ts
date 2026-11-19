@@ -1,7 +1,8 @@
 import { addDays, format } from 'date-fns';
 import { z } from 'zod';
 import { sanitizeText } from '@/lib/validation';
-import { normalizeHashtags } from '@/services/caption';
+import { buildCaption, normalizeHashtags } from '@/services/caption';
+import { MAX_BATCH } from '@/services/batch';
 import { checkLimit, PlanLimitError } from '@/services/plans';
 import { stripBase } from '@/lib/utils';
 import type { PlanTier, Post } from '@/types/domain';
@@ -20,6 +21,13 @@ export const postSchema = z.object({
 });
 
 export type PostInput = z.input<typeof postSchema>;
+
+export interface BatchItem {
+  video_id: string;
+  product_id: string;
+  format: PostInput['format'];
+  scheduled_at: string;
+}
 
 /** Publicação programada cujo horário já passou e ainda não foi marcada como publicada. */
 export function isOverdue(post: Pick<Post, 'status' | 'scheduled_at'>, now = new Date()): boolean {
@@ -55,6 +63,47 @@ export function postsService(ctx: ServiceContext) {
       });
       if (scheduled) await notify(ctx, 'post_scheduled', 'Publicação programada', data.caption.split('\n')[0].slice(0, 80), { type: 'post', id: post.id });
       return post;
+    },
+
+    /**
+     * Cria várias publicações programadas de uma vez, com legenda e hashtags
+     * geradas a partir do produto. Tudo ou nada: valida tudo (inclusive o limite
+     * mensal do plano, mês a mês) antes de gravar.
+     */
+    async createBatch(items: BatchItem[], plan: PlanTier): Promise<Post[]> {
+      if (items.length === 0) throw new Error('Selecione ao menos um vídeo.');
+      if (items.length > MAX_BATCH) throw new Error(`No máximo ${MAX_BATCH} publicações por lote.`);
+      const products = new Map((await repo.list('products')).map((p) => [p.id, p]));
+      const minTime = Date.now() - 60_000;
+      const rows = items.map((item, i) => {
+        const product = products.get(item.product_id);
+        if (!product) throw new Error(`Item ${i + 1}: escolha um produto.`);
+        if (new Date(item.scheduled_at).getTime() < minTime) throw new Error(`Item ${i + 1}: horário no passado.`);
+        const { caption, hashtags } = buildCaption({ productName: product.name, price: Number(product.promo_price ?? product.price), category: product.category, format: item.format });
+        return postSchema.parse({ ...item, caption, hashtags, notes: '' });
+      });
+
+      const { limit } = checkLimit(plan, 'postsPerMonth', 0);
+      if (limit != null) {
+        const perMonth = new Map<string, number>();
+        for (const p of await repo.list('posts')) {
+          const m = (p.scheduled_at ?? p.created_at).slice(0, 7);
+          perMonth.set(m, (perMonth.get(m) ?? 0) + 1);
+        }
+        for (const r of rows) {
+          const m = format(new Date(r.scheduled_at!), 'yyyy-MM');
+          const next = (perMonth.get(m) ?? 0) + 1;
+          if (next > limit) throw new PlanLimitError('postsPerMonth', limit);
+          perMonth.set(m, next);
+        }
+      }
+
+      const created = await repo.insertMany(
+        'posts',
+        rows.map((r) => ({ ...r, status: 'scheduled' as const, published_url: null, published_at: null })),
+      );
+      await notify(ctx, 'post_scheduled', `${created.length} publicações programadas`, 'Programadas em lote');
+      return created;
     },
 
     async update(id: string, input: PostInput): Promise<Post> {

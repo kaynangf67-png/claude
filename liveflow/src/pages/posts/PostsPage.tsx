@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { isToday } from 'date-fns';
-import { BellRing, CalendarCheck2, Copy, ExternalLink, MoreHorizontal, Pencil, Plus, Send, Trash2, Trophy, Video as VideoIcon, XCircle } from 'lucide-react';
+import { BellRing, CalendarCheck2, CalendarRange, Copy, ExternalLink, MoreHorizontal, Pencil, Plus, Send, Trash2, Trophy, Video as VideoIcon, XCircle } from 'lucide-react';
 import { EmptyState, PageHeader } from '@/components/app/page';
 import { VideoThumb } from '@/components/app/media';
 import { PostStatusBadge } from '@/components/app/post-status';
@@ -18,6 +18,7 @@ import { computeTotals, presetToRange } from '@/services/analytics';
 import { isOverdue } from '@/services/domain/posts';
 import { POST_FORMATS } from '@/services/formats';
 import type { Post } from '@/types/domain';
+import { BatchScheduleDialog } from './BatchScheduleDialog';
 import { PostEditorDialog } from './PostEditorDialog';
 import { PublishDialog } from './PublishDialog';
 
@@ -45,6 +46,7 @@ export default function PostsPage() {
   }, [params, setParams]);
   const openEditor = (post: Post | null) => setEditor((e) => ({ open: true, post, seq: e.seq + 1 }));
   const [publishing, setPublishing] = useState<Post | null>(null);
+  const [batch, setBatch] = useState({ open: false, seq: 0 });
   const [confirm, confirmNode] = useConfirm();
 
   const videoMap = useMemo(() => new Map((videos.data ?? []).map((v) => [v.id, v])), [videos.data]);
@@ -93,7 +95,12 @@ export default function PostsPage() {
       <PageHeader
         title="Publicações"
         description="Vídeos curtos sem aparecer: prepare, programe e poste com o link do produto."
-        actions={<Button variant="brand" onClick={() => openEditor(null)}><Plus /> Nova publicação</Button>}
+        actions={
+          <>
+            <Button variant="outline" onClick={() => setBatch((b) => ({ open: true, seq: b.seq + 1 }))}><CalendarRange /> Programar em lote</Button>
+            <Button variant="brand" onClick={() => openEditor(null)}><Plus /> Nova publicação</Button>
+          </>
+        }
       />
 
       {overdue.length > 0 && (
@@ -212,6 +219,7 @@ export default function PostsPage() {
         defaults={editor.defaults}
         onClose={() => setEditor((e) => ({ ...e, open: false }))}
       />
+      <BatchScheduleDialog key={`batch-${batch.seq}`} open={batch.open} onClose={() => setBatch((b) => ({ ...b, open: false }))} />
       <PublishDialog key={publishing?.id ?? 'none'} post={publishing} onClose={() => setPublishing(null)} />
       {confirmNode}
     </div>
