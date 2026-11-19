@@ -143,22 +143,117 @@
   .details-cta{margin-top:44px;text-align:center}
   .details-cta p{font-size:14px;color:var(--brown-2);margin:12px 0 0}
 
-  /* ---------- Oferta ---------- */
+  /* Rótulo das ilustrações (nunca passar ilustração por foto) */
+  .ph.vazio::before{content:"Ilustração";position:absolute;left:12px;bottom:12px;z-index:2;font:600 10px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;color:var(--brown-2);background:rgba(255,255,255,.8);padding:6px 9px;border-radius:999px}
+  .led .ph.vazio::before{background:rgba(56,37,27,.6);color:rgba(245,232,213,.85)}
+  .head{max-width:640px;margin:0 auto 36px}
+  .head .copy{margin:0 auto}
+
+  /* ---------- Bloco 6 — como utilizar ---------- */
+  .steps{list-style:none;margin:0;padding:0;display:grid;gap:12px}
+  .step{display:grid;grid-template-columns:118px 1fr;gap:16px;align-items:center;padding:12px;border-radius:20px;background:var(--white);box-shadow:var(--shadow-soft)}
+  .step-fig{margin:0;aspect-ratio:6/5;border-radius:14px;background:radial-gradient(110% 100% at 50% 20%, #FFFFFF, var(--champagne) 70%);overflow:hidden}
+  .step-fig svg{width:100%;height:100%;display:block}
+  .step-n{display:block;font:600 11px/1 var(--sans);letter-spacing:.2em;text-transform:uppercase;color:var(--gold-deep);margin-bottom:8px}
+  .step p{margin:0;font-size:15.5px;line-height:1.45}
+  .note{font-size:12.5px;color:var(--brown-2);text-align:center;margin:18px 0 0}
+
+  /* ---------- Bloco 7 — embalagem ---------- */
+  .box-list{list-style:none;margin:24px 0 0;padding:0;display:grid;gap:10px}
+  .box-list li{display:flex;align-items:center;gap:16px;padding:16px 18px;border-radius:16px;background:var(--champagne);border:1px solid var(--line);font-weight:500;line-height:1.35}
+  .box-list .qty{font:500 24px/1 var(--serif);color:var(--gold-deep);min-width:32px}
+
+  /* ---------- Bloco 8 — especificações ---------- */
+  .narrow{max-width:760px}
+  .specs{margin:0;background:var(--white);border-radius:var(--r);box-shadow:var(--shadow-soft);overflow:hidden}
+  .specs div{display:flex;justify-content:space-between;gap:16px;padding:17px 20px;border-bottom:1px solid var(--line)}
+  .specs div:last-child{border-bottom:0}
+  .specs dt{color:var(--brown-2)}
+  .specs dd{margin:0;font-weight:600;text-align:right}
+
+  /* ---------- Bloco 9 — perguntas ---------- */
+  .faq{max-width:760px;margin:0 auto}
+  .faq details{border-bottom:1px solid var(--line)}
+  .faq details:first-child{border-top:1px solid var(--line)}
+  .faq summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:16px;padding:18px 2px;min-height:64px;font:500 19px/1.3 var(--serif)}
+  .faq summary::-webkit-details-marker{display:none}
+  .faq summary i{position:relative;width:30px;height:30px;flex:none;border-radius:50%;border:1px solid var(--line-2)}
+  .faq summary i::before,.faq summary i::after{content:"";position:absolute;left:50%;top:50%;width:11px;height:1.5px;background:var(--brown);transform:translate(-50%,-50%);transition:transform .25s}
+  .faq summary i::after{transform:translate(-50%,-50%) rotate(90deg)}
+  .faq details[open] summary i{background:var(--gold);border-color:var(--gold)}
+  .faq details[open] summary i::before,.faq details[open] summary i::after{background:var(--white)}
+  .faq details[open] summary i::after{transform:translate(-50%,-50%) rotate(0)}
+  .faq .ans{padding:0 2px 20px;color:var(--brown-2);font-size:16px}
+  .faq .ans p{margin:0}
+
+  /* ---------- Bloco 10 — oferta ---------- */
   .offer{background:radial-gradient(90% 70% at 50% 0%, rgba(216,180,159,.45), transparent 70%), var(--champagne)}
   .offer-card{max-width:980px;margin:0 auto;background:var(--white);border-radius:28px;box-shadow:var(--shadow);overflow:hidden;display:grid}
   .offer-card .ph{border-radius:0;box-shadow:none;aspect-ratio:4/3}
   .offer-body{padding:28px 22px 30px}
-  .offer-body h2{font-size:clamp(28px,7vw,40px);margin-bottom:12px}
-  .offer-body .incl{font-size:15px;color:var(--brown-2);margin-bottom:22px}
+  .offer-name{font-size:clamp(26px,6.6vw,36px);margin-bottom:16px}
+  .incl-list{list-style:none;margin:0 0 20px;padding:0;display:grid;gap:8px;font-size:15px;color:var(--brown-2)}
+  .incl-list li{display:flex;gap:10px;align-items:center}
+  .incl-list li::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--gold);flex:none}
+  .ship{font-size:14px;color:var(--brown-2);margin:-10px 0 18px}
+  .pay-info{font-size:13px;color:var(--brown-2);text-align:center;margin:14px 0 0}
   .offer-body .price-line{padding:18px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-bottom:22px;justify-content:space-between}
   .offer-body .price-line .now{font-size:46px}
-  .pay{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:16px}
-  .pay span{font:600 11px/1 var(--sans);letter-spacing:.1em;text-transform:uppercase;padding:8px 12px;border-radius:999px;border:1px solid var(--line);color:var(--brown-2)}
 
   /* ---------- Rodapé ---------- */
-  .footer{background:var(--brown);color:rgba(245,232,213,.7);padding:44px 0 calc(110px + env(safe-area-inset-bottom));font-size:13.5px;text-align:center}
-  .footer .logo{color:var(--champagne);display:inline-block;margin-bottom:14px}
+  .footer{background:var(--brown);color:rgba(245,232,213,.72);padding:56px 0 calc(100px + env(safe-area-inset-bottom));font-size:14px}
+  .foot-grid{display:grid;gap:30px}
+  .footer .logo{color:var(--champagne);display:inline-block;margin-bottom:12px}
+  .footer h4{font:600 11px/1 var(--sans);letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin:0 0 14px}
   .footer p{margin:0 0 6px}
+  .footer a{color:var(--champagne);text-underline-offset:3px}
+  .footer nav a{display:flex;align-items:center;min-height:40px}
+  .foot-bottom{margin-top:36px;padding-top:20px;border-top:1px solid rgba(245,232,213,.14);font-size:12.5px}
+  .pend{display:inline-block;font-size:12px;font-weight:500;padding:2px 8px;border-radius:6px;border:1px dashed currentColor;opacity:.8}
+
+  /* ---------- Avisos ---------- */
+  .status{position:fixed;left:12px;right:12px;top:calc(var(--header-h) + 10px);z-index:55;max-width:620px;margin:0 auto;display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border-radius:16px;background:var(--white);box-shadow:var(--shadow);font-size:15px;border-left:4px solid var(--gold)}
+  .status[hidden]{display:none}
+  .status.err{border-left-color:#B5543C}
+  .status button{margin-left:auto;border:0;background:none;font-size:22px;line-height:1;cursor:pointer;color:var(--brown-2);padding:0 4px}
+  .revisao{position:fixed;left:12px;bottom:12px;z-index:80;max-width:380px;max-height:60vh;overflow:auto;padding:16px 18px;border-radius:16px;background:#FFF8E6;border:1px solid var(--gold);box-shadow:var(--shadow);font-size:13px}
+  .revisao h4{margin:0 0 8px;font-size:13px}
+  .revisao ul{margin:0;padding-left:18px}
+
+  /* ---------- Checkout ---------- */
+  .ck{padding:0;border:0;width:100vw;max-width:none;height:100dvh;max-height:none;margin:0;background:var(--white);color:var(--brown)}
+  .ck::backdrop{background:rgba(56,37,27,.5);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+  .ck-form{display:flex;flex-direction:column;height:100%;max-height:inherit}
+  .ck-head{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--line)}
+  .ck-head h2{font-size:24px}
+  .ck-x{width:44px;height:44px;border:0;background:var(--champagne);border-radius:50%;font-size:24px;line-height:1;cursor:pointer;color:var(--brown)}
+  .ck-body{flex:1;overflow:auto;padding:18px;-webkit-overflow-scrolling:touch}
+  .ck-item{display:flex;gap:14px;align-items:center;padding:12px;border-radius:16px;background:var(--champagne);margin-bottom:18px}
+  .ck-item img{width:60px;height:60px;border-radius:12px;object-fit:cover;flex:none}
+  .ck-item div{flex:1;line-height:1.3;font-size:14.5px}
+  .ck-item span{display:block;font-size:13px;color:var(--brown-2);margin-top:3px}
+  .ck-item b{font:500 20px/1 var(--serif);white-space:nowrap}
+  .ck fieldset{border:0;margin:0 0 14px;padding:0;display:grid;gap:10px;min-width:0}
+  .ck legend{font:600 11px/1 var(--sans);letter-spacing:.2em;text-transform:uppercase;color:var(--gold-deep);margin-bottom:10px;padding:0}
+  .ck label{display:grid;gap:5px;font-size:13px;color:var(--brown-2);min-width:0}
+  .ck input{width:100%;min-height:50px;padding:0 14px;border:1px solid var(--line-2);border-radius:12px;font:400 16px var(--sans);color:var(--brown);background:var(--white)}
+  .ck input:focus{outline:2px solid var(--gold);outline-offset:0;border-color:var(--gold)}
+  .ck input[aria-invalid="true"]{border-color:#B5543C}
+  .ck .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .ck .row.city{grid-template-columns:1fr 84px}
+  .ck-sum{margin:6px 0 0;padding:14px 0 0;border-top:1px solid var(--line)}
+  .ck-sum div{display:flex;justify-content:space-between;padding:5px 0;font-size:15px}
+  .ck-sum dt{color:var(--brown-2)}
+  .ck-sum dd{margin:0;font-weight:500}
+  .ck-sum .tot dd{font:500 26px/1 var(--serif)}
+  .ck-notice{padding:14px 16px;border-radius:14px;background:#FFF8E6;border:1px solid rgba(198,154,73,.5);font-size:14.5px;margin:0 0 16px}
+  .ck-err{padding:12px 14px;border-radius:12px;background:#FBEDE8;color:#8A3A26;font-size:14.5px;margin:12px 0 0}
+  .ck-foot{padding:12px 18px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:var(--white)}
+  .ck-ft{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;font-size:14px;color:var(--brown-2)}
+  .ck-ft strong{font:500 24px/1 var(--serif);color:var(--brown)}
+  .ck-foot p{margin:10px 0 0;font-size:12.5px;color:var(--brown-2);text-align:center}
+  .ck-foot .btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+  .ck.so-aviso fieldset,.ck.so-aviso .ck-sum,.ck.so-aviso .ck-foot{display:none}
 
   /* ---------- Barra fixa de compra (celular) ---------- */
   .buybar{position:fixed;left:0;right:0;bottom:0;z-index:60;padding:10px var(--gutter) calc(10px + env(safe-area-inset-bottom));background:rgba(255,255,255,.94);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-top:1px solid var(--line);display:flex;align-items:center;gap:14px;transform:translateY(110%);transition:transform .35s ease}
@@ -199,6 +294,10 @@
     .offer-body{padding:52px 44px}
     .buybar{display:none}
     .footer{padding-bottom:44px}
+    .steps{grid-template-columns:repeat(4,1fr);gap:18px}
+    .step{grid-template-columns:1fr;padding:14px 14px 22px;align-items:start}
+    .foot-grid{grid-template-columns:1.3fr 1fr 1fr 1fr;gap:40px}
+    .ck{width:min(560px,100vw);height:auto;max-height:92vh;margin:auto;border-radius:24px}
   }
 </style>
 </head>
@@ -206,74 +305,148 @@
 <a class="skip" href="#conteudo">Pular para o conteúdo</a>
 
 <!--
-  =========================================================================
-  FOTOS — coloque as fotografias reais na pasta "fotos/" com estes nomes
-  (veja fotos/LEIA-ME.txt). Enquanto um arquivo não existir, o espaço
-  mostra uma ilustração nas cores da marca e nada quebra.
-
-    foto-1-produto.jpg    aparelho branco e dourado, fundo champagne (1ª dobra e oferta)
-    foto-2-retoque.jpg    mulher fazendo retoque na sobrancelha
-    foto-3-uso.jpg        aparelho sendo usado na região da sobrancelha
-    foto-4-led.jpg        close-up da ponta com o LED aceso
-    foto-5-necessaire.jpg produto ao lado de uma nécessaire (proporções reais)
-    foto-6-detalhes.jpg   foto aproximada do aparelho e seus detalhes
-
-  Preço e link do checkout: objeto LUMEPRO no fim da página.
-  =========================================================================
+  LUMEPRO — página de produto único.
+  Configuração comercial (contato, CNPJ, políticas, modo de checkout): loja.js
+  Checkout Mercado Pago (servidor): api/checkout.js · Instruções: LEIA-ME.md
+  Fotos: pasta fotos/ (veja fotos/LEIA-ME.txt)
 -->
 
-<!-- Ilustrações de reserva (usadas só enquanto as fotos não forem colocadas) -->
+<!-- Ilustrações vetoriais desenhadas a partir das fotos reais do produto:
+     corpo branco, ponta cônica cobre com bico dourado, anel com trava e tampa com recorte em "V".
+     São usadas como ilustração (com o rótulo "Ilustração"), nunca como foto. -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
     <linearGradient id="g-body" x1="0" x2="1">
-      <stop offset="0" stop-color="#E9E3DA"/><stop offset=".3" stop-color="#FFFFFF"/><stop offset=".7" stop-color="#F7F3EE"/><stop offset="1" stop-color="#D6CCBF"/>
+      <stop offset="0" stop-color="#E4DDD3"/><stop offset=".22" stop-color="#FFFFFF"/><stop offset=".6" stop-color="#F8F5F0"/><stop offset="1" stop-color="#D3C9BC"/>
+    </linearGradient>
+    <linearGradient id="g-copper" x1="0" x2="1">
+      <stop offset="0" stop-color="#6E3520"/><stop offset=".28" stop-color="#C98258"/><stop offset=".44" stop-color="#FBE2CF"/><stop offset=".62" stop-color="#C27A52"/><stop offset="1" stop-color="#6A321E"/>
+    </linearGradient>
+    <linearGradient id="g-tip" x1="0" x2="1">
+      <stop offset="0" stop-color="#A57B2E"/><stop offset=".45" stop-color="#F6E3A6"/><stop offset="1" stop-color="#9C7631"/>
     </linearGradient>
     <linearGradient id="g-gold" x1="0" x2="1">
       <stop offset="0" stop-color="#A9802F"/><stop offset=".45" stop-color="#F0D592"/><stop offset="1" stop-color="#9C7631"/>
     </linearGradient>
-    <radialGradient id="g-glow"><stop offset="0" stop-color="#FFF7E3"/><stop offset=".35" stop-color="#FFE3A8" stop-opacity=".75"/><stop offset="1" stop-color="#FFD58A" stop-opacity="0"/></radialGradient>
+    <radialGradient id="g-glow"><stop offset="0" stop-color="#FFFBEF"/><stop offset=".3" stop-color="#FFEBC0" stop-opacity=".85"/><stop offset="1" stop-color="#FFD58A" stop-opacity="0"/></radialGradient>
     <linearGradient id="g-pouch" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#E6C6B3"/><stop offset="1" stop-color="#CFA58D"/>
     </linearGradient>
   </defs>
-  <!-- Aparelho branco e dourado -->
+
+  <!-- Aparelho sem tampa (proporção real ≈ 13 cm × 1,7 cm) -->
   <symbol id="trimmer" viewBox="0 0 200 560">
-    <ellipse cx="100" cy="540" rx="58" ry="9" fill="#38251B" opacity=".14"/>
-    <circle cx="100" cy="46" r="46" fill="url(#g-glow)"/>
-    <path d="M82 64 Q100 50 118 64 L126 132 Q100 140 74 132 Z" fill="url(#g-gold)"/>
-    <rect x="90" y="56" width="20" height="5" rx="2.5" fill="#FFF6E6"/>
-    <path d="M86 78h28M85 88h30M84 98h32" stroke="#7E5E22" stroke-width="1.2" opacity=".4"/>
-    <circle cx="100" cy="116" r="6.5" fill="#FFF8E8" stroke="#F3DCA6" stroke-width="1.5"/>
-    <circle cx="100" cy="116" r="2.6" fill="#FFE4A6"/>
-    <rect x="70" y="132" width="60" height="16" rx="4" fill="url(#g-gold)"/>
-    <rect x="66" y="146" width="68" height="370" rx="32" fill="url(#g-body)"/>
-    <rect x="78" y="162" width="8" height="326" rx="4" fill="#FFFFFF" opacity=".9"/>
-    <rect x="89" y="212" width="22" height="40" rx="11" fill="#FFFFFF" stroke="url(#g-gold)" stroke-width="2.5"/>
-    <circle cx="100" cy="232" r="3" fill="#C69A49"/>
-    <text x="100" y="360" transform="rotate(-90 100 360)" text-anchor="middle" font-family="Bodoni Moda, Didot, Georgia, serif" font-size="17" letter-spacing="5" fill="#B0893F">LUMEPRO</text>
-    <rect x="66" y="488" width="68" height="28" rx="14" fill="url(#g-gold)"/>
+    <ellipse cx="100" cy="546" rx="46" ry="7" fill="#38251B" opacity=".14"/>
+    <path d="M91 44 Q100 22 109 44 Z" fill="url(#g-tip)"/>
+    <rect x="89" y="43" width="22" height="8" rx="2" fill="#FAF6F0" stroke="#E2D8CB"/>
+    <path d="M89 51 L111 51 L126 150 L74 150 Z" fill="url(#g-copper)"/>
+    <path d="M99 56 L95 148" stroke="#FFF1E6" stroke-width="3" opacity=".7"/>
+    <path d="M80 118 H120 M78 132 H122" stroke="#5E2C19" stroke-width="1.2" opacity=".35"/>
+    <rect x="71" y="150" width="58" height="22" rx="3" fill="url(#g-copper)"/>
+    <path d="M71 158 H129" stroke="#5E2C19" stroke-width="1" opacity=".35"/>
+    <path d="M73 172 L127 172 L127 532 Q127 540 119 540 L81 540 Q73 540 73 532 Z" fill="url(#g-body)"/>
+    <rect x="80" y="180" width="6" height="350" rx="3" fill="#FFFFFF" opacity=".95"/>
+    <path d="M100 176 V536" stroke="#E3DACF" stroke-width="1.2"/>
+    <rect x="84" y="156" width="7" height="58" rx="2" fill="url(#g-copper)"/>
   </symbol>
-  <!-- Espelho (reserva da foto da mulher no espelho) -->
+
+  <!-- Tampa -->
+  <symbol id="cap" viewBox="0 0 80 240">
+    <path d="M8 46 L72 14 L72 230 Q72 236 66 236 L14 236 Q8 236 8 230 Z" fill="url(#g-body)"/>
+    <path d="M8 46 L72 14 L72 26 L8 58 Z" fill="#EDE6DC"/>
+    <path d="M30 36 L66 18 L50 140 Z" fill="url(#g-copper)"/>
+    <path d="M40 30 V232" stroke="#E3DACF" stroke-width="1"/>
+  </symbol>
+
+  <!-- Cabo USB enrolado (conector genérico, sem afirmar o tipo de entrada) -->
+  <symbol id="cable" viewBox="0 0 220 170">
+    <g fill="none" stroke-linecap="round">
+      <ellipse cx="110" cy="92" rx="70" ry="44" stroke="#D9D1C6" stroke-width="7"/>
+      <ellipse cx="110" cy="92" rx="70" ry="44" stroke="#FFFFFF" stroke-width="5"/>
+      <ellipse cx="112" cy="90" rx="58" ry="35" stroke="#D9D1C6" stroke-width="7"/>
+      <ellipse cx="112" cy="90" rx="58" ry="35" stroke="#FFFFFF" stroke-width="5"/>
+      <ellipse cx="108" cy="94" rx="46" ry="27" stroke="#D9D1C6" stroke-width="7"/>
+      <ellipse cx="108" cy="94" rx="46" ry="27" stroke="#FFFFFF" stroke-width="5"/>
+      <path d="M176 82 Q196 60 200 34" stroke="#D9D1C6" stroke-width="7"/>
+      <path d="M176 82 Q196 60 200 34" stroke="#FFFFFF" stroke-width="5"/>
+      <path d="M44 104 Q24 128 22 150" stroke="#D9D1C6" stroke-width="7"/>
+      <path d="M44 104 Q24 128 22 150" stroke="#FFFFFF" stroke-width="5"/>
+    </g>
+    <rect x="190" y="6" width="20" height="30" rx="4" fill="#FFFFFF" stroke="#D9D1C6"/>
+    <rect x="193" y="-6" width="14" height="14" rx="1.5" fill="#C9C6C1"/>
+    <rect x="14" y="146" width="16" height="22" rx="4" fill="#FFFFFF" stroke="#D9D1C6"/>
+  </symbol>
+
+  <!-- Mini escova de limpeza -->
+  <symbol id="brush" viewBox="0 0 40 200">
+    <rect x="13" y="40" width="14" height="156" rx="7" fill="url(#g-body)" stroke="#E0D7CB"/>
+    <rect x="10" y="26" width="20" height="18" rx="3" fill="#F1ECE5" stroke="#E0D7CB"/>
+    <g stroke="#9A8F84" stroke-width="1.6" stroke-linecap="round">
+      <path d="M12 26 L9 4 M16 26 L15 2 M20 26 L20 1 M24 26 L25 2 M28 26 L31 4"/>
+    </g>
+  </symbol>
+
+  <!-- Espelho (reserva da foto do problema) -->
   <symbol id="mirror" viewBox="0 0 400 500">
     <ellipse cx="200" cy="230" rx="150" ry="200" fill="#FFFFFF" opacity=".55"/>
     <ellipse cx="200" cy="230" rx="150" ry="200" fill="none" stroke="url(#g-gold)" stroke-width="6"/>
-    <ellipse cx="200" cy="230" rx="136" ry="186" fill="none" stroke="#FFFFFF" stroke-width="2" opacity=".8"/>
     <path d="M118 210 Q160 178 196 196" fill="none" stroke="#38251B" stroke-width="7" stroke-linecap="round" opacity=".75"/>
     <path d="M204 196 Q240 178 282 210" fill="none" stroke="#38251B" stroke-width="7" stroke-linecap="round" opacity=".75"/>
-    <circle cx="206" cy="182" r="3" fill="#38251B" opacity=".8"/>
-    <circle cx="206" cy="182" r="16" fill="none" stroke="#C69A49" stroke-width="1.5" stroke-dasharray="3 4"/>
     <path d="M200 430 v40 M150 478 h100" stroke="url(#g-gold)" stroke-width="6" stroke-linecap="round"/>
   </symbol>
-  <!-- Nécessaire + aparelho, em proporção -->
+
+  <!-- Nécessaire com o aparelho e a tampa ao lado (aparelho ≈ 13 cm; nécessaire ≈ 22 cm) -->
   <symbol id="pouch" viewBox="0 0 520 360">
-    <ellipse cx="260" cy="338" rx="230" ry="12" fill="#38251B" opacity=".12"/>
-    <path d="M40 140 Q40 110 70 108 L330 108 Q360 110 360 140 L370 300 Q370 330 340 330 L60 330 Q30 330 30 300 Z" fill="url(#g-pouch)"/>
-    <path d="M44 132 H356" stroke="url(#g-gold)" stroke-width="5"/>
-    <rect x="300" y="122" width="26" height="34" rx="6" fill="url(#g-gold)"/>
-    <path d="M60 200 Q200 230 340 200" fill="none" stroke="#FFFFFF" stroke-width="2" opacity=".35"/>
-    <g transform="translate(410 74) rotate(8)">
-      <use href="#trimmer" width="70" height="260" x="0" y="0"/>
+    <ellipse cx="270" cy="338" rx="236" ry="12" fill="#38251B" opacity=".12"/>
+    <path d="M40 150 Q40 120 70 118 L330 118 Q360 120 360 150 L370 300 Q370 330 340 330 L60 330 Q30 330 30 300 Z" fill="url(#g-pouch)"/>
+    <path d="M44 142 H356" stroke="url(#g-gold)" stroke-width="5"/>
+    <rect x="300" y="132" width="26" height="34" rx="6" fill="url(#g-gold)"/>
+    <use href="#trimmer" x="372" y="122" width="80" height="224"/>
+    <use href="#cap" x="446" y="250" width="30" height="88"/>
+  </symbol>
+
+  <!-- Itens da embalagem -->
+  <symbol id="kit" viewBox="0 0 520 360">
+    <ellipse cx="260" cy="330" rx="230" ry="12" fill="#38251B" opacity=".1"/>
+    <use href="#trimmer" x="40" y="20" width="110" height="308"/>
+    <use href="#cap" x="138" y="190" width="44" height="132"/>
+    <use href="#cable" x="196" y="140" width="210" height="162"/>
+    <use href="#brush" x="430" y="96" width="44" height="220"/>
+  </symbol>
+
+  <!-- Passo 1: carregar -->
+  <symbol id="step1" viewBox="0 0 240 200">
+    <use href="#trimmer" x="18" y="14" width="66" height="184"/>
+    <use href="#cable" x="88" y="70" width="140" height="108"/>
+    <circle cx="196" cy="40" r="22" fill="#FFFFFF" stroke="#E7D3AE"/>
+    <path d="M199 26 L188 43 H197 L193 55 L205 37 H196 Z" fill="#C69A49"/>
+  </symbol>
+  <!-- Passo 2: ligar (LED aceso) -->
+  <symbol id="step2" viewBox="0 0 240 200">
+    <circle cx="120" cy="22" r="30" fill="url(#g-glow)"/>
+    <use href="#trimmer" x="87" y="8" width="66" height="184"/>
+    <circle cx="186" cy="48" r="20" fill="#FFFFFF" stroke="#E7D3AE"/>
+    <path d="M186 37 V48 M178.5 42 A11 11 0 1 0 193.5 42" fill="none" stroke="#C69A49" stroke-width="2.4" stroke-linecap="round"/>
+  </symbol>
+  <!-- Passo 3: usar com cuidado na região -->
+  <symbol id="step3" viewBox="0 0 240 200">
+    <path d="M28 96 Q86 50 176 74" fill="none" stroke="#6B4A36" stroke-width="12" stroke-linecap="round" opacity=".85"/>
+    <path d="M52 140 Q104 164 162 140" fill="none" stroke="#38251B" stroke-width="3" stroke-linecap="round"/>
+    <path d="M70 148 l-4 9 M90 154 l-2 10 M112 156 v10 M134 153 l2 10 M152 146 l4 9" stroke="#38251B" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="183" cy="74" r="20" fill="url(#g-glow)"/>
+    <g transform="translate(186 70) rotate(52)">
+      <use href="#trimmer" x="-22" y="-8" width="44" height="124"/>
     </g>
+  </symbol>
+  <!-- Passo 4: limpar com a mini escova -->
+  <symbol id="step4" viewBox="0 0 240 200">
+    <g transform="translate(70 30) rotate(-18)">
+      <use href="#trimmer" x="-30" y="-10" width="70" height="196"/>
+    </g>
+    <g transform="translate(84 30) rotate(48)">
+      <use href="#brush" x="-15" y="0" width="30" height="150"/>
+    </g>
+    <g fill="#9A8F84" opacity=".6"><circle cx="70" cy="18" r="2"/><circle cx="62" cy="30" r="1.6"/><circle cx="92" cy="16" r="1.4"/><circle cx="80" cy="10" r="1.2"/></g>
   </symbol>
 </svg>
 
@@ -283,8 +456,9 @@
     <a class="logo" href="#topo" aria-label="LumePro, início">Lume<b>Pro</b></a>
     <nav aria-label="Seções">
       <a href="#solucao">O LumePro</a>
-      <a href="#led">LED</a>
-      <a href="#detalhes">Detalhes</a>
+      <a href="#como-usar">Como usar</a>
+      <a href="#especificacoes">Especificações</a>
+      <a href="#duvidas">Dúvidas</a>
     </nav>
     <a class="btn btn-gold" href="#oferta">Comprar</a>
   </div>
@@ -307,7 +481,7 @@
 
       <div class="price-line"><span class="now" data-f="preco"></span></div>
 
-      <a class="btn btn-gold btn-block" href="#oferta" id="hero-cta">
+      <a class="btn btn-gold btn-block" href="#oferta" id="hero-cta" data-checkout>
         Quero meu LumePro
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
       </a>
@@ -363,8 +537,8 @@
 <section class="sec bg-dark led" id="led">
   <div class="wrap split">
     <figure class="ph ph-square vazio rv">
-      <img src="fotos/foto-4-led.jpg" alt="Close-up da ponta do LumePro com a iluminação LED acesa" loading="lazy" width="1200" height="1200" onload="this.parentNode.classList.remove('vazio')">
-      <div class="illus" aria-hidden="true"><svg viewBox="40 0 120 210"><use href="#trimmer" width="200" height="560"/></svg></div>
+      <!-- Foto real: <img src="fotos/foto-4-led.jpg" alt="Close-up da ponta do LumePro com o LED aceso" loading="lazy" width="1200" height="1200" onload="this.parentNode.classList.remove('vazio')"> -->
+      <div class="illus" role="img" aria-label="Ilustração da ponta do LumePro com o LED aceso"><svg viewBox="40 0 120 210"><circle cx="100" cy="34" r="34" fill="url(#g-glow)"/><use href="#trimmer" width="200" height="560"/></svg></div>
     </figure>
     <div class="rv">
       <p class="eyebrow">Iluminação LED</p>
@@ -381,8 +555,8 @@
 <section class="sec bg-rose">
   <div class="wrap split rev">
     <figure class="ph ph-wide vazio rv">
-      <img src="fotos/foto-5-necessaire.jpg" alt="LumePro ao lado de uma nécessaire" loading="lazy" width="1500" height="1200" onload="this.parentNode.classList.remove('vazio')">
-      <div class="illus wide" aria-hidden="true"><svg viewBox="0 0 520 360"><use href="#pouch"/></svg></div>
+      <!-- Foto real: <img src="fotos/foto-5-necessaire.jpg" alt="LumePro ao lado de uma nécessaire" loading="lazy" width="1500" height="1200" onload="this.parentNode.classList.remove('vazio')"> -->
+      <div class="illus wide" role="img" aria-label="Ilustração do LumePro ao lado de uma nécessaire"><svg viewBox="0 0 520 360"><use href="#pouch"/></svg></div>
     </figure>
     <div class="rv">
       <p class="eyebrow">Praticidade</p>
@@ -429,32 +603,121 @@
       </ul>
     </div>
     <div class="details-cta rv">
-      <a class="btn btn-gold" href="#oferta">Quero meu LumePro</a>
+      <a class="btn btn-gold" href="#oferta" data-checkout>Quero meu LumePro</a>
       <p>Por <strong data-f="preco"></strong></p>
     </div>
   </div>
 </section>
 
-<!-- =====================================================================
-     SEGUNDA METADE DA PÁGINA — a ser construída na próxima etapa.
-     Abaixo fica só a oferta, para que todos os botões já levem à compra.
-     ===================================================================== -->
+<!-- ===================== BLOCO 6 — COMO UTILIZAR ===================== -->
+<section class="sec" id="como-usar">
+  <div class="wrap">
+    <div class="head center rv">
+      <p class="eyebrow">Como utilizar</p>
+      <h2 class="h2">Seus pequenos retoques em <em>poucos passos</em>.</h2>
+    </div>
+    <ol class="steps">
+      <li class="step rv">
+        <figure class="step-fig"><svg viewBox="0 0 240 200" role="img" aria-label="Aparelho ao lado do cabo USB"><use href="#step1"/></svg></figure>
+        <div><span class="step-n">Passo 1</span><p>Carregue o aparelho utilizando o cabo USB.</p></div>
+      </li>
+      <li class="step rv">
+        <figure class="step-fig"><svg viewBox="0 0 240 200" role="img" aria-label="Aparelho ligado, com o LED aceso"><use href="#step2"/></svg></figure>
+        <div><span class="step-n">Passo 2</span><p>Ligue o aparelho.</p></div>
+      </li>
+      <li class="step rv">
+        <figure class="step-fig"><svg viewBox="0 0 240 200" role="img" aria-label="Aparelho próximo à sobrancelha"><use href="#step3"/></svg></figure>
+        <div><span class="step-n">Passo 3</span><p>Utilize cuidadosamente na região desejada, seguindo as instruções do fabricante.</p></div>
+      </li>
+      <li class="step rv">
+        <figure class="step-fig"><svg viewBox="0 0 240 200" role="img" aria-label="Mini escova limpando a ponta do aparelho"><use href="#step4"/></svg></figure>
+        <div><span class="step-n">Passo 4</span><p>Após a utilização, faça a limpeza com a mini escova inclusa.</p></div>
+      </li>
+    </ol>
+    <p class="note rv">Ilustrações feitas a partir do produto real.</p>
+  </div>
+</section>
+
+<!-- ===================== BLOCO 7 — O QUE VEM NA EMBALAGEM ===================== -->
+<!-- Para usar a fotografia real dos três itens, acrescente dentro da <figure>:
+     <img src="fotos/foto-7-embalagem.jpg" alt="..." loading="lazy" width="1500" height="1040" onload="this.parentNode.classList.remove('vazio')"> -->
+<section class="sec bg-white" id="embalagem">
+  <div class="wrap split">
+    <figure class="ph ph-wide vazio rv">
+      <div class="illus wide" aria-hidden="true"><svg viewBox="0 0 520 360"><use href="#kit"/></svg></div>
+    </figure>
+    <div class="rv">
+      <p class="eyebrow">O que vem na embalagem</p>
+      <h2 class="h2">Tudo o que você precisa <em>para começar</em>.</h2>
+      <ul class="box-list">
+        <li><span class="qty">01</span>Depilador Elétrico de Sobrancelhas LumePro</li>
+        <li><span class="qty">01</span>Cabo USB para carregamento</li>
+        <li><span class="qty">01</span>Mini escova para limpeza</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== BLOCO 8 — ESPECIFICAÇÕES ===================== -->
+<section class="sec" id="especificacoes">
+  <div class="wrap narrow">
+    <div class="head center rv">
+      <p class="eyebrow">Especificações</p>
+      <h2 class="h2" style="margin:0">Ficha técnica</h2>
+    </div>
+    <dl class="specs rv">
+      <div><dt>Comprimento aproximado</dt><dd>13 cm</dd></div>
+      <div><dt>Largura aproximada</dt><dd>1,7 cm</dd></div>
+      <div><dt>Iluminação</dt><dd>LED integrado</dd></div>
+      <div><dt>Carregamento</dt><dd>USB</dd></div>
+      <div><dt>Acabamento</dt><dd>Branco e dourado</dd></div>
+    </dl>
+  </div>
+</section>
+
+<!-- ===================== BLOCO 9 — PERGUNTAS FREQUENTES ===================== -->
+<section class="sec bg-white" id="duvidas">
+  <div class="wrap">
+    <div class="head center rv">
+      <p class="eyebrow">Perguntas frequentes</p>
+      <h2 class="h2" style="margin:0">Ficou alguma <em>dúvida</em>?</h2>
+    </div>
+    <div class="faq rv">
+      <details><summary>O LumePro possui iluminação?<i aria-hidden="true"></i></summary><div class="ans"><p>Sim. Possui LED integrado.</p></div></details>
+      <details><summary>É portátil?<i aria-hidden="true"></i></summary><div class="ans"><p>Sim. Seu tamanho compacto facilita o transporte.</p></div></details>
+      <details><summary>Acompanha cabo?<i aria-hidden="true"></i></summary><div class="ans"><p>Sim. Acompanha cabo USB para carregamento.</p></div></details>
+      <details><summary>Acompanha acessórios?<i aria-hidden="true"></i></summary><div class="ans"><p>Sim. A embalagem inclui uma mini escova para limpeza.</p></div></details>
+    </div>
+  </div>
+</section>
+
+<!-- ===================== BLOCO 10 — OFERTA FINAL ===================== -->
 <section class="sec offer" id="oferta">
   <div class="wrap">
+    <div class="head center rv">
+      <p class="eyebrow">Oferta LumePro</p>
+      <h2 class="h2">Beleza nos detalhes, <em>sem complicação</em>.</h2>
+      <div class="copy"><p>Tenha mais praticidade na hora de cuidar das sobrancelhas.</p></div>
+    </div>
     <div class="offer-card rv">
       <figure class="ph vazio">
-        <img src="fotos/foto-1-produto.jpg" alt="Depilador LumePro branco e dourado" loading="lazy" width="1170" height="1116" onload="this.parentNode.classList.remove('vazio')">
+        <img src="fotos/foto-1-produto.jpg" alt="Depilador LumePro branco e dourado com a tampa ao lado" loading="lazy" width="1170" height="1116" onload="this.parentNode.classList.remove('vazio')">
         <div class="illus" aria-hidden="true"><svg viewBox="0 0 200 560"><use href="#trimmer"/></svg></div>
       </figure>
       <div class="offer-body">
-        <p class="eyebrow">Oferta LumePro</p>
-        <h2>Depilador Elétrico de Sobrancelhas <em>LumePro</em></h2>
-        <p class="incl">Iluminação LED integrada · Formato compacto · Carregamento USB</p>
+        <h3 class="offer-name">Depilador Elétrico de Sobrancelhas <em>LumePro</em></h3>
+        <ul class="incl-list">
+          <li>01 Depilador Elétrico de Sobrancelhas LumePro</li>
+          <li>01 Cabo USB para carregamento</li>
+          <li>01 Mini escova para limpeza</li>
+        </ul>
         <div class="price-line"><small>Valor</small><span class="now" data-f="preco"></span></div>
-        <a class="btn btn-gold btn-block" id="checkout" href="#">
-          Quero meu LumePro
+        <p class="ship" id="frete-oferta"></p>
+        <a class="btn btn-gold btn-block" href="#oferta" data-checkout>
+          Garantir meu LumePro
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
         </a>
+        <p class="pay-info" data-f="pagamento"></p>
       </div>
     </div>
   </div>
@@ -462,57 +725,273 @@
 
 </main>
 
+<!-- ===================== BLOCO 11 — RODAPÉ ===================== -->
 <footer class="footer">
   <div class="wrap">
-    <span class="logo">Lume<b style="color:var(--gold);font-weight:500">Pro</b></span>
-    <p data-f="contato"></p>
-    <p>© <span id="ano"></span> LumePro. Todos os direitos reservados.</p>
+    <div class="foot-grid">
+      <div>
+        <span class="logo">Lume<b style="color:var(--gold);font-weight:500">Pro</b></span>
+        <p data-p="loja.razaoSocial|razão social"></p>
+        <p>CNPJ: <span data-p="loja.cnpj|CNPJ"></span></p>
+        <p data-p="loja.endereco|endereço comercial"></p>
+      </div>
+      <div>
+        <h4>Atendimento</h4>
+        <p>E-mail: <span data-p="atendimento.email|e-mail" data-link="mailto"></span></p>
+        <p>WhatsApp: <span data-p="atendimento.whatsapp|WhatsApp" data-link="wa"></span></p>
+        <p data-p="atendimento.horario|horário de atendimento"></p>
+      </div>
+      <nav aria-label="Políticas">
+        <h4>Políticas</h4>
+        <a href="politicas.html#privacidade">Política de privacidade</a>
+        <a href="politicas.html#entrega">Política de entrega</a>
+        <a href="politicas.html#trocas">Trocas e devoluções</a>
+      </nav>
+      <div>
+        <h4>Pagamento</h4>
+        <p data-f="pagamento"></p>
+        <p><a href="politicas.html#pagamento">Informações de pagamento</a></p>
+      </div>
+    </div>
+    <p class="foot-bottom">© <span id="ano"></span> LumePro. Todos os direitos reservados.</p>
   </div>
 </footer>
 
 <!-- Barra fixa de compra (somente celular) -->
 <div class="buybar" id="buybar" aria-hidden="true">
   <div class="bb-price"><span>LumePro</span><strong data-f="preco"></strong></div>
-  <a class="btn btn-gold" href="#oferta" tabindex="-1">Quero meu LumePro</a>
+  <a class="btn btn-gold" href="#oferta" data-checkout tabindex="-1">Garantir meu LumePro</a>
 </div>
 
-<script>
-/* =====================================================================
-   CONFIGURAÇÃO — oferta aprovada: preço único, sem order bump, sem upsell.
-   ===================================================================== */
-const LUMEPRO = {
-  preco: 99.90,
-  checkoutUrl: "",   // link do checkout, ex.: "https://sualoja.com/checkout/lumepro"
-  contato: "",       // ex.: "Atendimento: contato@seudominio.com.br"
-};
-</script>
+<!-- Retorno do pagamento -->
+<div class="status" id="status" role="status" hidden></div>
 
+<!-- ===================== CHECKOUT ===================== -->
+<dialog class="ck" id="ck" aria-labelledby="ck-title">
+  <form class="ck-form" id="ck-form" novalidate>
+    <header class="ck-head">
+      <h2 id="ck-title">Finalizar pedido</h2>
+      <button type="button" class="ck-x" data-close aria-label="Fechar">×</button>
+    </header>
+    <div class="ck-body">
+      <p class="ck-notice" id="ck-notice" hidden></p>
+      <div class="ck-item">
+        <img src="fotos/foto-1-produto.jpg" alt="" width="60" height="60" loading="lazy">
+        <div><strong>Depilador Elétrico de Sobrancelhas LumePro</strong><span>1 unidade · com cabo USB e mini escova</span></div>
+        <b data-f="preco"></b>
+      </div>
+      <fieldset>
+        <legend>Seus dados</legend>
+        <label>Nome completo<input name="nome" autocomplete="name" required></label>
+        <label>E-mail<input name="email" type="email" inputmode="email" autocomplete="email" required></label>
+        <label>WhatsApp<input name="telefone" type="tel" inputmode="tel" autocomplete="tel-national" placeholder="(11) 99999-9999" required></label>
+      </fieldset>
+      <fieldset>
+        <legend>Endereço de entrega</legend>
+        <label>CEP<input name="cep" inputmode="numeric" autocomplete="postal-code" placeholder="00000-000" required></label>
+        <label>Rua<input name="rua" autocomplete="address-line1" required></label>
+        <div class="row">
+          <label>Número<input name="numero" inputmode="numeric" required></label>
+          <label>Complemento<input name="complemento" autocomplete="address-line2"></label>
+        </div>
+        <label>Bairro<input name="bairro" required></label>
+        <div class="row city">
+          <label>Cidade<input name="cidade" autocomplete="address-level2" required></label>
+          <label>UF<input name="uf" maxlength="2" autocomplete="address-level1" required style="text-transform:uppercase"></label>
+        </div>
+      </fieldset>
+      <dl class="ck-sum">
+        <div><dt>Produto</dt><dd data-f="preco"></dd></div>
+        <div><dt>Frete</dt><dd id="ck-frete">—</dd></div>
+        <div class="tot"><dt>Total</dt><dd id="ck-total">—</dd></div>
+      </dl>
+      <p class="ck-err" id="ck-err" role="alert" hidden></p>
+    </div>
+    <footer class="ck-foot">
+      <div class="ck-ft"><span>Total</span><strong id="ck-total-2">—</strong></div>
+      <button class="btn btn-gold btn-block" type="submit" id="ck-go">Ir para o pagamento</button>
+      <p>O pagamento é concluído no ambiente do Mercado Pago. Ao continuar, você concorda com as <a href="politicas.html" target="_blank" rel="noopener">políticas da loja</a>.</p>
+    </footer>
+  </form>
+</dialog>
+
+<script src="loja.js"></script>
 <script>
 (function(){
-  const C = LUMEPRO;
+  "use strict";
+  const C = window.LUMEPRO, $ = s => document.querySelector(s);
   const brl = v => v.toLocaleString("pt-BR",{style:"currency",currency:"BRL"});
-  const fields = { preco: brl(C.preco), contato: C.contato };
-  document.querySelectorAll("[data-f]").forEach(el => {
-    const v = fields[el.dataset.f];
-    if (v) el.textContent = v; else el.hidden = true;
-  });
-  document.getElementById("ano").textContent = new Date().getFullYear();
+  const get = path => path.split(".").reduce((o,k) => o && o[k], C);
+  const params = new URLSearchParams(location.search);
+  const MP = C.checkout.modo === "mercadopago";
+  const API = "api/checkout";
 
-  const checkout = document.getElementById("checkout");
-  if (C.checkoutUrl) checkout.href = C.checkoutUrl;
-  checkout.addEventListener("click", e => {
-    if (!C.checkoutUrl){ e.preventDefault(); alert("Checkout ainda não configurado: defina LUMEPRO.checkoutUrl."); }
+  /* ---------- Textos e pendências ---------- */
+  const fields = {
+    preco: brl(C.preco),
+    pagamento: MP ? "Pagamento processado pelo Mercado Pago. As formas disponíveis aparecem no checkout."
+                  : "As formas de pagamento disponíveis aparecem no checkout.",
+  };
+  document.querySelectorAll("[data-f]").forEach(el => { if (fields[el.dataset.f]) el.textContent = fields[el.dataset.f]; });
+
+  const pendentes = [];
+  document.querySelectorAll("[data-p]").forEach(el => {
+    const [path, label] = el.dataset.p.split("|"), v = get(path);
+    el.textContent = "";
+    if (!v){
+      const s = document.createElement("span"); s.className = "pend"; s.textContent = "Pendente: " + label;
+      el.append(s); pendentes.push("loja.js → " + path); return;
+    }
+    if (el.dataset.link){
+      const a = document.createElement("a");
+      a.href = el.dataset.link === "mailto" ? "mailto:" + v : "https://wa.me/55" + String(v).replace(/\D/g,"");
+      if (el.dataset.link === "wa"){ a.target = "_blank"; a.rel = "noopener"; }
+      a.textContent = el.dataset.link === "wa" ? String(v).replace(/^(\d{2})(\d{4,5})(\d{4})$/, "($1) $2-$3") : v;
+      el.append(a);
+    } else el.textContent = v;
+  });
+  $("#ano").textContent = new Date().getFullYear();
+
+  /* ---------- Estado do checkout ---------- */
+  let estado = null;
+  function consultar(){
+    if (estado) return estado;
+    if (!MP) return estado = Promise.resolve({ pronto: !!C.checkout.link, frete: null, pendente: C.checkout.link ? [] : ["loja.js → checkout.link"] });
+    return estado = fetch(API, {cache:"no-store"})
+      .then(r => r.ok ? r.json() : Promise.reject())
+      .catch(() => ({ pronto:false, frete:null, pendente:["API /api/checkout indisponível (publique na Vercel)"] }));
+  }
+  const freteTxt = s => !MP ? "Frete e prazo informados no checkout."
+                       : s.frete === null ? "Frete: informação pendente."
+                       : s.frete === 0 ? "Frete: sem custo adicional." : "Frete: " + brl(s.frete) + ".";
+  consultar().then(s => { $("#frete-oferta").textContent = freteTxt(s); });
+
+  /* ---------- Abrir checkout ---------- */
+  const dlg = $("#ck"), form = $("#ck-form"), go = $("#ck-go"), err = $("#ck-err"), notice = $("#ck-notice");
+  function aviso(t){ notice.textContent = t; notice.hidden = !t; }
+  function erro(t){ err.textContent = t; err.hidden = !t; }
+  function linkComUtm(){
+    const u = new URL(C.checkout.link, location.href);
+    params.forEach((v,k) => { if (/^(utm_\w+|fbclid|gclid|ttclid)$/.test(k) && !u.searchParams.has(k)) u.searchParams.set(k, v); });
+    return u.toString();
+  }
+  async function abrirCheckout(){
+    if (!MP && C.checkout.link){ location.href = linkComUtm(); return; }
+    erro(""); aviso("");
+    dlg.classList.toggle("so-aviso", !MP);
+    if (!dlg.open) dlg.showModal();
+    document.documentElement.style.overflow = "hidden";
+    const s = await consultar();
+    $("#ck-frete").textContent = s.frete === null ? "Pendente" : s.frete === 0 ? "Sem custo adicional" : brl(s.frete);
+    $("#ck-total").textContent = $("#ck-total-2").textContent = s.frete === null ? "—" : brl(C.preco + s.frete);
+    go.disabled = !s.pronto;
+    if (!s.pronto) aviso("O pagamento ainda não está disponível: a loja está concluindo a configuração do checkout. Nenhum pedido será registrado por enquanto.");
+    restaurar();
+  }
+  function fechar(){ dlg.close(); }
+  dlg.addEventListener("close", () => { document.documentElement.style.overflow = ""; });
+  dlg.addEventListener("click", e => { if (e.target === dlg || e.target.closest("[data-close]")) fechar(); });
+  document.querySelectorAll("[data-checkout]").forEach(a => a.addEventListener("click", e => { e.preventDefault(); abrirCheckout(); }));
+
+  /* ---------- Formulário ---------- */
+  const F = form.elements;
+  const dig = v => String(v || "").replace(/\D/g, "");
+  F.telefone.addEventListener("input", e => {
+    const d = dig(e.target.value).slice(0,11);
+    e.target.value = d.length > 6 ? `(${d.slice(0,2)}) ${d.slice(2, d.length - 4)}-${d.slice(-4)}` : d.length > 2 ? `(${d.slice(0,2)}) ${d.slice(2)}` : d;
+  });
+  let ultimoCep = "";
+  F.cep.addEventListener("input", async e => {
+    const d = dig(e.target.value).slice(0,8);
+    e.target.value = d.length > 5 ? d.slice(0,5) + "-" + d.slice(5) : d;
+    if (d.length !== 8 || d === ultimoCep) return;
+    ultimoCep = d;
+    try {
+      const j = await (await fetch(`https://viacep.com.br/ws/${d}/json/`)).json();
+      if (j.erro) return;
+      F.rua.value = j.logradouro || F.rua.value; F.bairro.value = j.bairro || F.bairro.value;
+      F.cidade.value = j.localidade || F.cidade.value; F.uf.value = j.uf || F.uf.value;
+      (F.rua.value ? F.numero : F.rua).focus();
+    } catch { /* sem internet ou CEP fora do ar: o cliente preenche à mão */ }
+  });
+  form.addEventListener("input", e => { if (e.target.getAttribute("aria-invalid") === "true") e.target.setAttribute("aria-invalid", "false"); });
+  F.uf.addEventListener("input", e => { e.target.value = e.target.value.replace(/[^a-z]/gi,"").toUpperCase().slice(0,2); });
+
+  function validar(d){
+    const marcar = (n, ok) => F[n].setAttribute("aria-invalid", ok ? "false" : "true");
+    const regras = [
+      ["nome", d.nome.trim().split(/\s+/).length >= 2, "Informe nome e sobrenome."],
+      ["email", /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(d.email.trim()), "Informe um e-mail válido."],
+      ["telefone", [10,11].includes(dig(d.telefone).length), "Informe o WhatsApp com DDD."],
+      ["cep", dig(d.cep).length === 8, "Informe um CEP válido."],
+      ["rua", !!d.rua.trim(), "Informe a rua."],
+      ["numero", !!d.numero.trim(), "Informe o número."],
+      ["bairro", !!d.bairro.trim(), "Informe o bairro."],
+      ["cidade", !!d.cidade.trim(), "Informe a cidade."],
+      ["uf", /^[A-Z]{2}$/.test(d.uf), "Informe a UF (estado)."],
+    ];
+    let primeira = null;
+    regras.forEach(([n, ok, msg]) => { marcar(n, ok); if (!ok && !primeira) primeira = [n, msg]; });
+    if (primeira){ F[primeira[0]].focus(); return primeira[1]; }
+    return "";
+  }
+  const CHAVE = "lumepro-entrega";
+  function restaurar(){
+    try { const d = JSON.parse(sessionStorage.getItem(CHAVE) || "null"); if (d) Object.keys(d).forEach(k => { if (F[k] && !F[k].value) F[k].value = d[k]; }); } catch {}
+  }
+  form.addEventListener("submit", async e => {
+    e.preventDefault(); erro("");
+    const d = Object.fromEntries(new FormData(form));
+    const msg = validar(d); if (msg){ erro(msg); return; }
+    try { sessionStorage.setItem(CHAVE, JSON.stringify(d)); } catch {}
+    go.disabled = true; go.textContent = "Abrindo pagamento…";
+    try {
+      const r = await fetch(API, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(d) });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok && j.url){ location.href = j.url; return; }
+      erro(j.erro || "Não foi possível abrir o pagamento agora. Tente novamente.");
+    } catch { erro("Não foi possível conectar ao checkout. Verifique sua internet e tente novamente."); }
+    go.disabled = false; go.textContent = "Ir para o pagamento";
   });
 
-  /* Header e barra fixa */
-  const header = document.getElementById("header"), bar = document.getElementById("buybar");
+  /* ---------- Retorno do Mercado Pago ---------- */
+  const retorno = {
+    aprovado: ["", "Pagamento aprovado pelo Mercado Pago. Guarde o comprovante exibido ao final do pagamento."],
+    pendente: ["", "Seu pagamento está pendente de confirmação pelo Mercado Pago."],
+    falhou:   ["err", "O pagamento não foi concluído. Você pode tentar novamente."],
+  }[params.get("pagamento")];
+  if (retorno){
+    const st = $("#status"); st.className = "status " + retorno[0]; st.hidden = false;
+    st.innerHTML = "<span></span><button type='button' aria-label='Fechar aviso'>×</button>";
+    st.firstChild.textContent = retorno[1];
+    st.querySelector("button").onclick = () => { st.hidden = true; };
+    if (params.get("pagamento") === "aprovado") try { sessionStorage.removeItem(CHAVE); } catch {}
+  }
+
+  /* ---------- Revisão: index.html?revisao=1 lista o que falta ---------- */
+  if (params.has("revisao")){
+    consultar().then(s => {
+      const politicas = ["entrega.prazoEnvio","entrega.prazoEntrega","entrega.frete","entrega.transportadora","entrega.rastreio",
+                         "trocas.procedimento","trocas.reembolso","privacidade.ferramentas","privacidade.atualizadoEm"]
+                         .filter(k => !get(k)).map(k => "loja.js → " + k + " (políticas)");
+      const itens = [...new Set(pendentes), ...politicas, ...s.pendente.map(x => MP ? "Vercel → " + x : x)];
+      const box = document.createElement("aside"); box.className = "revisao";
+      box.innerHTML = "<h4></h4><ul></ul>";
+      box.querySelector("h4").textContent = itens.length ? `Pendências (${itens.length})` : "Nenhuma pendência na página";
+      itens.forEach(t => { const li = document.createElement("li"); li.textContent = t; box.querySelector("ul").append(li); });
+      document.body.append(box);
+    });
+  }
+
+  /* ---------- Header e barra fixa ---------- */
+  const header = $("#header"), bar = $("#buybar");
   let heroGone = false, offerIn = false;
   const syncBar = () => { const on = heroGone && !offerIn; bar.classList.toggle("on", on); bar.setAttribute("aria-hidden", !on); bar.querySelector("a").tabIndex = on ? 0 : -1; };
-  new IntersectionObserver(([e]) => { heroGone = !e.isIntersecting && e.boundingClientRect.top < 0; syncBar(); }).observe(document.getElementById("hero-cta"));
-  new IntersectionObserver(([e]) => { offerIn = e.isIntersecting; syncBar(); }, {rootMargin:"0px 0px -30% 0px"}).observe(document.getElementById("oferta"));
+  new IntersectionObserver(([e]) => { heroGone = !e.isIntersecting && e.boundingClientRect.top < 0; syncBar(); }).observe($("#hero-cta"));
+  new IntersectionObserver(([e]) => { offerIn = e.isIntersecting; syncBar(); }, {rootMargin:"0px 0px -30% 0px"}).observe($("#oferta"));
   addEventListener("scroll", () => header.classList.toggle("scrolled", scrollY > 8), {passive:true});
 
-  /* Revelação suave */
+  /* ---------- Revelação suave ---------- */
   const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting){ e.target.classList.add("in"); io.unobserve(e.target); } }), {rootMargin:"0px 0px -8% 0px"});
   document.querySelectorAll(".rv").forEach(el => io.observe(el));
 })();

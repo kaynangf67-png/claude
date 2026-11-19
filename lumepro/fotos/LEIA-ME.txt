@@ -1,16 +1,20 @@
-Coloque aqui as fotografias reais, com estes nomes:
+FOTOS DA PÁGINA LUMEPRO
 
-  foto-1-produto.jpg     aparelho branco e dourado em destaque, fundo champagne
-                         (primeira dobra e oferta) · proporção 1:1
-  foto-2-retoque.jpg     mulher fazendo retoque na sobrancelha (no lugar da
-                         cena do espelho) · 4:5
-  foto-3-uso.jpg         aparelho sendo utilizado na região da sobrancelha · 4:5
-  foto-4-led.jpg         close-up da ponta com a iluminação LED · 1:1
-                         (aparece sobre fundo marrom escuro)
-  foto-5-necessaire.jpg  produto ao lado de uma nécessaire, com as proporções
-                         reais · 5:4
-  foto-6-detalhes.jpg    foto aproximada do aparelho e seus detalhes · 1:1
+Em uso (recortadas das fotos enviadas, sem o ícone da captura de tela):
+
+  foto-1-produto.jpg    aparelho branco com a tampa ao lado, bancada de mármore
+                        (primeira dobra, oferta e checkout)
+  foto-2-retoque.jpg    mulher fazendo retoque na sobrancelha (bloco 1)
+  foto-3-uso.jpg        aparelho na região da sobrancelha (bloco 2)
+  foto-6-detalhes.jpg   tampa e ponta em close (bloco 5)
+
+Ainda como ilustração (não havia foto adequada). Para trocar, salve a foto aqui
+e descomente a linha <!-- Foto real: ... --> correspondente no index.html:
+
+  foto-4-led.jpg         close-up da ponta com o LED aceso · 1:1 (bloco 3)
+  foto-5-necessaire.jpg  produto ao lado de uma nécessaire · 5:4 (bloco 4)
+  foto-7-embalagem.jpg   os três itens sobre fundo bege · 3:2 (bloco 7)
 
 Recomendado: JPG, lado maior entre 1600 e 2000 px, até ~300 KB cada.
-Para usar WebP, troque a extensão no <img> correspondente do index.html.
-Enquanto um arquivo não existir, a página mostra uma ilustração no lugar.
+Não use imagens que alterem o formato, a cor ou os acessórios do produto,
+nem artes com textos de benefícios não aprovados.

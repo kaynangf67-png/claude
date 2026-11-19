@@ -1,0 +1,7 @@
+{
+  "name": "lumepro",
+  "private": true,
+  "type": "commonjs",
+  "description": "Página de produto único LumePro com checkout Mercado Pago (api/checkout.js)",
+  "engines": { "node": ">=18" }
+}
