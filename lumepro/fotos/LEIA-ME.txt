@@ -2,8 +2,8 @@ Coloque aqui as fotografias reais, com estes nomes:
 
   foto-1-produto.jpg     aparelho branco e dourado em destaque, fundo champagne
                          (primeira dobra e oferta) · proporção 1:1
-  foto-2-espelho.jpg     mulher se preparando diante do espelho, foco nas
-                         sobrancelhas · 4:5
+  foto-2-retoque.jpg     mulher fazendo retoque na sobrancelha (no lugar da
+                         cena do espelho) · 4:5
   foto-3-uso.jpg         aparelho sendo utilizado na região da sobrancelha · 4:5
   foto-4-led.jpg         close-up da ponta com a iluminação LED · 1:1
                          (aparece sobre fundo marrom escuro)
