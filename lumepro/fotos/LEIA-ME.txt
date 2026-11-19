@@ -1,0 +1,10 @@
+Coloque aqui as quatro fotografias reais do produto, com estes nomes:
+
+  foto-1-produto.jpg     produto em destaque (primeira dobra, solução e oferta)
+  foto-2-uso.jpg         produto em uso / demonstração
+  foto-3-led.jpg         detalhe da ponta com o LED aceso (fica sobre fundo escuro)
+  foto-4-embalagem.jpg   embalagem ou produto na bolsa/nécessaire
+
+Recomendado: JPG ou WebP, lado maior com 1600 a 2000 px, até ~300 KB cada.
+Proporções usadas na página: 1:1 (foto 1 e 3), 4:5 (foto 2), 5:4 (foto 4).
+Enquanto uma foto não existir, a página mostra uma ilustração do produto.
