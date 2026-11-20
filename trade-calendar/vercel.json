@@ -1,0 +1,9 @@
+{
+  "framework": null,
+  "installCommand": "echo sem-dependencias",
+  "buildCommand": "echo site-estatico",
+  "outputDirectory": ".",
+  "headers": [
+    { "source": "/sw.js", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
+  ]
+}

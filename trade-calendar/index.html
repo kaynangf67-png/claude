@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Trade Calendar</title>
+<meta name="description" content="Controle diário de resultados de Day Trade em um calendário.">
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Trade Calendar">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="styles.css">
+<script>
+  // Aplica o tema antes da pintura para não piscar.
+  try { var t = JSON.parse(localStorage.getItem('tradecal.settings') || '{}').theme; if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+</head>
+<body>
+<div id="app">
+
+  <!-- ===== Ano ===== -->
+  <section class="view" id="yearView" aria-label="Ano">
+    <header class="nav">
+      <div class="nav-side"></div>
+      <div class="nav-title" id="yearNavTitle"></div>
+      <div class="nav-side nav-side-right">
+        <button class="icon-btn" data-action="settings" aria-label="Ajustes"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg></button>
+      </div>
+    </header>
+    <div class="scroll">
+      <div class="title-row">
+        <h1 class="large-title accent" id="yearTitle"></h1>
+        <div class="arrows">
+          <button class="arrow-btn" id="yearPrev" aria-label="Ano anterior"><svg viewBox="0 0 24 24"><use href="#i-left"/></svg></button>
+          <button class="arrow-btn" id="yearNext" aria-label="Próximo ano"><svg viewBox="0 0 24 24"><use href="#i-right"/></svg></button>
+        </div>
+      </div>
+      <div class="year-summary" id="yearSummary"></div>
+      <div class="year-grid" id="yearGrid"></div>
+      <div class="bottom-spacer"></div>
+    </div>
+    <footer class="toolbar">
+      <button class="tool-btn" data-action="today">Hoje</button>
+      <button class="tool-btn" data-action="stats-year">Estatísticas</button>
+    </footer>
+  </section>
+
+  <!-- ===== Mês ===== -->
+  <section class="view" id="monthView" aria-label="Mês">
+    <header class="nav">
+      <div class="nav-side">
+        <button class="back-btn" id="toYear"><svg viewBox="0 0 24 24"><use href="#i-left"/></svg><span id="backYear"></span></button>
+      </div>
+      <div class="nav-title" id="monthNavTitle"></div>
+      <div class="nav-side nav-side-right">
+        <button class="icon-btn" data-action="settings" aria-label="Ajustes"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg></button>
+        <button class="icon-btn" data-action="add" aria-label="Registrar hoje"><svg viewBox="0 0 24 24"><use href="#i-plus"/></svg></button>
+      </div>
+    </header>
+    <div class="scroll" id="monthScroll">
+      <div class="title-row">
+        <h1 class="large-title" id="monthTitle"></h1>
+        <div class="arrows">
+          <button class="arrow-btn" id="monthPrev" aria-label="Mês anterior"><svg viewBox="0 0 24 24"><use href="#i-left"/></svg></button>
+          <button class="arrow-btn" id="monthNext" aria-label="Próximo mês"><svg viewBox="0 0 24 24"><use href="#i-right"/></svg></button>
+        </div>
+      </div>
+
+      <div class="summary card" id="summary"></div>
+
+      <div class="weekdays" aria-hidden="true"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
+      <div class="month-stage" id="monthStage">
+        <div class="month-grid" id="monthGrid" role="grid"></div>
+      </div>
+      <p class="hint" id="monthHint"></p>
+      <div class="bottom-spacer"></div>
+    </div>
+    <footer class="toolbar">
+      <button class="tool-btn" data-action="today">Hoje</button>
+      <button class="tool-btn" data-action="stats-month">Estatísticas</button>
+    </footer>
+  </section>
+
+  <!-- ===== Estatísticas ===== -->
+  <section class="view" id="statsView" aria-label="Estatísticas">
+    <header class="nav">
+      <div class="nav-side">
+        <button class="back-btn" id="statsBack"><svg viewBox="0 0 24 24"><use href="#i-left"/></svg><span id="statsBackLabel">Voltar</span></button>
+      </div>
+      <div class="nav-title" id="statsNavTitle">Estatísticas</div>
+      <div class="nav-side nav-side-right"></div>
+    </header>
+    <div class="scroll" id="statsScroll">
+      <div class="title-row"><h1 class="large-title">Estatísticas</h1></div>
+      <div class="segmented" id="statsScope" role="tablist">
+        <button data-scope="month" role="tab">Mês</button>
+        <button data-scope="year" role="tab">Ano</button>
+        <button data-scope="all" role="tab">Geral</button>
+        <span class="segmented-thumb"></span>
+      </div>
+      <div class="period-nav" id="periodNav">
+        <button class="arrow-btn" id="periodPrev" aria-label="Período anterior"><svg viewBox="0 0 24 24"><use href="#i-left"/></svg></button>
+        <span id="periodLabel"></span>
+        <button class="arrow-btn" id="periodNext" aria-label="Próximo período"><svg viewBox="0 0 24 24"><use href="#i-right"/></svg></button>
+      </div>
+      <div id="statsBody"></div>
+      <div class="bottom-spacer"></div>
+    </div>
+  </section>
+</div>
+
+<!-- ===== Folha de registro ===== -->
+<div class="backdrop" id="backdrop"></div>
+<div class="sheet" id="entrySheet" role="dialog" aria-modal="true" aria-labelledby="entryTitle">
+  <div class="grabber"></div>
+  <header class="sheet-nav">
+    <button class="text-btn" id="entryCancel">Cancelar</button>
+    <div class="sheet-title" id="entryTitle"></div>
+    <button class="text-btn strong" id="entrySaveTop">Salvar</button>
+  </header>
+  <form class="sheet-body" id="entryForm" autocomplete="off">
+    <div class="segmented" id="entryMode">
+      <button type="button" data-mode="trade">Com operações</button>
+      <button type="button" data-mode="none">Sem operações</button>
+      <span class="segmented-thumb"></span>
+    </div>
+
+    <div id="tradeFields">
+      <div class="net-display" id="netDisplay">
+        <span class="net-label">Resultado líquido</span>
+        <span class="net-value" id="netValue">R$ 0,00</span>
+        <span class="net-sub" id="netSub">calculado automaticamente</span>
+      </div>
+
+      <div class="group">
+        <label class="row">
+          <span class="row-label"><i class="dot pos"></i>Valor ganho</span>
+          <span class="money-field"><span class="cur">R$</span><input id="gainInput" inputmode="numeric" placeholder="0,00" enterkeyhint="next" aria-label="Valor ganho em reais"></span>
+        </label>
+        <label class="row">
+          <span class="row-label"><i class="dot neg"></i>Valor perdido</span>
+          <span class="money-field"><span class="cur">R$</span><input id="lossInput" inputmode="numeric" placeholder="0,00" enterkeyhint="done" aria-label="Valor perdido em reais"></span>
+        </label>
+      </div>
+      <p class="group-footer">Digite só os números: os centavos entram automaticamente.</p>
+
+      <div class="group">
+        <div class="row">
+          <span class="row-label">Operações</span>
+          <span class="stepper-wrap">
+            <input id="opsInput" class="ops-input" inputmode="numeric" value="0" aria-label="Quantidade de operações">
+            <span class="stepper">
+              <button type="button" id="opsMinus" aria-label="Menos uma operação">−</button>
+              <span class="stepper-sep"></span>
+              <button type="button" id="opsPlus" aria-label="Mais uma operação">+</button>
+            </span>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div id="noTradeInfo" class="no-trade-info" hidden>
+      <svg viewBox="0 0 24 24"><use href="#i-moon"/></svg>
+      <p>Este dia será marcado como <strong>sem operações</strong> e não entra no cálculo de acertos.</p>
+    </div>
+
+    <div class="group">
+      <textarea id="notesInput" class="notes" rows="3" placeholder="Observações (opcional)" maxlength="2000"></textarea>
+    </div>
+
+    <button type="submit" class="primary-btn" id="entrySave">Salvar registro</button>
+    <button type="button" class="danger-btn" id="entryDelete" hidden>Apagar registro</button>
+    <p class="group-footer center" id="entryMeta"></p>
+  </form>
+</div>
+
+<!-- ===== Ajustes ===== -->
+<div class="sheet" id="settingsSheet" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+  <div class="grabber"></div>
+  <header class="sheet-nav">
+    <span></span>
+    <div class="sheet-title" id="settingsTitle">Ajustes</div>
+    <button class="text-btn strong" id="settingsDone">OK</button>
+  </header>
+  <div class="sheet-body">
+    <p class="group-header">Aparência</p>
+    <div class="segmented" id="themeSeg">
+      <button type="button" data-theme="auto">Automático</button>
+      <button type="button" data-theme="light">Claro</button>
+      <button type="button" data-theme="dark">Escuro</button>
+      <span class="segmented-thumb"></span>
+    </div>
+
+    <p class="group-header">Dados</p>
+    <div class="group">
+      <button type="button" class="row row-btn" id="exportBtn"><span>Exportar backup</span><svg viewBox="0 0 24 24"><use href="#i-share"/></svg></button>
+      <label class="row row-btn"><span>Importar backup</span><svg viewBox="0 0 24 24"><use href="#i-download"/></svg><input type="file" id="importInput" accept="application/json,.json" hidden></label>
+    </div>
+    <p class="group-footer" id="storageInfo">Os registros são salvos automaticamente neste aparelho.</p>
+
+    <div class="group">
+      <button type="button" class="row row-btn danger" id="wipeBtn"><span>Apagar todos os registros</span></button>
+    </div>
+    <p class="group-footer center muted">Trade Calendar · v1.0</p>
+  </div>
+</div>
+
+<!-- ===== Action sheet de confirmação ===== -->
+<div class="action-sheet" id="actionSheet" role="alertdialog" aria-modal="true">
+  <div class="action-group">
+    <p class="action-msg" id="actionMsg"></p>
+    <button class="action-btn danger" id="actionConfirm"></button>
+  </div>
+  <button class="action-btn cancel" id="actionCancel">Cancelar</button>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="M15 4.5 7.5 12l7.5 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="M9 4.5 16.5 12 9 19.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 4.5v15M4.5 12h15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></g></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" fill="currentColor"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5"/><path d="M6 11H5v9.5h14V11h-1"/></g></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7.5 10.5 12 15l4.5-4.5"/><path d="M5 17v3.5h14V17"/></g></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9.5 6 15.5 12l-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
