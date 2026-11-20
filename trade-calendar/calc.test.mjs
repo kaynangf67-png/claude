@@ -1,7 +1,7 @@
 // node --test trade-calendar/calc.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { netOf, normalizeEntry, entriesIn, summarize, cumulative, cellValue, money, moneyShort, parseMoney, daysInMonth, firstWeekday } from './calc.js';
+import { periodRange, comparisons, change, buckets, entriesInRange, weekStartKey, rangeLabel, netOf, normalizeEntry, entriesIn, summarize, cumulative, cellValue, money, moneyShort, parseMoney, daysInMonth, firstWeekday } from './calc.js';
 
 const E = {
   '2026-11-03': { gain: 500, loss: 150, ops: 4 },
@@ -69,4 +69,51 @@ test('formatação em reais', () => {
 test('calendário', () => {
   assert.equal(daysInMonth(2028, 1), 29);
   assert.equal(firstWeekday(2026, 10), 0); // 1º/nov/2026 é domingo
+});
+
+test('períodos respeitam as datas', () => {
+  const t = '2026-11-20'; // sexta
+  assert.deepEqual(periodRange('today', t), { start: t, end: t });
+  assert.deepEqual(periodRange('week', t), { start: '2026-11-16', end: t }); // segunda
+  assert.deepEqual(periodRange('30d', t), { start: '2026-10-22', end: t });   // 30 dias com hoje
+  assert.deepEqual(periodRange('month', t), { start: '2026-11-01', end: t });
+  assert.deepEqual(periodRange('lastMonth', t), { start: '2026-10-01', end: '2026-10-31' });
+  assert.deepEqual(periodRange('lastMonth', '2026-01-15'), { start: '2025-12-01', end: '2025-12-31' });
+  assert.deepEqual(periodRange('custom', t, { start: '2026-11-10', end: '2026-11-01' }), { start: '2026-11-01', end: '2026-11-10' });
+  assert.equal(weekStartKey('2026-11-22'), '2026-11-16'); // domingo pertence à semana iniciada na segunda
+  assert.equal(weekStartKey('2026-03-02'), '2026-03-02');
+});
+
+test('comparações', () => {
+  const c = comparisons('2026-11-20');
+  assert.deepEqual(c[0].prev, { start: '2026-11-19', end: '2026-11-19' });
+  assert.deepEqual(c[1].prev, { start: '2026-11-09', end: '2026-11-15' });
+  assert.deepEqual(c[3].prev, { start: '2026-09-22', end: '2026-10-21' });
+  assert.deepEqual(change(300, 200), { diff: 100, pct: 0.5 });
+  assert.deepEqual(change(-100, -200), { diff: 100, pct: 0.5 }); // melhorou
+  assert.equal(change(100, 0).pct, null);
+});
+
+test('resultado líquido = lucro bruto − prejuízo bruto (exemplo do enunciado)', () => {
+  const s = summarize(entriesInRange({ '2026-11-20': { gain: 300, loss: 100, ops: 2 } }, '2026-11-01', '2026-11-30'));
+  assert.equal(s.grossGain, 300);
+  assert.equal(s.grossLoss, 100);
+  assert.equal(s.net, 200);
+  assert.equal(round(s.grossGain - s.grossLoss), s.net);
+});
+const round = (n) => Math.round(n * 100) / 100;
+
+test('dias sem operação não contam como positivos/negativos', () => {
+  const s = summarize(entriesInRange(E, '2026-11-01', '2026-11-30'));
+  assert.equal(s.tradedDays, 4);
+  assert.equal(s.positiveRate, 0.5);
+});
+
+test('agrupamento semanal e mensal', () => {
+  const list = entriesInRange(E, '2026-10-01', '2026-11-30');
+  const w = buckets(list, 'week', '2026-10-26', '2026-11-15');
+  assert.deepEqual(w.map((b) => [b.key, b.value]), [['2026-10-26', 50], ['2026-11-02', 29.5], ['2026-11-09', 1199.9]]);
+  const m = buckets(list, 'month', '2026-10-01', '2026-11-30');
+  assert.deepEqual(m.map((b) => b.value), [50, 1229.4]);
+  assert.equal(rangeLabel('2026-11-16', '2026-11-20', 2026), '16 – 20 de nov.');
 });

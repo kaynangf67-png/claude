@@ -1,5 +1,5 @@
 // Service worker: o app abre mesmo sem internet. Os dados ficam no localStorage, não aqui.
-const CACHE = 'trade-calendar-v1';
+const CACHE = 'trade-calendar-v2';
 const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'calc.js', 'manifest.webmanifest',
   'icons/icon.svg', 'icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png'];
 

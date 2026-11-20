@@ -81,6 +81,7 @@ export function summarize(list) {
   const decided = pos + neg;
   const traded = pos + neg + flat;
   return {
+    positiveRate: traded ? pos / traded : null,
     profit: round2(profit),
     loss: round2(loss), // negativo
     net: round2(profit + loss),
@@ -173,4 +174,124 @@ export function parseMoney(text) {
 export function longDate(y, m, d) {
   const wd = WEEKDAYS_SHORT[new Date(y, m, d).getDay()];
   return `${wd[0].toUpperCase() + wd.slice(1)}, ${d} de ${MONTHS_SHORT[m]}. de ${y}`;
+}
+
+// ---------- datas e períodos (chaves AAAA-MM-DD comparáveis como texto) ----------
+export function fromKey(key) { const { y, m, d } = parseKey(key); return new Date(y, m, d); }
+export function keyOf(dt) { return dateKey(dt.getFullYear(), dt.getMonth(), dt.getDate()); }
+export function todayKey(now = new Date()) { return keyOf(now); }
+export function addDaysKey(key, n) { const dt = fromKey(key); dt.setDate(dt.getDate() + n); return keyOf(dt); }
+/** Segunda-feira da semana da data. */
+export function weekStartKey(key) { const dt = fromKey(key); dt.setDate(dt.getDate() - ((dt.getDay() + 6) % 7)); return keyOf(dt); }
+export function monthStartKey(key) { const { y, m } = parseKey(key); return dateKey(y, m, 1); }
+export function monthEndKey(y, m) { return dateKey(y, m, daysInMonth(y, m)); }
+export function daysBetween(a, b) { return Math.round((fromKey(b) - fromKey(a)) / 864e5); }
+
+/** Registros entre start e end (inclusive), ordenados por data. */
+export function entriesInRange(entries, start, end) {
+  const out = [];
+  for (const key of Object.keys(entries)) {
+    if (key < start || key > end) continue;
+    out.push({ key, ...parseKey(key), entry: entries[key], net: netOf(entries[key]) });
+  }
+  out.sort((a, b) => (a.key < b.key ? -1 : 1));
+  return out;
+}
+
+export const PERIODS = [
+  { id: 'today', label: 'Hoje' },
+  { id: 'week', label: 'Esta semana' },
+  { id: '30d', label: 'Últimos 30 dias' },
+  { id: 'month', label: 'Este mês' },
+  { id: 'lastMonth', label: 'Mês passado' },
+  { id: 'custom', label: 'Personalizado' },
+];
+
+/** Intervalo {start, end} de cada período, sempre relativo a "hoje". */
+export function periodRange(id, today, custom) {
+  switch (id) {
+    case 'today': return { start: today, end: today };
+    case 'week': return { start: weekStartKey(today), end: today };
+    case '30d': return { start: addDaysKey(today, -29), end: today };
+    case 'month': return { start: monthStartKey(today), end: today };
+    case 'lastMonth': {
+      const { y, m } = parseKey(today);
+      const pm = m === 0 ? 11 : m - 1, py = m === 0 ? y - 1 : y;
+      return { start: dateKey(py, pm, 1), end: monthEndKey(py, pm) };
+    }
+    case 'custom': {
+      if (custom && /^\d{4}-\d{2}-\d{2}$/.test(custom.start) && /^\d{4}-\d{2}-\d{2}$/.test(custom.end)) {
+        return custom.start <= custom.end ? { start: custom.start, end: custom.end } : { start: custom.end, end: custom.start };
+      }
+      return { start: monthStartKey(today), end: today };
+    }
+    default: return { start: today, end: today };
+  }
+}
+
+/** Pares de períodos para a seção "Comparação de desempenho". */
+export function comparisons(today) {
+  const ws = weekStartKey(today);
+  return [
+    { id: 'day', title: 'Hoje vs. ontem', curName: 'Hoje', prevName: 'Ontem',
+      cur: { start: today, end: today }, prev: { start: addDaysKey(today, -1), end: addDaysKey(today, -1) } },
+    { id: 'week', title: 'Esta semana vs. semana passada', curName: 'Esta semana', prevName: 'Semana passada',
+      cur: { start: ws, end: today }, prev: { start: addDaysKey(ws, -7), end: addDaysKey(ws, -1) } },
+    { id: 'month', title: 'Este mês vs. mês passado', curName: 'Este mês', prevName: 'Mês passado',
+      cur: periodRange('month', today), prev: periodRange('lastMonth', today) },
+    { id: '30d', title: 'Últimos 30 dias vs. 30 anteriores', curName: 'Últimos 30 dias', prevName: '30 dias anteriores',
+      cur: { start: addDaysKey(today, -29), end: today }, prev: { start: addDaysKey(today, -59), end: addDaysKey(today, -30) } },
+  ];
+}
+
+/** Diferença em reais e variação percentual (null quando o anterior é zero). */
+export function change(cur, prev) {
+  const diff = round2(cur - prev);
+  return { diff, pct: prev === 0 ? null : diff / Math.abs(prev) };
+}
+
+/** Agrupa os resultados para o gráfico: 'day' (só dias operados), 'week' (seg–dom) ou 'month'. */
+export function buckets(list, mode, start, end) {
+  if (mode === 'day') {
+    return list.filter((i) => !i.entry.noTrade).map((i) => ({
+      key: i.key, value: i.net, label: shortDate(i.key, true), short: `${i.d}/${i.m + 1}`,
+    }));
+  }
+  const sums = new Map();
+  for (const i of list) {
+    if (i.entry.noTrade) continue;
+    const k = mode === 'week' ? weekStartKey(i.key) : monthStartKey(i.key);
+    sums.set(k, round2((sums.get(k) || 0) + i.net));
+  }
+  const out = [];
+  if (mode === 'week') {
+    for (let k = weekStartKey(start); k <= end; k = addDaysKey(k, 7)) {
+      const p = parseKey(k), e = addDaysKey(k, 6);
+      out.push({ key: k, value: sums.get(k) || 0, label: `Semana ${shortDate(k)} – ${shortDate(e)}`, short: `${p.d}/${p.m + 1}` });
+    }
+  } else {
+    let { y, m } = parseKey(start);
+    const last = parseKey(end);
+    while (y < last.y || (y === last.y && m <= last.m)) {
+      const k = dateKey(y, m, 1);
+      out.push({ key: k, value: sums.get(k) || 0, label: `${MONTHS[m]} ${y}`, short: MONTHS_SHORT[m] });
+      m++; if (m > 11) { m = 0; y++; }
+    }
+  }
+  return out;
+}
+
+/** "20 de nov." (com ano opcional). */
+export function shortDate(key, withYear = false) {
+  const { y, m, d } = parseKey(key);
+  return `${d} de ${MONTHS_SHORT[m]}.${withYear ? ' ' + y : ''}`;
+}
+/** Texto de um intervalo: "16 – 20 de nov.", "21 de out. – 20 de nov.", com ano quando diferente do atual. */
+export function rangeLabel(start, end, currentYear) {
+  const a = parseKey(start), b = parseKey(end);
+  const yr = (p) => (p.y !== currentYear ? ' de ' + p.y : '');
+  if (start === end) return `${a.d} de ${MONTHS_SHORT[a.m]}.${yr(a)}`;
+  if (a.y === b.y && a.m === b.m) return `${a.d} – ${b.d} de ${MONTHS_SHORT[b.m]}.${yr(b)}`;
+  if (a.y === b.y) return `${a.d} de ${MONTHS_SHORT[a.m]}. – ${b.d} de ${MONTHS_SHORT[b.m]}.${yr(b)}`;
+  return `${a.d}/${a.m + 1}/${a.y} – ${b.d}/${b.m + 1}/${b.y}`;
 }

@@ -15,19 +15,23 @@ No iPhone: abra o endereço no Safari → Compartilhar → **Adicionar à Tela d
 
 ## O que tem
 
-- **Mês**: calendário com o resultado líquido de cada dia abaixo do número (verde = lucro, vermelho = prejuízo, neutro = sem operações), dia atual em destaque, setas e gesto de deslizar para trocar de mês.
-- **Resumo do mês** no topo: resultado líquido, lucro total, prejuízo total, dias positivos, dias negativos e taxa de acerto.
-- **Registro do dia** (toque em um dia ou no `+`): valor ganho, valor perdido, resultado líquido calculado na hora, quantidade de operações, observações, opção “Sem operações”, editar e apagar.
-- **Ano**: os 12 meses com os dias coloridos e o resultado de cada mês; toque em um mês para abri-lo.
-- **Estatísticas** (Mês / Ano / Geral): gráfico de evolução (saldo acumulado + resultado de cada dia/mês, com toque para ver valores), melhor e pior dia, média de lucro e de prejuízo diário, histórico diário, mensal e anual.
+Quatro abas na barra inferior, todas lendo a mesma base de dados:
+
+- **Dashboard — "Meu Desempenho"**: cards de período (Hoje, Esta semana, Últimos 30 dias, Este mês, Mês passado, Personalizado) com o resultado de cada um. O período escolhido atualiza o resultado líquido em destaque, os indicadores (lucro bruto, prejuízo bruto, dias operados, dias positivos e negativos, taxa de dias positivos, melhor e pior dia), o gráfico de performance (diário, semanal ou mensal, com lucro acumulado e toque para ver valores) e a **Comparação de desempenho** (hoje vs. ontem, semana, mês e 30 dias, com diferença em reais, variação percentual e seta de melhora/piora).
+- **Calendário**: mês no estilo do iPhone, com o resultado em reais abaixo de cada dia (verde = lucro, vermelho = prejuízo, cinza = sem operações), dia atual em destaque, setas e gesto de deslizar, resumo do mês e visão dos 12 meses do ano.
+- **Estatísticas**: total acumulado no ano, evolução mensal e anual, melhor e pior mês, médias de lucro e de prejuízo diário, taxa de dias positivos e resultados por mês e por ano.
+- **Histórico**: todos os registros agrupados por mês, com filtro (todos, lucro, prejuízo, sem operações).
+- **Registro do dia** (toque em um dia, em um item do histórico ou no `+`): data, valor ganho, valor perdido, resultado líquido calculado na hora, operações, observações, "Sem operações", editar e excluir.
 - **Ajustes**: tema automático, claro ou escuro; exportar e importar backup (JSON); apagar todos os registros.
 
-## Como os números são calculados
+## Regras de cálculo
 
-- Resultado líquido do dia = valor ganho − valor perdido.
-- Lucro total = soma dos dias que fecharam positivos; prejuízo total = soma dos dias que fecharam negativos.
-- Taxa de acerto = dias positivos ÷ (dias positivos + dias negativos). Dias zerados e sem operações não entram.
-- Média de lucro diário = lucro total ÷ dias positivos; média de prejuízo diário = prejuízo total ÷ dias negativos.
+- Resultado líquido = lucro bruto − prejuízo bruto (soma dos valores ganhos − soma dos valores perdidos).
+- Hoje: só o dia atual · Esta semana: de segunda-feira até hoje · Últimos 30 dias: 30 dias incluindo hoje · Este mês: do dia 1 até hoje · Mês passado: do primeiro ao último dia do mês anterior · Personalizado: o intervalo escolhido.
+- Dias sem operações não contam como positivos nem negativos e não entram em "dias operados".
+- Taxa de dias positivos = dias positivos ÷ dias operados.
+- Média de lucro diário = soma dos dias positivos ÷ dias positivos; média de prejuízo diário = soma dos dias negativos ÷ dias negativos.
+- Comparação: variação percentual = (atual − anterior) ÷ |anterior|. Quando o anterior é zero, aparece "sem base anterior".
 
 ## Dados
 

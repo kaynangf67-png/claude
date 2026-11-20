@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Trade Calendar</title>
-<meta name="description" content="Controle diário de resultados de Day Trade em um calendário.">
+<meta name="description" content="Dashboard e calendário de resultados de Day Trade.">
 <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -17,105 +17,144 @@
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="stylesheet" href="styles.css">
 <script>
-  // Aplica o tema antes da pintura para não piscar.
   try { var t = JSON.parse(localStorage.getItem('tradecal.settings') || '{}').theme; if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
 </script>
 </head>
 <body>
 <div id="app">
 
-  <!-- ===== Ano ===== -->
-  <section class="view" id="yearView" aria-label="Ano">
+  <!-- ================= DASHBOARD ================= -->
+  <section class="page tab grouped" id="tab-dash" data-tab="dash" aria-label="Dashboard">
     <header class="nav">
       <div class="nav-side"></div>
-      <div class="nav-title" id="yearNavTitle"></div>
+      <div class="nav-title">Meu Desempenho</div>
       <div class="nav-side nav-side-right">
         <button class="icon-btn" data-action="settings" aria-label="Ajustes"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg></button>
+        <button class="icon-btn" data-action="add" aria-label="Registrar resultado"><svg viewBox="0 0 24 24"><use href="#i-plus"/></svg></button>
       </div>
     </header>
     <div class="scroll">
-      <div class="title-row">
-        <h1 class="large-title accent" id="yearTitle"></h1>
-        <div class="arrows">
-          <button class="arrow-btn" id="yearPrev" aria-label="Ano anterior"><svg viewBox="0 0 24 24"><use href="#i-left"/></svg></button>
-          <button class="arrow-btn" id="yearNext" aria-label="Próximo ano"><svg viewBox="0 0 24 24"><use href="#i-right"/></svg></button>
-        </div>
+      <div class="title-block">
+        <p class="eyebrow" id="dashDate"></p>
+        <h1 class="large-title">Meu Desempenho</h1>
       </div>
-      <div class="year-summary" id="yearSummary"></div>
-      <div class="year-grid" id="yearGrid"></div>
+
+      <div class="period-strip" id="periodStrip" role="tablist" aria-label="Período"></div>
+
+      <div id="dashBody"></div>
       <div class="bottom-spacer"></div>
     </div>
-    <footer class="toolbar">
-      <button class="tool-btn" data-action="today">Hoje</button>
-      <button class="tool-btn" data-action="stats-year">Estatísticas</button>
-    </footer>
   </section>
 
-  <!-- ===== Mês ===== -->
-  <section class="view" id="monthView" aria-label="Mês">
-    <header class="nav">
-      <div class="nav-side">
-        <button class="back-btn" id="toYear"><svg viewBox="0 0 24 24"><use href="#i-left"/></svg><span id="backYear"></span></button>
-      </div>
-      <div class="nav-title" id="monthNavTitle"></div>
-      <div class="nav-side nav-side-right">
-        <button class="icon-btn" data-action="settings" aria-label="Ajustes"><svg viewBox="0 0 24 24"><use href="#i-gear"/></svg></button>
-        <button class="icon-btn" data-action="add" aria-label="Registrar hoje"><svg viewBox="0 0 24 24"><use href="#i-plus"/></svg></button>
-      </div>
-    </header>
-    <div class="scroll" id="monthScroll">
-      <div class="title-row">
-        <h1 class="large-title" id="monthTitle"></h1>
-        <div class="arrows">
-          <button class="arrow-btn" id="monthPrev" aria-label="Mês anterior"><svg viewBox="0 0 24 24"><use href="#i-left"/></svg></button>
-          <button class="arrow-btn" id="monthNext" aria-label="Próximo mês"><svg viewBox="0 0 24 24"><use href="#i-right"/></svg></button>
+  <!-- ================= CALENDÁRIO ================= -->
+  <section class="tab" id="tab-cal" data-tab="cal" aria-label="Calendário">
+    <!-- Ano -->
+    <section class="view" id="yearView" aria-label="Ano">
+      <header class="nav">
+        <div class="nav-side"></div>
+        <div class="nav-title" id="yearNavTitle"></div>
+        <div class="nav-side nav-side-right">
+          <button class="text-btn nav-text" data-action="today">Hoje</button>
         </div>
+      </header>
+      <div class="scroll">
+        <div class="title-row">
+          <h1 class="large-title accent" id="yearTitle"></h1>
+          <div class="arrows">
+            <button class="arrow-btn" id="yearPrev" aria-label="Ano anterior"><svg viewBox="0 0 24 24"><use href="#i-left"/></svg></button>
+            <button class="arrow-btn" id="yearNext" aria-label="Próximo ano"><svg viewBox="0 0 24 24"><use href="#i-right"/></svg></button>
+          </div>
+        </div>
+        <div class="year-summary" id="yearSummary"></div>
+        <div class="year-grid" id="yearGrid"></div>
+        <div class="bottom-spacer"></div>
       </div>
+    </section>
 
-      <div class="summary card" id="summary"></div>
-
-      <div class="weekdays" aria-hidden="true"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
-      <div class="month-stage" id="monthStage">
-        <div class="month-grid" id="monthGrid" role="grid"></div>
+    <!-- Mês -->
+    <section class="view" id="monthView" aria-label="Mês">
+      <header class="nav">
+        <div class="nav-side">
+          <button class="back-btn" id="toYear"><svg viewBox="0 0 24 24"><use href="#i-left"/></svg><span id="backYear"></span></button>
+        </div>
+        <div class="nav-title" id="monthNavTitle"></div>
+        <div class="nav-side nav-side-right">
+          <button class="text-btn nav-text" data-action="today">Hoje</button>
+          <button class="icon-btn" data-action="add" aria-label="Registrar resultado"><svg viewBox="0 0 24 24"><use href="#i-plus"/></svg></button>
+        </div>
+      </header>
+      <div class="scroll" id="monthScroll">
+        <div class="title-row">
+          <h1 class="large-title" id="monthTitle"></h1>
+          <div class="arrows">
+            <button class="arrow-btn" id="monthPrev" aria-label="Mês anterior"><svg viewBox="0 0 24 24"><use href="#i-left"/></svg></button>
+            <button class="arrow-btn" id="monthNext" aria-label="Próximo mês"><svg viewBox="0 0 24 24"><use href="#i-right"/></svg></button>
+          </div>
+        </div>
+        <div class="weekdays" aria-hidden="true"><span>D</span><span>S</span><span>T</span><span>Q</span><span>Q</span><span>S</span><span>S</span></div>
+        <div class="month-stage" id="monthStage">
+          <div class="month-grid" id="monthGrid" role="grid"></div>
+        </div>
+        <div class="summary" id="summary"></div>
+        <p class="hint" id="monthHint"></p>
+        <div class="bottom-spacer"></div>
       </div>
-      <p class="hint" id="monthHint"></p>
-      <div class="bottom-spacer"></div>
-    </div>
-    <footer class="toolbar">
-      <button class="tool-btn" data-action="today">Hoje</button>
-      <button class="tool-btn" data-action="stats-month">Estatísticas</button>
-    </footer>
+    </section>
   </section>
 
-  <!-- ===== Estatísticas ===== -->
-  <section class="view" id="statsView" aria-label="Estatísticas">
+  <!-- ================= ESTATÍSTICAS ================= -->
+  <section class="page tab grouped" id="tab-stats" data-tab="stats" aria-label="Estatísticas">
     <header class="nav">
-      <div class="nav-side">
-        <button class="back-btn" id="statsBack"><svg viewBox="0 0 24 24"><use href="#i-left"/></svg><span id="statsBackLabel">Voltar</span></button>
-      </div>
-      <div class="nav-title" id="statsNavTitle">Estatísticas</div>
+      <div class="nav-side"></div>
+      <div class="nav-title">Estatísticas</div>
       <div class="nav-side nav-side-right"></div>
     </header>
     <div class="scroll" id="statsScroll">
-      <div class="title-row"><h1 class="large-title">Estatísticas</h1></div>
-      <div class="segmented" id="statsScope" role="tablist">
-        <button data-scope="month" role="tab">Mês</button>
-        <button data-scope="year" role="tab">Ano</button>
-        <button data-scope="all" role="tab">Geral</button>
-        <span class="segmented-thumb"></span>
-      </div>
-      <div class="period-nav" id="periodNav">
-        <button class="arrow-btn" id="periodPrev" aria-label="Período anterior"><svg viewBox="0 0 24 24"><use href="#i-left"/></svg></button>
-        <span id="periodLabel"></span>
-        <button class="arrow-btn" id="periodNext" aria-label="Próximo período"><svg viewBox="0 0 24 24"><use href="#i-right"/></svg></button>
+      <div class="title-row">
+        <h1 class="large-title">Estatísticas</h1>
+        <div class="arrows">
+          <button class="arrow-btn" id="statsPrev" aria-label="Ano anterior"><svg viewBox="0 0 24 24"><use href="#i-left"/></svg></button>
+          <button class="arrow-btn" id="statsNext" aria-label="Próximo ano"><svg viewBox="0 0 24 24"><use href="#i-right"/></svg></button>
+        </div>
       </div>
       <div id="statsBody"></div>
       <div class="bottom-spacer"></div>
     </div>
   </section>
+
+  <!-- ================= HISTÓRICO ================= -->
+  <section class="page tab grouped" id="tab-hist" data-tab="hist" aria-label="Histórico">
+    <header class="nav">
+      <div class="nav-side"></div>
+      <div class="nav-title">Histórico</div>
+      <div class="nav-side nav-side-right">
+        <button class="icon-btn" data-action="add" aria-label="Registrar resultado"><svg viewBox="0 0 24 24"><use href="#i-plus"/></svg></button>
+      </div>
+    </header>
+    <div class="scroll" id="histScroll">
+      <div class="title-block"><p class="eyebrow" id="histCount"></p><h1 class="large-title">Histórico</h1></div>
+      <div class="segmented" id="histFilter">
+        <button type="button" data-filter="all">Todos</button>
+        <button type="button" data-filter="pos">Lucro</button>
+        <button type="button" data-filter="neg">Prejuízo</button>
+        <button type="button" data-filter="none">Sem op.</button>
+        <span class="segmented-thumb"></span>
+      </div>
+      <div id="histBody"></div>
+      <div class="bottom-spacer"></div>
+    </div>
+  </section>
 </div>
 
-<!-- ===== Folha de registro ===== -->
+<!-- ================= BARRA DE ABAS ================= -->
+<nav class="tabbar" id="tabbar" aria-label="Navegação">
+  <button data-tab="dash"><svg viewBox="0 0 28 28"><use href="#t-dash"/></svg><span>Dashboard</span></button>
+  <button data-tab="cal"><svg viewBox="0 0 28 28"><use href="#t-cal"/></svg><span>Calendário</span></button>
+  <button data-tab="stats"><svg viewBox="0 0 28 28"><use href="#t-stats"/></svg><span>Estatísticas</span></button>
+  <button data-tab="hist"><svg viewBox="0 0 28 28"><use href="#t-hist"/></svg><span>Histórico</span></button>
+</nav>
+
+<!-- ================= REGISTRO ================= -->
 <div class="backdrop" id="backdrop"></div>
 <div class="sheet" id="entrySheet" role="dialog" aria-modal="true" aria-labelledby="entryTitle">
   <div class="grabber"></div>
@@ -125,6 +164,13 @@
     <button class="text-btn strong" id="entrySaveTop">Salvar</button>
   </header>
   <form class="sheet-body" id="entryForm" autocomplete="off">
+    <div class="group">
+      <label class="row">
+        <span class="row-label">Data</span>
+        <input type="date" id="dateInput" class="date-input" required>
+      </label>
+    </div>
+
     <div class="segmented" id="entryMode">
       <button type="button" data-mode="trade">Com operações</button>
       <button type="button" data-mode="none">Sem operações</button>
@@ -135,9 +181,8 @@
       <div class="net-display" id="netDisplay">
         <span class="net-label">Resultado líquido</span>
         <span class="net-value" id="netValue">R$ 0,00</span>
-        <span class="net-sub" id="netSub">calculado automaticamente</span>
+        <span class="net-sub" id="netSub">valor ganho − valor perdido</span>
       </div>
-
       <div class="group">
         <label class="row">
           <span class="row-label"><i class="dot pos"></i>Valor ganho</span>
@@ -149,7 +194,6 @@
         </label>
       </div>
       <p class="group-footer">Digite só os números: os centavos entram automaticamente.</p>
-
       <div class="group">
         <div class="row">
           <span class="row-label">Operações</span>
@@ -167,7 +211,7 @@
 
     <div id="noTradeInfo" class="no-trade-info" hidden>
       <svg viewBox="0 0 24 24"><use href="#i-moon"/></svg>
-      <p>Este dia será marcado como <strong>sem operações</strong> e não entra no cálculo de acertos.</p>
+      <p>Este dia fica marcado como <strong>sem operações</strong>: aparece em cinza e não conta como dia positivo nem negativo.</p>
     </div>
 
     <div class="group">
@@ -175,12 +219,30 @@
     </div>
 
     <button type="submit" class="primary-btn" id="entrySave">Salvar registro</button>
-    <button type="button" class="danger-btn" id="entryDelete" hidden>Apagar registro</button>
+    <button type="button" class="danger-btn" id="entryDelete" hidden>Excluir registro</button>
     <p class="group-footer center" id="entryMeta"></p>
   </form>
 </div>
 
-<!-- ===== Ajustes ===== -->
+<!-- ================= PERÍODO PERSONALIZADO ================= -->
+<div class="sheet" id="customSheet" role="dialog" aria-modal="true" aria-labelledby="customTitle">
+  <div class="grabber"></div>
+  <header class="sheet-nav">
+    <button class="text-btn" id="customCancel">Cancelar</button>
+    <div class="sheet-title" id="customTitle">Período personalizado</div>
+    <button class="text-btn strong" id="customApply">Aplicar</button>
+  </header>
+  <div class="sheet-body">
+    <div class="group">
+      <label class="row"><span class="row-label">Início</span><input type="date" id="customStart" class="date-input"></label>
+      <label class="row"><span class="row-label">Fim</span><input type="date" id="customEnd" class="date-input"></label>
+    </div>
+    <p class="group-footer" id="customInfo"></p>
+    <button type="button" class="primary-btn" id="customApply2">Aplicar período</button>
+  </div>
+</div>
+
+<!-- ================= AJUSTES ================= -->
 <div class="sheet" id="settingsSheet" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
   <div class="grabber"></div>
   <header class="sheet-nav">
@@ -196,22 +258,20 @@
       <button type="button" data-theme="dark">Escuro</button>
       <span class="segmented-thumb"></span>
     </div>
-
     <p class="group-header">Dados</p>
     <div class="group">
       <button type="button" class="row row-btn" id="exportBtn"><span>Exportar backup</span><svg viewBox="0 0 24 24"><use href="#i-share"/></svg></button>
       <label class="row row-btn"><span>Importar backup</span><svg viewBox="0 0 24 24"><use href="#i-download"/></svg><input type="file" id="importInput" accept="application/json,.json" hidden></label>
     </div>
-    <p class="group-footer" id="storageInfo">Os registros são salvos automaticamente neste aparelho.</p>
-
+    <p class="group-footer" id="storageInfo"></p>
     <div class="group">
       <button type="button" class="row row-btn danger" id="wipeBtn"><span>Apagar todos os registros</span></button>
     </div>
-    <p class="group-footer center muted">Trade Calendar · v1.0</p>
+    <p class="group-footer center muted">Trade Calendar · v2.0</p>
   </div>
 </div>
 
-<!-- ===== Action sheet de confirmação ===== -->
+<!-- ================= CONFIRMAÇÃO ================= -->
 <div class="action-sheet" id="actionSheet" role="alertdialog" aria-modal="true">
   <div class="action-group">
     <p class="action-msg" id="actionMsg"></p>
@@ -231,6 +291,14 @@
   <symbol id="i-share" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5"/><path d="M6 11H5v9.5h14V11h-1"/></g></symbol>
   <symbol id="i-download" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7.5 10.5 12 15l4.5-4.5"/><path d="M5 17v3.5h14V17"/></g></symbol>
   <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9.5 6 15.5 12l-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v14M5.5 12.5 12 19l6.5-6.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-cal-small" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="15.5" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></g></symbol>
+  <!-- ícones da barra de abas -->
+  <symbol id="t-dash" viewBox="0 0 28 28"><g fill="currentColor"><rect x="3.5" y="3.5" width="9.5" height="12" rx="2.6"/><rect x="15" y="3.5" width="9.5" height="7" rx="2.6"/><rect x="3.5" y="17.5" width="9.5" height="7" rx="2.6"/><rect x="15" y="12.5" width="9.5" height="12" rx="2.6"/></g></symbol>
+  <symbol id="t-cal" viewBox="0 0 28 28"><path fill="currentColor" fill-rule="evenodd" d="M7 3.5a1.2 1.2 0 0 1 2.4 0V5h9.2V3.5a1.2 1.2 0 0 1 2.4 0V5h.5A3.5 3.5 0 0 1 25 8.5v13a3.5 3.5 0 0 1-3.5 3.5h-15A3.5 3.5 0 0 1 3 21.5v-13A3.5 3.5 0 0 1 6.5 5H7zM5.4 11v10.5c0 .6.5 1.1 1.1 1.1h15c.6 0 1.1-.5 1.1-1.1V11zM8 13.3h2.6v2.4H8zm4.7 0h2.6v2.4h-2.6zm4.7 0H20v2.4h-2.6zM8 17.6h2.6V20H8zm4.7 0h2.6V20h-2.6z"/></symbol>
+  <symbol id="t-stats" viewBox="0 0 28 28"><g fill="currentColor"><rect x="3.5" y="14" width="5" height="10.5" rx="1.8"/><rect x="11.5" y="8.5" width="5" height="16" rx="1.8"/><rect x="19.5" y="3.5" width="5" height="21" rx="1.8"/></g></symbol>
+  <symbol id="t-hist" viewBox="0 0 28 28"><g fill="currentColor"><circle cx="5.5" cy="7" r="2"/><circle cx="5.5" cy="14" r="2"/><circle cx="5.5" cy="21" r="2"/><rect x="10" y="5.8" width="15" height="2.4" rx="1.2"/><rect x="10" y="12.8" width="15" height="2.4" rx="1.2"/><rect x="10" y="19.8" width="15" height="2.4" rx="1.2"/></g></symbol>
 </svg>
 
 <script type="module" src="app.js"></script>
