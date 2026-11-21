@@ -61,6 +61,8 @@
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+/* sem zoom com dois toques */
+html, body, * { touch-action: manipulation; }
 html, body { margin: 0; height: 100%; background: var(--bg); }
 body {
   font-family: var(--font);
