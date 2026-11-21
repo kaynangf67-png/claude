@@ -1,6 +1,6 @@
 // Service worker: o app abre mesmo sem internet. Os dados ficam no localStorage, não aqui.
-const CACHE = 'trade-calendar-v2';
-const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'calc.js', 'manifest.webmanifest',
+const CACHE = 'trade-calendar-v3';
+const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'calc.js', 'market.js', 'manifest.webmanifest',
   'icons/icon.svg', 'icons/apple-touch-icon.png', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {
@@ -22,4 +22,14 @@ self.addEventListener('fetch', (e) => {
       })
       .catch(() => caches.match(e.request, { ignoreSearch: true }).then((r) => r || caches.match('index.html')))
   );
+});
+
+// Tocar na notificação abre (ou traz para frente) o app na aba Mercado.
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const url = new URL((e.notification.data && e.notification.data.url) || './#mercado', self.registration.scope).href;
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+    for (const c of list) { if ('focus' in c) { c.postMessage({ type: 'open-market' }); return c.focus(); } }
+    return self.clients.openWindow(url);
+  }));
 });
