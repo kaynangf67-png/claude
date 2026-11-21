@@ -22,6 +22,7 @@ Quatro abas na barra inferior, todas lendo a mesma base de dados:
 - **Estatísticas**: total acumulado no ano, evolução mensal e anual, melhor e pior mês, médias de lucro e de prejuízo diário, taxa de dias positivos e resultados por mês e por ano.
 - **Histórico**: todos os registros agrupados por mês, com filtro (todos, lucro, prejuízo, sem operações).
 - **Registro do dia** (toque em um dia, em um item do histórico ou no `+`): data, valor ganho, valor perdido, resultado líquido calculado na hora, operações, observações, "Sem operações", editar e excluir.
+- **Plano do dia (gerenciamento)**: em Ajustes você define stop diário, meta diária e máximo de operações. Ao registrar o dia, o app avisa na hora ("Stop atingido, pare de operar hoje", "Meta batida, encerre o dia", "Limite de operações"), pergunta "Segui o plano?" e marca o dia no calendário (✓ dentro do plano, ! fora). O Dashboard mostra a sequência de dias dentro do plano, a taxa de disciplina do período e a média de resultado dentro e fora do plano. Bater o stop exato conta como respeitar o plano; passar dele, não. Dias sem operações não contam nem quebram a sequência.
 - **Ajustes**: tema automático, claro ou escuro; exportar e importar backup (JSON); apagar todos os registros.
 
 ## Regras de cálculo

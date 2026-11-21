@@ -1,7 +1,7 @@
 // node --test trade-calendar/calc.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { periodRange, comparisons, change, buckets, entriesInRange, weekStartKey, rangeLabel, netOf, normalizeEntry, entriesIn, summarize, cumulative, cellValue, money, moneyShort, parseMoney, daysInMonth, firstWeekday } from './calc.js';
+import { evaluateDay, discipline, disciplineStreak, periodRange, comparisons, change, buckets, entriesInRange, weekStartKey, rangeLabel, netOf, normalizeEntry, entriesIn, summarize, cumulative, cellValue, money, moneyShort, parseMoney, daysInMonth, firstWeekday } from './calc.js';
 
 const E = {
   '2026-11-03': { gain: 500, loss: 150, ops: 4 },
@@ -19,7 +19,7 @@ test('resultado líquido = ganho − perda, sem erro de arredondamento', () => {
 });
 
 test('normalizeEntry zera valores de dia sem operação e rejeita negativos', () => {
-  assert.deepEqual({ ...normalizeEntry({ noTrade: true, gain: 5, ops: 3 }), updatedAt: 0 }, { gain: 0, loss: 0, ops: 0, notes: '', noTrade: true, updatedAt: 0 });
+  assert.deepEqual({ ...normalizeEntry({ noTrade: true, gain: 5, ops: 3 }), updatedAt: 0 }, { followed: null, gain: 0, loss: 0, ops: 0, notes: '', noTrade: true, updatedAt: 0 });
   assert.equal(normalizeEntry({ gain: -10 }).gain, 0);
   assert.equal(normalizeEntry(null), null);
 });
@@ -116,4 +116,31 @@ test('agrupamento semanal e mensal', () => {
   const m = buckets(list, 'month', '2026-10-01', '2026-11-30');
   assert.deepEqual(m.map((b) => b.value), [50, 1229.4]);
   assert.equal(rangeLabel('2026-11-16', '2026-11-20', 2026), '16 – 20 de nov.');
+});
+
+test('plano do dia: stop, meta, operações e marcação manual', () => {
+  const plan = { enabled: true, stop: 300, target: 500, maxOps: 5 };
+  assert.equal(evaluateDay({ gain: 0, loss: 300, ops: 2 }, plan).status, 'ok');        // bateu o stop exato: respeitou
+  assert.equal(evaluateDay({ gain: 0, loss: 300, ops: 2 }, plan).hitStop, true);
+  assert.deepEqual(evaluateDay({ gain: 0, loss: 350, ops: 2 }, plan).reasons, ['stop']); // passou do stop
+  assert.equal(evaluateDay({ gain: 600, loss: 50, ops: 3 }, plan).hitTarget, true);
+  assert.deepEqual(evaluateDay({ gain: 100, loss: 0, ops: 7 }, plan).reasons, ['ops']);
+  assert.deepEqual(evaluateDay({ gain: 100, loss: 0, ops: 1, followed: false }, plan).reasons, ['manual']);
+  assert.equal(evaluateDay({ noTrade: true }, plan).status, 'none');
+  assert.equal(evaluateDay({ gain: 0, loss: 900 }, { ...plan, enabled: false }).status, 'none');
+});
+
+test('disciplina e sequência', () => {
+  const plan = { enabled: true, stop: 300, target: 0, maxOps: 0 };
+  const ents = {
+    '2026-11-16': { gain: 0, loss: 500, ops: 1 },  // fora
+    '2026-11-17': { gain: 200, loss: 0, ops: 1 },  // dentro
+    '2026-11-18': { noTrade: true },               // não conta nem quebra
+    '2026-11-19': { gain: 0, loss: 100, ops: 1 },  // dentro
+    '2026-11-20': { gain: 400, loss: 0, ops: 1 },  // dentro
+  };
+  assert.equal(disciplineStreak(ents, plan, '2026-11-20'), 3);
+  const d = discipline(entriesInRange(ents, '2026-11-01', '2026-11-30'), plan);
+  assert.equal(d.ok, 3); assert.equal(d.broken, 1); assert.equal(d.rate, 0.75);
+  assert.equal(d.avgOk, 166.67); assert.equal(d.avgBroken, -500);
 });

@@ -38,6 +38,7 @@ export function normalizeEntry(raw) {
   const ops = Math.max(0, Math.min(9999, Math.floor(Number(raw.ops) || 0)));
   const notes = typeof raw.notes === 'string' ? raw.notes.slice(0, 2000) : '';
   return {
+    followed: raw.followed === true ? true : raw.followed === false ? false : null,
     gain: noTrade ? 0 : num(raw.gain),
     loss: noTrade ? 0 : num(raw.loss),
     ops: noTrade ? 0 : ops,
@@ -294,4 +295,54 @@ export function rangeLabel(start, end, currentYear) {
   if (a.y === b.y && a.m === b.m) return `${a.d} – ${b.d} de ${MONTHS_SHORT[b.m]}.${yr(b)}`;
   if (a.y === b.y) return `${a.d} de ${MONTHS_SHORT[a.m]}. – ${b.d} de ${MONTHS_SHORT[b.m]}.${yr(b)}`;
   return `${a.d}/${a.m + 1}/${a.y} – ${b.d}/${b.m + 1}/${b.y}`;
+}
+
+// ---------- gerenciamento: plano do dia ----------
+/**
+ * Avalia um dia contra o plano { enabled, stop, target, maxOps } (0 = regra desligada).
+ * Bater o stop exatamente é respeitar o plano; passar dele, não.
+ */
+export function evaluateDay(entry, plan) {
+  const none = { status: 'none', reasons: [], hitStop: false, overStop: false, hitTarget: false, overOps: false, net: 0 };
+  if (!plan || !plan.enabled || !entry || entry.noTrade) return none;
+  const net = netOf(entry);
+  const stop = plan.stop || 0, target = plan.target || 0, maxOps = plan.maxOps || 0;
+  const hitStop = stop > 0 && net <= -stop;
+  const overStop = stop > 0 && net < -stop - 0.005;
+  const hitTarget = target > 0 && net >= target;
+  const overOps = maxOps > 0 && (entry.ops || 0) > maxOps;
+  const reasons = [];
+  if (overStop) reasons.push('stop');
+  if (overOps) reasons.push('ops');
+  if (entry.followed === false) reasons.push('manual');
+  return { status: reasons.length ? 'broken' : 'ok', reasons, hitStop, overStop, hitTarget, overOps, net };
+}
+
+/** Dias dentro e fora do plano num período, com a média de resultado de cada grupo. */
+export function discipline(list, plan) {
+  let ok = 0, broken = 0, sumOk = 0, sumBroken = 0;
+  for (const it of list) {
+    const ev = evaluateDay(it.entry, plan);
+    if (ev.status === 'ok') { ok++; sumOk += ev.net; } else if (ev.status === 'broken') { broken++; sumBroken += ev.net; }
+  }
+  return {
+    ok, broken,
+    rate: ok + broken ? ok / (ok + broken) : null,
+    avgOk: ok ? round2(sumOk / ok) : null,
+    avgBroken: broken ? round2(sumBroken / broken) : null,
+  };
+}
+
+/** Sequência de dias operados seguidos dentro do plano, contando para trás a partir de "hoje". */
+export function disciplineStreak(entries, plan, today) {
+  if (!plan || !plan.enabled) return 0;
+  const keys = Object.keys(entries).filter((k) => k <= today).sort().reverse();
+  let n = 0;
+  for (const k of keys) {
+    const ev = evaluateDay(entries[k], plan);
+    if (ev.status === 'none') continue;
+    if (ev.status === 'broken') break;
+    n++;
+  }
+  return n;
 }

@@ -183,6 +183,7 @@
         <span class="net-value" id="netValue">R$ 0,00</span>
         <span class="net-sub" id="netSub">valor ganho − valor perdido</span>
       </div>
+      <div class="plan-notice" id="planNotice" hidden></div>
       <div class="group">
         <label class="row">
           <span class="row-label"><i class="dot pos"></i>Valor ganho</span>
@@ -207,6 +208,16 @@
           </span>
         </div>
       </div>
+    </div>
+
+    <div id="followWrap" hidden>
+      <p class="group-header">Segui o plano?</p>
+      <div class="segmented" id="followSeg">
+        <button type="button" data-f="yes">Sim</button>
+        <button type="button" data-f="no">Não</button>
+        <span class="segmented-thumb"></span>
+      </div>
+      <p class="group-footer" id="followHint">Marque "Não" se operou fora do seu setup, mesmo sem passar do stop.</p>
     </div>
 
     <div id="noTradeInfo" class="no-trade-info" hidden>
@@ -250,7 +261,16 @@
     <div class="sheet-title" id="settingsTitle">Ajustes</div>
     <button class="text-btn strong" id="settingsDone">OK</button>
   </header>
-  <div class="sheet-body">
+  <div class="sheet-body" id="settingsBody">
+    <p class="group-header" id="planSection">Plano do dia · gerenciamento</p>
+    <div class="group">
+      <label class="row"><span>Usar plano do dia</span><input type="checkbox" class="switch" id="planEnabled"></label>
+      <label class="row plan-field"><span class="row-label"><i class="dot neg"></i>Stop diário</span><span class="money-field"><span class="cur">R$</span><input id="planStop" inputmode="numeric" placeholder="0,00" aria-label="Stop diário em reais"></span></label>
+      <label class="row plan-field"><span class="row-label"><i class="dot pos"></i>Meta diária</span><span class="money-field"><span class="cur">R$</span><input id="planTarget" inputmode="numeric" placeholder="0,00" aria-label="Meta diária em reais"></span></label>
+      <label class="row plan-field"><span class="row-label">Máx. de operações</span><input id="planOps" class="ops-input" inputmode="numeric" placeholder="0" aria-label="Máximo de operações por dia"></label>
+    </div>
+    <p class="group-footer">Stop: a perda máxima do dia. Meta: o ganho com que você encerra o dia. Deixe em 0 para não usar uma regra. Bater o stop é respeitar o plano; passar dele, não.</p>
+
     <p class="group-header">Aparência</p>
     <div class="segmented" id="themeSeg">
       <button type="button" data-theme="auto">Automático</button>

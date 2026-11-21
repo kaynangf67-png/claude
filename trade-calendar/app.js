@@ -2,7 +2,7 @@ import {
   MONTHS, MONTHS_SHORT, PERIODS, dateKey, parseKey, daysInMonth, firstWeekday, todayKey,
   netOf, normalizeEntry, entriesIn, entriesInRange, summarize, cumulative, monthlyTotals, yearsWithData,
   periodRange, comparisons, change, buckets, shortDate, rangeLabel, fromKey,
-  money, moneyShort, cellValue, decimal, percent, longDate,
+  money, moneyShort, cellValue, decimal, percent, longDate, evaluateDay, discipline, disciplineStreak,
 } from './calc.js';
 
 // ================= armazenamento (uma única base para todas as telas) =================
@@ -27,7 +27,7 @@ function persist() {
     toast('Não foi possível salvar no aparelho', true); return false;
   }
 }
-const DEFAULT_SETTINGS = { theme: 'auto', period: 'month', chartMode: 'day', custom: null, tab: 'dash' };
+const DEFAULT_SETTINGS = { theme: 'auto', period: 'month', chartMode: 'day', custom: null, tab: 'dash', plan: { enabled: false, stop: 0, target: 0, maxOps: 0 } };
 function loadSettings() {
   try { return { ...DEFAULT_SETTINGS, ...JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}') }; } catch { return { ...DEFAULT_SETTINGS }; }
 }
@@ -61,12 +61,36 @@ const WD3 = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const signedPct = (p) => (p == null ? '—' : (p > 0 ? '+' : p < 0 ? '−' : '') + percent(Math.abs(p)));
 
 let toastTimer;
-function toast(msg, isError) {
+function toast(msg, isError, ms = 1900, icon) {
   const t = $('toast');
-  t.innerHTML = `<span>${isError ? '⚠️' : '✓'}</span>${esc(msg)}`;
+  t.innerHTML = `<span>${icon || (isError ? '⚠️' : '✓')}</span>${esc(msg)}`;
   t.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 1900);
+  toastTimer = setTimeout(() => t.classList.remove('show'), ms);
+}
+
+// ================= plano do dia (gerenciamento) =================
+const plan = () => ({ enabled: false, stop: 0, target: 0, maxOps: 0, ...(settings.plan || {}) });
+const planReady = () => { const p = plan(); return p.enabled && (p.stop > 0 || p.target > 0 || p.maxOps > 0); };
+function gaugeHTML(net, p) {
+  if (!(p.stop > 0 && p.target > 0)) return '';
+  const span = p.stop + p.target;
+  const pos = Math.min(1, Math.max(0, (net + p.stop) / span));
+  const zero = p.stop / span;
+  return `<div class="gauge"><div class="gauge-track"><i class="gz" style="left:${zero * 100}%"></i><b class="gm ${sgn(net)}" style="left:${pos * 100}%"></b></div>
+    <div class="gauge-labels"><span class="neg-text">Stop −${moneyShort(p.stop)}</span><span class="gl0" style="left:${zero * 100}%">R$ 0</span><span class="pos-text">Meta ${moneyShort(p.target)}</span></div></div>`;
+}
+/** Mensagem do plano para um dia: { tone, icon, text }. */
+function planMessage(ev, p, ops) {
+  if (ev.overStop) return { tone: 'bad', icon: '🛑', text: `Você passou do stop (${money(ev.net)} de −${money(p.stop)}). Pare de operar hoje.` };
+  if (ev.hitStop) return { tone: 'bad', icon: '🛑', text: 'Stop do dia atingido. Pare de operar hoje.' };
+  if (ev.overOps) return { tone: 'warn', icon: '⚠️', text: `Limite de operações: ${ops} de ${p.maxOps}. Cuidado com o overtrading.` };
+  if (ev.hitTarget) return { tone: 'good', icon: '🎯', text: 'Meta do dia batida. Encerre o dia e proteja o lucro.' };
+  const parts = [];
+  if (p.target > 0) parts.push(`faltam ${money(Math.max(0, p.target - ev.net))} para a meta`);
+  if (p.stop > 0) parts.push(`${money(p.stop + ev.net)} de margem até o stop`);
+  if (p.maxOps > 0) parts.push(`${ops} de ${p.maxOps} operações`);
+  return { tone: 'ok', icon: '✓', text: `Dentro do plano · ${parts.join(' · ')}` };
 }
 function setSegmented(el, idx) {
   const btns = [...el.querySelectorAll('button')];
@@ -275,9 +299,47 @@ function renderDash() {
   const cmp = `<div class="section-title"><h2>Comparação de desempenho</h2></div><div class="cmp">${cmpRows}</div>
     <p class="group-footer">Seta verde: o resultado líquido melhorou. Seta vermelha: piorou. A variação percentual é sobre o período anterior; os períodos atuais vão até hoje.</p>`;
 
-  $('dashBody').innerHTML = hero + metrics + chart + cmp;
+  $('dashBody').innerHTML = hero + planCard(list, pLabel) + metrics + chart + cmp;
   setSegmented($('chartMode'), ['day', 'week', 'month'].indexOf(mode));
   if (hasChart) drawChart($('dashChart'), seriesFrom(bks, 'Início do período'), { deltaName });
+}
+
+function planCard(list, pLabel) {
+  const p = plan();
+  if (!planReady()) {
+    return `<div class="section-title"><h2>Gerenciamento</h2></div>
+      <div class="card-pad plan-empty"><div class="pe-ico">🎯</div><div class="pe-main"><b>Plano do dia</b>
+      <p>Defina seu stop diário, sua meta e o limite de operações. O app avisa quando parar e mede a sua disciplina.</p>
+      <button class="hero-cta" data-action="plan">Definir meu plano</button></div></div>`;
+  }
+  const streak = disciplineStreak(entries, p, TODAY);
+  const d = discipline(list, p);
+  const te = entries[TODAY];
+  const tev = evaluateDay(te, p);
+  let todayHTML;
+  if (!te) todayHTML = `<div class="pt-row"><span>Hoje</span><b class="muted">sem registro</b></div>${gaugeHTML(0, p)}`;
+  else if (te.noTrade) todayHTML = '<div class="pt-row"><span>Hoje</span><b class="muted">sem operações</b></div>';
+  else {
+    const msg = planMessage(tev, p, te.ops);
+    todayHTML = `<div class="pt-row"><span>Hoje</span><b class="${txt(tev.net)}">${money(tev.net, { sign: true })}</b></div>${gaugeHTML(tev.net, p)}
+      <div class="plan-notice ${msg.tone}"><span>${msg.icon}</span><p>${esc(msg.text)}</p></div>`;
+  }
+  const rules = [p.stop > 0 && `Stop −${moneyShort(p.stop)}`, p.target > 0 && `Meta ${moneyShort(p.target)}`, p.maxOps > 0 && `Máx. ${p.maxOps} operações`].filter(Boolean);
+  const total = d.ok + d.broken;
+  return `<div class="section-title"><h2>Gerenciamento</h2><button class="link-btn" data-action="plan">Editar plano</button></div>
+    <div class="card-pad plan-card">
+      <div class="pc-top">
+        <div class="pc-streak"><span class="pc-num${streak ? '' : ' zero'}">${streak}</span><span class="pc-lbl">${streak === 1 ? 'dia seguido' : 'dias seguidos'}<br>dentro do plano</span></div>
+        <div class="pc-rate"><span class="pc-pct">${percent(d.rate)}</span><span class="pc-lbl">disciplina<br>${esc(pLabel.toLowerCase())}</span></div>
+      </div>
+      <div class="pc-rules">${rules.map((r) => `<span>${r}</span>`).join('')}</div>
+      <div class="pc-today">${todayHTML}</div>
+      ${total ? `<div class="pc-line">${pLabel}: <b>${d.ok} de ${total}</b> ${total === 1 ? 'dia operado' : 'dias operados'} dentro do plano${d.broken ? ` · <span class="neg-text">${d.broken} fora</span>` : ''}</div>` : ''}
+      ${d.avgOk != null || d.avgBroken != null ? `<div class="pc-avg">
+        <div><span>Média dentro do plano</span><b class="${txt(d.avgOk)}">${d.avgOk != null ? money(d.avgOk, { sign: true }) : '—'}</b></div>
+        <div><span>Média fora do plano</span><b class="${txt(d.avgBroken)}">${d.avgBroken != null ? money(d.avgBroken, { sign: true }) : '—'}</b></div>
+      </div>` : ''}
+    </div>`;
 }
 
 // ================= CALENDÁRIO =================
@@ -311,7 +373,7 @@ function renderMonth(direction) {
     const c = ['day'];
     if (wd === 0 || wd === 6) c.push('weekend');
     if (key === TODAY) c.push('today');
-    let val = '&nbsp;', label = `${d} de ${MONTHS[m].toLowerCase()}`;
+    let val = '&nbsp;', label = `${d} de ${MONTHS[m].toLowerCase()}`, mark = '';
     if (e) {
       if (e.noTrade) { c.push('notrade'); val = 'sem op.'; label += ', sem operações'; }
       else {
@@ -321,9 +383,12 @@ function renderMonth(direction) {
         label += `, ${n > 0 ? 'lucro' : n < 0 ? 'prejuízo' : 'resultado'} ${money(n)}`;
       }
       if (e.notes) c.push('has-notes');
+      const ev = evaluateDay(e, plan());
+      if (ev.status === 'ok') mark = '<span class="mark ok" aria-hidden="true">✓</span>';
+      else if (ev.status === 'broken') { mark = '<span class="mark bad" aria-hidden="true">!</span>'; label += ', fora do plano'; }
       if (key === lastSavedKey) c.push('just-saved');
     }
-    html += `<button class="${c.join(' ')}" data-key="${key}" aria-label="${esc(label)}"><span class="num">${d}</span><span class="val">${val}</span></button>`;
+    html += `<button class="${c.join(' ')}" data-key="${key}" aria-label="${esc(label)}">${mark}<span class="num">${d}</span><span class="val">${val}</span></button>`;
   }
   const grid = $('monthGrid');
   grid.innerHTML = html;
@@ -492,7 +557,9 @@ function histRow(i) {
   const e = i.entry;
   const cls = e.noTrade ? 'none' : sgn(i.net);
   const title = e.noTrade ? 'Sem operações' : `${e.ops} ${e.ops === 1 ? 'operação' : 'operações'}`;
-  const sub = e.noTrade ? (e.notes ? esc(e.notes) : 'Dia sem operações') : `<span class="pos-text">+${decimal(e.gain)}</span> · <span class="neg-text">−${decimal(e.loss)}</span>${e.notes ? ' · ' + esc(e.notes) : ''}`;
+  const ev = evaluateDay(e, plan());
+  const tag = ev.status === 'broken' ? ' · <span class="neg-text">fora do plano</span>' : ev.status === 'ok' ? ' · <span class="pos-text">✓ no plano</span>' : '';
+  const sub = e.noTrade ? (e.notes ? esc(e.notes) : 'Dia sem operações') : `<span class="pos-text">+${decimal(e.gain)}</span> · <span class="neg-text">−${decimal(e.loss)}</span>${tag}${e.notes ? ' · ' + esc(e.notes) : ''}`;
   return `<button class="hrow ${cls}" data-key="${i.key}">
     <div class="hdate"><span class="wd">${WD3[fromKey(i.key).getDay()]}</span><span class="dd">${i.d}</span></div>
     <div class="hm"><div class="ht">${title}</div><div class="hs">${sub}</div></div>
@@ -514,12 +581,35 @@ function updateNet() {
   if (n) box.classList.add(sgn(n));
   $('netValue').textContent = money(n, { sign: true });
   $('netSub').textContent = g || l ? `${money(g)} − ${money(l)}` : 'valor ganho − valor perdido';
+  updatePlanNotice();
+}
+let followed = null, followTouched = false;
+function formEntry() {
+  return { gain: getMoney(gainInput), loss: getMoney(lossInput), ops: Number(opsInput.value) || 0, noTrade: entryMode === 'none', followed: followTouched ? followed : null };
+}
+function updatePlanNotice() {
+  const p = plan(), box = $('planNotice'), wrap = $('followWrap');
+  const active = planReady() && entryMode === 'trade';
+  wrap.hidden = !active;
+  if (!active) { box.hidden = true; return; }
+  const fe = formEntry();
+  const ev = evaluateDay({ ...fe, followed: null }, p);
+  const touched = fe.gain || fe.loss || fe.ops;
+  if (touched) {
+    const msg = planMessage(ev, p, fe.ops);
+    box.className = `plan-notice ${msg.tone}`;
+    box.innerHTML = `${gaugeHTML(ev.net, p)}<div class="pn-msg"><span>${msg.icon}</span><p>${esc(msg.text)}</p></div>`;
+    box.hidden = false;
+  } else box.hidden = true;
+  const auto = ev.status !== 'broken';
+  setSegmented($('followSeg'), (followTouched ? followed : auto) ? 0 : 1);
 }
 function setEntryMode(mode) {
   entryMode = mode;
   setSegmented($('entryMode'), mode === 'trade' ? 0 : 1);
   $('tradeFields').hidden = mode !== 'trade';
   $('noTradeInfo').hidden = mode === 'trade';
+  updatePlanNotice();
 }
 function updateEntryTitle() {
   const { y, m, d } = parseKey(targetKey);
@@ -530,6 +620,7 @@ function fillEntry(e) {
   setMoney(lossInput, e?.loss || 0);
   opsInput.value = e?.ops || 0;
   notesInput.value = e?.notes || '';
+  followed = e?.followed ?? null; followTouched = e?.followed != null;
   setEntryMode(e?.noTrade ? 'none' : 'trade');
   updateNet();
   $('entryDelete').hidden = !e;
@@ -556,14 +647,19 @@ function changeEntryDate(key) {
 }
 function saveEntry() {
   if (!targetKey || !/^\d{4}-\d{2}-\d{2}$/.test(targetKey)) { toast('Escolha uma data válida', true); return; }
-  const raw = { gain: getMoney(gainInput), loss: getMoney(lossInput), ops: Number(opsInput.value) || 0, notes: notesInput.value.trim(), noTrade: entryMode === 'none', updatedAt: Date.now() };
+  const raw = { ...formEntry(), notes: notesInput.value.trim(), updatedAt: Date.now() };
   if (!raw.noTrade && !raw.gain && !raw.loss && !raw.ops) { toast('Informe um valor ou marque “Sem operações”', true); return; }
   const wasEdit = Boolean(originalKey);
   entries[targetKey] = normalizeEntry(raw);
   if (!persist()) return;
   lastSavedKey = targetKey;
   haptic(); closeSheets(); renderActive();
-  toast(wasEdit ? 'Registro atualizado' : 'Registro salvo');
+  const ev = evaluateDay(entries[targetKey], plan());
+  if (ev.status !== 'none' && (ev.hitStop || ev.overOps || ev.hitTarget)) {
+    const msg = planMessage(ev, plan(), entries[targetKey].ops);
+    toast(msg.text, false, 4500, msg.icon);
+    if (msg.tone === 'bad') try { navigator.vibrate?.([80, 60, 80]); } catch { /* */ }
+  } else toast(wasEdit ? 'Registro atualizado' : 'Registro salvo');
 }
 function confirmDelete() {
   const key = originalKey;
@@ -673,7 +769,8 @@ document.addEventListener('click', (ev) => {
     const act = a.dataset.action;
     if (act === 'today') goToday();
     else if (act === 'add') { TODAY = todayKey(); openEntry(TODAY); }
-    else if (act === 'settings') { updateStorageInfo(); applyTheme(); openSheet($('settingsSheet')); }
+    else if (act === 'settings') { updateStorageInfo(); applyTheme(); fillPlanForm(); openSheet($('settingsSheet')); }
+    else if (act === 'plan') { updateStorageInfo(); applyTheme(); fillPlanForm(); openSheet($('settingsSheet')); $('settingsBody').scrollTop = 0; if (!plan().enabled) { settings.plan = { ...plan(), enabled: true }; saveSettings(); fillPlanForm(); } }
     return;
   }
   const keyEl = ev.target.closest('[data-key]');
@@ -749,14 +846,31 @@ dateInput.addEventListener('change', () => changeEntryDate(dateInput.value));
 });
 gainInput.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); lossInput.focus(); } });
 lossInput.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); lossInput.blur(); } });
-opsInput.addEventListener('input', () => { opsInput.value = opsInput.value.replace(/\D/g, '').slice(0, 4); });
+opsInput.addEventListener('input', () => { opsInput.value = opsInput.value.replace(/\D/g, '').slice(0, 4); updatePlanNotice(); });
 opsInput.addEventListener('blur', () => { opsInput.value = Number(opsInput.value) || 0; });
 opsInput.addEventListener('focus', () => opsInput.select());
-$('opsMinus').onclick = () => { opsInput.value = Math.max(0, (Number(opsInput.value) || 0) - 1); haptic(); };
-$('opsPlus').onclick = () => { opsInput.value = Math.min(9999, (Number(opsInput.value) || 0) + 1); haptic(); };
+$('opsMinus').onclick = () => { opsInput.value = Math.max(0, (Number(opsInput.value) || 0) - 1); haptic(); updatePlanNotice(); };
+$('opsPlus').onclick = () => { opsInput.value = Math.min(9999, (Number(opsInput.value) || 0) + 1); haptic(); updatePlanNotice(); };
+$('followSeg').addEventListener('click', (ev) => { const b = ev.target.closest('button'); if (!b) return; followTouched = true; followed = b.dataset.f === 'yes'; updatePlanNotice(); });
 
 // ajustes
-$('settingsDone').onclick = closeSheets;
+$('settingsDone').onclick = () => { closeSheets(); renderActive(); };
+function fillPlanForm() {
+  const p = plan();
+  $('planEnabled').checked = p.enabled;
+  setMoney($('planStop'), p.stop); setMoney($('planTarget'), p.target);
+  $('planOps').value = p.maxOps || '';
+  document.querySelectorAll('.plan-field').forEach((r) => r.classList.toggle('off', !p.enabled));
+}
+function savePlanForm() {
+  settings.plan = { enabled: $('planEnabled').checked, stop: getMoney($('planStop')), target: getMoney($('planTarget')), maxOps: Number($('planOps').value) || 0 };
+  saveSettings();
+  document.querySelectorAll('.plan-field').forEach((r) => r.classList.toggle('off', !settings.plan.enabled));
+  renderActive();
+}
+$('planEnabled').addEventListener('change', savePlanForm);
+['planStop', 'planTarget'].forEach((id) => $(id).addEventListener('input', () => { maskMoney($(id)); savePlanForm(); }));
+$('planOps').addEventListener('input', () => { $('planOps').value = $('planOps').value.replace(/\D/g, '').slice(0, 3); savePlanForm(); });
 $('themeSeg').addEventListener('click', (ev) => { const b = ev.target.closest('button'); if (!b) return; settings.theme = b.dataset.theme; saveSettings(); applyTheme(); renderActive(); });
 $('exportBtn').onclick = exportBackup;
 $('importInput').addEventListener('change', (ev) => { const f = ev.target.files[0]; if (f) importBackup(f); ev.target.value = ''; });
