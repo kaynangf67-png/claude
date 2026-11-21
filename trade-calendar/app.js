@@ -4,7 +4,6 @@ import {
   periodRange, comparisons, change, buckets, shortDate, rangeLabel, fromKey,
   money, moneyShort, cellValue, decimal, percent, longDate,
 } from './calc.js';
-import { initMarket } from './market.js';
 
 // ================= armazenamento (uma única base para todas as telas) =================
 const STORE_KEY = 'tradecal.entries.v1';
@@ -42,7 +41,7 @@ if (navigator.storage && navigator.storage.persist) navigator.storage.persist().
 let TODAY = todayKey();
 const T = () => parseKey(TODAY);
 const state = {
-  tab: ['dash', 'cal', 'market', 'stats', 'hist'].includes(settings.tab) ? settings.tab : 'dash',
+  tab: ['dash', 'cal', 'stats', 'hist'].includes(settings.tab) ? settings.tab : 'dash',
   calView: 'month',
   year: T().y,
   month: T().m,
@@ -94,7 +93,6 @@ function switchTab(name, { fromTabbar = false } = {}) {
 function renderActive() {
   if (state.tab === 'dash') renderDash();
   else if (state.tab === 'cal') { renderMonth(); renderYear(); }
-  else if (state.tab === 'market') market?.render();
   else if (state.tab === 'stats') renderStats();
   else if (state.tab === 'hist') renderHist();
 }
@@ -791,14 +789,6 @@ let resizeTimer;
 window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (state.tab === 'dash' || state.tab === 'stats') renderActive(); }, 150); });
 
 // ================= início =================
-window.__setSeg = setSegmented;
-const market = initMarket({
-  $, esc, toast, haptic, openSheet, closeSheets,
-  isActive: () => state.tab === 'market',
-  goToMarket: () => switchTab('market'),
-});
-navigator.serviceWorker?.addEventListener('message', (ev) => { if (ev.data?.type === 'open-market') switchTab('market'); });
-if (location.hash === '#mercado') { state.tab = 'market'; history.replaceState(null, '', location.pathname); }
 applyTheme();
 setCalView('month', { animate: false });
 renderMonth(); renderYear();
