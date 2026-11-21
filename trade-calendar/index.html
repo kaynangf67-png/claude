@@ -39,6 +39,7 @@
         <h1 class="large-title">Meu Desempenho</h1>
       </div>
 
+      <div id="balanceCard"></div>
       <div class="period-strip" id="periodStrip" role="tablist" aria-label="Período"></div>
 
       <div id="dashBody"></div>
@@ -253,6 +254,38 @@
   </div>
 </div>
 
+<!-- ================= SALDO DA CONTA ================= -->
+<div class="sheet" id="accountSheet" role="dialog" aria-modal="true" aria-labelledby="accountTitle">
+  <div class="grabber"></div>
+  <header class="sheet-nav">
+    <span></span>
+    <div class="sheet-title" id="accountTitle">Saldo da conta</div>
+    <button class="text-btn strong" id="accDone">OK</button>
+  </header>
+  <div class="sheet-body">
+    <div class="acc-now" id="accNow"></div>
+    <p class="group-header">Ponto de partida</p>
+    <div class="group">
+      <label class="row"><span class="row-label">Saldo inicial</span><span class="money-field"><span class="cur">R$</span><input id="accInitial" inputmode="numeric" placeholder="0,00" aria-label="Saldo inicial em reais"></span></label>
+      <label class="row"><span class="row-label">Data do saldo</span><input type="date" id="accStart" class="date-input"></label>
+    </div>
+    <p class="group-footer">O saldo atual soma a esse valor o resultado dos dias registrados a partir dessa data, mais os aportes e menos os saques.</p>
+
+    <p class="group-header">Aportes e saques</p>
+    <div class="segmented" id="moveType">
+      <button type="button" data-t="dep">Aporte</button>
+      <button type="button" data-t="wd">Saque</button>
+      <span class="segmented-thumb"></span>
+    </div>
+    <div class="group">
+      <label class="row"><span class="row-label">Valor</span><span class="money-field"><span class="cur">R$</span><input id="moveValue" inputmode="numeric" placeholder="0,00" aria-label="Valor do aporte ou saque"></span></label>
+      <label class="row"><span class="row-label">Data</span><input type="date" id="moveDate" class="date-input"></label>
+    </div>
+    <button type="button" class="primary-btn" id="moveAdd" style="margin-top:4px">Adicionar</button>
+    <div id="moveList"></div>
+  </div>
+</div>
+
 <!-- ================= AJUSTES ================= -->
 <div class="sheet" id="settingsSheet" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
   <div class="grabber"></div>
@@ -262,6 +295,9 @@
     <button class="text-btn strong" id="settingsDone">OK</button>
   </header>
   <div class="sheet-body" id="settingsBody">
+    <div class="group" style="margin-top:6px">
+      <button type="button" class="row row-btn" data-action="account"><span>Saldo da conta</span><span class="row-value" id="setBalance"></span></button>
+    </div>
     <p class="group-header" id="planSection">Plano do dia · gerenciamento</p>
     <div class="group">
       <label class="row"><span>Usar plano do dia</span><input type="checkbox" class="switch" id="planEnabled"></label>

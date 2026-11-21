@@ -1,7 +1,7 @@
 // node --test trade-calendar/calc.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { evaluateDay, discipline, disciplineStreak, periodRange, comparisons, change, buckets, entriesInRange, weekStartKey, rangeLabel, netOf, normalizeEntry, entriesIn, summarize, cumulative, cellValue, money, moneyShort, parseMoney, daysInMonth, firstWeekday } from './calc.js';
+import { accountBalance, normalizeAccount, evaluateDay, discipline, disciplineStreak, periodRange, comparisons, change, buckets, entriesInRange, weekStartKey, rangeLabel, netOf, normalizeEntry, entriesIn, summarize, cumulative, cellValue, money, moneyShort, parseMoney, daysInMonth, firstWeekday } from './calc.js';
 
 const E = {
   '2026-11-03': { gain: 500, loss: 150, ops: 4 },
@@ -143,4 +143,26 @@ test('disciplina e sequência', () => {
   const d = discipline(entriesInRange(ents, '2026-11-01', '2026-11-30'), plan);
   assert.equal(d.ok, 3); assert.equal(d.broken, 1); assert.equal(d.rate, 0.75);
   assert.equal(d.avgOk, 166.67); assert.equal(d.avgBroken, -500);
+});
+
+test('saldo da conta: inicial + resultado + aportes − saques', () => {
+  const ents = {
+    '2026-10-30': { gain: 999, loss: 0 },          // antes da data inicial: não conta
+    '2026-11-03': { gain: 500, loss: 100 },         // +400
+    '2026-11-04': { gain: 0, loss: 250 },           // −250
+    '2026-11-05': { noTrade: true },
+    '2026-11-20': { gain: 300, loss: 100 },         // +200
+  };
+  const acc = { initial: 10000, start: '2026-11-01', moves: [
+    { id: 'a', date: '2026-11-10', type: 'dep', value: 2000 },
+    { id: 'b', date: '2026-11-15', type: 'wd', value: 500 },
+    { id: 'x', date: '2026-11-15', type: 'wd', value: -5 },  // inválido, ignorado
+  ] };
+  const b = accountBalance(ents, acc, '2026-11-20');
+  assert.equal(b.trading, 350);
+  assert.equal(b.balance, 10000 + 350 + 2000 - 500);
+  assert.equal(b.pct, 350 / 12000);
+  assert.equal(accountBalance(ents, acc, '2026-11-04').balance, 10150); // saldo num dia do passado
+  assert.equal(normalizeAccount(acc).moves.length, 2);
+  assert.equal(accountBalance(ents, null, '2026-11-20').pct, null);
 });

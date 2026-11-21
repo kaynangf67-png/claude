@@ -3,6 +3,7 @@ import {
   netOf, normalizeEntry, entriesIn, entriesInRange, summarize, cumulative, monthlyTotals, yearsWithData,
   periodRange, comparisons, change, buckets, shortDate, rangeLabel, fromKey,
   money, moneyShort, cellValue, decimal, percent, longDate, evaluateDay, discipline, disciplineStreak,
+  accountBalance, normalizeAccount, accountConfigured, addDaysKey,
 } from './calc.js';
 
 // ================= armazenamento (uma única base para todas as telas) =================
@@ -23,7 +24,7 @@ function loadEntries() {
   try { const raw = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); return cleanEntries(raw && raw.entries); } catch { return {}; }
 }
 function persist() {
-  try { localStorage.setItem(STORE_KEY, JSON.stringify({ version: 1, savedAt: Date.now(), entries })); return true; } catch {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify({ version: 1, savedAt: Date.now(), entries, account })); return true; } catch {
     toast('Não foi possível salvar no aparelho', true); return false;
   }
 }
@@ -34,6 +35,10 @@ function loadSettings() {
 function saveSettings() { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch { /* */ } }
 
 let entries = loadEntries();
+function loadAccount() {
+  try { return normalizeAccount((JSON.parse(localStorage.getItem(STORE_KEY) || 'null') || {}).account); } catch { return normalizeAccount(null); }
+}
+let account = loadAccount();
 const settings = loadSettings();
 if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
 
@@ -245,11 +250,16 @@ function renderDash() {
       <div class="hero-top"><span>Resultado líquido · ${pLabel}</span><span class="hero-badge">${rangeLabel(range.start, range.end, t.y)}</span></div>
       <div class="hero-net ${txt(s.net)}">${money(s.net, { sign: true })}</div>
       <div class="hero-formula"><span>Lucro bruto <b class="pos-text">${money(g)}</b></span><span>−</span><span>Prejuízo bruto <b class="${l ? 'neg-text' : ''}">${money(l)}</b></span></div>
+      ${accountConfigured(account) && list.length ? (() => {
+        const base = accountBalance(entries, account, addDaysKey(range.start, -1)).balance;
+        return base > 0 ? `<div class="hero-acc"><b class="${txt(s.net)}">${s.net >= 0 ? '+' : '−'}${pct1(Math.abs(s.net / base))}</b> sobre o saldo de ${money(base)} no início do período</div>` : '';
+      })() : ''}
       ${tot ? `<div class="hero-bar"><i class="g" style="width:${(g / tot) * 100}%"></i><i class="r" style="width:${(l / tot) * 100}%"></i></div>` : ''}
       ${!hasAny ? '<p class="hero-empty">Nenhum resultado registrado ainda. Registre seu primeiro dia para ver o desempenho.</p><button class="hero-cta" data-action="add">Registrar hoje</button>'
         : !list.length ? '<p class="hero-empty">Nenhum registro neste período.</p>' : ''}
     </div>`;
 
+  renderBalanceCard();
   const best = s.best, worst = s.worst;
   const metrics = `
     <div class="metrics">
@@ -341,6 +351,66 @@ function planCard(list, pLabel) {
       </div>` : ''}
     </div>`;
 }
+
+function renderBalanceCard() {
+  const el = $('balanceCard');
+  if (!accountConfigured(account)) {
+    el.innerHTML = `<button class="bal-card empty" data-action="account"><span class="bal-ico">💰</span><span class="bal-main"><b>Saldo da conta</b><small>Informe o saldo para acompanhar quanto a sua conta tem hoje</small></span><svg class="chev" viewBox="0 0 24 24"><use href="#i-chev"/></svg></button>`;
+    return;
+  }
+  const b = accountBalance(entries, account, TODAY);
+  const since = account.start ? shortDate(account.start, parseKey(account.start).y !== T().y) : 'o início';
+  const pct = b.pct == null ? '' : ` (${b.trading >= 0 ? '+' : '−'}${pct1(Math.abs(b.pct))})`;
+  el.innerHTML = `<button class="bal-card" data-action="account">
+    <div class="bal-top"><span>Saldo da conta</span><span class="bal-edit">Ajustar<svg viewBox="0 0 24 24"><use href="#i-chev"/></svg></span></div>
+    <div class="bal-value">${money(b.balance)}</div>
+    <div class="bal-sub"><b class="${txt(b.trading)}">${money(b.trading, { sign: true })}${pct}</b> em operações desde ${since}${b.deposits || b.withdrawals ? ` · aportes ${moneyShort(b.deposits)} · saques ${moneyShort(b.withdrawals)}` : ''}</div>
+  </button>`;
+}
+const pct1 = (r) => new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 1 }).format(r * 100) + '%';
+
+// ================= saldo da conta =================
+let moveType = 'dep';
+function saveAccount() { account = normalizeAccount(account); persist(); }
+function renderAccountSheet() {
+  const b = accountBalance(entries, account, TODAY);
+  $('accNow').innerHTML = `<span class="acc-lbl">Saldo hoje</span><span class="acc-val">${money(b.balance)}</span>
+    <div class="acc-break"><span>Inicial <b>${money(account.initial)}</b></span><span>Operações <b class="${txt(b.trading)}">${money(b.trading, { sign: true })}</b></span><span>Aportes <b>${money(b.deposits)}</b></span><span>Saques <b>${money(b.withdrawals)}</b></span></div>`;
+  setSegmented($('moveType'), moveType === 'dep' ? 0 : 1);
+  $('moveList').innerHTML = account.moves.length
+    ? `<p class="group-header">Lançados</p><div class="group">${[...account.moves].reverse().map((m) => `<div class="row move-row"><span class="row-label"><i class="dot ${m.type === 'dep' ? 'pos' : 'neg'}"></i>${m.type === 'dep' ? 'Aporte' : 'Saque'} · ${shortDate(m.date, true)}</span><span class="move-right"><b class="${m.type === 'dep' ? 'pos-text' : 'neg-text'}">${m.type === 'dep' ? '+' : '−'}${money(m.value)}</b><button type="button" class="move-del" data-move="${esc(m.id)}" aria-label="Excluir">✕</button></span></div>`).join('')}</div>`
+    : '<p class="group-footer">Nenhum aporte ou saque lançado.</p>';
+}
+function openAccount() {
+  setMoney($('accInitial'), account.initial);
+  const first = Object.keys(entries).sort()[0];
+  $('accStart').value = account.start || first || TODAY;
+  if (!account.start) { account.start = $('accStart').value; }
+  $('moveDate').value = TODAY;
+  $('moveValue').value = '';
+  renderAccountSheet();
+  openSheet($('accountSheet'));
+}
+$('accInitial').addEventListener('input', () => { maskMoney($('accInitial')); account.initial = getMoney($('accInitial')); saveAccount(); renderAccountSheet(); });
+$('accStart').addEventListener('change', () => { if ($('accStart').value) { account.start = $('accStart').value; saveAccount(); renderAccountSheet(); } });
+$('moveType').addEventListener('click', (ev) => { const b = ev.target.closest('button'); if (!b) return; moveType = b.dataset.t; renderAccountSheet(); });
+$('moveValue').addEventListener('input', () => maskMoney($('moveValue')));
+$('moveAdd').onclick = () => {
+  const value = getMoney($('moveValue')), date = $('moveDate').value;
+  if (!value) { toast('Informe o valor', true); return; }
+  if (!date) { toast('Escolha a data', true); return; }
+  account.moves.push({ id: `${Date.now()}`, date, type: moveType, value });
+  saveAccount(); $('moveValue').value = ''; renderAccountSheet(); haptic();
+  toast(moveType === 'dep' ? 'Aporte lançado' : 'Saque lançado');
+};
+$('moveList').addEventListener('click', (ev) => {
+  const b = ev.target.closest('[data-move]'); if (!b) return;
+  const m = account.moves.find((x) => x.id === b.dataset.move); if (!m) return;
+  ask(`Excluir o ${m.type === 'dep' ? 'aporte' : 'saque'} de ${money(m.value)} em ${shortDate(m.date, true)}?`, 'Excluir', () => {
+    account.moves = account.moves.filter((x) => x.id !== m.id); saveAccount(); closeAsk(); renderAccountSheet();
+  });
+});
+$('accDone').onclick = () => { closeSheets(); renderActive(); };
 
 // ================= CALENDÁRIO =================
 const calViews = { year: $('yearView'), month: $('monthView') };
@@ -735,7 +805,7 @@ function updateStorageInfo() {
   $('storageInfo').textContent = `${n} ${n === 1 ? 'registro salvo' : 'registros salvos'} automaticamente neste aparelho. Exporte um backup de vez em quando para não perder nada se trocar de celular.`;
 }
 async function exportBackup() {
-  const data = JSON.stringify({ app: 'trade-calendar', version: 1, exportedAt: new Date().toISOString(), entries }, null, 2);
+  const data = JSON.stringify({ app: 'trade-calendar', version: 1, exportedAt: new Date().toISOString(), entries, account }, null, 2);
   const name = `trade-calendar-backup-${todayKey()}.json`;
   const file = new File([data], name, { type: 'application/json' });
   if (navigator.canShare && navigator.canShare({ files: [file] }) && /iPhone|iPad|Android/i.test(navigator.userAgent)) {
@@ -750,11 +820,12 @@ function importBackup(file) {
   const reader = new FileReader();
   reader.onload = () => {
     let incoming;
-    try { const parsed = JSON.parse(reader.result); incoming = cleanEntries(parsed.entries || parsed); } catch { toast('Arquivo inválido', true); return; }
+    let incomingAcc = null;
+    try { const parsed = JSON.parse(reader.result); incoming = cleanEntries(parsed.entries || parsed); if (parsed.account) incomingAcc = normalizeAccount(parsed.account); } catch { toast('Arquivo inválido', true); return; }
     const n = Object.keys(incoming).length;
     if (!n) { toast('Nenhum registro no arquivo', true); return; }
     ask(`Importar ${n} ${n === 1 ? 'registro' : 'registros'}? Datas que já existem serão substituídas pelas do backup.`, 'Importar', () => {
-      entries = { ...entries, ...incoming }; persist(); closeAsk(); renderActive(); updateStorageInfo(); toast(`${n} registros importados`);
+      entries = { ...entries, ...incoming }; if (incomingAcc && accountConfigured(incomingAcc)) account = incomingAcc; persist(); closeAsk(); renderActive(); updateStorageInfo(); toast(`${n} registros importados`);
     });
   };
   reader.readAsText(file);
@@ -769,7 +840,8 @@ document.addEventListener('click', (ev) => {
     const act = a.dataset.action;
     if (act === 'today') goToday();
     else if (act === 'add') { TODAY = todayKey(); openEntry(TODAY); }
-    else if (act === 'settings') { updateStorageInfo(); applyTheme(); fillPlanForm(); openSheet($('settingsSheet')); }
+    else if (act === 'settings') { updateStorageInfo(); applyTheme(); fillPlanForm(); $('setBalance').textContent = accountConfigured(account) ? money(accountBalance(entries, account, TODAY).balance) : 'Definir'; openSheet($('settingsSheet')); }
+    else if (act === 'account') { openAccount(); }
     else if (act === 'plan') { updateStorageInfo(); applyTheme(); fillPlanForm(); openSheet($('settingsSheet')); $('settingsBody').scrollTop = 0; if (!plan().enabled) { settings.plan = { ...plan(), enabled: true }; saveSettings(); fillPlanForm(); } }
     return;
   }
@@ -894,7 +966,7 @@ document.querySelectorAll('.scroll').forEach((sc) => {
 });
 
 // sincronização: outras abas do navegador, virada do dia, tema e tamanho da tela
-window.addEventListener('storage', (ev) => { if (ev.key === STORE_KEY) { entries = loadEntries(); renderActive(); } });
+window.addEventListener('storage', (ev) => { if (ev.key === STORE_KEY) { entries = loadEntries(); account = loadAccount(); renderActive(); } });
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && todayKey() !== TODAY) { TODAY = todayKey(); renderActive(); }
 });
