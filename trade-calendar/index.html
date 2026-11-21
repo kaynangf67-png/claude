@@ -258,31 +258,17 @@
 <div class="sheet" id="accountSheet" role="dialog" aria-modal="true" aria-labelledby="accountTitle">
   <div class="grabber"></div>
   <header class="sheet-nav">
-    <span></span>
+    <button class="text-btn" id="accCancel">Cancelar</button>
     <div class="sheet-title" id="accountTitle">Saldo da conta</div>
-    <button class="text-btn strong" id="accDone">OK</button>
+    <button class="text-btn strong" id="accSaveTop">Salvar</button>
   </header>
   <div class="sheet-body">
-    <div class="acc-now" id="accNow"></div>
-    <p class="group-header">Ponto de partida</p>
-    <div class="group">
-      <label class="row"><span class="row-label">Saldo inicial</span><span class="money-field"><span class="cur">R$</span><input id="accInitial" inputmode="numeric" placeholder="0,00" aria-label="Saldo inicial em reais"></span></label>
-      <label class="row"><span class="row-label">Data do saldo</span><input type="date" id="accStart" class="date-input"></label>
+    <div class="group" style="margin-top:6px">
+      <label class="row"><span class="row-label">Saldo</span><span class="money-field"><span class="cur">R$</span><input id="accValue" inputmode="numeric" placeholder="0,00" aria-label="Saldo da conta em reais"></span></label>
     </div>
-    <p class="group-footer">O saldo atual soma a esse valor o resultado dos dias registrados a partir dessa data, mais os aportes e menos os saques.</p>
-
-    <p class="group-header">Aportes e saques</p>
-    <div class="segmented" id="moveType">
-      <button type="button" data-t="dep">Aporte</button>
-      <button type="button" data-t="wd">Saque</button>
-      <span class="segmented-thumb"></span>
-    </div>
-    <div class="group">
-      <label class="row"><span class="row-label">Valor</span><span class="money-field"><span class="cur">R$</span><input id="moveValue" inputmode="numeric" placeholder="0,00" aria-label="Valor do aporte ou saque"></span></label>
-      <label class="row"><span class="row-label">Data</span><input type="date" id="moveDate" class="date-input"></label>
-    </div>
-    <button type="button" class="primary-btn" id="moveAdd" style="margin-top:4px">Adicionar</button>
-    <div id="moveList"></div>
+    <p class="group-footer">Coloque o valor que está na sua conta agora, por exemplo R$ 100,00. Cada resultado que você registrar no calendário soma ou subtrai desse saldo automaticamente. Se depositar ou sacar, é só atualizar o valor aqui.</p>
+    <button type="button" class="primary-btn" id="accSave">Salvar saldo</button>
+    <button type="button" class="danger-btn" id="accRemove" hidden>Remover saldo</button>
   </div>
 </div>
 

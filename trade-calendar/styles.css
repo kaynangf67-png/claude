@@ -739,3 +739,4 @@ button.metric:active { transform: scale(0.98); }
 .move-right { display: flex; align-items: center; gap: 10px; }
 .move-right b { font-variant-numeric: tabular-nums; }
 .move-del { width: 28px; height: 28px; border-radius: 50%; background: var(--fill); color: var(--label-2); font-size: 12px; }
+.bal-value.neg { color: #ff6b61; }

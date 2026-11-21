@@ -348,38 +348,23 @@ export function disciplineStreak(entries, plan, today) {
 }
 
 // ---------- saldo da conta ----------
-/** Limpa a configuração da conta: { initial, start, moves: [{ id, date, type: 'dep'|'wd', value }] }. */
-export function normalizeAccount(raw) {
-  const okDate = (d) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
-  const num = (v) => { const n = Number(v); return Number.isFinite(n) && n > 0 ? round2(n) : 0; };
-  if (!raw || typeof raw !== 'object') return { initial: 0, start: null, moves: [] };
-  const moves = (Array.isArray(raw.moves) ? raw.moves : [])
-    .filter((m) => m && okDate(m.date) && (m.type === 'dep' || m.type === 'wd') && num(m.value) > 0)
-    .map((m) => ({ id: String(m.id || `${m.date}-${m.type}-${m.value}`), date: m.date, type: m.type, value: num(m.value) }))
-    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
-  return { initial: num(raw.initial), start: okDate(raw.start) ? raw.start : null, moves };
+// O usuário informa só o saldo atual. Guardamos a diferença entre esse saldo e a soma de todos os
+// resultados registrados; daí em diante, cada dia registrado, editado ou excluído move o saldo.
+export function totalNet(entries) {
+  let t = 0;
+  for (const k of Object.keys(entries)) t += netOf(entries[k]);
+  return round2(t);
 }
-export const accountConfigured = (acc) => Boolean(acc && (acc.initial > 0 || (acc.moves && acc.moves.length)));
-
-/**
- * Saldo ao fim do dia `upto` (inclusive):
- * saldo inicial + resultado dos dias registrados desde a data inicial + aportes − saques.
- */
-export function accountBalance(entries, acc, upto) {
-  const a = normalizeAccount(acc);
-  const start = a.start || '0000-00-00';
-  let trading = 0;
-  for (const k of Object.keys(entries)) if (k >= start && k <= upto) trading += netOf(entries[k]);
-  let deposits = 0, withdrawals = 0;
-  for (const m of a.moves) {
-    if (m.date < start || m.date > upto) continue;
-    if (m.type === 'dep') deposits += m.value; else withdrawals += m.value;
-  }
-  trading = round2(trading); deposits = round2(deposits); withdrawals = round2(withdrawals);
-  const invested = round2(a.initial + deposits);
-  return {
-    balance: round2(a.initial + trading + deposits - withdrawals),
-    trading, deposits, withdrawals, invested,
-    pct: invested > 0 ? trading / invested : null,
-  };
+/** Cria a conta a partir do saldo informado agora. */
+export function makeAccount(entries, value) {
+  const v = round2(Number(value) || 0);
+  return { offset: round2(v - totalNet(entries)), value: v, at: Date.now() };
+}
+export function normalizeAccount(raw) {
+  if (!raw || typeof raw !== 'object' || !Number.isFinite(Number(raw.offset))) return null;
+  return { offset: round2(Number(raw.offset)), value: round2(Number(raw.value) || 0), at: Number(raw.at) || Date.now() };
+}
+/** Saldo atual (null se o saldo ainda não foi informado). */
+export function balanceOf(entries, acc) {
+  return acc ? round2(acc.offset + totalNet(entries)) : null;
 }
