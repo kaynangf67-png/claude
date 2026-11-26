@@ -1,4 +1,4 @@
-# PIXEL RUSH — Corrida Mundial
+# ESTRESSE
 
 Jogo de plataforma 2D em pixel art, com câmera lateral, saltos de precisão e ranking mundial. Todo resultado que entra no ranking é recalculado pelo servidor a partir das entradas do jogador.
 
@@ -60,7 +60,7 @@ As tabelas são criadas automaticamente na primeira execução. Os testes també
 
 **Visual**: fundo todo preto, sem detalhes. Chão, obstáculos e HUD em preto e branco (pontilhado 1-bit, `public/js/mono.js`). Só os bonequinhos (skins) e os avatares mantêm as cores.
 
-**Interface**: a tela inicial mostra só os nomes no cantinho (Jogar, Evento, Ranking, Loja, Cofre, Perfil, Configurações); cada nome abre uma página própria.
+**Interface**: a tela inicial mostra o nome ESTRESSE grande no topo, o personagem dançando com a skin escolhida no centro e só os nomes do menu à esquerda (Jogar, Evento, Ranking, Loja, Cofre, Perfil, Configurações); cada nome abre uma página própria.
 
 **Loja e Cofre**: na Loja ficam de vitória, efeitos de pulo, trilhas, mascotes, emotes e molduras de perfil; o Cofre mostra suas moedas e os itens que você tem. Tudo é cosmético e nada altera a física. As moedas vêm das fases, de recordes, do Modo Infinito, de corridas, de conquistas e das temporadas, com limite diário para evitar "farm". Há 21 conquistas.
 

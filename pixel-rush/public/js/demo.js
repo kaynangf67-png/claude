@@ -4,6 +4,7 @@ import { createSim, step } from '/shared/sim.js';
 import { IN_RIGHT, IN_JUMP } from '/shared/constants.js';
 import { Renderer } from './render.js';
 import { drawText, textWidth } from './font.js';
+import { heroFrames } from './sprites.js';
 
 function demoLevel(theme) {
   const W = 420;
@@ -61,6 +62,44 @@ export class DemoView {
     this.r.draw(this.sim, {
       hud: this.label ? (g) => drawText(g, this.label, 192 - textWidth(this.label) / 2, 8, '#fff') : null,
     });
+  }
+  stop() { this.alive = false; cancelAnimationFrame(this.raf); }
+}
+
+// Personagem dançando (tela inicial): usa a skin equipada.
+const DANCE = [
+  ['idle', 1, 0], ['r0', 1, -1], ['idle', 1, 0], ['r2', 1, -1],
+  ['air', 1, -4], ['idle', 1, 0], ['idle', -1, 0], ['r0', -1, -1],
+  ['idle', -1, 0], ['r2', -1, -1], ['air', -1, -4], ['idle', -1, 0],
+  ['slide', 1, -2], ['slide', -1, -2], ['air', 1, -5], ['idle_blink', 1, 0],
+];
+export class DanceView {
+  constructor(canvas, skin) {
+    this.c = canvas; this.c.width = 32; this.c.height = 32;
+    this.g = canvas.getContext('2d');
+    this.g.imageSmoothingEnabled = false;
+    this.skin = skin || 'skin_male';
+    this.t = 0; this.alive = true;
+    const loop = () => {
+      if (!this.alive) return;
+      if (!canvas.isConnected) { this.stop(); return; }
+      this.raf = requestAnimationFrame(loop);
+      this.draw();
+    };
+    this.raf = requestAnimationFrame(loop);
+  }
+  draw() {
+    this.t++;
+    const g = this.g;
+    const [name, face, dy] = DANCE[Math.floor(this.t / 12) % DANCE.length];
+    const fr = heroFrames(this.skin);
+    const img = (face < 0 ? fr.l : fr.r)[name];
+    // pequeno "quique" entre os passos
+    const sub = (this.t % 12) / 12;
+    const bounce = dy ? Math.round(dy * Math.sin(sub * Math.PI)) : (sub < 0.2 ? 1 : 0);
+    g.fillStyle = '#000'; g.fillRect(0, 0, 32, 32);
+    if (bounce > 0) g.drawImage(img, 9, 15, 14, 15); // agachadinha no tempo da música
+    else g.drawImage(img, 10, 14 + bounce, 12, 16);
   }
   stop() { this.alive = false; cancelAnimationFrame(this.raf); }
 }

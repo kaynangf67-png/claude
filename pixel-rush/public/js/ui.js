@@ -1,7 +1,7 @@
-// Interface do PIXEL RUSH: telas, navegação e integração com a API.
+// Interface do ESTRESSE: telas, navegação e integração com a API.
 import { api, auth, Live } from './api.js';
 import { GameSession } from './game.js';
-import { DemoView } from './demo.js';
+import { DemoView, DanceView } from './demo.js';
 import { avatarURL, heroFrames, petSprite } from './sprites.js';
 import { logoCanvas, trophyURL } from './art.js';
 import { ditherCanvas, noEmoji } from './mono.js';
@@ -217,14 +217,14 @@ export class App {
   // ------------------------------------------------------------ início
   renderHome() {
     const items = [['play', 'Jogar'], ['event', 'Evento'], ['ranking', 'Ranking'], ['shop', 'Loja'], ['vault', 'Cofre'], ['profile', 'Perfil'], ['settings', 'Configurações']];
-    this.mount(`<canvas id="hero-demo" class="home-bg"></canvas>
+    this.mount(`<canvas class="home-title" id="logo" aria-label="Estresse"></canvas>
+      <canvas class="home-dancer" id="dancer" aria-hidden="true"></canvas>
       <nav class="corner-menu" aria-label="Menu principal">
-        <canvas class="corner-logo" id="logo"></canvas>
         ${items.map(([k, n]) => `<button class="menu-link" data-go="${k}">${n}</button>`).join('')}
       </nav>
       <div class="corner-user">${esc(this.me.user.username)}</div>`);
     const lc = logoCanvas(); const logo = $('#logo'); logo.width = lc.width; logo.height = lc.height; logo.getContext('2d').drawImage(lc, 0, 0);
-    this.views.push(new DemoView($('#hero-demo'), this.me.equipped, { theme: 1 }));
+    this.views.push(new DanceView($('#dancer'), this.me.equipped.skin || 'skin_male'));
   }
 
   // ------------------------------------------------------------ evento

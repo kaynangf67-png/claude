@@ -1,4 +1,4 @@
-// PIXEL RUSH — servidor HTTP + WebSocket.
+// ESTRESSE — servidor HTTP + WebSocket.
 import http from 'node:http';
 import { timingSafeEqual } from 'node:crypto';
 import { readFile, stat } from 'node:fs/promises';
@@ -426,7 +426,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === normalize(process.argv
   const port = Number(process.env.PORT || 3000);
   const app = await createServer();
   app.server.listen(port, () => {
-    console.log(`PIXEL RUSH rodando em http://localhost:${port} (banco: ${app.db.kind})`);
+    console.log(`ESTRESSE rodando em http://localhost:${port} (banco: ${app.db.kind})`);
   });
   const stop = async () => { await app.close(); process.exit(0); };
   process.on('SIGINT', stop);

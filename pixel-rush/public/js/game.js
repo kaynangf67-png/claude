@@ -234,9 +234,9 @@ export class GameSession {
     const ms = ticksToMs(ticks);
     // HUD mínimo: só o número da fase (começando em 0)
     if (this.mode === 'level') {
-      drawText(g, String(LEVEL_IDS.indexOf(this.levelId)), 6, 6, '#fff', 2, null);
+      drawText(g, String(LEVEL_IDS.indexOf(this.levelId)), 5, 5, '#fff', 1, null);
     } else if (this.mode === 'endless') {
-      drawText(g, String(endlessDistance(this.level, this.sim)), 6, 6, '#fff', 2, null);
+      drawText(g, String(endlessDistance(this.level, this.sim)), 5, 5, '#fff', 1, null);
     }
 
     // chefe

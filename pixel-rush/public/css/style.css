@@ -337,3 +337,11 @@ input::placeholder { color: #fff; opacity: .6; }
 .btn[disabled] { opacity: 1; filter: none; border-style: dashed; box-shadow: none; }
 .level.locked::after { content: none; }
 .world-head .dot { background: #fff !important; }
+
+/* ---------- tela inicial: título grande, personagem dançando, menu transparente à esquerda ---------- */
+.corner-menu { top: 50% !important; left: 40px !important; transform: translateY(-50%); background: transparent !important; border: 0 !important; padding: 0 !important; backdrop-filter: none !important; gap: 6px; }
+.corner-menu .menu-link { font-size: 22px; }
+.home-title { position: fixed; top: 6vh; left: 50%; transform: translateX(-50%); width: min(80vw, 720px); height: auto; image-rendering: pixelated; z-index: 2; }
+.home-dancer { position: fixed; left: 50%; top: 58%; transform: translate(-50%, -50%); height: min(55vh, 60vw); width: auto; aspect-ratio: 1; image-rendering: pixelated; z-index: 1; }
+body.is-home { background: #000; overflow: hidden; }
+@media (max-width: 560px) { .corner-menu { left: 16px !important; } .corner-menu .menu-link { font-size: 18px; } .home-dancer { left: 62%; } }
