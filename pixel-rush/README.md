@@ -103,3 +103,7 @@ O servidor precisa de um processo Node persistente, porque usa WebSocket. Funç�
 - **Docker**: `docker build -t pixel-rush . && docker run -p 3000:3000 -e DATABASE_URL=... pixel-rush`
 - **Render**: o `render.yaml` já está pronto. Basta informar `DATABASE_URL`.
 - **Banco**: qualquer PostgreSQL. No Supabase, use a *connection string* (Session pooler ou conexão direta) em `DATABASE_URL`.
+
+## Créditos
+
+Bandeiras: [flag-icons](https://github.com/lipis/flag-icons) (licença MIT, cópia em `public/flags/LICENSE.txt`).

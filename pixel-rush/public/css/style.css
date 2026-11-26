@@ -367,3 +367,6 @@ body.is-home { background: #000; overflow: hidden; }
 .rank-row.r1 .who b .flag, .rank-row.r2 .who b .flag, .rank-row.r3 .who b .flag { border-color: #ffd23f; }
 @keyframes brilho-ouro { from { background-position: 150% 0; } to { background-position: -100% 0; } }
 @media (prefers-reduced-motion: reduce) { .rank-row .who b, .rank-row .pos { animation: none !important; } }
+
+/* bandeiras dos países (flag-icons, MIT) */
+.flag-img { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; margin-left: 4px; object-fit: cover; box-shadow: 0 0 0 1px rgba(255,255,255,.25); }

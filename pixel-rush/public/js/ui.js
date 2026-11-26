@@ -17,7 +17,7 @@ const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const lvNum = (id) => LEVEL_IDS.indexOf(id);
 const num = (n) => Number(n || 0).toLocaleString('pt-BR');
-const flag = (c) => `<span class="flag" title="${esc(COUNTRY_MAP[c]?.name || c)}">${esc(c || '')}</span>`;
+const flag = (c) => (COUNTRY_MAP[c] ? `<img class="flag-img" src="/flags/${c.toLowerCase()}.svg" alt="${esc(COUNTRY_MAP[c].name)}" title="${esc(COUNTRY_MAP[c].name)}">` : '');
 const avatar = (id, frame = 'frame_none', cls = '', skin = null) => `<img class="avatar ${cls} ${esc(ITEM_MAP[frame]?.css || 'frame-none')}" src="${skin ? skinAvatarURL(skin, 64) : avatarURL(id || 'a1', 64)}" alt="">`;
 const fmtDur = (ms) => { const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000); return h ? `${h}h ${m}min` : `${m}min ${Math.floor((ms % 60000) / 1000)}s`; };
 function countdown(ts) {
@@ -429,7 +429,7 @@ export class App {
     return `<div class="rank-row ${me ? 'me' : ''} ${e.rank && e.rank <= 3 ? 'r' + e.rank : ''}" data-go="profile/${encodeURIComponent(e.username)}">
       <div class="pos">${e.rank ? (e.rank <= 3 ? e.rank + 'º' : '#' + e.rank) : '—'}</div>
       ${avatar(e.avatar, e.frame, '', e.skin)}
-      <div class="who"><b>${esc(e.username)} ${flag(e.country)}</b><small>${esc(COUNTRY_MAP[e.country]?.name || '')}${e.sub ? ' · ' + esc(e.sub) : ''}${me && !e.rank ? ' · você ainda não pontuou aqui' : ''}</small></div>
+      <div class="who"><b>${esc(e.username)} ${flag(e.country)}</b><small>${me && !e.rank ? 'você ainda não pontuou aqui' : esc(e.sub || '')}</small></div>
       <div class="val">${fmtValue(e.value, unit)}</div></div>`;
   }
 

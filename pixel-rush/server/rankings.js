@@ -66,7 +66,7 @@ async function computeRanking(db, type, opts) {
       const rows = await db.all(
         `SELECT username, country, avatar, equipped, total_score, levels_done FROM users u
          WHERE banned=0 AND total_score > 0${where} ORDER BY total_score DESC, username ASC LIMIT ${LIMIT}`, params);
-      return { unit: 'pts', entries: rank(rows.map((r) => ({ ...pub(r), value: r.total_score, sub: `${r.levels_done} fases` }))) };
+      return { unit: 'pts', entries: rank(rows.map((r) => ({ ...pub(r), value: r.total_score, sub: fases(r.levels_done) }))) };
     }
     case 'weekly': {
       const s = weekStart(now);
@@ -139,6 +139,8 @@ async function computeRanking(db, type, opts) {
   }
 }
 
+const fases = (n) => `${n} ${Number(n) === 1 ? 'fase' : 'fases'}`;
+
 function rank(list) { return list.map((e, i) => ({ rank: i + 1, ...e })); }
 
 async function myPosition(db, type, opts, me, data) {
@@ -195,6 +197,6 @@ export async function top3(db) {
     const rows = await db.all(
       `SELECT username, country, avatar, equipped, total_score, levels_done FROM users WHERE banned=0 AND total_score>0
        ORDER BY total_score DESC, username ASC LIMIT 3`, []);
-    return rank(rows.map((r) => ({ ...pub(r), value: r.total_score, sub: `${r.levels_done} fases` })));
+    return rank(rows.map((r) => ({ ...pub(r), value: r.total_score, sub: fases(r.levels_done) })));
   });
 }
