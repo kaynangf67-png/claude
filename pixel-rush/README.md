@@ -98,6 +98,8 @@ O cliente não tem etapa de build: são ES modules servidos diretamente.
 
 ## Deploy
 
+**Vercel (atual):** projeto `estresse-jogo`, pasta raiz `pixel-rush`, publicado a cada envio ao branch do jogo. As telas e `shared/` são arquivos estáticos e a API roda em `api/index.js` (função serverless). O banco é um projeto Supabase próprio, acessado por um usuário dedicado (`estresse_app`) num schema separado (`estresse`), fora da API pública do Supabase. Variáveis no Vercel: `DATABASE_URL`, `TRUST_PROXY=1`, `PG_POOL=3`.
+
 O servidor precisa de um processo Node persistente, porque usa WebSocket. Funções serverless (o `vercel.json` da raiz do repositório) não servem para ele.
 
 - **Docker**: `docker build -t pixel-rush . && docker run -p 3000:3000 -e DATABASE_URL=... pixel-rush`
