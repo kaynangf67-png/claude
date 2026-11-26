@@ -14,7 +14,7 @@ import {
 import { getRanking, top3, clearRankingCache } from './rankings.js';
 import { runFinalizers, seasonInfo } from './seasons.js';
 import { createMultiplayer } from './multiplayer.js';
-import { COUNTRY_MAP } from '../shared/countries.js';
+import { COUNTRY_MAP, BR_STATES } from '../shared/countries.js';
 import { ITEMS, ITEM_MAP, DEFAULT_ITEMS, DEFAULT_EQUIPPED, AVATARS, SLOTS } from '../shared/items.js';
 import { LEVEL_DEFS, WORLDS } from '../shared/levels.js';
 import { dailyId, eventId, dailyRange, eventRange, EVENT_REWARDS, MEDALS } from '../shared/scoring.js';
@@ -50,7 +50,7 @@ export async function createServer({ dbOptions, logger = console, rateLimits = p
   };
 
   const meUser = (u) => ({
-    username: u.username, country: u.country, continent: u.continent, avatar: u.avatar, coins: u.coins,
+    username: u.username, country: u.country, continent: u.continent, state: u.state || '', avatar: u.avatar, coins: u.coins,
     totalScore: u.total_score, levelsDone: u.levels_done, playMs: u.play_ms, endlessBest: u.endless_best,
     raceRating: u.race_rating, raceWins: u.race_wins, races: u.races, deathsTotal: u.deaths_total,
     coinsCollected: u.coins_collected, runsTotal: u.runs_total, createdAt: u.created_at,
@@ -73,6 +73,7 @@ export async function createServer({ dbOptions, logger = console, rateLimits = p
     const c = COUNTRY_MAP[country];
     if (!c) throw new GameError(400, 'Selecione um país válido.');
     const av = AVATARS.includes(avatar) ? avatar : 'a1';
+    const state = c.code === 'BR' && BR_STATES[body.state] ? body.state : '';
     const equipped = { ...DEFAULT_EQUIPPED, skin: body.skin === 'skin_female' ? 'skin_female' : 'skin_male' };
     const exists = await db.get('SELECT id FROM users WHERE username_lc=$1', [username.toLowerCase()]);
     if (exists) throw new GameError(409, 'Esse nome de usuário já existe.');
@@ -82,9 +83,9 @@ export async function createServer({ dbOptions, logger = console, rateLimits = p
     try {
       await db.tx(async (q) => {
         await q.run(
-          `INSERT INTO users (id, username, username_lc, pass_hash, country, continent, avatar, created_at, last_seen, coins, equipped)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$8,$9,$10)`,
-          [id, username, username.toLowerCase(), ph, c.code, c.continent, av, now, 100, JSON.stringify(equipped)]);
+          `INSERT INTO users (id, username, username_lc, pass_hash, country, continent, avatar, created_at, last_seen, coins, equipped, state)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$8,$9,$10,$11)`,
+          [id, username, username.toLowerCase(), ph, c.code, c.continent, av, now, 100, JSON.stringify(equipped), state]);
         for (const it of DEFAULT_ITEMS) await q.run('INSERT INTO inventory (user_id, item_id, acquired_at) VALUES ($1,$2,$3)', [id, it, now]);
       });
     } catch (e) {
@@ -134,6 +135,10 @@ export async function createServer({ dbOptions, logger = console, rateLimits = p
       if (!c) throw new GameError(400, 'País inválido');
       vals.push(c.code); sets.push(`country=$${vals.length}`);
       vals.push(c.continent); sets.push(`continent=$${vals.length}`);
+    }
+    if (body.state !== undefined) {
+      if (body.state !== '' && !BR_STATES[body.state]) throw new GameError(400, 'Estado inválido');
+      vals.push(body.state); sets.push(`state=$${vals.length}`);
     }
     if (body.prefs !== undefined) {
       const s = JSON.stringify(body.prefs);
@@ -201,7 +206,7 @@ export async function createServer({ dbOptions, logger = console, rateLimits = p
 
   // ---------------- rankings
   route('GET', '/api/rankings', async ({ user, query }) => getRanking(db, String(query.type || 'world'), {
-    country: query.country, continent: query.continent, level: query.level,
+    country: query.country, continent: query.continent, state: query.state, level: query.level,
   }, user), { auth: 'optional' });
 
   route('GET', '/api/top3', async () => ({ top3: await top3(db) }), { auth: false });

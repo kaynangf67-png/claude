@@ -146,6 +146,8 @@ async function openSqlite(file) {
     db[k] = (sql, p) => mutex.run(() => orig(sql, p));
   }
   for (const s of SCHEMA) raw.exec(s);
+  try { raw.exec("ALTER TABLE users ADD COLUMN state TEXT NOT NULL DEFAULT ''"); } catch { /* coluna já existe */ }
+  raw.exec('CREATE INDEX IF NOT EXISTS users_state ON users (state, total_score DESC)');
   return db;
 }
 
@@ -176,6 +178,8 @@ async function openPg(url) {
     async close() { await pool.end(); },
   };
   for (const s of SCHEMA) await pool.query(s);
+  await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS state TEXT NOT NULL DEFAULT ''");
+  await pool.query('CREATE INDEX IF NOT EXISTS users_state ON users (state, total_score DESC)');
   return db;
 }
 

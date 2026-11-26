@@ -1,7 +1,7 @@
 // Rankings mundiais: consultas com cache curto (10 s) para suportar muitos jogadores.
 import { LEVEL_IDS, levelMeta } from '../shared/levels.js';
 import { seasonId, seasonRange, weekStart, dailyId, eventId, MEDALS } from '../shared/scoring.js';
-import { COUNTRY_MAP, CONTINENTS } from '../shared/countries.js';
+import { COUNTRY_MAP, CONTINENTS, BR_STATES } from '../shared/countries.js';
 
 const cache = new Map();
 const TTL = 10000;
@@ -25,6 +25,7 @@ const LIMIT = 100;
 const levelIn = (offset) => LEVEL_IDS.map((_, i) => '$' + (i + offset)).join(',');
 
 function regionFilter(params, opts, startIdx) {
+  if (opts.state && BR_STATES[opts.state]) { params.push(opts.state); return ` AND u.country = 'BR' AND u.state = $${startIdx}`; }
   if (opts.country && COUNTRY_MAP[opts.country]) { params.push(opts.country); return ` AND u.country = $${startIdx}`; }
   if (opts.continent && CONTINENTS[opts.continent]) { params.push(opts.continent); return ` AND u.continent = $${startIdx}`; }
   return '';
@@ -46,7 +47,7 @@ async function periodRanking(db, start, end, opts) {
 }
 
 export async function getRanking(db, type, opts = {}, me = null) {
-  const key = JSON.stringify([type, opts.country, opts.continent, opts.level]);
+  const key = JSON.stringify([type, opts.state, opts.country, opts.continent, opts.level]);
   const data = await cached(key, () => computeRanking(db, type, opts));
   const res = { type, ...data };
   if (me) res.me = await myPosition(db, type, opts, me, data);
@@ -57,6 +58,7 @@ async function computeRanking(db, type, opts) {
   const now = Date.now();
   switch (type) {
     case 'world':
+    case 'state':
     case 'country':
     case 'continent': {
       const params = [];
@@ -145,7 +147,7 @@ async function myPosition(db, type, opts, me, data) {
   const u = await db.get('SELECT * FROM users WHERE id=$1', [me.id]);
   const base = { ...pub(u), rank: null, value: null };
   switch (type) {
-    case 'world': case 'country': case 'continent': {
+    case 'world': case 'state': case 'country': case 'continent': {
       if (!u.total_score) return base;
       const params = [u.total_score];
       const where = regionFilter(params, opts, 2);

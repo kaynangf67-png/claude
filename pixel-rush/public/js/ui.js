@@ -7,7 +7,7 @@ import { logoCanvas, trophyURL } from './art.js';
 import { ditherCanvas, noEmoji } from './mono.js';
 import { initAudio, setVolumes, sfx } from './audio.js';
 import { fmtTime } from '/shared/constants.js';
-import { COUNTRIES, COUNTRY_MAP, CONTINENTS, flagEmoji } from '/shared/countries.js';
+import { COUNTRIES, COUNTRY_MAP, CONTINENTS, BR_STATES, flagEmoji } from '/shared/countries.js';
 import { ITEMS, ITEM_MAP, SLOTS, AVATARS } from '/shared/items.js';
 import { LEVEL_DEFS, WORLDS, LEVEL_IDS, levelMeta } from '/shared/levels.js';
 import { levelMedal, MEDALS } from '/shared/scoring.js';
@@ -33,11 +33,8 @@ function fmtValue(v, unit) {
   return `${num(v)} pts`;
 }
 
-const RANK_TABS = [
-  ['world', 'Mundial'], ['brasil', 'Brasil'], ['country', 'País'], ['continent', 'Continentes'], ['weekly', 'Semanal'], ['monthly', 'Mensal'],
-  ['history', 'Histórico'], ['speed', 'Velocidade'], ['distance', 'Distância'], ['totaltime', 'Tempo total'],
-  ['daily', 'Diário'], ['event', 'Evento'],
-];
+const RANK_TABS = [['world', 'Global'], ['regional', 'Regional']];
+const RANK_TYPES = ['world', 'regional', 'brasil', 'country', 'continent', 'weekly', 'monthly', 'history', 'speed', 'distance', 'totaltime', 'daily', 'event'];
 
 export class App {
   constructor() {
@@ -179,6 +176,7 @@ export class App {
             ${mode === 'register' ? `
             <label for="f-country">País</label>
             <select id="f-country" name="country">${COUNTRIES.map((c) => `<option value="${c.code}" ${c.code === (COUNTRY_MAP[guess] ? guess : 'BR') ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
+            <div id="state-wrap"><label for="f-state">Estado</label>${this.stateSelect('f-state')}</div>
             <label>Personagem</label>
             <div class="row" id="pick-skin"><button type="button" class="tab ${skin === 'skin_male' ? 'on' : ''}" data-skin="skin_male">Menino</button><button type="button" class="tab ${skin === 'skin_female' ? 'on' : ''}" data-skin="skin_female">Menina</button></div>
             <label>Avatar</label>
@@ -190,6 +188,8 @@ export class App {
       const lc = logoCanvas(); const logo = $('#logo'); logo.width = lc.width; logo.height = lc.height; logo.getContext('2d').drawImage(lc, 0, 0);
       logo.style.width = Math.min(560, lc.width * 2) + 'px';
       this.ui.querySelectorAll('[data-m]').forEach((b) => b.onclick = () => { mode = b.dataset.m; draw(); });
+      const fc = $('#f-country');
+      if (fc) { const sync = () => { $('#state-wrap').hidden = fc.value !== 'BR'; }; fc.onchange = sync; sync(); }
       this.ui.querySelectorAll('[data-skin]').forEach((b) => b.onclick = () => { skin = b.dataset.skin; this.ui.querySelectorAll('[data-skin]').forEach((x) => x.classList.toggle('on', x === b)); });
       this.ui.querySelectorAll('[data-av]').forEach((b) => b.onclick = () => { av = b.dataset.av; this.ui.querySelectorAll('[data-av]').forEach((x) => x.classList.toggle('on', x === b)); });
       $('#auth-form').onsubmit = async (e) => {
@@ -197,7 +197,7 @@ export class App {
         initAudio();
         const fd = new FormData(e.target);
         const body = { username: fd.get('username').trim(), password: fd.get('password') };
-        if (mode === 'register') { body.country = fd.get('country'); body.avatar = av; body.skin = skin; }
+        if (mode === 'register') { body.country = fd.get('country'); body.avatar = av; body.skin = skin; body.state = body.country === 'BR' ? $('#f-state').value : ''; }
         const btn = e.target.querySelector('button[type=submit]');
         btn.disabled = true;
         try {
@@ -352,9 +352,9 @@ export class App {
 
   // ------------------------------------------------------------ ranking
   async renderRanking(type = 'world') {
-    if (!RANK_TABS.some((t) => t[0] === type)) type = 'world';
+    if (!RANK_TYPES.includes(type)) type = 'world';
     const st = this.rankState || (this.rankState = { country: this.me.user.country, continent: this.me.user.continent, level: '1-1' });
-    this.mount(`${this.topbar('Ranking mundial')}
+    this.mount(`${this.topbar('Ranking')}
       <div class="tabs" role="tablist">${RANK_TABS.map(([k, n]) => `<button class="tab ${k === type ? 'on' : ''}" data-go="ranking/${k}">${n}</button>`).join('')}</div>
       <div class="filters" id="filters"></div>
       <div id="rank-body" class="loading">Carregando ranking</div>`);
@@ -373,7 +373,12 @@ export class App {
 
   async loadRanking(type) {
     const st = this.rankState;
-    const q = new URLSearchParams({ type: type === 'brasil' ? 'country' : type });
+    const u = this.me.user;
+    if (type === 'regional' && u.country === 'BR' && !u.state) return this.askState();
+    let qtype = type === 'brasil' ? 'country' : type;
+    if (type === 'regional') qtype = u.country === 'BR' ? 'state' : 'country';
+    const q = new URLSearchParams({ type: qtype });
+    if (type === 'regional') { if (u.country === 'BR') q.set('state', u.state); else q.set('country', u.country); }
     if (type === 'brasil') q.set('country', 'BR');
     if (type === 'country') q.set('country', st.country);
     if (type === 'continent') q.set('continent', st.continent);
@@ -386,17 +391,38 @@ export class App {
     body.className = '';
     if (type === 'history') return this.renderHistory(body, r);
     const head = {
-      world: 'TOP 100 jogadores do mundo por pontuação total', brasil: 'TOP 100 — Brasil', country: `TOP 100 — ${esc(COUNTRY_MAP[st.country]?.name || '')}`,
+      world: 'TOP 100 do mundo todo',
+      regional: u.country === 'BR' ? `TOP 100 — ${esc(BR_STATES[u.state] || '')} <button class="btn small ghost" data-act="change-state">Trocar estado</button>` : `TOP 100 — ${esc(COUNTRY_MAP[u.country]?.name || '')}`,
+      brasil: 'TOP 100 — Brasil', country: `TOP 100 — ${esc(COUNTRY_MAP[st.country]?.name || '')}`,
       continent: `TOP 100 — ${esc(CONTINENTS[st.continent])}`, weekly: 'Pontos conquistados nesta semana (reinicia toda segunda-feira, UTC)',
       monthly: `Temporada ${esc(r.season || '')} — pontos do mês. Ao final: troféus, moedas e itens exclusivos`,
       speed: `Menor tempo na fase ${lvNum(r.level)} — ${esc(levelMeta(r.level)?.name || '')}`, distance: 'Maior distância no Modo Infinito',
       totaltime: 'Menor tempo somado em todas as fases da História (quem completou mais fases fica à frente)',
       daily: 'Desafio Diário de hoje — menor tempo', event: 'Evento Mundial da semana — menor tempo', races: 'Rating das corridas online',
     }[type];
+    setTimeout(() => { const b = $('[data-act=change-state]'); if (b) b.onclick = () => this.askState(); });
     const ends = r.endsAt ? ` · termina em <span class="countdown" data-countdown="${r.endsAt}">${countdown(r.endsAt)}</span>` : '';
     body.innerHTML = `<p class="muted">${head}${ends}</p>
       ${r.entries.length ? this.rankList(r.entries, r.unit, r.me) : '<div class="empty-state card">Ninguém pontuou aqui ainda. Que tal ser o primeiro? 🚀</div>'}
       ${r.me && !r.entries.some((e) => e.username === r.me.username) ? `<div class="me-sticky">${this.rankRow(r.me, r.unit, true)}</div>` : ''}`;
+  }
+
+  stateSelect(id, cur = '') {
+    return `<select id="${id}"><option value="">Escolha seu estado</option>${Object.entries(BR_STATES).map(([k, n]) => `<option value="${k}" ${k === cur ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>`;
+  }
+
+  askState() {
+    const body = $('#rank-body');
+    body.className = 'page-narrow';
+    body.innerHTML = `<p>Para ver o ranking do seu estado, escolha onde você mora:</p>${this.stateSelect('pick-state', this.me.user.state)}`;
+    $('#pick-state').onchange = async (e) => {
+      if (!e.target.value) return;
+      try {
+        await api('/api/me', { method: 'PATCH', body: { state: e.target.value } });
+        await this.refreshMe();
+        this.loadRanking('regional');
+      } catch (err) { this.toast(err.message, 'error'); }
+    };
   }
 
   rankRow(e, unit, me) {
@@ -551,11 +577,13 @@ export class App {
     let av = this.me.user.avatar;
     this.modal(`<h2>Editar perfil</h2><label>Avatar</label><div class="avatars">${AVATARS.map((a) => `<button type="button" class="${a === av ? 'on' : ''}" data-av="${a}"><img src="${avatarURL(a, 64)}" alt=""></button>`).join('')}</div>
       <label for="ed-country">País</label><select id="ed-country">${COUNTRIES.map((c) => `<option value="${c.code}" ${c.code === this.me.user.country ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
+      <label for="ed-state">Estado (Brasil)</label>${this.stateSelect('ed-state', this.me.user.state)}
       <div class="row" style="margin-top:14px"><button class="btn primary" id="ed-save">Salvar</button><button class="btn ghost" data-close>Cancelar</button></div>`, (m, close) => {
       m.querySelectorAll('[data-av]').forEach((b) => b.onclick = () => { av = b.dataset.av; m.querySelectorAll('[data-av]').forEach((x) => x.classList.toggle('on', x === b)); });
       $('#ed-save', m).onclick = async () => {
         try {
-          await api('/api/me', { method: 'PATCH', body: { avatar: av, country: $('#ed-country', m).value } });
+          const country = $('#ed-country', m).value;
+          await api('/api/me', { method: 'PATCH', body: { avatar: av, country, state: country === 'BR' ? $('#ed-state', m).value : '' } });
           await this.refreshMe();
           close();
           this.renderProfile();

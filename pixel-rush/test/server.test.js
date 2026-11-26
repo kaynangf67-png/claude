@@ -160,6 +160,22 @@ test('desafio diário: percurso do dia validado e ranqueado', async () => {
   assert.equal(ch.data.daily.myBest, f.data.timeMs);
 });
 
+test('ranking regional por estado', async () => {
+  const r = await api('/api/auth/register', { method: 'POST', body: { username: 'Gil', password: 'segredo123', country: 'BR', state: 'SP' } });
+  const t = r.data.token;
+  await app.db.run('UPDATE users SET total_score=500 WHERE username=$1', ['Gil']);
+  const me = await api('/api/me', { token: t });
+  assert.equal(me.data.user.state, 'SP');
+  let k = await api('/api/rankings?type=state&state=SP', { token: t });
+  assert.equal(k.data.entries[0].username, 'Gil');
+  k = await api('/api/rankings?type=state&state=RJ', { token: t });
+  assert.equal(k.data.entries.length, 0);
+  assert.equal((await api('/api/me', { method: 'PATCH', token: t, body: { state: 'XX' } })).status, 400);
+  await api('/api/me', { method: 'PATCH', token: t, body: { state: 'RJ' } });
+  k = await api('/api/rankings?type=state&state=RJ', { token: t });
+  assert.equal(k.data.entries[0].username, 'Gil');
+});
+
 test('loja: comprar e equipar sem vantagem competitiva', async () => {
   const t = await register('Duda');
   const shop = await api('/api/shop', { token: t });
