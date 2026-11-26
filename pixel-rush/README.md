@@ -50,7 +50,7 @@ As tabelas são criadas automaticamente na primeira execução. Os testes també
 
 **Modo Infinito**: o mundo é gerado a partir de uma semente sorteada pelo servidor, e a dificuldade sobe a cada trecho. Uma parede de energia persegue o jogador e acelera com o tempo. A pontuação é a distância em metros.
 
-**Multiplayer** (WebSocket): matchmaking por rating (2 a 4 jogadores), salas privadas com código, convites para amigos online, sistema de amizades, fantasmas dos rivais em tempo real, emotes e rating no estilo Elo.
+**Online**: o jogo é single-player; a parte online serve para os rankings (todos os resultados vão para o servidor, que valida e ranqueia). O servidor ainda tem o código de corridas em tempo real (WebSocket), mas ele não aparece mais na interface.
 
 **Rankings** (`server/rankings.js`): TOP 100 mundial, Brasil, por país, por continente, semanal, mensal (a temporada), histórico (campeões das temporadas e recordes de todos os tempos), velocidade por fase, distância, tempo total da História, diário, evento e corridas. O TOP 3 aparece com troféus de ouro, prata e bronze na tela inicial e no ranking. O perfil mostra nome, avatar, país e bandeira, pontuação, recordes, fases concluídas, tempo total de jogo, posição mundial, medalhas, conquistas e histórico de resultados.
 

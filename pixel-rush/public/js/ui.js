@@ -36,7 +36,7 @@ function fmtValue(v, unit) {
 const RANK_TABS = [
   ['world', 'Mundial'], ['brasil', 'Brasil'], ['country', 'País'], ['continent', 'Continentes'], ['weekly', 'Semanal'], ['monthly', 'Mensal'],
   ['history', 'Histórico'], ['speed', 'Velocidade'], ['distance', 'Distância'], ['totaltime', 'Tempo total'],
-  ['daily', 'Diário'], ['event', 'Evento'], ['races', 'Corridas'],
+  ['daily', 'Diário'], ['event', 'Evento'],
 ];
 
 export class App {
@@ -79,7 +79,7 @@ export class App {
 
   async init() {
     if (auth.token) {
-      try { await this.refreshMe(); this.live.connect(); }
+      try { await this.refreshMe(); }
       catch { auth.token = null; }
     }
     this.route();
@@ -105,7 +105,7 @@ export class App {
     if (!this.me && name !== 'auth') return this.renderAuth();
     const screens = {
       auth: () => this.renderAuth(), home: () => this.renderHome(), play: () => this.renderPlay(),
-      competitive: () => this.renderCompetitive(), endless: () => this.renderEndless(), multiplayer: () => this.renderMultiplayer(),
+      competitive: () => this.renderCompetitive(), endless: () => this.renderEndless(),
       ranking: () => this.renderRanking(rest[0]), customize: () => this.renderVault(rest[0]), vault: () => this.renderVault(rest[0]), event: () => this.renderEvent(), shop: () => this.renderShop(rest[0]),
       profile: () => this.renderProfile(rest[0] ? decodeURIComponent(rest[0]) : null), settings: () => this.renderSettings(),
     };
@@ -204,7 +204,6 @@ export class App {
           const r = await api(`/api/auth/${mode}`, { method: 'POST', body });
           auth.token = r.token;
           await this.refreshMe();
-          this.live.connect();
           sfx.checkpoint();
           this.go('home');
         } catch (err) { $('#auth-err').textContent = err.message; sfx.error(); }
@@ -260,7 +259,7 @@ export class App {
 
   // ------------------------------------------------------------ modos
   renderPlay() {
-    const items = [['competitive', 'Competitivo'], ['endless', 'Infinito'], ['multiplayer', 'Multiplayer']];
+    const items = [['competitive', 'Competitivo'], ['endless', 'Infinito']];
     this.mount(`${this.topbar('Jogar')}<nav class="name-list">${items.map(([k, n]) => `<button class="menu-link big" data-go="${k}">${n}</button>`).join('')}</nav>`);
   }
 
@@ -286,8 +285,6 @@ export class App {
           <label class="row" style="margin:0;color:var(--text)"><input type="checkbox" id="tt-pb" checked style="width:auto"> Meu melhor</label></div>
           <button class="btn primary" data-act="trial">Correr</button>
         </section>
-        <section class="card"><h3>🌐 Corrida online</h3><p class="muted">Dispute em tempo real com até 4 jogadores. Vitórias valem rating no ranking de corridas.</p>
-          <button class="btn cyan" data-go="multiplayer">Encontrar partida</button></section>
         <section class="card"><h3>🥇 Recordes mundiais por fase</h3><div id="records" class="loading">Carregando</div></section>
       </div>`, {
       trial: () => {
@@ -375,106 +372,10 @@ export class App {
       for (const p of room?.players || []) skins[p.username] = p.skin;
       this.launch({ mode: 'race', from: 'multiplayer', race: { levelId: m.levelId, startAt: m.startAt, limitMs: m.limitMs, skins } });
     });
-    setInterval(() => { if (this.me) this.live.send({ t: 'ping' }); }, 20000);
   }
 
-  refreshMp(full = false) {
-    if (location.hash.startsWith('#/multiplayer') && !this.game) {
-      if (full) this.renderMultiplayer(); else this.renderRoomBox();
-    }
-  }
+  refreshMp() { /* multiplayer removido da interface */ }
 
-  async renderMultiplayer() {
-    this.mount(`${this.topbar('Multiplayer', 'play')}
-      <div class="grid g2">
-        <section class="card" id="room-box"></section>
-        <section class="card"><h3>👥 Amigos</h3>
-          <form id="add-friend" class="row"><input name="u" placeholder="Nome de usuário" maxlength="16" style="flex:1"><button class="btn small cyan">Adicionar</button></form>
-          <div id="friends" class="loading" style="margin-top:10px">Carregando</div></section>
-      </div>
-      <section class="card" style="margin-top:14px"><h3>Como funciona</h3>
-        <p class="muted">Todos correm no mesmo percurso gerado para a sala. Cada jogador vê os outros como fantasmas em tempo real.
-        Ao cruzar a chegada, suas entradas são enviadas e o servidor re-simula a corrida para validar o tempo — a colocação usa o tempo validado.
-        Corridas encontradas pelo matchmaking valem rating no <a href="#/ranking/races">ranking de corridas</a>. Emotes: teclas <span class="kbd">1</span>–<span class="kbd">4</span>.</p></section>`);
-    this.renderRoomBox();
-    $('#add-friend').onsubmit = async (e) => {
-      e.preventDefault();
-      const u = e.target.u.value.trim();
-      if (!u) return;
-      try {
-        const r = await api('/api/friends/request', { method: 'POST', body: { username: u } });
-        this.toast(r.status === 'accepted' ? 'Agora vocês são amigos!' : 'Pedido de amizade enviado');
-        e.target.reset();
-        this.loadFriends();
-      } catch (err) { this.toast(err.message, 'error'); }
-    };
-    this.loadFriends();
-    this.timers.push(setInterval(() => this.loadFriends(), 15000));
-  }
-
-  async loadFriends() {
-    const box = $('#friends');
-    if (!box) return;
-    const f = await api('/api/friends').catch(() => null);
-    if (!f || !$('#friends')) return;
-    const row = (x, actions) => `<div class="room-player">${avatar(x.avatar, 'frame_none', 'sm')}<span class="dot-online ${x.online ? 'on' : ''}"></span>
-      <b data-go="profile/${encodeURIComponent(x.username)}" style="cursor:pointer">${esc(x.username)}</b> ${flag(x.country)}<span class="ready">${actions}</span></div>`;
-    box.className = 'room-players';
-    box.innerHTML = [
-      ...f.incoming.map((x) => row(x, `<button class="btn small green" data-fa="${esc(x.username)}">Aceitar</button>`)),
-      ...f.friends.map((x) => row(x, `${x.online && this.mp.room ? `<button class="btn small" data-inv="${esc(x.username)}">Convidar</button>` : x.online ? '<small class="muted">online</small>' : '<small class="muted">offline</small>'}
-        <button class="btn small ghost" data-fr="${esc(x.username)}" title="Remover">✕</button>`)),
-      ...f.outgoing.map((x) => row(x, '<small class="muted">pedido enviado</small>')),
-    ].join('') || '<p class="muted">Adicione amigos pelo nome de usuário para convidá-los para corridas.</p>';
-    box.querySelectorAll('[data-fa]').forEach((b) => b.onclick = async () => { await api('/api/friends/accept', { method: 'POST', body: { username: b.dataset.fa } }); this.loadFriends(); });
-    box.querySelectorAll('[data-fr]').forEach((b) => b.onclick = async () => { await api('/api/friends/remove', { method: 'POST', body: { username: b.dataset.fr } }); this.loadFriends(); });
-    box.querySelectorAll('[data-inv]').forEach((b) => b.onclick = () => this.live.send({ t: 'invite', username: b.dataset.inv }));
-  }
-
-  renderRoomBox() {
-    const box = $('#room-box');
-    if (!box) return;
-    const room = this.mp.room;
-    const me = this.me.user.username;
-    if (room) {
-      const isHost = room.host === me;
-      const mine = room.players.find((p) => p.username === me);
-      box.innerHTML = `<h3>${room.public ? '🎯 Partida encontrada' : '🔒 Sala privada'}</h3>
-        <div class="row"><span class="muted">Código:</span><span class="room-code">${esc(room.code)}</span><button class="btn small ghost" data-act="copy">Copiar</button></div>
-        <p class="muted">Compartilhe o código ou convide amigos online (até 4 jogadores).</p>
-        <div class="room-players">${room.players.map((p) => `<div class="room-player">${avatar(p.avatar, 'frame_none', 'sm')}<b>${esc(p.username)}</b> ${flag(p.country)}
-          <small class="muted">${num(p.rating)}</small>${p.username === room.host ? ' 👑' : ''}<span class="ready" style="color:${p.ready || p.username === room.host ? 'var(--green)' : 'var(--muted)'}">${p.username === room.host ? 'Anfitrião' : p.ready ? 'Pronto' : 'Aguardando'}</span></div>`).join('')}</div>
-        <div class="row" style="margin-top:12px">
-          ${isHost ? `<button class="btn primary" data-act="start">Iniciar corrida</button>` : `<button class="btn ${mine?.ready ? 'ghost' : 'green'}" data-act="ready">${mine?.ready ? 'Cancelar pronto' : 'Estou pronto!'}</button>`}
-          <button class="btn ghost" data-act="leave">Sair da sala</button></div>
-        ${room.state !== 'lobby' ? '<p class="muted">Corrida em andamento...</p>' : ''}`;
-    } else {
-      box.innerHTML = `<h3>🎯 Partida rápida</h3>
-        ${this.mp.queued ? `<p>Procurando adversários com rating parecido... <b>${this.mp.size}</b> na fila (${this.mp.waited || 0}s)</p><button class="btn ghost" data-act="unqueue">Cancelar busca</button>`
-          : `<p class="muted">O matchmaking junta 2 a 4 jogadores com rating parecido. Seu rating: <b>${num(this.me.user.raceRating)}</b> · ${num(this.me.user.raceWins)} vitórias em ${num(this.me.user.races)} corridas.</p>
-            <button class="btn primary" data-act="queue">Buscar partida</button>`}
-        <hr style="border-color:var(--line);opacity:.4;margin:16px 0">
-        <h3>🔒 Jogar com amigos</h3>
-        <div class="row"><button class="btn cyan" data-act="create">Criar sala privada</button></div>
-        <form id="join-form" class="row" style="margin-top:10px"><input name="code" placeholder="Código da sala" maxlength="5" style="flex:1;text-transform:uppercase"><button class="btn small">Entrar</button></form>`;
-      const jf = $('#join-form');
-      if (jf) jf.onsubmit = (e) => { e.preventDefault(); this.live.send({ t: 'join', code: e.target.code.value }); };
-    }
-    box.onclick = (e) => {
-      const b = e.target.closest('[data-act]');
-      if (!b) return;
-      sfx.click();
-      const a = b.dataset.act;
-      if (a === 'queue') this.live.send({ t: 'queue' });
-      if (a === 'unqueue') this.live.send({ t: 'unqueue' });
-      if (a === 'create') this.live.send({ t: 'create' });
-      if (a === 'leave') { this.live.send({ t: 'leave' }); this.mp.room = null; this.renderRoomBox(); }
-      if (a === 'start') this.live.send({ t: 'start' });
-      if (a === 'ready') this.live.send({ t: 'ready', v: !room.players.find((p) => p.username === me)?.ready });
-      if (a === 'copy') navigator.clipboard?.writeText(room.code).then(() => this.toast('Código copiado'));
-    };
-    this.loadFriends();
-  }
 
   // ------------------------------------------------------------ ranking
   async renderRanking(type = 'world') {
