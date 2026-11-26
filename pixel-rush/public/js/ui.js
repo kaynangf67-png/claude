@@ -15,6 +15,7 @@ import { ACHIEVEMENTS } from '/shared/achievements.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const lvNum = (id) => LEVEL_IDS.indexOf(id);
 const num = (n) => Number(n || 0).toLocaleString('pt-BR');
 const flag = (c) => `<span class="flag" title="${esc(COUNTRY_MAP[c]?.name || c)}">${esc(c || '')}</span>`;
 const avatar = (id, frame = 'frame_none', cls = '') => `<img class="avatar ${cls} ${esc(ITEM_MAP[frame]?.css || 'frame-none')}" src="${avatarURL(id || 'a1', 64)}" alt="">`;
@@ -292,7 +293,7 @@ export class App {
           const wr = data.records?.[d.id];
           const medal = p?.timeMs != null ? levelMedal(d.par, p.timeMs) : null;
           return `<button class="level ${lock ? 'locked' : ''} ${d.boss ? 'boss' : ''}" ${lock ? 'disabled' : ''} data-act="level" data-id="${d.id}">
-            <div class="num">${d.id}${d.boss ? ' 👑' : ''}</div><div class="nm">${esc(d.name)}</div>
+            <div class="num">${lvNum(d.id)}</div><div class="nm">${esc(d.name)}</div>
             <div class="meta">Par: ${d.par}s · Seu melhor: <b>${p?.timeMs != null ? fmtTime(p.timeMs) : '—'}</b><br>
             Recorde: ${wr ? `${fmtTime(wr.timeMs)} ${flag(wr.country)} ${esc(wr.username)}` : '—'}</div>
             ${medal ? `<span class="medal m-${medal}">${medal}</span>` : ''}</button>`;
@@ -313,7 +314,7 @@ export class App {
         <section class="card"><h3>⏱️ Contra-relógio</h3>
           <p class="muted">Corra contra os fantasmas do recordista mundial e do seu melhor tempo. Mesmo percurso para todos.</p>
           <label for="tt-level">Fase</label>
-          <select id="tt-level">${unlocked.map((id) => `<option value="${id}">${id} — ${esc(levelMeta(id).name)}</option>`).join('')}</select>
+          <select id="tt-level">${unlocked.map((id) => `<option value="${id}">Fase ${lvNum(id)} — ${esc(levelMeta(id).name)}</option>`).join('')}</select>
           <div class="row" style="margin:10px 0"><label class="row" style="margin:0;color:var(--text)"><input type="checkbox" id="tt-wr" checked style="width:auto"> Fantasma do recorde mundial</label>
           <label class="row" style="margin:0;color:var(--text)"><input type="checkbox" id="tt-pb" checked style="width:auto"> Meu melhor</label></div>
           <button class="btn primary" data-act="trial">Correr</button>
@@ -326,7 +327,7 @@ export class App {
         const ghosts = [];
         if ($('#tt-wr').checked) ghosts.push('wr');
         if ($('#tt-pb').checked) ghosts.push('pb');
-        this.startLevel($('#tt-level').value, { ghosts, from: 'competitive', title: 'CONTRA-RELÓGIO ' + $('#tt-level').value });
+        this.startLevel($('#tt-level').value, { ghosts, from: 'competitive', title: 'Fase ' + lvNum($('#tt-level').value) });
       },
       challenge: (b) => this.startMode(b.dataset.mode),
     });
@@ -334,7 +335,7 @@ export class App {
     if (!$('#records')) return;
     if (lv) $('#records').outerHTML = `<table><thead><tr><th>Fase</th><th>Recorde</th><th>Jogador</th></tr></thead><tbody>${LEVEL_IDS.map((id) => {
       const r = lv.records[id];
-      return `<tr><td>${id}</td><td class="mono">${r ? fmtTime(r.timeMs) : '—'}</td><td>${r ? `${flag(r.country)} ${esc(r.username)}` : '—'}</td></tr>`;
+      return `<tr><td>${lvNum(id)}</td><td class="mono">${r ? fmtTime(r.timeMs) : '—'}</td><td>${r ? `${flag(r.country)} ${esc(r.username)}` : '—'}</td></tr>`;
     }).join('')}</tbody></table>`;
   }
 
@@ -519,7 +520,7 @@ export class App {
     const f = $('#filters');
     if (type === 'country') f.innerHTML = `<select id="sel-country">${COUNTRIES.map((c) => `<option value="${c.code}" ${c.code === st.country ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>`;
     if (type === 'continent') f.innerHTML = `<select id="sel-cont">${Object.entries(CONTINENTS).map(([k, n]) => `<option value="${k}" ${k === st.continent ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>`;
-    if (type === 'speed') f.innerHTML = `<select id="sel-level">${LEVEL_IDS.map((id) => `<option value="${id}" ${id === st.level ? 'selected' : ''}>${id} — ${esc(levelMeta(id).name)}</option>`).join('')}</select>`;
+    if (type === 'speed') f.innerHTML = `<select id="sel-level">${LEVEL_IDS.map((id) => `<option value="${id}" ${id === st.level ? 'selected' : ''}>Fase ${lvNum(id)} — ${esc(levelMeta(id).name)}</option>`).join('')}</select>`;
     f.onchange = (e) => {
       if (e.target.id === 'sel-country') st.country = e.target.value;
       if (e.target.id === 'sel-cont') st.continent = e.target.value;
@@ -547,7 +548,7 @@ export class App {
       world: 'TOP 100 jogadores do mundo por pontuação total', brasil: 'TOP 100 — Brasil', country: `TOP 100 — ${esc(COUNTRY_MAP[st.country]?.name || '')}`,
       continent: `TOP 100 — ${esc(CONTINENTS[st.continent])}`, weekly: 'Pontos conquistados nesta semana (reinicia toda segunda-feira, UTC)',
       monthly: `Temporada ${esc(r.season || '')} — pontos do mês. Ao final: troféus, moedas e itens exclusivos`,
-      speed: `Menor tempo na fase ${esc(r.level)} — ${esc(levelMeta(r.level)?.name || '')}`, distance: 'Maior distância no Modo Infinito',
+      speed: `Menor tempo na fase ${lvNum(r.level)} — ${esc(levelMeta(r.level)?.name || '')}`, distance: 'Maior distância no Modo Infinito',
       totaltime: 'Menor tempo somado em todas as fases da História (quem completou mais fases fica à frente)',
       daily: 'Desafio Diário de hoje — menor tempo', event: 'Evento Mundial da semana — menor tempo', races: 'Rating das corridas online',
     }[type];
@@ -583,7 +584,7 @@ export class App {
         : '<p class="muted">A primeira temporada ainda está em andamento. Os campeões aparecerão aqui para sempre.</p>'}</section>
       <section class="card" style="grid-column:1/-1"><h3>⏱️ Recordes mundiais de todos os tempos</h3>
         <table><thead><tr><th>Fase</th><th>Nome</th><th>Tempo</th><th>Recordista</th></tr></thead><tbody>
-        ${r.records.map((x) => `<tr><td>${x.level}</td><td>${esc(x.name)}</td><td class="mono">${x.value != null ? fmtTime(x.value) : '—'}</td><td>${x.username ? `${flag(x.country)} <a href="#/profile/${encodeURIComponent(x.username)}">${esc(x.username)}</a>` : '—'}</td></tr>`).join('')}
+        ${r.records.map((x) => `<tr><td>${lvNum(x.level)}</td><td>${esc(x.name)}</td><td class="mono">${x.value != null ? fmtTime(x.value) : '—'}</td><td>${x.username ? `${flag(x.country)} <a href="#/profile/${encodeURIComponent(x.username)}">${esc(x.username)}</a>` : '—'}</td></tr>`).join('')}
         </tbody></table></section></div>`;
   }
 

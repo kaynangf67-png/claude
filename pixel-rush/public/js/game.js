@@ -81,7 +81,7 @@ export class GameSession {
     this.readyT = 50; // contagem "VAI!" antes de liberar a física
     this.endT = 0;
     this.meta = this.mode === 'level' ? levelMeta(tok.levelId) : null;
-    this.title = this.opts.title || (this.meta ? `${this.meta.id}  ${this.meta.name}` : this.level.name);
+    this.title = this.opts.title || (this.meta ? `Fase ${LEVEL_IDS.indexOf(this.meta.id)}` : this.level.name);
     for (const g of this.ghosts) g.sim = createSim(this.level);
     this.hideOverlay();
     playMusic(this.mode === 'level' ? this.meta.world : 0);
@@ -232,27 +232,12 @@ export class GameSession {
     const s = this.sim.s;
     const ticks = s.finished ? s.finishT : s.t;
     const ms = ticksToMs(ticks);
-    // barra superior
-    g.fillStyle = '#000';
-    g.fillRect(0, 0, VIEW_W, 14);
-    drawText(g, this.title.slice(0, 34), 4, 4, '#ffffff', 1, '#000');
-    if (this.mode === 'endless') {
-      const d = endlessDistance(this.level, this.sim);
-      const t = `${d} M`;
-      drawText(g, t, VIEW_W - textWidth(t, 2) - 6, 18, '#ffd23f', 2);
-      const best = this.app.me?.user.endlessBest || 0;
-      drawText(g, `RECORDE ${best} M`, VIEW_W - textWidth(`RECORDE ${best} M`) - 6, 36, '#9fe3ff');
-    } else {
-      const ts = fmtTime(ms);
-      drawText(g, ts, VIEW_W - textWidth(ts) - 4, 4, s.finished ? '#3ee07a' : '#ffd23f');
+    // HUD mínimo: só o número da fase (começando em 0)
+    if (this.mode === 'level') {
+      drawText(g, String(LEVEL_IDS.indexOf(this.levelId)), 6, 6, '#fff', 2, null);
+    } else if (this.mode === 'endless') {
+      drawText(g, String(endlessDistance(this.level, this.sim)), 6, 6, '#fff', 2, null);
     }
-    // mortes e moedas (em caixa preta para ler bem no tema preto e branco)
-    g.fillStyle = '#000'; g.fillRect(0, 14, 40, 22);
-    const info = `x${s.deaths}`;
-    g.fillStyle = '#fff'; g.fillRect(4, 18, 5, 5); g.fillStyle = '#000'; g.fillRect(5, 20, 1, 1); g.fillRect(7, 20, 1, 1);
-    drawText(g, info, 12, 17, '#fff', 1, null);
-    g.fillStyle = '#ffd23f'; g.fillRect(4, 28, 5, 5); g.fillStyle = '#fff4b8'; g.fillRect(5, 29, 1, 2);
-    drawText(g, `x${s.coinCount}`, 12, 27, '#fff', 1, null);
 
     // chefe
     if (s.boss && !s.boss.defeated) {
@@ -260,19 +245,10 @@ export class GameSession {
       const name = (BOSSES[b.kind] || BOSSES.golem).name;
       const w = 140;
       const x = (VIEW_W - w) / 2;
-      drawTextCentered(g, name, VIEW_W / 2, 18, '#ffb3c0');
-      g.fillStyle = '#000'; g.fillRect(x - 1, 27, w + 2, 6);
-      g.fillStyle = '#4a0d1a'; g.fillRect(x, 28, w, 4);
-      g.fillStyle = '#ff3d6e'; g.fillRect(x, 28, Math.round((w * b.hp) / b.maxHp), 4);
-    }
-
-    // comparação com fantasmas
-    if (this.ghosts.length && !s.finished) {
-      let y = 40;
-      for (const gh of this.ghosts) {
-        drawText(g, `${gh.label.slice(0, 18)} ${fmtTime(gh.timeMs)}`, 4, y, gh.color);
-        y += 9;
-      }
+      drawTextCentered(g, name, VIEW_W / 2, 6, '#ffb3c0');
+      g.fillStyle = '#fff'; g.fillRect(x - 1, 15, w + 2, 6);
+      g.fillStyle = '#000'; g.fillRect(x, 16, w, 4);
+      g.fillStyle = '#fff'; g.fillRect(x, 16, Math.round((w * b.hp) / b.maxHp), 4);
     }
 
     // corrida: posição dos rivais

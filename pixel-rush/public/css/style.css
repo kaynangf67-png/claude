@@ -335,3 +335,5 @@ a { color: #fff; }
 input::placeholder { color: #fff; opacity: .6; }
 .item .prev, .item canvas { background: #000 !important; border: 1px solid #fff; color: #fff; }
 .btn[disabled] { opacity: 1; filter: none; border-style: dashed; box-shadow: none; }
+.level.locked::after { content: none; }
+.world-head .dot { background: #fff !important; }
