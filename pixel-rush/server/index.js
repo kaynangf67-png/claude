@@ -323,7 +323,7 @@ export async function createServer({ dbOptions, logger = console, rateLimits = p
 
   route('POST', '/api/shop/buy', async ({ user, body }) => {
     const it = ITEM_MAP[body.itemId];
-    if (!it || it.price == null) throw new GameError(400, 'Item indisponível para compra');
+    if (!it || it.price == null || it.slot !== 'skin') throw new GameError(400, 'Item indisponível para compra');
     const r = await db.tx(async (q) => {
       const owned = await q.get('SELECT 1 AS x FROM inventory WHERE user_id=$1 AND item_id=$2', [user.id, it.id]);
       if (owned) throw new GameError(409, 'Você já possui este item');

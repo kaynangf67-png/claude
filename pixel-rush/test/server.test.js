@@ -236,12 +236,16 @@ test('diamantes: compra pelo Mercado Pago creditada uma única vez e item lendá
     await api('/api/payments/webhook?type=payment&data.id=222', { method: 'POST', body: {} });
     me = await api('/api/me', { token: t });
     assert.equal(me.data.user.gems, 310);
-    const buy = await api('/api/shop/buy', { method: 'POST', token: t, body: { itemId: 'trail_rainbow' } });
+    const buy = await api('/api/shop/buy', { method: 'POST', token: t, body: { itemId: 'skin_f_diamond' } });
     assert.equal(buy.status, 200);
     assert.equal(buy.data.gems, 160);
     assert.equal(buy.data.coins, 100 + 30); // moedas intactas (+ conquista 'Estiloso')
-    const poor = await api('/api/shop/buy', { method: 'POST', token: t, body: { itemId: 'frame_diamond' } });
-    assert.equal(poor.status, 402);
+    const gold = await api('/api/shop/buy', { method: 'POST', token: t, body: { itemId: 'skin_m_gold' } });
+    assert.equal(gold.data.gems, 10);
+    const poor = await api('/api/shop/buy', { method: 'POST', token: t, body: { itemId: 'skin_m_gold' } });
+    assert.equal(poor.status, 409); // já possui
+    const notSkin = await api('/api/shop/buy', { method: 'POST', token: t, body: { itemId: 'trail_ghost' } });
+    assert.equal(notSkin.status, 400); // a loja só vende skins
     const adm = await fetch(base + '/api/admin/gems', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Admin-Token': 'admin-teste' }, body: JSON.stringify({ username: 'Rico', amount: 100 }) });
     assert.equal(adm.status, 200);
   } finally { globalThis.fetch = realFetch; }
@@ -251,21 +255,21 @@ test('loja: comprar e equipar sem vantagem competitiva', async () => {
   const t = await register('Duda');
   const shop = await api('/api/shop', { token: t });
   assert.equal(shop.data.coins, 100);
-  let r = await api('/api/shop/buy', { method: 'POST', token: t, body: { itemId: 'trail_rainbow' } });
+  let r = await api('/api/shop/buy', { method: 'POST', token: t, body: { itemId: 'skin_m_gold' } });
   assert.equal(r.status, 402); // custa diamantes
   r = await api('/api/shop/buy', { method: 'POST', token: t, body: { itemId: 'frame_champion' } });
   assert.equal(r.status, 400);
-  r = await api('/api/equip', { method: 'POST', token: t, body: { slot: 'trail', itemId: 'trail_ghost' } });
+  r = await api('/api/equip', { method: 'POST', token: t, body: { slot: 'skin', itemId: 'skin_m_ninja' } });
   assert.equal(r.status, 403);
   await app.db.run('UPDATE users SET coins=1000 WHERE username=$1', ['Duda']);
-  r = await api('/api/shop/buy', { method: 'POST', token: t, body: { itemId: 'trail_ghost' } });
+  r = await api('/api/shop/buy', { method: 'POST', token: t, body: { itemId: 'skin_m_ninja' } });
   assert.equal(r.status, 200);
   assert.equal(r.data.coins, 1000 - 300 + 30); // preço + conquista 'Estiloso'
   assert.ok(r.data.achievements.some((a) => a.id === 'shopper'));
-  r = await api('/api/shop/buy', { method: 'POST', token: t, body: { itemId: 'trail_ghost' } });
+  r = await api('/api/shop/buy', { method: 'POST', token: t, body: { itemId: 'skin_m_ninja' } });
   assert.equal(r.status, 409);
-  r = await api('/api/equip', { method: 'POST', token: t, body: { slot: 'trail', itemId: 'trail_ghost' } });
-  assert.equal(r.data.equipped.trail, 'trail_ghost');
+  r = await api('/api/equip', { method: 'POST', token: t, body: { slot: 'skin', itemId: 'skin_m_ninja' } });
+  assert.equal(r.data.equipped.skin, 'skin_m_ninja');
 });
 
 test('amigos: pedido e aceite', async () => {

@@ -135,8 +135,16 @@ export class App {
     window.addEventListener('pointerdown', start); window.addEventListener('keydown', start);
   }
 
-  topbar(title, back = 'home') {
-    return `<header class="pagebar"><button class="link-back" data-go="${back}" aria-label="Voltar">‹</button><h1>${esc(title || '')}</h1></header>`;
+  topbar(title, back = 'home', right = '') {
+    return `<header class="pagebar"><button class="link-back" data-go="${back}" aria-label="Voltar">‹</button><h1>${esc(title || '')}</h1>${right ? `<div class="pagebar-right">${right}</div>` : ''}</header>`;
+  }
+
+  // saldos de moedas e diamantes (canto superior direito)
+  balancesHtml() {
+    const u = this.me.user;
+    return `<span class="balance" title="Moedas (ganhas jogando)">${COIN}<b>${num(u.coins)}</b></span>
+      <span class="balance" title="Diamantes (comprados)">${GEM}<b>${num(u.gems)}</b></span>
+      <button class="btn small primary" data-act="buy-gems">+ Diamantes</button>`;
   }
 
   updateTopbar() {
@@ -540,7 +548,8 @@ export class App {
     const u = this.me.user;
     const list = ITEMS.filter((i) => i.slot === slot && (owned.has(i.id) || i.price === 0));
     const pay = this.hashQuery?.get('pagamento');
-    this.mount(`${this.topbar('Cofre')}
+    slot = 'skin';
+    this.mount(`${this.topbar('Cofre', 'home', this.balancesHtml())}
       <div class="vault">
         <section class="vault-hero">
           <canvas class="vault-dancer" id="vault-dancer" aria-label="Seu personagem"></canvas>
@@ -559,12 +568,11 @@ export class App {
           </div>
         </section>
       </div>
-      <h2 class="vault-sub">Seus itens</h2>
-      <div class="tabs">${Object.entries(SLOTS).map(([k, n]) => `<button class="tab ${k === slot ? 'on' : ''}" data-go="vault/${k}">${n}</button>`).join('')}</div>
+      <h2 class="vault-sub">Suas skins</h2>
       <div class="items">${list.map((it) => `<div class="item ${eq[slot] === it.id ? 'equipped' : ''}">${this.itemPreview(it)}
         <div class="nm">${esc(it.name)}</div>
         ${eq[slot] === it.id ? '<button class="btn small" disabled>Em uso</button>' : `<button class="btn small green" data-act="equip" data-id="${it.id}">Usar</button>`}</div>`).join('')}
-        ${slot !== 'skin' ? `<button class="item item-more" data-go="shop/${slot}"><span>+</span><div class="nm">Mais na loja</div></button>` : ''}</div>`, {
+        <button class="item item-more" data-go="shop"><span>+</span><div class="nm">Mais skins na loja</div></button></div>`, {
       equip: async (b) => {
         const r = await api('/api/equip', { method: 'POST', body: { slot, itemId: b.dataset.id } });
         this.me.equipped = r.equipped;
@@ -585,7 +593,7 @@ export class App {
     try { info = await api('/api/payments/packs'); } catch { /* usa a lista local */ }
     const brl = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     this.modal(`<h2>Comprar diamantes</h2>
-      <p class="muted">Diamantes compram itens lendários na loja. São só visuais: não dão vantagem no jogo.</p>
+      <p class="muted">Diamantes compram as skins lendárias da loja. São só visuais: não dão vantagem no jogo.</p>
       <div class="gem-packs">${info.packs.map((p) => `<button class="gem-pack" data-pack="${p.id}">
         <div class="gp-ico">${GEM.replace('cur-ico', 'cur-ico big')}</div><b>${num(p.gems)}</b>${p.bonus ? `<span class="gp-bonus">+${p.bonus}% bônus</span>` : '<span class="gp-bonus">&nbsp;</span>'}
         <span class="gp-price">${brl(p.price)}</span></button>`).join('')}</div>
@@ -604,40 +612,24 @@ export class App {
     });
   }
 
-  async renderShop(slot = 'victory') {
-    if (!SLOTS[slot] || slot === 'skin') slot = 'victory';
+  async renderShop() {
     const owned = new Set(this.me.inventory);
-    const list = ITEMS.filter((i) => i.slot === slot && i.price !== 0);
-    this.mount(`${this.topbar('Loja')}
-      <div class="balances"><span class="balance">${COIN}<b>${num(this.me.user.coins)}</b></span><span class="balance">${GEM}<b>${num(this.me.user.gems)}</b></span>
-        <button class="btn small primary" data-act="buy-gems">Comprar diamantes</button></div>
-      <div class="tabs">${Object.entries(SLOTS).filter(([k]) => k !== 'skin').map(([k, n]) => `<button class="tab ${k === slot ? 'on' : ''}" data-go="shop/${k}">${n}</button>`).join('')}</div>
+    const list = ITEMS.filter((i) => i.slot === 'skin' && i.price);
+    this.mount(`${this.topbar('Loja', 'home', this.balancesHtml())}
       <div class="items">${list.map((it) => `<div class="item r-${it.rarity}">${this.itemPreview(it)}
         <div class="nm">${esc(it.name)}</div><div class="rar rar-${it.rarity}">${it.rarity}</div>
-        ${owned.has(it.id) ? `<button class="btn small" data-go="vault/${slot}">Você possui</button>`
-          : it.price == null ? '<div class="muted" style="font-size:12px">Exclusivo: recompensa de temporada</div>'
-          : `<div class="price">${priceTag(it)}</div><button class="btn small gold" data-act="buy" data-id="${it.id}" ${(it.cur === 'gem' ? this.me.user.gems : this.me.user.coins) < it.price ? 'disabled' : ''}>Comprar</button>`}
-        ${['victory', 'jump', 'trail', 'pet', 'skin'].includes(slot) ? `<button class="btn small ghost" data-act="preview" data-id="${it.id}">Prévia</button>` : ''}</div>`).join('')}</div>`, {
+        ${owned.has(it.id) ? '<button class="btn small" data-go="vault">Você possui</button>'
+          : `<div class="price">${priceTag(it)}</div><button class="btn small gold" data-act="buy" data-id="${it.id}" ${(it.cur === 'gem' ? this.me.user.gems : this.me.user.coins) < it.price ? 'disabled' : ''}>Comprar</button>`}</div>`).join('')}</div>`, {
       'buy-gems': () => this.gemStore(),
       buy: async (b) => {
         const it = ITEM_MAP[b.dataset.id];
         b.disabled = true;
         const r = await api('/api/shop/buy', { method: 'POST', body: { itemId: it.id } });
         sfx.buy();
-        this.toast(`Você comprou <b>${esc(it.name)}</b>!`, 'gold', [['Equipar agora', async () => { await api('/api/equip', { method: 'POST', body: { slot: it.slot, itemId: it.id } }); await this.refreshMe(); }]]);
+        this.toast(`Você comprou <b>${esc(it.name)}</b>!`, 'gold', [['Usar agora', async () => { await api('/api/equip', { method: 'POST', body: { slot: it.slot, itemId: it.id } }); await this.refreshMe(); }]]);
         for (const a of r.achievements || []) this.toast(`🏅 Conquista: <b>${esc(a.name)}</b> (+${a.reward})`, 'gold');
         await this.refreshMe();
-        this.renderShop(slot);
-      },
-      preview: (b) => {
-        const it = ITEM_MAP[b.dataset.id];
-        let view;
-        const close = this.modal(`<h2>${esc(it.name)}</h2><canvas class="hero-preview" id="pv"></canvas><div class="row center" style="margin-top:12px"><button class="btn" data-close>Fechar</button></div>`, (m) => {
-          view = new DemoView($('#pv', m), { ...this.me.equipped, [it.slot]: it.id }, { theme: 3, label: it.name });
-        });
-        const obs = new MutationObserver(() => { if ($('#modal').hidden) { view?.stop(); obs.disconnect(); } });
-        obs.observe($('#modal'), { attributes: true });
-        return close;
+        this.renderShop();
       },
     });
   }

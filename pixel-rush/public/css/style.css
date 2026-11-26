@@ -424,3 +424,7 @@ body.is-home { background: #000; overflow: hidden; }
 .fx-prev { flex-direction: column; gap: 6px; }
 .swatches { display: flex; gap: 4px; justify-content: center; font-size: 11px; }
 .swatches i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; box-shadow: 0 0 0 1px #fff4; }
+
+.pagebar-right { margin-left: auto; display: flex; align-items: center; gap: 14px; font-size: 18px; }
+.pagebar-right .balance b { font-family: var(--mono); }
+@media (max-width: 520px) { .pagebar { flex-wrap: wrap; } .pagebar-right { font-size: 15px; gap: 8px; } }

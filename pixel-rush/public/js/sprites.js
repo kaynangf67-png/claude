@@ -69,7 +69,7 @@ const LEGS = {
   slide: ['...olo.olo..', '...olo.olo..', '...olo.olo..', '..obbo.obbo.'],
 };
 const fit = (r) => (r + '............').slice(0, 12);
-const bodyOf = (skinId) => (skinId === 'skin_female' ? UPPER.female : UPPER.male);
+const bodyOf = (skinId) => (ITEM_MAP[skinId]?.body === 'female' ? UPPER.female : UPPER.male);
 const blinkOf = (rows) => rows.map((r, i) => (i === 3 ? r.replace('k', 'o') : r));
 
 const heroCache = new Map();

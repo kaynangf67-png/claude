@@ -4,12 +4,22 @@ export const SLOTS = {
   pet: 'Mascotes', emote: 'Emotes', frame: 'Molduras',
 };
 
-const skin = (id, name, price, rarity, pal) => ({ id, slot: 'skin', name, price, rarity, pal });
+const skin = (id, name, price, rarity, pal, extra = {}) => ({ id, slot: 'skin', name, price, rarity, pal, body: 'male', ...extra });
 
 export const ITEMS = [
   // --- skins: bonequinho 2D (menino e menina)
   skin('skin_male', 'Menino', 0, 'comum', { o: '#1a1030', h: '#3b2416', s: '#f1c27d', S: '#d9a066', k: '#1a1030', c: '#3d8bff', C: '#2759c4', d: '#2b2d42', D: '#17182b', l: '#2b2d42', b: '#5a3a1a' }),
-  skin('skin_female', 'Menina', 0, 'comum', { o: '#1a1030', h: '#7a3b1d', s: '#f6cda8', S: '#e0a982', k: '#1a1030', c: '#ff5d8f', C: '#c23a6a', d: '#ff5d8f', D: '#c23a6a', l: '#f6cda8', b: '#c23a6a', r: '#ffd23f' }),
+  skin('skin_female', 'Menina', 0, 'comum', { o: '#1a1030', h: '#7a3b1d', s: '#f6cda8', S: '#e0a982', k: '#1a1030', c: '#ff5d8f', C: '#c23a6a', d: '#ff5d8f', D: '#c23a6a', l: '#f6cda8', b: '#c23a6a', r: '#ffd23f' }, { body: 'female' }),
+  // à venda com moedas
+  skin('skin_m_ninja', 'Menino Ninja', 300, 'raro', { o: '#05050a', h: '#111118', s: '#e8b98a', S: '#c99a6e', k: '#e63946', c: '#2b2d42', C: '#17182b', d: '#17182b', D: '#05050a', l: '#17182b', b: '#e63946' }),
+  skin('skin_f_ninja', 'Menina Ninja', 300, 'raro', { o: '#05050a', h: '#111118', s: '#f3cfae', S: '#d8ae8a', k: '#e63946', c: '#2b2d42', C: '#17182b', d: '#2b2d42', D: '#17182b', l: '#17182b', b: '#e63946', r: '#e63946' }, { body: 'female' }),
+  skin('skin_m_brasil', 'Menino Seleção', 400, 'raro', { o: '#0b2a12', h: '#2a1a10', s: '#c68e5e', S: '#a5714a', k: '#1a1030', c: '#ffdf00', C: '#e0b800', d: '#0047ab', D: '#00307a', l: '#c68e5e', b: '#ffffff' }),
+  skin('skin_f_brasil', 'Menina Seleção', 400, 'raro', { o: '#0b2a12', h: '#1c120b', s: '#c68e5e', S: '#a5714a', k: '#1a1030', c: '#ffdf00', C: '#e0b800', d: '#009c3b', D: '#007a2e', l: '#c68e5e', b: '#ffffff', r: '#0047ab' }, { body: 'female' }),
+  skin('skin_m_rock', 'Menino Roqueiro', 700, 'épico', { o: '#140a1f', h: '#7a2ad6', s: '#f1c27d', S: '#d9a066', k: '#140a1f', c: '#1a1a1a', C: '#000000', d: '#3a3f55', D: '#232633', l: '#3a3f55', b: '#b30000' }),
+  skin('skin_f_rock', 'Menina Roqueira', 700, 'épico', { o: '#140a1f', h: '#7a2ad6', s: '#f6cda8', S: '#e0a982', k: '#140a1f', c: '#1a1a1a', C: '#000000', d: '#5a189a', D: '#3c096c', l: '#2b2d42', b: '#b30000', r: '#ff3dff' }, { body: 'female' }),
+  // lendárias: diamantes
+  skin('skin_m_gold', 'Menino de Ouro', 150, 'lendário', { o: '#3a2600', h: '#ffd23f', s: '#f1c27d', S: '#d9a066', k: '#3a2600', c: '#ffd23f', C: '#c89200', d: '#c89200', D: '#8a6400', l: '#c89200', b: '#fff4b8' }, { cur: 'gem' }),
+  skin('skin_f_diamond', 'Menina Diamante', 150, 'lendário', { o: '#0d2b45', h: '#bdf3ff', s: '#f6cda8', S: '#e0a982', k: '#0d2b45', c: '#3ee0ff', C: '#1aa6c9', d: '#bdf3ff', D: '#7cc8e8', l: '#f6cda8', b: '#3ee0ff', r: '#ffffff' }, { body: 'female', cur: 'gem' }),
 
   // --- animações de vitória
   { id: 'victory_basic', slot: 'victory', name: 'Pulinho', price: 0, rarity: 'comum', fx: 'hop' },
