@@ -395,8 +395,6 @@ export class App {
     }[type];
     const ends = r.endsAt ? ` · termina em <span class="countdown" data-countdown="${r.endsAt}">${countdown(r.endsAt)}</span>` : '';
     body.innerHTML = `<p class="muted">${head}${ends}</p>
-      ${r.entries.length ? this.podium(r.entries.slice(0, 3), r.unit) : ''}
-      <div style="height:14px"></div>
       ${r.entries.length ? this.rankList(r.entries, r.unit, r.me) : '<div class="empty-state card">Ninguém pontuou aqui ainda. Que tal ser o primeiro? 🚀</div>'}
       ${r.me && !r.entries.some((e) => e.username === r.me.username) ? `<div class="me-sticky">${this.rankRow(r.me, r.unit, true)}</div>` : ''}`;
   }
@@ -418,7 +416,7 @@ export class App {
     const bySeason = {};
     for (const c of r.champions) (bySeason[c.period] ||= []).push(c);
     body.innerHTML = `<div class="grid g2">
-      <section class="card"><h3>👑 Lendas atuais (TOP 3 histórico)</h3>${this.podium(r.legends, 'pts')}</section>
+      <section class="card"><h3>👑 Lendas atuais (TOP 3 histórico)</h3>${this.rankList(r.legends, 'pts', null)}</section>
       <section class="card"><h3>🏆 Campeões das temporadas e eventos</h3>${Object.keys(bySeason).length ? Object.entries(bySeason).map(([per, list]) => `
         <div style="margin-bottom:10px"><b>${esc(per.startsWith('event-') ? 'Evento ' + per.slice(6) : 'Temporada ' + per)}</b>
         ${list.map((c) => `<div class="room-player" data-go="profile/${encodeURIComponent(c.username)}" style="cursor:pointer">${c.medal.icon} ${avatar(c.avatar, c.frame, 'sm', c.skin)} <b>${esc(c.username)}</b> ${flag(c.country)} <small class="muted">${esc(c.medal.name)}</small></div>`).join('')}</div>`).join('')

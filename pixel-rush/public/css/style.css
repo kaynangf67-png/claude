@@ -350,3 +350,7 @@ body.is-home { background: #000; overflow: hidden; }
 .play-right { position: fixed; top: 72%; right: 48px; transform: translateY(-50%); z-index: 2; font-size: 48px !important; }
 .play-right:hover::before { content: '▶ '; }
 @media (max-width: 560px) { .play-right { right: 16px; font-size: 34px !important; } }
+
+/* TOP 3 do ranking: nome dourado */
+.rank-row.r1 .who b, .rank-row.r2 .who b, .rank-row.r3 .who b,
+.rank-row.r1 .pos, .rank-row.r2 .pos, .rank-row.r3 .pos { color: #ffd23f !important; }
