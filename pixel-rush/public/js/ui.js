@@ -218,8 +218,8 @@ export class App {
     const items = [['endless', 'Infinito'], ['event', 'Evento'], ['ranking', 'Ranking'], ['shop', 'Loja'], ['vault', 'Cofre'], ['profile', 'Perfil'], ['settings', 'Configurações']];
     this.mount(`<canvas class="home-title" id="logo" aria-label="Estresse"></canvas>
       <canvas class="home-dancer" id="dancer" aria-hidden="true"></canvas>
+      <button class="menu-link play-right" data-act="play">Jogar</button>
       <nav class="corner-menu" aria-label="Menu principal">
-        <button class="menu-link" data-act="play">Jogar</button>
         ${items.map(([k, n]) => `<button class="menu-link" data-go="${k}">${n}</button>`).join('')}
       </nav>
       <div class="corner-user">${esc(this.me.user.username)}</div>`, {
