@@ -58,7 +58,7 @@ As tabelas são criadas automaticamente na primeira execução. Os testes també
 
 **Personagem**: bonequinho 2D em pixel art, com duas skins gratuitas (Menino e Menina), escolhidas no cadastro e trocadas no Cofre.
 
-**Tema preto e branco**: o jogo e a interface usam apenas preto (#000) e branco (#fff). A pixel art é convertida em 1-bit com pontilhado (dithering) a cada quadro (`public/js/mono.js`), e emojis coloridos e bandeiras são trocados por texto (código do país).
+**Visual**: fundo todo preto, sem detalhes. Chão, obstáculos e HUD em preto e branco (pontilhado 1-bit, `public/js/mono.js`). Só os bonequinhos (skins) e os avatares mantêm as cores.
 
 **Interface**: a tela inicial mostra só os nomes no cantinho (Jogar, Evento, Ranking, Loja, Cofre, Perfil, Configurações); cada nome abre uma página própria.
 

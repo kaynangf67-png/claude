@@ -303,7 +303,7 @@ body { background: #000; color: #fff; }
 #bg-fx { display: none; }
 /* pixel art, avatares, emojis e bandeiras: cada pixel vira preto ou branco */
 /* interface: limiar 1-bit (o texto vira pixel nítido, sem tons de cinza) */
-#ui > *:not(canvas), #toasts, .modal .panel, .game-overlay .panel { filter: url(#pb); }
+
 .flag { font: 700 11px var(--mono); border: 1px solid #fff; padding: 0 3px; vertical-align: middle; }
 .card, .level, .item, .stat, .ach, .rank-row, .room-player, .medal-chip, .modal .panel, .game-overlay .panel, .toast,
 .tab, .link-back, input, select, .corner-menu, .banner, .stat { background: #000 !important; border: 1px solid #fff !important; color: #fff; box-shadow: none !important; backdrop-filter: none !important; }
@@ -333,5 +333,5 @@ th, td { border-bottom-color: #fff; color: #fff; }
 a { color: #fff; }
 .loading::after { border-color: #fff; border-top-color: #000; }
 input::placeholder { color: #fff; opacity: .6; }
-.item .prev, .item canvas { background: #fff !important; border: 1px solid #fff; color: #000; }
+.item .prev, .item canvas { background: #000 !important; border: 1px solid #fff; color: #fff; }
 .btn[disabled] { opacity: 1; filter: none; border-style: dashed; box-shadow: none; }

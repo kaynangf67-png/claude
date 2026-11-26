@@ -592,7 +592,7 @@ export class App {
     if (it.slot === 'skin') {
       const c = document.createElement('canvas'); c.width = 12; c.height = 14;
       c.getContext('2d').drawImage(heroFrames(it.id).r.idle, 0, 0);
-      return `<div class="prev"><img src="${ditherCanvas(c).toDataURL()}" style="height:70px;image-rendering:pixelated" alt=""></div>`;
+      return `<div class="prev"><img src="${c.toDataURL()}" style="height:70px;image-rendering:pixelated" alt=""></div>`;
     }
     if (it.slot === 'pet') {
       const s = petSprite(it.sprite);

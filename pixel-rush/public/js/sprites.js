@@ -119,12 +119,10 @@ export function avatarURL(id, size = 64) {
   const cv = canvas(size, size);
   const g = cv.getContext('2d');
   g.imageSmoothingEnabled = false;
-  const grd = g.createLinearGradient(0, 0, 0, size);
-  grd.addColorStop(0, shade(bg, 0.3)); grd.addColorStop(1, shade(bg, -0.35));
-  g.fillStyle = grd; g.fillRect(0, 0, size, size);
+  g.fillStyle = '#000'; g.fillRect(0, 0, size, size); // fundo preto
   const s = Math.floor(size / 12);
   g.drawImage(spr, Math.round((size - 12 * s) / 2) + s, size - 10 * s, 12 * s, 10 * s);
-  const url = ditherCanvas(cv).toDataURL();
+  const url = cv.toDataURL();
   avCache.set(key, url);
   return url;
 }

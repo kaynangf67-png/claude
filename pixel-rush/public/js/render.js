@@ -15,6 +15,8 @@ export class Renderer {
     this.cv.width = VIEW_W; this.cv.height = VIEW_H;
     this.g = canvas.getContext('2d');
     this.g.imageSmoothingEnabled = false;
+    this.ov = document.createElement('canvas'); this.ov.width = VIEW_W; this.ov.height = VIEW_H;
+    this.og = this.ov.getContext('2d');
     this.frame = 0;
     this.shakeOn = true;
     this.reset();
@@ -154,7 +156,7 @@ export class Renderer {
     }
     const theme = this.themeFor(level, p.x);
     const ts = tileSet(theme);
-    this.drawBackground(g, theme, ox, oy);
+    g.fillStyle = '#000'; g.fillRect(0, 0, VIEW_W, VIEW_H); // fundo todo preto, sem detalhes
 
     // tiles
     const tx0 = Math.floor(ox / TILE) - 1, tx1 = Math.floor((ox + VIEW_W) / TILE) + 1;
@@ -262,49 +264,52 @@ export class Renderer {
       }
     }
 
-    // fantasmas (recordes) e outros jogadores
+    // cosméticos atrás do personagem; depois o mundo inteiro vira preto e branco
+    this.drawCosmeticsBehind(g, p, ox, oy);
+    this.drawPet(g, p, ox, oy);
+    ditherCtx(g, VIEW_W, VIEW_H, 'world');
+
+    // personagens (skins) mantêm as cores
+    for (const gh of ghosts) {
+      if (!gh.sim || gh.sim.s.p.dead > 0) continue;
+      this.drawHero(g, gh.sim.s.p, ox, oy, gh.skin || 'skin_male', 0.4, gh.anim || (gh.anim = { sx: 1, sy: 1, run: 0, blink: 0 }), false);
+    }
+    for (const o of others) {
+      if (o.a === 'dead') continue;
+      const fake = { x: o.x, y: o.y, vx: o.vx || 0, vy: 0, onGround: o.a !== 'air', face: o.f, slide: 0, dead: 0 };
+      this.drawHero(g, fake, ox, oy, o.skin || 'skin_male', 0.6, o.anim || (o.anim = { sx: 1, sy: 1, run: 0, blink: 0 }), false);
+    }
+    if (p.dead === 0) {
+      const extra = this.victory ? this.victoryTransform() : null;
+      this.drawHero(g, p, ox, oy, this.cos.skin || 'skin_male', 1, this.anim, true, extra);
+    }
+
+    // camada de cima (nomes, partículas, HUD) também em preto e branco
+    const o = this.og;
+    o.clearRect(0, 0, VIEW_W, VIEW_H);
     for (const gh of ghosts) {
       if (!gh.sim || gh.sim.s.p.dead > 0) continue;
       const gp = gh.sim.s.p;
-      this.drawHero(g, gp, ox, oy, gh.skin || 'skin_male', 0.4, gh.anim || (gh.anim = { sx: 1, sy: 1, run: 0, blink: 0 }), false);
-      drawTextCentered(g, gh.label, gp.x + 5 - ox, gp.y - 10 - oy, gh.color || '#cfe', 1, '#000');
+      drawTextCentered(o, gh.label, gp.x + 5 - ox, gp.y - 14 - oy, '#fff', 1, '#000');
     }
-    for (const o of others) {
-      const fake = { x: o.x, y: o.y, vx: o.vx || 0, vy: 0, onGround: o.a !== 'air', face: o.f, slide: 0, dead: o.a === 'dead' ? 1 : 0 };
-      if (fake.dead) continue;
-      this.drawHero(g, fake, ox, oy, o.skin || 'skin_male', 0.6, o.anim || (o.anim = { sx: 1, sy: 1, run: 0, blink: 0 }), false);
-      drawTextCentered(g, o.username, o.x + 5 - ox, o.y - 10 - oy, '#ffe680', 1, '#000');
-    }
-
-    // jogador
-    this.drawCosmeticsBehind(g, p, ox, oy);
-    if (p.dead === 0) {
-      let extra = null;
-      if (this.victory) extra = this.victoryTransform();
-      this.drawHero(g, p, ox, oy, this.cos.skin || 'skin_male', 1, this.anim, true, extra);
-    }
-    this.drawPet(g, p, ox, oy);
-    this.drawParts(g, ox, oy);
-    if (this.victory) this.drawVictory(g, p, ox, oy);
-
-    for (const em of emotes) {
-      drawEmote(g, em.text, em.x - ox, em.y - oy);
-    }
-
+    for (const q of others) if (q.a !== 'dead') drawTextCentered(o, q.username, q.x + 5 - ox, q.y - 14 - oy, '#fff', 1, '#000');
+    this.drawParts(o, ox, oy);
+    if (this.victory) this.drawVictory(o, p, ox, oy);
+    for (const em of emotes) drawEmote(o, em.text, em.x - ox, em.y - oy);
     if (level.endless) {
       const wx = level.wallX(s.t) - ox;
       if (wx > -40) {
         for (let y = 0; y < VIEW_H; y += 2) {
           const wob = Math.round(Math.sin((y + this.frame * 3) * 0.15) * 3);
-          g.fillStyle = 'rgba(255,40,120,0.55)'; g.fillRect(0, y, Math.max(0, wx + wob), 2);
-          g.fillStyle = '#ff3d9a'; g.fillRect(Math.max(0, wx + wob) - 2, y, 2, 2);
+          o.fillStyle = 'rgba(255,255,255,0.6)'; o.fillRect(0, y, Math.max(0, wx + wob), 1);
+          o.fillStyle = '#fff'; o.fillRect(Math.max(0, wx + wob) - 2, y, 2, 2);
         }
       }
     }
-
-    if (this.flash > 0) { g.fillStyle = `rgba(255,255,255,${this.flash / 12})`; g.fillRect(0, 0, VIEW_W, VIEW_H); this.flash--; }
-    if (hud) hud(g);
-    ditherCtx(g, VIEW_W, VIEW_H);
+    if (this.flash > 0) { o.fillStyle = `rgba(255,255,255,${Math.min(0.9, this.flash / 6)})`; o.fillRect(0, 0, VIEW_W, VIEW_H); this.flash--; }
+    if (hud) hud(o);
+    ditherCtx(o, VIEW_W, VIEW_H);
+    g.drawImage(this.ov, 0, 0);
   }
 
   drawBackground(g, theme, ox, oy) {
