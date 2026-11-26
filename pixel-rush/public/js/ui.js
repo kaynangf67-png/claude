@@ -3,7 +3,7 @@ import { api, auth, Live } from './api.js';
 import { GameSession } from './game.js';
 import { DemoView, DanceView } from './demo.js';
 import { avatarURL, skinAvatarURL, heroFrames, petSprite } from './sprites.js';
-import { logoCanvas, trophyURL } from './art.js';
+import { logoCanvas, trophyURL, AnimatedTitle } from './art.js';
 import { ditherCanvas, noEmoji } from './mono.js';
 import { initAudio, setVolumes, sfx } from './audio.js';
 import { fmtTime } from '/shared/constants.js';
@@ -75,11 +75,13 @@ export class App {
   }
 
   async init() {
+    if (/access_token=|error_description=/.test(location.hash + location.search)) await this.finishSocialLogin();
     if (auth.token) {
       try { await this.refreshMe(); }
       catch { auth.token = null; }
     }
     this.route();
+    if (this.pendingAuthError) { const el = document.getElementById('auth-err'); if (el) el.textContent = this.pendingAuthError; this.pendingAuthError = null; }
   }
 
   async refreshMe() {
@@ -158,59 +160,91 @@ export class App {
 
   // ------------------------------------------------------------ autenticação
   renderAuth() {
-    let mode = 'register';
-    let av = AVATARS[Math.floor(Math.random() * AVATARS.length)];
-    let skin = 'skin_male';
+    const G = '<svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 8 3l5.7-5.7C34 6.1 29.3 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.6-.4-3.9z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 8 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.6-.4-3.9z"/></svg>';
+    const F = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#1877F2" d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.09 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.02 1.79-4.69 4.53-4.69 1.31 0 2.69.24 2.69.24v2.97h-1.52c-1.49 0-1.95.93-1.95 1.87v2.25h3.33l-.53 3.49h-2.8V24C19.61 23.09 24 18.1 24 12.07z"/><path fill="#fff" d="M16.67 15.56l.53-3.49h-3.33V9.82c0-.94.46-1.87 1.95-1.87h1.52V4.98s-1.38-.24-2.69-.24c-2.74 0-4.53 1.67-4.53 4.69v2.66H7.08v3.49h3.05V24a12.1 12.1 0 003.75 0v-8.44h2.79z"/></svg>';
+    const U = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4.2" fill="#fff"/><path fill="#fff" d="M3.5 21c.6-4.4 4.1-7.2 8.5-7.2s7.9 2.8 8.5 7.2z"/></svg>';
+    this.ui.innerHTML = `<div class="login">
+        <canvas class="login-title" id="logo-anim" aria-label="Estresse"></canvas>
+        <div class="login-bottom">
+          <div class="login-buttons">
+            <button class="login-btn google" data-login="google">${G}<span>Google</span></button>
+            <button class="login-btn facebook" data-login="facebook">${F}<span>Facebook</span></button>
+            <button class="login-btn guest" data-login="guest">${U}<span>Convidado</span></button>
+          </div>
+          <p class="err" id="auth-err"></p>
+          <button class="login-link" data-login="password">Já tenho conta com usuário e senha</button>
+        </div>
+      </div>`;
+    this.views.push(new AnimatedTitle($('#logo-anim')));
     const guess = (navigator.language || 'pt-BR').split('-')[1] || 'BR';
-    const draw = () => {
-      this.ui.innerHTML = `<div class="auth">
-        <canvas class="logo" id="logo"></canvas>
-        <p class="tagline">Plataforma 2D de precisão. Simples de aprender, difícil de dominar. Dispute o topo do ranking mundial.</p>
-        <div class="card">
-          <div class="tabs"><button class="tab ${mode === 'register' ? 'on' : ''}" data-m="register">Criar conta</button><button class="tab ${mode === 'login' ? 'on' : ''}" data-m="login">Entrar</button></div>
-          <form id="auth-form" autocomplete="on">
-            <label for="f-user">Nome de usuário</label>
-            <input id="f-user" name="username" required minlength="3" maxlength="16" pattern="[A-Za-z0-9_]{3,16}" autocomplete="username" placeholder="ex.: Rafa_Speed">
-            <label for="f-pass">Senha</label>
-            <input id="f-pass" name="password" type="password" required minlength="6" maxlength="72" autocomplete="${mode === 'login' ? 'current-password' : 'new-password'}">
-            ${mode === 'register' ? `
-            <label for="f-country">País</label>
-            <select id="f-country" name="country">${COUNTRIES.map((c) => `<option value="${c.code}" ${c.code === (COUNTRY_MAP[guess] ? guess : 'BR') ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
-            <div id="state-wrap"><label for="f-state">Estado</label>${this.stateSelect('f-state')}</div>
-            <label>Personagem</label>
-            <div class="row" id="pick-skin"><button type="button" class="tab ${skin === 'skin_male' ? 'on' : ''}" data-skin="skin_male">Menino</button><button type="button" class="tab ${skin === 'skin_female' ? 'on' : ''}" data-skin="skin_female">Menina</button></div>
-            <label>Avatar</label>
-            <div class="avatars">${AVATARS.map((a) => `<button type="button" class="${a === av ? 'on' : ''}" data-av="${a}"><img src="${avatarURL(a, 64)}" alt="avatar ${a}"></button>`).join('')}</div>` : ''}
-            <p class="err" id="auth-err"></p>
-            <button class="btn primary block" type="submit">${mode === 'register' ? 'Criar conta e jogar' : 'Entrar'}</button>
-          </form>
-        </div></div>`;
-      const lc = logoCanvas(); const logo = $('#logo'); logo.width = lc.width; logo.height = lc.height; logo.getContext('2d').drawImage(lc, 0, 0);
-      logo.style.width = Math.min(560, lc.width * 2) + 'px';
-      this.ui.querySelectorAll('[data-m]').forEach((b) => b.onclick = () => { mode = b.dataset.m; draw(); });
-      const fc = $('#f-country');
-      if (fc) { const sync = () => { $('#state-wrap').hidden = fc.value !== 'BR'; }; fc.onchange = sync; sync(); }
-      this.ui.querySelectorAll('[data-skin]').forEach((b) => b.onclick = () => { skin = b.dataset.skin; this.ui.querySelectorAll('[data-skin]').forEach((x) => x.classList.toggle('on', x === b)); });
-      this.ui.querySelectorAll('[data-av]').forEach((b) => b.onclick = () => { av = b.dataset.av; this.ui.querySelectorAll('[data-av]').forEach((x) => x.classList.toggle('on', x === b)); });
-      $('#auth-form').onsubmit = async (e) => {
-        e.preventDefault();
-        initAudio();
-        const fd = new FormData(e.target);
-        const body = { username: fd.get('username').trim(), password: fd.get('password') };
-        if (mode === 'register') { body.country = fd.get('country'); body.avatar = av; body.skin = skin; body.state = body.country === 'BR' ? $('#f-state').value : ''; }
-        const btn = e.target.querySelector('button[type=submit]');
-        btn.disabled = true;
+    const country = COUNTRY_MAP[guess] ? guess : 'BR';
+    this.ui.onclick = async (e) => {
+      const b = e.target.closest('[data-login]');
+      if (!b) return;
+      initAudio(); sfx.click();
+      const kind = b.dataset.login;
+      $('#auth-err').textContent = '';
+      if (kind === 'password') return this.passwordLogin();
+      if (kind === 'guest') {
+        b.disabled = true;
         try {
-          const r = await api(`/api/auth/${mode}`, { method: 'POST', body });
+          const r = await api('/api/auth/guest', { method: 'POST', body: { country } });
           auth.token = r.token;
           await this.refreshMe();
           sfx.checkpoint();
           this.go('home');
         } catch (err) { $('#auth-err').textContent = err.message; sfx.error(); }
-        finally { btn.disabled = false; }
-      };
+        finally { b.disabled = false; }
+        return;
+      }
+      // Google / Facebook: confere se o provedor está ativo e redireciona
+      try {
+        const pv = await api('/api/auth/providers');
+        if (!pv[kind]) {
+          $('#auth-err').textContent = `O login com ${kind === 'google' ? 'Google' : 'Facebook'} ainda não foi ativado. Entre como Convidado por enquanto.`;
+          sfx.error();
+          return;
+        }
+        localStorage.setItem('estresse.country', country);
+        location.href = `/api/auth/oauth/${kind}`;
+      } catch (err) { $('#auth-err').textContent = err.message; }
     };
-    draw();
+  }
+
+  // volta do Google/Facebook: o Supabase devolve o token no fragmento da URL
+  async finishSocialLogin() {
+    const h = new URLSearchParams(location.hash.slice(1));
+    const token = h.get('access_token');
+    const errDesc = h.get('error_description') || new URLSearchParams(location.search).get('error_description');
+    history.replaceState(null, '', '/');
+    if (errDesc) { this.pendingAuthError = errDesc; return; }
+    if (!token) return;
+    try {
+      const r = await api('/api/auth/oauth', { method: 'POST', body: { access_token: token, country: localStorage.getItem('estresse.country') || 'BR' } });
+      auth.token = r.token;
+    } catch (e) { this.pendingAuthError = e.message; }
+  }
+
+  passwordLogin() {
+    this.modal(`<h2>Entrar</h2>
+      <form id="pw-form" autocomplete="on">
+        <label for="f-user">Nome de usuário</label><input id="f-user" name="username" required autocomplete="username">
+        <label for="f-pass">Senha</label><input id="f-pass" name="password" type="password" required autocomplete="current-password">
+        <p class="err" id="pw-err"></p>
+        <div class="row"><button class="btn primary" type="submit">Entrar</button><button class="btn ghost" type="button" data-close>Cancelar</button></div>
+      </form>`, (m, close) => {
+      $('#pw-form', m).onsubmit = async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        try {
+          const r = await api('/api/auth/login', { method: 'POST', body: { username: fd.get('username').trim(), password: fd.get('password') } });
+          auth.token = r.token;
+          await this.refreshMe();
+          close();
+          this.go('home');
+        } catch (err) { $('#pw-err', m).textContent = err.message; sfx.error(); }
+      };
+    });
   }
 
   // ------------------------------------------------------------ início

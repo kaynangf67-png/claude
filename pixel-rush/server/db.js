@@ -147,6 +147,8 @@ async function openSqlite(file) {
   }
   for (const s of SCHEMA) raw.exec(s);
   try { raw.exec("ALTER TABLE users ADD COLUMN state TEXT NOT NULL DEFAULT ''"); } catch { /* coluna já existe */ }
+  try { raw.exec('ALTER TABLE users ADD COLUMN auth_sub TEXT'); } catch { /* coluna já existe */ }
+  raw.exec('CREATE UNIQUE INDEX IF NOT EXISTS users_auth_sub ON users (auth_sub)');
   raw.exec('CREATE INDEX IF NOT EXISTS users_state ON users (state, total_score DESC)');
   return db;
 }
@@ -187,6 +189,8 @@ async function openPg(url, { serverless = false } = {}) {
   // uma única ida ao banco para garantir o schema (rápido na inicialização serverless)
   await pool.query([...SCHEMA,
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS state TEXT NOT NULL DEFAULT ''",
+    'ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_sub TEXT',
+    'CREATE UNIQUE INDEX IF NOT EXISTS users_auth_sub ON users (auth_sub)',
     'CREATE INDEX IF NOT EXISTS users_state ON users (state, total_score DESC)'].join(';\n'));
   return db;
 }

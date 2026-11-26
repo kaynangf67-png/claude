@@ -48,3 +48,37 @@ export function trophyURL(kind) {
   cache[kind] = ditherCanvas(c).toDataURL();
   return cache[kind];
 }
+
+// Título "ESTRESSE" animado: letras em onda e, de tempos em tempos, uma "tremedeira" de estresse.
+export class AnimatedTitle {
+  constructor(canvas, text = 'ESTRESSE') {
+    this.c = canvas; this.text = text;
+    this.sc = 4;
+    this.c.width = textWidth(text, this.sc) + 16;
+    this.c.height = 7 * this.sc + 24;
+    this.g = canvas.getContext('2d');
+    this.t = 0; this.alive = true;
+    const loop = () => {
+      if (!this.alive) return;
+      if (!canvas.isConnected) { this.stop(); return; }
+      this.raf = requestAnimationFrame(loop);
+      this.draw();
+    };
+    this.raf = requestAnimationFrame(loop);
+  }
+  draw() {
+    const { g, sc, text } = this;
+    this.t++;
+    g.clearRect(0, 0, this.c.width, this.c.height);
+    const shaking = this.t % 240 > 200; // ~0,7 s de tremedeira a cada 4 s
+    for (let i = 0; i < text.length; i++) {
+      let dy = Math.round(Math.sin(this.t * 0.07 + i * 0.7) * 4);
+      let dx = 0;
+      if (shaking) { dx = Math.round((Math.random() - 0.5) * 4); dy += Math.round((Math.random() - 0.5) * 4); }
+      const x = 8 + i * 6 * sc + dx, y = 12 + dy;
+      drawText(g, text[i], x + sc, y + sc, '#262626', sc, null); // sombra
+      drawText(g, text[i], x, y, '#fff', sc, null);
+    }
+  }
+  stop() { this.alive = false; cancelAnimationFrame(this.raf); }
+}

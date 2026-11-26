@@ -36,7 +36,11 @@ before(async () => {
     await c.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
     await c.end();
   }
-  app = await createServer({ dbOptions: { url: process.env.TEST_DATABASE_URL, file: ':memory:' }, rateLimits: false, logger: { error() {} } });
+  app = await createServer({ dbOptions: { url: process.env.TEST_DATABASE_URL, file: ':memory:' }, rateLimits: false, logger: { error() {} },
+    oauth: {
+      verify: async (t) => { if (t !== 'token-bom') { const { GameError } = await import('../server/game.js'); throw new GameError(401, 'Login expirado'); } return { sub: 'supabase:abc', name: 'Mária Silva', provider: 'google' }; },
+      providers: async () => ({ google: true, facebook: false }),
+    } });
   await new Promise((r) => app.server.listen(0, r));
   base = `http://127.0.0.1:${app.server.address().port}`;
   sol['1-1'] = solve(getStoryLevel('1-1'), { width: 300 });
@@ -174,6 +178,29 @@ test('ranking regional por estado', async () => {
   await api('/api/me', { method: 'PATCH', token: t, body: { state: 'RJ' } });
   k = await api('/api/rankings?type=state&state=RJ', { token: t });
   assert.equal(k.data.entries[0].username, 'Gil');
+});
+
+test('login como convidado e com Google (Supabase Auth)', async () => {
+  const g = await api('/api/auth/guest', { method: 'POST', body: { country: 'BR' } });
+  assert.equal(g.status, 200);
+  assert.match(g.data.username, /^Convidado_\d+$/);
+  const me = await api('/api/me', { token: g.data.token });
+  assert.equal(me.data.user.country, 'BR');
+  const pv = await api('/api/auth/providers');
+  assert.deepEqual(pv.data, { google: true, facebook: false, guest: true });
+  const bad = await api('/api/auth/oauth', { method: 'POST', body: { access_token: 'falso' } });
+  assert.equal(bad.status, 401);
+  const a = await api('/api/auth/oauth', { method: 'POST', body: { access_token: 'token-bom', country: 'BR', state: 'RJ', skin: 'skin_female' } });
+  assert.equal(a.status, 200);
+  assert.match(a.data.username, /^Maria_\d+$/);
+  const again = await api('/api/auth/oauth', { method: 'POST', body: { access_token: 'token-bom' } });
+  assert.equal(again.data.username, a.data.username); // mesma conta no segundo login
+  const m2 = await api('/api/me', { token: again.data.token });
+  assert.equal(m2.data.user.state, 'RJ');
+  assert.equal(m2.data.equipped.skin, 'skin_female');
+  // contas sociais/convidado não entram por senha
+  const pw = await api('/api/auth/login', { method: 'POST', body: { username: a.data.username, password: '!' } });
+  assert.equal(pw.status, 401);
 });
 
 test('loja: comprar e equipar sem vantagem competitiva', async () => {

@@ -1,6 +1,6 @@
 // ESTRESSE — servidor HTTP + WebSocket.
 import http from 'node:http';
-import { timingSafeEqual } from 'node:crypto';
+import { timingSafeEqual, randomInt } from 'node:crypto';
 import { readFile, stat } from 'node:fs/promises';
 import { join, normalize, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,6 +20,7 @@ import { LEVEL_DEFS, WORLDS } from '../shared/levels.js';
 import { dailyId, eventId, dailyRange, eventRange, EVENT_REWARDS, MEDALS } from '../shared/scoring.js';
 import { ACHIEVEMENTS } from '../shared/achievements.js';
 
+const RAW = Symbol('resposta já enviada');
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const MIME = {
   '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8',
@@ -32,12 +33,13 @@ const SECURITY_HEADERS = {
   'Content-Security-Policy': "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; connect-src 'self' ws: wss:; script-src 'self'",
 };
 
-export async function createServer({ dbOptions, logger = console, rateLimits = process.env.DISABLE_RATE_LIMITS !== '1', serverless = false } = {}) {
+export async function createServer({ dbOptions, logger = console, rateLimits = process.env.DISABLE_RATE_LIMITS !== '1', serverless = false, oauth = null } = {}) {
   const db = await openDb({ ...dbOptions, serverless });
   const log = (...a) => logger.error?.(...a);
   const rl = {
     auth: new RateLimiter(rateLimits ? 20 : 1e6, 15 * 60000),
     register: new RateLimiter(rateLimits ? 6 : 1e6, 3600000),
+    guest: new RateLimiter(rateLimits ? 20 : 1e6, 3600000),
     api: new RateLimiter(rateLimits ? 600 : 1e9, 60000),
     run: new RateLimiter(rateLimits ? 90 : 1e9, 60000),
   };
@@ -95,6 +97,89 @@ export async function createServer({ dbOptions, logger = console, rateLimits = p
     }
     const token = await createSession(db, id);
     return { token, username };
+  }, { auth: false });
+
+  // ---------------- login social (Supabase Auth: Google/Facebook) e convidado
+  const SUPA_URL = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
+  const SUPA_KEY = process.env.SUPABASE_ANON_KEY || '';
+  // Confere o token devolvido pelo Supabase Auth e devolve { sub, name, provider }
+  const verifyOAuth = oauth?.verify || (async (accessToken) => {
+    if (!SUPA_URL || !SUPA_KEY) throw new GameError(503, 'Login social ainda não configurado.');
+    const r = await fetch(`${SUPA_URL}/auth/v1/user`, { headers: { apikey: SUPA_KEY, Authorization: `Bearer ${accessToken}` } });
+    if (!r.ok) throw new GameError(401, 'Login expirado. Tente de novo.');
+    const u = await r.json();
+    const md = u.user_metadata || {};
+    return { sub: 'supabase:' + u.id, name: md.full_name || md.name || md.user_name || (u.email || '').split('@')[0], provider: u.app_metadata?.provider || 'social' };
+  });
+  const providerStatus = oauth?.providers || (async () => {
+    if (!SUPA_URL || !SUPA_KEY) return { google: false, facebook: false };
+    try {
+      const r = await fetch(`${SUPA_URL}/auth/v1/settings`, { headers: { apikey: SUPA_KEY } });
+      const j = await r.json();
+      return { google: !!j.external?.google, facebook: !!j.external?.facebook };
+    } catch { return { google: false, facebook: false }; }
+  });
+
+  function baseName(name, fallback) {
+    const clean = String(name || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9_ ]/g, '').trim().split(/\s+/)[0] || '';
+    return (clean.length >= 3 ? clean : fallback).slice(0, 10);
+  }
+
+  async function createAccount({ base, authSub, country, state, skin }) {
+    const c = COUNTRY_MAP[country] || COUNTRY_MAP.BR;
+    const st = c.code === 'BR' && BR_STATES[state] ? state : '';
+    const equipped = { ...DEFAULT_EQUIPPED, skin: skin === 'skin_female' ? 'skin_female' : 'skin_male' };
+    const now = Date.now();
+    for (let tries = 0; tries < 20; tries++) {
+      const username = `${base}_${randomInt(1000, 99999)}`.slice(0, 16);
+      const id = newId();
+      try {
+        await db.tx(async (q) => {
+          await q.run(
+            `INSERT INTO users (id, username, username_lc, pass_hash, country, continent, avatar, created_at, last_seen, coins, equipped, state, auth_sub)
+             VALUES ($1,$2,$3,'!',$4,$5,'a1',$6,$6,100,$7,$8,$9)`,
+            [id, username, username.toLowerCase(), c.code, c.continent, now, JSON.stringify(equipped), st, authSub]);
+          for (const it of DEFAULT_ITEMS) await q.run('INSERT INTO inventory (user_id, item_id, acquired_at) VALUES ($1,$2,$3)', [id, it, now]);
+        });
+        return { id, username };
+      } catch (e) {
+        if (!/unique|UNIQUE|duplicate/.test(String(e.message))) throw e;
+        if (authSub) { const ex = await db.get('SELECT id, username FROM users WHERE auth_sub=$1', [authSub]); if (ex) return ex; }
+      }
+    }
+    throw new GameError(500, 'Não foi possível criar a conta. Tente de novo.');
+  }
+
+  route('GET', '/api/auth/providers', async () => ({ ...(await providerStatus()), guest: true }), { auth: false });
+
+  // redireciona para a tela de login do Google/Facebook (Supabase Auth)
+  route('GET', '/api/auth/oauth/:provider', async ({ params, req, res }) => {
+    const provider = params.provider;
+    if (!['google', 'facebook'].includes(provider)) throw new GameError(400, 'Provedor inválido');
+    if (!SUPA_URL) throw new GameError(503, 'Login social ainda não configurado.');
+    const origin = `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers['x-forwarded-host'] || req.headers.host}`;
+    const to = `${SUPA_URL}/auth/v1/authorize?provider=${provider}&redirect_to=${encodeURIComponent(origin + '/?login=social')}`;
+    res.writeHead(302, { Location: to, 'Cache-Control': 'no-store' });
+    res.end();
+    return RAW;
+  }, { auth: false });
+
+  route('POST', '/api/auth/oauth', async ({ body, ip }) => {
+    if (!rl.auth.hit(ip)) throw new GameError(429, 'Muitas tentativas. Aguarde alguns minutos.');
+    if (typeof body.access_token !== 'string' || body.access_token.length > 5000) throw new GameError(400, 'Token inválido');
+    const info = await verifyOAuth(body.access_token);
+    let u = await db.get('SELECT id, username, banned FROM users WHERE auth_sub=$1', [info.sub]);
+    if (u && u.banned) throw new GameError(403, 'Conta suspensa por violação das regras.');
+    if (!u) u = await createAccount({ base: baseName(info.name, 'Jogador'), authSub: info.sub, country: body.country, state: body.state, skin: body.skin });
+    const token = await createSession(db, u.id);
+    return { token, username: u.username };
+  }, { auth: false });
+
+  route('POST', '/api/auth/guest', async ({ body, ip }) => {
+    if (!rl.guest.hit(ip)) throw new GameError(429, 'Muitas contas de convidado deste endereço. Tente mais tarde.');
+    const u = await createAccount({ base: 'Convidado', authSub: 'guest:' + newId(), country: body.country, state: body.state, skin: body.skin });
+    const token = await createSession(db, u.id);
+    return { token, username: u.username, guest: true };
   }, { auth: false });
 
   route('POST', '/api/auth/login', async ({ body, ip }) => {
@@ -408,8 +493,8 @@ export async function createServer({ dbOptions, logger = console, rateLimits = p
         if (r.auth && !user) throw new GameError(401, 'Faça login para continuar');
       }
       const body = req.method === 'POST' || req.method === 'PATCH' ? await readBody(req) : {};
-      const out = await r.handler({ req, user, body, params, query: Object.fromEntries(url.searchParams), token, ip });
-      json(200, out);
+      const out = await r.handler({ req, res, user, body, params, query: Object.fromEntries(url.searchParams), token, ip });
+      if (out !== RAW) json(200, out);
     } catch (e) {
       if (e instanceof GameError) json(e.status, { error: e.message });
       else { log('erro', e); json(500, { error: 'Erro interno do servidor' }); }

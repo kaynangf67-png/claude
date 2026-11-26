@@ -370,3 +370,24 @@ body.is-home { background: #000; overflow: hidden; }
 
 /* bandeiras dos países (flag-icons, MIT) */
 .flag-img { width: 20px; height: 15px; border-radius: 2px; vertical-align: -2px; margin-left: 4px; object-fit: cover; box-shadow: 0 0 0 1px rgba(255,255,255,.25); }
+
+/* ---------- tela de entrada ---------- */
+.login { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 14vh 16px 8vh; background: #000; }
+.login-title { width: min(86vw, 760px); height: auto; image-rendering: pixelated; }
+.login-bottom { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; }
+.login-buttons { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+.login-btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-width: 170px; padding: 13px 20px; border-radius: 12px;
+  font: 800 16px var(--font); cursor: pointer; border: 2px solid #fff; transition: transform .08s, filter .15s; }
+.login-btn svg { width: 22px; height: 22px; flex: none; }
+.login-btn:hover { transform: translateY(-2px); filter: brightness(1.08); }
+.login-btn:active { transform: translateY(1px); }
+.login-btn[disabled] { opacity: .6; cursor: wait; }
+.login-btn.google { background: #fff; color: #1f1f1f; }
+.login-btn.facebook { background: #1877F2; color: #fff; border-color: #1877F2; }
+.login-btn.facebook svg path:first-child { fill: #fff; }
+.login-btn.facebook svg path:last-child { fill: #1877F2; }
+.login-btn.guest { background: #000; color: #fff; }
+.login-link { background: none; border: 0; color: #fff; opacity: .7; font: 600 13px var(--font); text-decoration: underline; cursor: pointer; }
+.login-link:hover { opacity: 1; }
+.login .err { min-height: 1.2em; text-align: center; color: #fff; }
+@media (max-width: 600px) { .login-buttons { flex-direction: row; gap: 8px; } .login-btn { min-width: 0; flex: 1 1 0; padding: 12px 8px; font-size: 14px; gap: 6px; } .login-btn svg { width: 18px; height: 18px; } }
