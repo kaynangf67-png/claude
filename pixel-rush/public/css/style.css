@@ -347,6 +347,6 @@ body.is-home { background: #000; overflow: hidden; }
 @media (max-width: 560px) { .corner-menu { left: 16px !important; } .corner-menu .menu-link { font-size: 18px; } .home-dancer { left: 62%; } }
 
 /* botão Jogar à direita, um pouco maior */
-.play-right { position: fixed; top: 50%; right: 40px; transform: translateY(-50%); z-index: 2; font-size: 32px !important; }
+.play-right { position: fixed; top: 72%; right: 48px; transform: translateY(-50%); z-index: 2; font-size: 48px !important; }
 .play-right:hover::before { content: '▶ '; }
-@media (max-width: 560px) { .play-right { right: 16px; font-size: 26px !important; } }
+@media (max-width: 560px) { .play-right { right: 16px; font-size: 34px !important; } }
