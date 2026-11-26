@@ -5,7 +5,7 @@ import { buildLevel, endlessDistance, MODES } from '../shared/modes.js';
 import { runInputs } from '../shared/sim.js';
 import { sanitizeRle, rleTicks } from '../shared/replay.js';
 import { TPS, MAX_RUN_TICKS, ticksToMs } from '../shared/constants.js';
-import { LEVEL_IDS, LEVEL_DEFS, levelMeta, prevLevelId } from '../shared/levels.js';
+import { LEVEL_IDS, LEVEL_DEFS, levelMeta, prevLevelId, STORY_SQL } from '../shared/levels.js';
 import { levelScore, endlessScore, runReward, DAILY_COIN_CAP, dailyId, eventId, levelMedal } from '../shared/scoring.js';
 import { ACHIEVEMENTS, ACH_MAP } from '../shared/achievements.js';
 import { newId } from './auth.js';
@@ -123,9 +123,9 @@ async function playerStats(q, userId, extra = {}) {
 export async function countRecords(q, userId) {
   const r = await q.get(
     `SELECT COUNT(*) AS n FROM bests b WHERE b.user_id=$1 AND b.time_ms IS NOT NULL
-       AND b.level_id IN (${LEVEL_IDS.map((_, i) => '$' + (i + 2)).join(',')})
+       AND ${STORY_SQL('b.level_id')}
        AND b.time_ms = (SELECT MIN(time_ms) FROM bests c WHERE c.level_id=b.level_id)`,
-    [userId, ...LEVEL_IDS],
+    [userId],
   );
   return r ? r.n : 0;
 }
@@ -201,8 +201,8 @@ async function applyResult(db, userId, run, res, now) {
       [run.id, now, res.timeMs, res.distance ?? null, score, res.deaths, res.coins, reward, JSON.stringify(res.rle)],
     );
     const levelsDone = (await q.get(
-      `SELECT COUNT(*) AS n FROM bests WHERE user_id=$1 AND time_ms IS NOT NULL AND level_id IN (${LEVEL_IDS.map((_, i) => '$' + (i + 2)).join(',')})`,
-      [userId, ...LEVEL_IDS],
+      `SELECT COUNT(*) AS n FROM bests WHERE user_id=$1 AND time_ms IS NOT NULL AND ${STORY_SQL('level_id')}`,
+      [userId],
     )).n;
     await q.run(
       `UPDATE users SET total_score = total_score + $2, play_ms = play_ms + $3, deaths_total = deaths_total + $4,

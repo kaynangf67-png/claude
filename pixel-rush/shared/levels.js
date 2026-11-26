@@ -2,6 +2,8 @@
 // As fases são montadas com um pequeno construtor e verificadas por um bot
 // (tools/solver.js) que prova que todas são completáveis com a física real.
 import { gridLevel } from './level.js';
+import { storyGenLevel, storyGenParams } from './generator.js';
+import { GEN_SALT } from './levels-salt.js';
 
 class MapBuilder {
   constructor(w, h = 15) {
@@ -108,6 +110,7 @@ const defs = [];
   m.fill(5, 8, 9, 8, '-').fill(22, 8, 26, 8, '-');
   m.set(16, 11, 'G');
   m.ent({ t: 'boss', kind: 'golem', x: 22, y: 11 });
+  m.ent({ t: 'pop', x: 10, y: 11, n: 2, tx0: 8, tx1: 11 });
   defs.push(m.def({ id: '1-5', world: 1, name: 'Chefe: Golem de Musgo', par: 9, boss: true }));
 }
 
@@ -123,6 +126,7 @@ const defs = [];
   m.fill(50, 4, 51, 19).fill(50, 4, 70, 5).fill(58, 3, 59, 3, '^').coins(62, 65, 2);
   m.ground(71, 87, 12).set(74, 11, 'C').fill(78, 11, 78, 11, '^');
   m.set(84, 11, 'G');
+  m.ent({ t: 'drop', x: 81, y: 7, fall: 4, tx0: 79, tx1: 81 });
   defs.push(m.def({ id: '2-1', world: 2, name: 'Ecos da Caverna', par: 14 }));
 }
 { // 2-2 Chão Traiçoeiro (blocos que desmoronam)
@@ -137,6 +141,7 @@ const defs = [];
   m.fill(61, 12, 72, 12, 'X').fill(61, 14, 72, 14, '^').coins(63, 70, 10);
   m.ground(73, 87, 12).fill(78, 11, 78, 11, '^');
   m.set(84, 11, 'G');
+  m.ent({ t: 'drop', x: 81, y: 7, fall: 4, tx0: 79, tx1: 81 });
   defs.push(m.def({ id: '2-2', world: 2, name: 'Chão Traiçoeiro', par: 12 }));
 }
 { // 2-3 Serras Giratórias
@@ -169,6 +174,7 @@ const defs = [];
   m.ground(41, 65, 12).set(43, 11, 'C');
   m.ent({ t: 'saw', x: 47, y: 11, x2: 54, y2: 11, p: 100, o: 0 });
   m.set(60, 11, 'G');
+  m.ent({ t: 'drop', x: 58, y: 7, fall: 4, tx0: 56, tx1: 58 });
   defs.push(m.def({ id: '2-4', world: 2, name: 'Profundezas', par: 10 }));
 }
 { // 2-5 CHEFE: Aranha de Cristal
@@ -178,6 +184,7 @@ const defs = [];
   m.fill(4, 8, 8, 8, '-').fill(23, 8, 27, 8, '-').fill(13, 5, 18, 5, '-');
   m.set(16, 11, 'G');
   m.ent({ t: 'boss', kind: 'aranha', x: 22, y: 11 });
+  m.ent({ t: 'pop', x: 10, y: 11, n: 2, tx0: 8, tx1: 11 });
   defs.push(m.def({ id: '2-5', world: 2, name: 'Chefe: Aranha de Cristal', par: 10, boss: true }));
 }
 
@@ -212,6 +219,7 @@ const defs = [];
   m.ground(71, 87, 12).set(73, 11, 'C');
   m.ent({ t: 'laser', x: 78, y: 2, dir: 'd', len: 9, on: 30, off: 50, o: 20 });
   m.set(84, 11, 'G');
+  m.ent({ t: 'drop', x: 82, y: 7, fall: 4, tx0: 80, tx1: 82 });
   defs.push(m.def({ id: '3-2', world: 3, name: 'Feixes de Laser', par: 14 }));
 }
 { // 3-3 Avalanche
@@ -226,6 +234,7 @@ const defs = [];
   m.ent({ t: 'saw', x: 46, y: 5, x2: 54, y2: 5, p: 100, o: 0 });
   m.ground(56, 79, 12).set(58, 11, 'C').fill(64, 11, 65, 11, '^');
   m.set(75, 11, 'G');
+  m.ent({ t: 'drop', x: 72, y: 7, fall: 4, tx0: 70, tx1: 72 });
   defs.push(m.def({ id: '3-3', world: 3, name: 'Avalanche', par: 13 }));
 }
 { // 3-4 Torre Congelada (escalada vertical)
@@ -243,6 +252,7 @@ const defs = [];
   m.set(27, 10, 'S');
   m.fill(14, 5, 25, 5).fill(19, 4, 19, 4, '^').coins(20, 23, 2);
   m.set(15, 4, 'G');
+  m.ent({ t: 'drop', x: 17, y: 1, fall: 3, tx0: 17, tx1: 19 });
   defs.push(m.def({ id: '3-4', world: 3, name: 'Torre Congelada', par: 28 }));
 }
 { // 3-5 CHEFE: Yeti Glacial
@@ -252,6 +262,7 @@ const defs = [];
   m.fill(4, 8, 8, 8, '-').fill(25, 8, 29, 8, '-').fill(14, 5, 19, 5, '-');
   m.set(17, 11, 'G');
   m.ent({ t: 'boss', kind: 'yeti', x: 24, y: 11 });
+  m.ent({ t: 'pop', x: 10, y: 11, n: 2, tx0: 8, tx1: 11 });
   defs.push(m.def({ id: '3-5', world: 3, name: 'Chefe: Yeti Glacial', par: 10, boss: true }));
 }
 
@@ -294,6 +305,7 @@ const defs = [];
   m.set(83, 11, '#');
   m.ent({ t: 'cannon', x: 83, y: 11, dir: 'l', range: 16, every: 60, speed: 2, o: 0 });
   m.set(76, 11, 'G');
+  m.ent({ t: 'drop', x: 73, y: 7, fall: 4, tx0: 71, tx1: 73 });
   defs.push(m.def({ id: '4-2', world: 4, name: 'Rio de Magma', par: 13 }));
 }
 { // 4-3 Desafio de Precisão
@@ -313,6 +325,7 @@ const defs = [];
   m.fill(60, 2, 60, 2).fill(66, 2, 66, 2).fill(72, 2, 72, 2);
   m.ground(76, 91, 12).set(78, 11, 'C').set(83, 11, '^');
   m.set(88, 11, 'G');
+  m.ent({ t: 'drop', x: 86, y: 7, fall: 4, tx0: 84, tx1: 86 });
   defs.push(m.def({ id: '4-3', world: 4, name: 'Desafio de Precisão', par: 15 }));
 }
 { // 4-4 Ascensão Final
@@ -333,6 +346,7 @@ const defs = [];
   m.set(21, 2, '#');
   m.ent({ t: 'laser', x: 21, y: 2, dir: 'd', len: 4, on: 40, off: 60, o: 0 });
   m.set(16, 6, 'G');
+  m.ent({ t: 'drop', x: 18, y: 3, fall: 3, tx0: 18, tx1: 20 });
   defs.push(m.def({ id: '4-4', world: 4, name: 'Ascensão Final', par: 30 }));
 }
 { // 4-5 CHEFE FINAL: Dragão de Magma
@@ -342,29 +356,51 @@ const defs = [];
   m.fill(4, 8, 8, 8, '-').fill(25, 8, 29, 8, '-').fill(14, 5, 19, 5, '-');
   m.set(17, 11, 'G');
   m.ent({ t: 'boss', kind: 'dragao', x: 24, y: 11 });
+  m.ent({ t: 'pop', x: 10, y: 11, n: 2, tx0: 8, tx1: 11 });
   defs.push(m.def({ id: '4-5', world: 4, name: 'Chefe Final: Dragão de Magma', par: 11, boss: true }));
 }
 
 export const LEVEL_DEFS = defs;
-export const LEVEL_IDS = defs.map((d) => d.id);
+export const HANDMADE_IDS = defs.map((d) => d.id);
+export const TOTAL_LEVELS = 1000;
+// fases 0-19 feitas à mão; 20-999 geradas (ids 'f20' ... 'f999')
+export const LEVEL_IDS = [...HANDMADE_IDS];
+for (let n = HANDMADE_IDS.length; n < TOTAL_LEVELS; n++) LEVEL_IDS.push('f' + n);
+const LEVEL_INDEX = new Map(LEVEL_IDS.map((id, i) => [id, i]));
+export const levelNumber = (id) => (LEVEL_INDEX.has(id) ? LEVEL_INDEX.get(id) : -1);
+// filtro SQL das fases do jogo (usado pelo servidor)
+export const STORY_SQL = (col) => `(${col} LIKE 'f%' OR ${col} IN (${HANDMADE_IDS.map((x) => `'${x}'`).join(',')}))`;
+
 const cache = new Map();
+const genNum = (id) => (/^f\d+$/.test(id) ? Number(id.slice(1)) : -1);
 
 export function getStoryLevel(id) {
-  if (!cache.has(id)) {
-    const d = defs.find((x) => x.id === id);
-    if (!d) return null;
-    cache.set(id, gridLevel(d));
+  if (cache.has(id)) return cache.get(id);
+  let lvl = null;
+  const d = defs.find((x) => x.id === id);
+  if (d) lvl = gridLevel(d);
+  else {
+    const n = genNum(id);
+    if (n < HANDMADE_IDS.length || n >= TOTAL_LEVELS) return null;
+    lvl = storyGenLevel(n, GEN_SALT[n] || 0);
+    lvl.par = storyGenParams(n).par;
   }
-  return cache.get(id);
+  if (cache.size > 40) cache.delete([...cache.keys()].find((k) => genNum(k) >= 0) ?? cache.keys().next().value);
+  cache.set(id, lvl);
+  return lvl;
 }
 
 export function levelMeta(id) {
   const d = defs.find((x) => x.id === id);
-  return d ? { id: d.id, world: d.world, name: d.name, par: d.par, boss: !!d.boss } : null;
+  if (d) return { id: d.id, world: d.world, name: d.name, par: d.par, boss: !!d.boss };
+  const n = genNum(id);
+  if (n < HANDMADE_IDS.length || n >= TOTAL_LEVELS) return null;
+  const p = storyGenParams(n);
+  return { id, world: p.theme, name: `Fase ${n}`, par: p.par, boss: false };
 }
 
 // fase anterior (para desbloqueio)
 export function prevLevelId(id) {
-  const i = LEVEL_IDS.indexOf(id);
+  const i = levelNumber(id);
   return i > 0 ? LEVEL_IDS[i - 1] : null;
 }

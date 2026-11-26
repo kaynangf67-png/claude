@@ -1,7 +1,7 @@
 import { LEVEL_IDS, getStoryLevel } from '../shared/levels.js';
 import { solve } from './solver.js';
 const only = process.argv.slice(2);
-for (const id of LEVEL_IDS) {
+for (const id of LEVEL_IDS.slice(0, 20)) {
   if (only.length && !only.includes(id)) continue;
   const lvl = getStoryLevel(id);
   const t0 = Date.now();

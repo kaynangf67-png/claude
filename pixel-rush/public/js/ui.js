@@ -9,13 +9,13 @@ import { initAudio, setVolumes, sfx, playMusic, audioReady } from './audio.js';
 import { fmtTime } from '/shared/constants.js';
 import { COUNTRIES, COUNTRY_MAP, CONTINENTS, BR_STATES, flagEmoji } from '/shared/countries.js';
 import { ITEMS, ITEM_MAP, SLOTS, AVATARS, GEM_PACKS } from '/shared/items.js';
-import { LEVEL_DEFS, WORLDS, LEVEL_IDS, levelMeta } from '/shared/levels.js';
+import { LEVEL_DEFS, WORLDS, LEVEL_IDS, levelMeta, levelNumber } from '/shared/levels.js';
 import { levelMedal, MEDALS } from '/shared/scoring.js';
 import { ACHIEVEMENTS } from '/shared/achievements.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const lvNum = (id) => LEVEL_IDS.indexOf(id);
+const lvNum = (id) => levelNumber(id);
 // ícones das duas moedas (SVG, não somem com o filtro de emojis)
 const COIN = '<svg class="cur-ico" viewBox="0 0 16 16" aria-label="moedas"><circle cx="8" cy="8" r="7" fill="#b8860b"/><circle cx="8" cy="8" r="5.6" fill="#ffd23f"/><rect x="7" y="4.5" width="2" height="7" rx="1" fill="#b8860b"/></svg>';
 const GEM = '<svg class="cur-ico" viewBox="0 0 16 16" aria-label="diamantes"><path d="M4 2h8l3 4-7 8-7-8z" fill="#3ee0ff"/><path d="M4 2l2 4h4l2-4M1 6h14M6 6l2 8 2-8" fill="none" stroke="#0b6f8a" stroke-width="1"/><path d="M5 3l1 2" stroke="#fff" stroke-width="1"/></svg>';
@@ -715,7 +715,7 @@ export class App {
         <section class="card"><h3>Controles</h3>
           <table><tbody>
             <tr><td>Mover</td><td><span class="kbd">←</span> <span class="kbd">→</span> ou <span class="kbd">A</span> <span class="kbd">D</span> · analógico/D-pad</td></tr>
-            <tr><td>Pular</td><td><span class="kbd">Espaço</span> <span class="kbd">↑</span> <span class="kbd">W</span> <span class="kbd">Z</span> · botão A. Segure para pular mais alto.</td></tr>
+            <tr><td>Pular</td><td><span class="kbd">Espaço</span> · botão A. Segure para pular mais alto.</td></tr>
             <tr><td>Pulo na parede</td><td>Encoste na parede no ar e pule</td></tr>
             <tr><td>Reinício rápido</td><td><span class="kbd">R</span> · botão Y/Select</td></tr>
             <tr><td>Pausar</td><td><span class="kbd">Esc</span> <span class="kbd">P</span> · Start</td></tr>

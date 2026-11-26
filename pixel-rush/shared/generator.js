@@ -112,6 +112,31 @@ function genChunk(seed, k, g0, diff, opts) {
       flat(2);
     } },
   ];
+  if (opts.traps) {
+    // armadilhas "trollagem": bloco que cai, espinhos que saltam no pouso, chão falso
+    pieces.push(
+      { w: 1.3, min: 0, fn: () => { // bloco que despenca quando você passa
+        flat(2);
+        const x0 = x;
+        flat(6);
+        ents.push({ t: 'drop', id: id(ents.length), x: bx + x0 + 3, y: g - 4, fall: 3, tx0: bx + x0, tx1: bx + x0 + 3 });
+      } },
+      { w: 1.3, min: 0, fn: () => { // pula o buraco e os espinhos brotam onde você ia cair
+        flat(3);
+        x += 2;
+        const px = x;
+        const n = diff > 0.75 ? 2 : 1;
+        flat(n + 4);
+        ents.push({ t: 'pop', id: id(ents.length), x: bx + px, y: g - 1, n, tx0: bx + px - 4, tx1: bx + px - 1 });
+      } },
+      { w: 1.1, min: 0, fn: () => { // chão falso: parece firme, mas é buraco
+        flat(3);
+        const n = randInt(rng, 2, 3);
+        for (let i = 0; i < n && x < CW; i++, x++) col(x, g, 'F');
+        flat(3);
+      } },
+    );
+  }
   const avail = pieces.filter((p) => diff >= p.min);
   const total = avail.reduce((a, p) => a + p.w, 0);
   while (x < CW - 12) {
@@ -124,7 +149,7 @@ function genChunk(seed, k, g0, diff, opts) {
   return { rows, ents, gEnd: g };
 }
 
-function chunkedLevel({ id, name, seed, diffAt, finite, chunks, checkpointEvery, theme }) {
+function chunkedLevel({ id, name, seed, diffAt, finite, chunks, checkpointEvery, theme, traps = false }) {
   const cache = [];
   let lastG = 12;
   const ensure = (k) => {
@@ -140,7 +165,7 @@ function chunkedLevel({ id, name, seed, diffAt, finite, chunks, checkpointEvery,
         lastG = lastG;
         continue;
       }
-      const c = genChunk(seed, kk, lastG, diffAt(kk), { checkpointEvery });
+      const c = genChunk(seed, kk, lastG, diffAt(kk), { checkpointEvery, traps });
       lastG = c.gEnd;
       cache.push(c);
     }
@@ -198,5 +223,25 @@ export function courseLevel(id, { chunks = 5, diff = 0.5, name = 'Percurso', the
     id, name, seed, finite: true, chunks,
     diffAt: (k) => Math.min(1, diff * (0.6 + (0.4 * k) / Math.max(1, chunks - 1))),
     checkpointEvery: 2, theme: theme ?? (seed % 4) + 1,
+  });
+}
+
+// Fases 20 a 999 do jogo: geradas por semente fixa (iguais para todo mundo), com armadilhas
+// e dificuldade que já começa alta e sobe até o máximo.
+export function storyGenParams(n) {
+  const chunks = Math.min(10, 4 + Math.floor((n - 20) / 120));
+  const diff = Math.min(1, 0.6 + (n - 20) / 400);
+  const par = Math.round((chunks * CW) / 9.75 * 1.5) + 3;
+  return { chunks, diff, par, theme: 1 + (Math.floor(n / 25) % 4) };
+}
+
+export function storyGenLevel(n, salt = 0) {
+  const { chunks, diff, theme } = storyGenParams(n);
+  const id = 'f' + n;
+  const seed = hashString(salt ? `${id}:${salt}` : id);
+  return chunkedLevel({
+    id, name: `Fase ${n}`, seed, finite: true, chunks, traps: true,
+    diffAt: (k) => (k === 0 ? Math.min(diff, 0.6) : diff),
+    checkpointEvery: 2, theme,
   });
 }

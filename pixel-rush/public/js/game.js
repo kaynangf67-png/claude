@@ -4,7 +4,7 @@ import { TPS, VIEW_W, VIEW_H, ticksToMs, fmtTime, TILE } from '/shared/constants
 import { createSim, step } from '/shared/sim.js';
 import { InputRecorder, expandRle } from '/shared/replay.js';
 import { buildLevel, endlessDistance } from '/shared/modes.js';
-import { levelMeta, LEVEL_IDS } from '/shared/levels.js';
+import { levelMeta, LEVEL_IDS, levelNumber } from '/shared/levels.js';
 import { levelMedal } from '/shared/scoring.js';
 import { ITEM_MAP } from '/shared/items.js';
 import { BOSSES } from '/shared/entities.js';
@@ -81,7 +81,7 @@ export class GameSession {
     this.readyT = 50; // contagem "VAI!" antes de liberar a física
     this.endT = 0;
     this.meta = this.mode === 'level' ? levelMeta(tok.levelId) : null;
-    this.title = this.opts.title || (this.meta ? `Fase ${LEVEL_IDS.indexOf(this.meta.id)}` : this.level.name);
+    this.title = this.opts.title || (this.meta ? `Fase ${levelNumber(this.meta.id)}` : this.level.name);
     for (const g of this.ghosts) g.sim = createSim(this.level);
     this.hideOverlay();
     stopMusic(); // sem música durante a partida (só efeitos sonoros)
@@ -234,7 +234,7 @@ export class GameSession {
     const ms = ticksToMs(ticks);
     // HUD mínimo: só o número da fase (começando em 0)
     if (this.mode === 'level') {
-      drawText(g, String(LEVEL_IDS.indexOf(this.levelId)), 5, 5, '#fff', 1, null);
+      drawText(g, String(levelNumber(this.levelId)), 5, 5, '#fff', 1, null);
     } else if (this.mode === 'endless') {
       drawText(g, String(endlessDistance(this.level, this.sim)), 5, 5, '#fff', 1, null);
     }
@@ -388,7 +388,7 @@ export class GameSession {
     }
     const btns = [['Tentar de novo (R)', () => this.restart()]];
     if (this.mode === 'level' && res.valid) {
-      const i = LEVEL_IDS.indexOf(this.levelId);
+      const i = levelNumber(this.levelId);
       if (i >= 0 && i < LEVEL_IDS.length - 1) btns.push(['Próxima fase', () => this.app.startLevel(LEVEL_IDS[i + 1], this.opts)]);
     }
     btns.push(['Menu', () => this.exit()]);

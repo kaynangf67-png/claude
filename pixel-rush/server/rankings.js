@@ -1,5 +1,5 @@
 // Rankings mundiais: consultas com cache curto (10 s) para suportar muitos jogadores.
-import { LEVEL_IDS, levelMeta } from '../shared/levels.js';
+import { LEVEL_IDS, levelMeta, STORY_SQL, levelNumber } from '../shared/levels.js';
 import { seasonId, seasonRange, weekStart, dailyId, eventId, MEDALS } from '../shared/scoring.js';
 import { COUNTRY_MAP, CONTINENTS, BR_STATES } from '../shared/countries.js';
 
@@ -22,7 +22,6 @@ function pub(u) {
 }
 
 const LIMIT = 100;
-const levelIn = (offset) => LEVEL_IDS.map((_, i) => '$' + (i + offset)).join(',');
 
 function regionFilter(params, opts, startIdx) {
   if (opts.state && BR_STATES[opts.state]) { params.push(opts.state); return ` AND u.country = 'BR' AND u.state = $${startIdx}`; }
@@ -104,8 +103,8 @@ async function computeRanking(db, type, opts) {
       const rows = await db.all(
         `SELECT u.username, u.country, u.avatar, u.equipped, t.n, t.total FROM (
            SELECT user_id, COUNT(*) AS n, SUM(time_ms) AS total FROM bests
-           WHERE time_ms IS NOT NULL AND level_id IN (${levelIn(1)}) GROUP BY user_id
-         ) t JOIN users u ON u.id=t.user_id WHERE u.banned=0 ORDER BY t.n DESC, t.total ASC LIMIT ${LIMIT}`, [...LEVEL_IDS]);
+           WHERE time_ms IS NOT NULL AND ${STORY_SQL('level_id')} GROUP BY user_id
+         ) t JOIN users u ON u.id=t.user_id WHERE u.banned=0 ORDER BY t.n DESC, t.total ASC LIMIT ${LIMIT}`, []);
       return { unit: 'time', entries: rank(rows.map((r) => ({ ...pub(r), value: r.total, sub: `${r.n}/${LEVEL_IDS.length} fases` }))) };
     }
     case 'races': {
@@ -120,8 +119,8 @@ async function computeRanking(db, type, opts) {
          WHERE m.kind IN ('season_gold','season_silver','season_bronze','event_gold') ORDER BY m.period DESC, m.rank ASC LIMIT 60`, []);
       const recs = await db.all(
         `SELECT b.level_id, b.time_ms, u.username, u.country, u.avatar, u.equipped FROM bests b JOIN users u ON u.id=b.user_id
-         WHERE b.time_ms IS NOT NULL AND u.banned=0 AND b.level_id IN (${levelIn(1)})
-           AND b.time_ms = (SELECT MIN(time_ms) FROM bests c WHERE c.level_id=b.level_id)`, [...LEVEL_IDS]);
+         WHERE b.time_ms IS NOT NULL AND u.banned=0 AND ${STORY_SQL('b.level_id')}
+           AND b.time_ms = (SELECT MIN(time_ms) FROM bests c WHERE c.level_id=b.level_id)`, []);
       const records = {};
       for (const r of recs) if (!records[r.level_id]) records[r.level_id] = { ...pub(r), level: r.level_id, name: levelMeta(r.level_id).name, value: r.time_ms };
       const legends = await db.all(
@@ -129,7 +128,7 @@ async function computeRanking(db, type, opts) {
       return {
         unit: 'mixed',
         champions: champions.map((c) => ({ ...pub(c), kind: c.kind, period: c.period, rank: c.rank, medal: MEDALS[c.kind] })),
-        records: LEVEL_IDS.map((id) => records[id] || { level: id, name: levelMeta(id).name, value: null }),
+        records: Object.values(records).sort((a, b) => levelNumber(a.level) - levelNumber(b.level)),
         legends: rank(legends.map((r) => ({ ...pub(r), value: r.total_score }))),
         entries: [],
       };

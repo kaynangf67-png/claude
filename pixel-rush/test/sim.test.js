@@ -1,14 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { LEVEL_IDS, getStoryLevel } from '../shared/levels.js';
+import { LEVEL_IDS, HANDMADE_IDS, getStoryLevel, levelMeta, TOTAL_LEVELS } from '../shared/levels.js';
 import { endlessLevel, courseLevel } from '../shared/generator.js';
 import { createSim, step, runInputs } from '../shared/sim.js';
 import { sanitizeRle, expandRle } from '../shared/replay.js';
 import { IN_RIGHT, IN_JUMP } from '../shared/constants.js';
 import { solve } from '../tools/solver.js';
 
-test('todas as 20 fases da História são completáveis (prova por busca com a física real)', () => {
-  for (const id of LEVEL_IDS) {
+test('as 20 fases feitas à mão são completáveis (prova por busca com a física real)', () => {
+  for (const id of HANDMADE_IDS) {
     const r = solve(getStoryLevel(id), { width: 400, maxTicks: 60 * 120 });
     assert.ok(r.ok, `fase ${id} não foi resolvida: ${JSON.stringify(r.best)}`);
     // o replay da solução reproduz exatamente o mesmo resultado
@@ -63,4 +63,24 @@ test('validação do formato das entradas', () => {
   assert.equal(sanitizeRle([[1, 60 * 60 * 31]]), null);
   assert.deepEqual(sanitizeRle([[2, 3], [6, 1]]), [[2, 3], [6, 1]]);
   assert.deepEqual(expandRle([[2, 2], [4, 1]]), [2, 2, 4]);
+});
+
+test('1000 fases: as geradas existem, têm armadilhas e uma amostra é completável', () => {
+  assert.equal(LEVEL_IDS.length, TOTAL_LEVELS);
+  assert.equal(levelMeta('f999').name, 'Fase 999');
+  for (const id of ['f20', 'f137', 'f500', 'f999']) {
+    const lvl = getStoryLevel(id);
+    assert.ok(lvl && lvl.goal, id);
+    // armadilhas presentes
+    let traps = 0, fake = 0;
+    for (let x = 0; x < lvl.w; x++) {
+      for (let y = 0; y < lvl.h; y++) if (lvl.tileAt(x, y) === 'F') fake++;
+      if (x % 32 === 0) traps += lvl.entsNear(x * 16).filter((e) => e.t === 'drop' || e.t === 'pop').length;
+    }
+    assert.ok(traps + fake > 0, `${id} sem armadilhas`);
+  }
+  for (const id of ['f20', 'f500']) {
+    const r = solve(getStoryLevel(id), { width: 220, maxTicks: 60 * 200 });
+    assert.ok(r.ok, `${id} não foi resolvida`);
+  }
 });

@@ -4,7 +4,7 @@ import { IN_LEFT, IN_RIGHT, IN_JUMP } from '/shared/constants.js';
 const KEYS = {
   ArrowLeft: IN_LEFT, KeyA: IN_LEFT,
   ArrowRight: IN_RIGHT, KeyD: IN_RIGHT,
-  Space: IN_JUMP, ArrowUp: IN_JUMP, KeyW: IN_JUMP, KeyZ: IN_JUMP, KeyK: IN_JUMP, KeyJ: IN_JUMP,
+  Space: IN_JUMP, // pulo só no Espaço
 };
 
 export class Input {
