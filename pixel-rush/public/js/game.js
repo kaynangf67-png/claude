@@ -11,7 +11,7 @@ import { BOSSES } from '/shared/entities.js';
 import { Renderer } from './render.js';
 import { Input } from './input.js';
 import { drawText, drawTextCentered, textWidth } from './font.js';
-import { sfx, playMusic, stopMusic } from './audio.js';
+import { sfx, stopMusic } from './audio.js';
 import { api } from './api.js';
 import { noEmoji } from './mono.js';
 
@@ -84,7 +84,7 @@ export class GameSession {
     this.title = this.opts.title || (this.meta ? `Fase ${LEVEL_IDS.indexOf(this.meta.id)}` : this.level.name);
     for (const g of this.ghosts) g.sim = createSim(this.level);
     this.hideOverlay();
-    playMusic(this.mode === 'level' ? this.meta.world : 0);
+    stopMusic(); // sem música durante a partida (só efeitos sonoros)
   }
 
   async loadGhosts() {
@@ -119,7 +119,7 @@ export class GameSession {
     this.raceStartAt = r.startAt;
     this.raceFinished = [];
     this.hideOverlay();
-    playMusic(0);
+    stopMusic();
     this.unsubs.push(live.on('pos', (m) => {
       let o = this.others.get(m.u);
       if (!o) { o = { username: m.u, x: m.x, y: m.y, skin: this.opts.race.skins?.[m.u] }; this.others.set(m.u, o); }
