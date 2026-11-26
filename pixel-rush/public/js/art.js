@@ -1,5 +1,6 @@
 // Logo e troféus em pixel art (gerados em canvas).
 import { drawText, textWidth } from './font.js';
+import { ditherCanvas } from './mono.js';
 
 export function logoCanvas() {
   const text = 'PIXEL RUSH';
@@ -26,8 +27,8 @@ export function logoCanvas() {
   g.drawImage(tmp, 0, 0);
   // subtítulo
   const sub = 'CORRIDA MUNDIAL';
-  drawText(g, sub, Math.round((w - textWidth(sub, 1)) / 2), h - 10, '#3ee0ff', 1, '#140c24');
-  return c;
+  drawText(g, sub, Math.round((w - textWidth(sub, 1)) / 2), h - 10, '#ffffff', 1, '#140c24');
+  return ditherCanvas(c);
 }
 
 const TROPHY = [
@@ -62,6 +63,6 @@ export function trophyURL(kind) {
     if (!pal[k]) return;
     g.fillStyle = pal[k]; g.fillRect(x * sc, y * sc, sc, sc);
   }));
-  cache[kind] = c.toDataURL();
+  cache[kind] = ditherCanvas(c).toDataURL();
   return cache[kind];
 }

@@ -4,6 +4,7 @@ import { GameSession } from './game.js';
 import { DemoView } from './demo.js';
 import { avatarURL, heroFrames, petSprite } from './sprites.js';
 import { logoCanvas, trophyURL } from './art.js';
+import { ditherCanvas, noEmoji } from './mono.js';
 import { initAudio, setVolumes, sfx } from './audio.js';
 import { fmtTime } from '/shared/constants.js';
 import { COUNTRIES, COUNTRY_MAP, CONTINENTS, flagEmoji } from '/shared/countries.js';
@@ -15,7 +16,7 @@ import { ACHIEVEMENTS } from '/shared/achievements.js';
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const num = (n) => Number(n || 0).toLocaleString('pt-BR');
-const flag = (c) => `<span class="flag" title="${esc(COUNTRY_MAP[c]?.name || c)}">${flagEmoji(c)}</span>`;
+const flag = (c) => `<span class="flag" title="${esc(COUNTRY_MAP[c]?.name || c)}">${esc(c || '')}</span>`;
 const avatar = (id, frame = 'frame_none', cls = '') => `<img class="avatar ${cls} ${esc(ITEM_MAP[frame]?.css || 'frame-none')}" src="${avatarURL(id || 'a1', 64)}" alt="">`;
 const fmtDur = (ms) => { const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000); return h ? `${h}h ${m}min` : `${m}min ${Math.floor((ms % 60000) / 1000)}s`; };
 function countdown(ts) {
@@ -56,6 +57,12 @@ export class App {
       for (const el of document.querySelectorAll('[data-countdown]')) el.textContent = countdown(Number(el.dataset.countdown));
     }, 1000);
     this.bindLive();
+    const strip = (node) => {
+      const w = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+      for (let t = w.nextNode(); t; t = w.nextNode()) { const v = noEmoji(t.nodeValue); if (v !== t.nodeValue) t.nodeValue = v; }
+    };
+    new MutationObserver((muts) => { for (const m of muts) for (const n of m.addedNodes) if (n.nodeType === 1) strip(n); else if (n.nodeType === 3) strip(n.parentNode || n); })
+      .observe(document.body, { childList: true, subtree: true });
   }
 
   isTouch() {
@@ -107,18 +114,18 @@ export class App {
   }
 
   topbar(title, back = 'home') {
-    return `<header class="pagebar"><button class="link-back" data-go="${back}" aria-label="Voltar">◀</button><h1>${esc(title || '')}</h1></header>`;
+    return `<header class="pagebar"><button class="link-back" data-go="${back}" aria-label="Voltar">‹</button><h1>${esc(title || '')}</h1></header>`;
   }
 
   updateTopbar() {
     const c = $('#coin-pill');
-    if (c && this.me) c.textContent = `🪙 ${num(this.me.user.coins)}`;
+    if (c && this.me) c.textContent = `${num(this.me.user.coins)} moedas`;
     const o = $('#online-pill');
     if (o && this.onlineCount != null) o.textContent = `${this.onlineCount} online`;
   }
 
   mount(html, handlers = {}) {
-    this.ui.innerHTML = html;
+    this.ui.innerHTML = noEmoji(html);
     this.ui.onclick = async (e) => {
       const el = e.target.closest('[data-go],[data-act]');
       if (!el) return;
@@ -134,7 +141,7 @@ export class App {
   toast(msg, type = 'info', actions = []) {
     const el = document.createElement('div');
     el.className = 'toast ' + type;
-    el.innerHTML = `<div>${msg}</div>${actions.length ? `<div class="row">${actions.map((a, i) => `<button class="btn small ${i ? '' : 'primary'}" data-i="${i}">${esc(a[0])}</button>`).join('')}</div>` : ''}`;
+    el.innerHTML = noEmoji(`<div>${msg}</div>${actions.length ? `<div class="row">${actions.map((a, i) => `<button class="btn small ${i ? '' : 'primary'}" data-i="${i}">${esc(a[0])}</button>`).join('')}</div>` : ''}`);
     el.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => { actions[+b.dataset.i][1](); el.remove(); }));
     $('#toasts').appendChild(el);
     setTimeout(() => el.remove(), actions.length ? 15000 : 5000);
@@ -143,7 +150,7 @@ export class App {
 
   modal(html, onBind) {
     const m = $('#modal');
-    m.innerHTML = `<div class="panel">${html}</div>`;
+    m.innerHTML = noEmoji(`<div class="panel">${html}</div>`);
     m.hidden = false;
     const close = () => { m.hidden = true; m.innerHTML = ''; };
     m.onclick = (e) => { if (e.target === m || e.target.closest('[data-close]')) close(); };
@@ -170,7 +177,7 @@ export class App {
             <input id="f-pass" name="password" type="password" required minlength="6" maxlength="72" autocomplete="${mode === 'login' ? 'current-password' : 'new-password'}">
             ${mode === 'register' ? `
             <label for="f-country">País</label>
-            <select id="f-country" name="country">${COUNTRIES.map((c) => `<option value="${c.code}" ${c.code === (COUNTRY_MAP[guess] ? guess : 'BR') ? 'selected' : ''}>${flagEmoji(c.code)} ${esc(c.name)}</option>`).join('')}</select>
+            <select id="f-country" name="country">${COUNTRIES.map((c) => `<option value="${c.code}" ${c.code === (COUNTRY_MAP[guess] ? guess : 'BR') ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
             <label>Personagem</label>
             <div class="row" id="pick-skin"><button type="button" class="tab ${skin === 'skin_male' ? 'on' : ''}" data-skin="skin_male">Menino</button><button type="button" class="tab ${skin === 'skin_female' ? 'on' : ''}" data-skin="skin_female">Menina</button></div>
             <label>Avatar</label>
@@ -510,7 +517,7 @@ export class App {
       <div class="filters" id="filters"></div>
       <div id="rank-body" class="loading">Carregando ranking</div>`);
     const f = $('#filters');
-    if (type === 'country') f.innerHTML = `<select id="sel-country">${COUNTRIES.map((c) => `<option value="${c.code}" ${c.code === st.country ? 'selected' : ''}>${flagEmoji(c.code)} ${esc(c.name)}</option>`).join('')}</select>`;
+    if (type === 'country') f.innerHTML = `<select id="sel-country">${COUNTRIES.map((c) => `<option value="${c.code}" ${c.code === st.country ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>`;
     if (type === 'continent') f.innerHTML = `<select id="sel-cont">${Object.entries(CONTINENTS).map(([k, n]) => `<option value="${k}" ${k === st.continent ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>`;
     if (type === 'speed') f.innerHTML = `<select id="sel-level">${LEVEL_IDS.map((id) => `<option value="${id}" ${id === st.level ? 'selected' : ''}>${id} — ${esc(levelMeta(id).name)}</option>`).join('')}</select>`;
     f.onchange = (e) => {
@@ -537,7 +544,7 @@ export class App {
     body.className = '';
     if (type === 'history') return this.renderHistory(body, r);
     const head = {
-      world: 'TOP 100 jogadores do mundo por pontuação total', brasil: `TOP 100 — ${flagEmoji('BR')} Brasil`, country: `TOP 100 — ${flagEmoji(st.country)} ${esc(COUNTRY_MAP[st.country]?.name || '')}`,
+      world: 'TOP 100 jogadores do mundo por pontuação total', brasil: 'TOP 100 — Brasil', country: `TOP 100 — ${esc(COUNTRY_MAP[st.country]?.name || '')}`,
       continent: `TOP 100 — ${esc(CONTINENTS[st.continent])}`, weekly: 'Pontos conquistados nesta semana (reinicia toda segunda-feira, UTC)',
       monthly: `Temporada ${esc(r.season || '')} — pontos do mês. Ao final: troféus, moedas e itens exclusivos`,
       speed: `Menor tempo na fase ${esc(r.level)} — ${esc(levelMeta(r.level)?.name || '')}`, distance: 'Maior distância no Modo Infinito',
@@ -554,7 +561,7 @@ export class App {
 
   rankRow(e, unit, me) {
     return `<div class="rank-row ${me ? 'me' : ''} ${e.rank && e.rank <= 3 ? 'r' + e.rank : ''}" data-go="profile/${encodeURIComponent(e.username)}">
-      <div class="pos">${e.rank ? (e.rank <= 3 ? ['🥇', '🥈', '🥉'][e.rank - 1] : '#' + e.rank) : '—'}</div>
+      <div class="pos">${e.rank ? (e.rank <= 3 ? e.rank + 'º' : '#' + e.rank) : '—'}</div>
       ${avatar(e.avatar, e.frame)}
       <div class="who"><b>${esc(e.username)} ${flag(e.country)}</b><small>${esc(COUNTRY_MAP[e.country]?.name || '')}${e.sub ? ' · ' + esc(e.sub) : ''}${me && !e.rank ? ' · você ainda não pontuou aqui' : ''}</small></div>
       <div class="val">${fmtValue(e.value, unit)}</div></div>`;
@@ -585,13 +592,13 @@ export class App {
     if (it.slot === 'skin') {
       const c = document.createElement('canvas'); c.width = 12; c.height = 14;
       c.getContext('2d').drawImage(heroFrames(it.id).r.idle, 0, 0);
-      return `<div class="prev"><img src="${c.toDataURL()}" style="height:70px;image-rendering:pixelated" alt=""></div>`;
+      return `<div class="prev"><img src="${ditherCanvas(c).toDataURL()}" style="height:70px;image-rendering:pixelated" alt=""></div>`;
     }
     if (it.slot === 'pet') {
       const s = petSprite(it.sprite);
       if (!s) return '<div class="prev">∅</div>';
       const c = document.createElement('canvas'); c.width = 8; c.height = 8; c.getContext('2d').drawImage(s.r, 0, 0);
-      return `<div class="prev"><img src="${c.toDataURL()}" style="height:56px;image-rendering:pixelated" alt=""></div>`;
+      return `<div class="prev"><img src="${ditherCanvas(c).toDataURL()}" style="height:56px;image-rendering:pixelated" alt=""></div>`;
     }
     if (it.slot === 'frame') return `<div class="prev">${avatar(this.me.user.avatar, it.id, 'md')}</div>`;
     if (it.slot === 'emote') return `<div class="prev"><span style="background:#fff;color:#1a1030;border-radius:8px;padding:4px 10px">${esc(it.text)}</span></div>`;
@@ -606,7 +613,7 @@ export class App {
     const eq = this.me.equipped;
     const list = ITEMS.filter((i) => i.slot === slot && (owned.has(i.id) || i.price === 0));
     this.mount(`${this.topbar('Cofre')}
-      <div class="vault-head"><canvas class="hero-preview small" id="cz-demo"></canvas><div class="coins-big">🪙 ${num(this.me.user.coins)}</div></div>
+      <div class="vault-head"><canvas class="hero-preview small" id="cz-demo"></canvas><div class="coins-big">${num(this.me.user.coins)} moedas</div></div>
       <div class="tabs">${Object.entries(SLOTS).map(([k, n]) => `<button class="tab ${k === slot ? 'on' : ''}" data-go="vault/${k}">${n}</button>`).join('')}</div>
       <div class="items">${list.map((it) => `<div class="item ${eq[slot] === it.id ? 'equipped' : ''}">${this.itemPreview(it)}
         <div class="nm">${esc(it.name)}</div>
@@ -625,13 +632,13 @@ export class App {
     const owned = new Set(this.me.inventory);
     const list = ITEMS.filter((i) => i.slot === slot && i.price !== 0);
     this.mount(`${this.topbar('Loja')}
-      <div class="coins-big">🪙 ${num(this.me.user.coins)}</div>
+      <div class="coins-big">${num(this.me.user.coins)} moedas</div>
       <div class="tabs">${Object.entries(SLOTS).filter(([k]) => k !== 'skin').map(([k, n]) => `<button class="tab ${k === slot ? 'on' : ''}" data-go="shop/${k}">${n}</button>`).join('')}</div>
       <div class="items">${list.map((it) => `<div class="item r-${it.rarity}">${this.itemPreview(it)}
         <div class="nm">${esc(it.name)}</div><div class="rar rar-${it.rarity}">${it.rarity}</div>
         ${owned.has(it.id) ? `<button class="btn small" data-go="vault/${slot}">Você possui</button>`
           : it.price == null ? '<div class="muted" style="font-size:12px">Exclusivo: recompensa de temporada</div>'
-          : `<div class="price">🪙 ${num(it.price)}</div><button class="btn small gold" data-act="buy" data-id="${it.id}" ${this.me.user.coins < it.price ? 'disabled' : ''}>Comprar</button>`}
+          : `<div class="price">${num(it.price)} moedas</div><button class="btn small gold" data-act="buy" data-id="${it.id}" ${this.me.user.coins < it.price ? 'disabled' : ''}>Comprar</button>`}
         ${['victory', 'jump', 'trail', 'pet', 'skin'].includes(slot) ? `<button class="btn small ghost" data-act="preview" data-id="${it.id}">Prévia</button>` : ''}</div>`).join('')}</div>`, {
       buy: async (b) => {
         const it = ITEM_MAP[b.dataset.id];
@@ -703,7 +710,7 @@ export class App {
   editProfile() {
     let av = this.me.user.avatar;
     this.modal(`<h2>Editar perfil</h2><label>Avatar</label><div class="avatars">${AVATARS.map((a) => `<button type="button" class="${a === av ? 'on' : ''}" data-av="${a}"><img src="${avatarURL(a, 64)}" alt=""></button>`).join('')}</div>
-      <label for="ed-country">País</label><select id="ed-country">${COUNTRIES.map((c) => `<option value="${c.code}" ${c.code === this.me.user.country ? 'selected' : ''}>${flagEmoji(c.code)} ${esc(c.name)}</option>`).join('')}</select>
+      <label for="ed-country">País</label><select id="ed-country">${COUNTRIES.map((c) => `<option value="${c.code}" ${c.code === this.me.user.country ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
       <div class="row" style="margin-top:14px"><button class="btn primary" id="ed-save">Salvar</button><button class="btn ghost" data-close>Cancelar</button></div>`, (m, close) => {
       m.querySelectorAll('[data-av]').forEach((b) => b.onclick = () => { av = b.dataset.av; m.querySelectorAll('[data-av]').forEach((x) => x.classList.toggle('on', x === b)); });
       $('#ed-save', m).onclick = async () => {

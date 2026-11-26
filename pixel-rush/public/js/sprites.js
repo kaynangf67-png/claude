@@ -1,5 +1,6 @@
 // Sprites em pixel art gerados por código (sem arquivos de imagem).
 import { ITEM_MAP, AVATAR_COLORS } from '/shared/items.js';
+import { ditherCanvas } from './mono.js';
 
 function canvas(w, h) {
   const c = document.createElement('canvas');
@@ -123,7 +124,7 @@ export function avatarURL(id, size = 64) {
   g.fillStyle = grd; g.fillRect(0, 0, size, size);
   const s = Math.floor(size / 12);
   g.drawImage(spr, Math.round((size - 12 * s) / 2) + s, size - 10 * s, 12 * s, 10 * s);
-  const url = cv.toDataURL();
+  const url = ditherCanvas(cv).toDataURL();
   avCache.set(key, url);
   return url;
 }
@@ -222,6 +223,7 @@ export function tileSet(themeId) {
   set.coin = [0, 1, 2, 3].map((f) => make((g) => {
     const w = [8, 6, 2, 6][f];
     const x0 = 8 - w / 2;
+    g.fillStyle = '#000'; g.fillRect(x0 - 1, 3, w + 2, 10); g.fillRect(x0, 2, Math.max(1, w), 12);
     g.fillStyle = '#b8860b'; g.fillRect(x0, 4, w, 8); g.fillRect(x0 + 1, 3, Math.max(1, w - 2), 10);
     g.fillStyle = '#ffd23f'; g.fillRect(x0 + 1, 4, Math.max(1, w - 2), 8);
     if (w > 2) { g.fillStyle = '#fff4b8'; g.fillRect(x0 + 1, 5, 1, 4); }

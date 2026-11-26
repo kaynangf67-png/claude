@@ -292,3 +292,46 @@ body.is-home #ui { max-width: none; padding: 0; }
 .hero-preview.small { max-width: 300px; }
 @media (max-width: 560px) { .corner-menu { top: 12px; left: 12px; padding: 10px 14px; } .corner-logo { width: 140px; } }
 .vault-head .hero-preview { margin: 0; }
+
+/* ================= TEMA PRETO E BRANCO (apenas #000 e #fff) ================= */
+:root {
+  --bg: #000; --bg2: #000; --card: #000; --card2: #000; --line: #fff;
+  --text: #fff; --muted: #fff; --gold: #fff; --silver: #fff; --bronze: #fff;
+  --pink: #fff; --cyan: #fff; --green: #fff;
+}
+body { background: #000; color: #fff; }
+#bg-fx { display: none; }
+/* pixel art, avatares, emojis e bandeiras: cada pixel vira preto ou branco */
+/* interface: limiar 1-bit (o texto vira pixel nítido, sem tons de cinza) */
+#ui > *:not(canvas), #toasts, .modal .panel, .game-overlay .panel { filter: url(#pb); }
+.flag { font: 700 11px var(--mono); border: 1px solid #fff; padding: 0 3px; vertical-align: middle; }
+.card, .level, .item, .stat, .ach, .rank-row, .room-player, .medal-chip, .modal .panel, .game-overlay .panel, .toast,
+.tab, .link-back, input, select, .corner-menu, .banner, .stat { background: #000 !important; border: 1px solid #fff !important; color: #fff; box-shadow: none !important; backdrop-filter: none !important; }
+.btn, .btn.ghost, .btn.gold, .btn.green, .btn.cyan { --c: #000; --d: #fff; background: #000; color: #fff; border: 2px solid #fff; box-shadow: 0 3px 0 #fff; }
+.btn.primary { --c: #fff; --d: #fff; background: #fff; color: #000; }
+.btn:hover { filter: none; background: #fff; color: #000; }
+.tab.on { background: #fff !important; color: #000; }
+.menu-link:hover, .menu-link:focus-visible { color: #fff; text-decoration: underline; text-underline-offset: 5px; }
+.menu-link { text-shadow: none; }
+.rank-row.me, .item.equipped { border-width: 3px !important; }
+.level.boss { background: #000 !important; }
+.level.locked { opacity: 1; border-style: dashed !important; }
+.ach.locked { opacity: 1; filter: none; border-style: dashed !important; }
+.medal, .m-diamante, .m-ouro, .m-prata, .m-bronze { background: #fff; color: #000; }
+.rar, .rar-comum, .rar-raro, .rar-épico, .rar-lendário, .rar-exclusivo, .price, .countdown, .rank-row .val, .rank-row .pos { color: #fff !important; }
+.podium .base, .podium .p1 .base, .podium .p2 .base, .podium .p3 .base { background: #fff !important; color: #000 !important; }
+.podium .empty { opacity: 1; }
+.game-overlay { background: rgba(0,0,0,.85); }
+.game-overlay.busy { background: transparent; }
+.game-overlay .big, .game-overlay .coins, .game-overlay .ok, .game-overlay .bad, .err { color: #fff; }
+.frame-none, .frame-wood, .frame-neon, .frame-fire, .frame-diamond, .frame-top10, .frame-champion { border: 2px solid #fff; box-shadow: none; animation: none; }
+.frame-diamond, .frame-top10, .frame-champion { border-width: 4px; outline: 2px solid #fff; outline-offset: 2px; }
+.dot-online { background: #000; border: 1px solid #fff; } .dot-online.on { background: #fff; box-shadow: none; }
+.touch-controls button { background: #000; border-color: #fff; } .touch-controls button.on { background: #fff; color: #000; }
+.game-menu-btn { background: #000; border-color: #fff; }
+th, td { border-bottom-color: #fff; color: #fff; }
+a { color: #fff; }
+.loading::after { border-color: #fff; border-top-color: #000; }
+input::placeholder { color: #fff; opacity: .6; }
+.item .prev, .item canvas { background: #fff !important; border: 1px solid #fff; color: #000; }
+.btn[disabled] { opacity: 1; filter: none; border-style: dashed; box-shadow: none; }

@@ -5,6 +5,7 @@ import { crumbleInfo } from '/shared/sim.js';
 import { ITEM_MAP } from '/shared/items.js';
 import { heroFrames, petSprite, tileSet, background, drawBoss, shade } from './sprites.js';
 import { drawText, drawTextCentered, textWidth } from './font.js';
+import { ditherCtx } from './mono.js';
 
 const SOLIDISH = { '#': 1, 'I': 1, 'X': 1 };
 
@@ -303,6 +304,7 @@ export class Renderer {
 
     if (this.flash > 0) { g.fillStyle = `rgba(255,255,255,${this.flash / 12})`; g.fillRect(0, 0, VIEW_W, VIEW_H); this.flash--; }
     if (hud) hud(g);
+    ditherCtx(g, VIEW_W, VIEW_H);
   }
 
   drawBackground(g, theme, ox, oy) {

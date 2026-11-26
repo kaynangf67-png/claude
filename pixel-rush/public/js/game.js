@@ -13,6 +13,7 @@ import { Input } from './input.js';
 import { drawText, drawTextCentered, textWidth } from './font.js';
 import { sfx, playMusic, stopMusic } from './audio.js';
 import { api } from './api.js';
+import { noEmoji } from './mono.js';
 
 const STEP_MS = 1000 / TPS;
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -232,7 +233,7 @@ export class GameSession {
     const ticks = s.finished ? s.finishT : s.t;
     const ms = ticksToMs(ticks);
     // barra superior
-    g.fillStyle = 'rgba(10,8,24,0.55)';
+    g.fillStyle = '#000';
     g.fillRect(0, 0, VIEW_W, 14);
     drawText(g, this.title.slice(0, 34), 4, 4, '#ffffff', 1, '#000');
     if (this.mode === 'endless') {
@@ -245,12 +246,13 @@ export class GameSession {
       const ts = fmtTime(ms);
       drawText(g, ts, VIEW_W - textWidth(ts) - 4, 4, s.finished ? '#3ee07a' : '#ffd23f');
     }
-    // mortes e moedas
+    // mortes e moedas (em caixa preta para ler bem no tema preto e branco)
+    g.fillStyle = '#000'; g.fillRect(0, 14, 40, 22);
     const info = `x${s.deaths}`;
     g.fillStyle = '#fff'; g.fillRect(4, 18, 5, 5); g.fillStyle = '#000'; g.fillRect(5, 20, 1, 1); g.fillRect(7, 20, 1, 1);
-    drawText(g, info, 12, 17, '#fff');
+    drawText(g, info, 12, 17, '#fff', 1, null);
     g.fillStyle = '#ffd23f'; g.fillRect(4, 28, 5, 5); g.fillStyle = '#fff4b8'; g.fillRect(5, 29, 1, 2);
-    drawText(g, `x${s.coinCount}`, 12, 27, '#ffd23f');
+    drawText(g, `x${s.coinCount}`, 12, 27, '#fff', 1, null);
 
     // chefe
     if (s.boss && !s.boss.defeated) {
@@ -367,7 +369,7 @@ export class GameSession {
 
   showMessage(text, buttons = [], cls = 'busy') {
     this.overlay.className = 'game-overlay show ' + cls;
-    this.overlay.innerHTML = `<div class="panel"><p>${esc(text)}</p><div class="row">${buttons.map((b, i) => `<button class="btn ${i === 0 ? 'primary' : ''}" data-i="${i}">${esc(b[0])}</button>`).join('')}</div></div>`;
+    this.overlay.innerHTML = noEmoji(`<div class="panel"><p>${esc(text)}</p><div class="row">${buttons.map((b, i) => `<button class="btn ${i === 0 ? 'primary' : ''}" data-i="${i}">${esc(b[0])}</button>`).join('')}</div></div>`);
     this.overlay.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => { sfx.click(); buttons[+b.dataset.i][1](); }));
     const first = this.overlay.querySelector('button');
     if (first) first.focus();
@@ -415,7 +417,7 @@ export class GameSession {
     }
     btns.push(['Menu', () => this.exit()]);
     this.overlay.className = 'game-overlay show results';
-    this.overlay.innerHTML = `<div class="panel"><h2>${esc(title)}</h2>${lines.join('')}<div class="row">${btns.map((b, i) => `<button class="btn ${i === 0 ? 'primary' : ''}" data-i="${i}">${esc(b[0])}</button>`).join('')}</div></div>`;
+    this.overlay.innerHTML = noEmoji(`<div class="panel"><h2>${esc(title)}</h2>${lines.join('')}<div class="row">${btns.map((b, i) => `<button class="btn ${i === 0 ? 'primary' : ''}" data-i="${i}">${esc(b[0])}</button>`).join('')}</div></div>`);
     this.overlay.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => { sfx.click(); btns[+b.dataset.i][1](); }));
   }
 
@@ -427,10 +429,10 @@ export class GameSession {
     const mine = m.results.find((r) => r.username === me);
     if (mine && mine.place === 1) sfx.record();
     this.overlay.className = 'game-overlay show results';
-    this.overlay.innerHTML = `<div class="panel"><h2>${mine && mine.place === 1 ? '🏆 VITÓRIA!' : 'Resultado da corrida'}</h2>
+    this.overlay.innerHTML = noEmoji(`<div class="panel"><h2>${mine && mine.place === 1 ? '🏆 VITÓRIA!' : 'Resultado da corrida'}</h2>
       <table class="race-res"><thead><tr><th>#</th><th>Jogador</th><th>Tempo</th><th>Rating</th><th>Moedas</th></tr></thead><tbody>${rows}</tbody></table>
       <p class="ok">✔ Tempos validados pelo servidor${m.rated ? '' : ' · partida não ranqueada (1 jogador)'}</p>
-      <div class="row"><button class="btn primary" data-a="lobby">Voltar à sala</button><button class="btn" data-a="menu">Menu</button></div></div>`;
+      <div class="row"><button class="btn primary" data-a="lobby">Voltar à sala</button><button class="btn" data-a="menu">Menu</button></div></div>`);
     this.overlay.querySelector('[data-a=lobby]').onclick = () => { this.exit(false); this.app.show('multiplayer'); };
     this.overlay.querySelector('[data-a=menu]').onclick = () => { this.app.live.send({ t: 'leave' }); this.exit(); };
     this.app.refreshMe();
