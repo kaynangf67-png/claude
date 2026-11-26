@@ -66,8 +66,8 @@ export class Renderer {
         this.anim.sx = 1.25; this.anim.sy = 0.8;
         this.burst(cx, by, 4, ['#d8cbb0', '#ffffff'], { spd: 0.8, up: 0.3, life: 14 });
       } else if (ev === 'die') {
-        const pal = heroFrames(this.cos.skin || 'skin_classic').pal;
-        this.burst(cx, p.y + 6, 26, [pal.b, pal.B, pal.c, pal.o], { spd: 3, up: 1.5, life: 40, size: 2 });
+        const pal = heroFrames(this.cos.skin || 'skin_male').pal;
+        this.burst(cx, p.y + 6, 26, [pal.c, pal.C, pal.h, pal.s], { spd: 3, up: 1.5, life: 40, size: 2 });
         this.shake = 8; this.flash = 6;
       } else if (ev === 'coin') {
         this.burst(cx, p.y, 8, ['#ffd23f', '#fff4b8'], { spd: 1.2, life: 18 });
@@ -265,13 +265,13 @@ export class Renderer {
     for (const gh of ghosts) {
       if (!gh.sim || gh.sim.s.p.dead > 0) continue;
       const gp = gh.sim.s.p;
-      this.drawHero(g, gp, ox, oy, gh.skin || 'skin_classic', 0.4, gh.anim || (gh.anim = { sx: 1, sy: 1, run: 0, blink: 0 }), false);
+      this.drawHero(g, gp, ox, oy, gh.skin || 'skin_male', 0.4, gh.anim || (gh.anim = { sx: 1, sy: 1, run: 0, blink: 0 }), false);
       drawTextCentered(g, gh.label, gp.x + 5 - ox, gp.y - 10 - oy, gh.color || '#cfe', 1, '#000');
     }
     for (const o of others) {
       const fake = { x: o.x, y: o.y, vx: o.vx || 0, vy: 0, onGround: o.a !== 'air', face: o.f, slide: 0, dead: o.a === 'dead' ? 1 : 0 };
       if (fake.dead) continue;
-      this.drawHero(g, fake, ox, oy, o.skin || 'skin_classic', 0.6, o.anim || (o.anim = { sx: 1, sy: 1, run: 0, blink: 0 }), false);
+      this.drawHero(g, fake, ox, oy, o.skin || 'skin_male', 0.6, o.anim || (o.anim = { sx: 1, sy: 1, run: 0, blink: 0 }), false);
       drawTextCentered(g, o.username, o.x + 5 - ox, o.y - 10 - oy, '#ffe680', 1, '#000');
     }
 
@@ -280,7 +280,7 @@ export class Renderer {
     if (p.dead === 0) {
       let extra = null;
       if (this.victory) extra = this.victoryTransform();
-      this.drawHero(g, p, ox, oy, this.cos.skin || 'skin_classic', 1, this.anim, true, extra);
+      this.drawHero(g, p, ox, oy, this.cos.skin || 'skin_male', 1, this.anim, true, extra);
     }
     this.drawPet(g, p, ox, oy);
     this.drawParts(g, ox, oy);
@@ -384,21 +384,10 @@ export class Renderer {
     }
     if (name === 'idle' && anim.blink > 192) name = 'idle_blink';
     const img = (p.slide ? (p.slide < 0 ? fr.l : fr.r) : fr[dir])[name] || fr.r.idle;
-    const w = Math.round(12 * (anim.sx || 1)), h = Math.round(14 * (anim.sy || 1));
+    const w = Math.round(12 * (anim.sx || 1)), h = Math.round(16 * (anim.sy || 1));
     let x = Math.round(p.x + PHYS.pw / 2 - w / 2 - ox);
     let y = Math.round(p.y + PHYS.ph - h - oy);
     g.globalAlpha = alpha;
-    // faixa (bandana) esvoaçante
-    const pal = fr.pal;
-    const back = p.face < 0 ? x + w : x - 1;
-    const speed = Math.min(1, Math.abs(p.vx) / 2.6 + (p.onGround ? 0 : 0.4));
-    g.fillStyle = pal.c;
-    const len = 3 + Math.round(speed * 4);
-    for (let i = 0; i < len; i++) {
-      const wave = Math.round(Math.sin(this.frame * 0.3 + i * 0.9) * (0.5 + speed));
-      const bx = p.face < 0 ? back + i : back - i;
-      g.fillRect(bx, y + 4 + Math.round(i * 0.3 * (1 - speed)) + wave, 1, 2);
-    }
     if (extra && extra.rot) {
       g.save(); g.translate(x + w / 2, y + h / 2); g.rotate(extra.rot); g.drawImage(img, -w / 2, -h / 2, w, h); g.restore();
     } else {
@@ -417,8 +406,8 @@ export class Renderer {
       if (this.frame % 3 === 0 && moving) this.trail.push({ x: p.x, y: p.y, f: p.face, life: 12 });
       for (const q of this.trail) {
         g.globalAlpha = q.life / 30;
-        const fr = heroFrames(this.cos.skin || 'skin_classic');
-        g.drawImage((q.f < 0 ? fr.l : fr.r).air, Math.round(q.x - 1 - ox), Math.round(q.y - 2 - oy));
+        const fr = heroFrames(this.cos.skin || 'skin_male');
+        g.drawImage((q.f < 0 ? fr.l : fr.r).air, Math.round(q.x - 1 - ox), Math.round(q.y - 4 - oy));
         q.life--;
       }
       g.globalAlpha = 1;
@@ -479,7 +468,7 @@ export class Renderer {
     }
     if (v.fx === 'crown') {
       const dy = Math.min(0, -30 + v.t);
-      const x = Math.round(cx - 5 - ox), y = Math.round(cy - 9 + dy - oy + (this.victoryTransform().dy || 0));
+      const x = Math.round(cx - 6 - ox), y = Math.round(cy - 13 + dy - oy + (this.victoryTransform().dy || 0));
       g.fillStyle = '#b8860b'; g.fillRect(x, y + 3, 10, 4);
       g.fillStyle = '#ffd23f'; g.fillRect(x, y + 3, 10, 3); g.fillRect(x, y, 2, 3); g.fillRect(x + 4, y - 1, 2, 4); g.fillRect(x + 8, y, 2, 3);
       g.fillStyle = '#ff3d6e'; g.fillRect(x + 4, y + 4, 2, 1);

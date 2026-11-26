@@ -27,43 +27,60 @@ function flip(src) {
   return c;
 }
 
-// ---------------- Herói "Bit" (12x14)
-const BODY = [
-  '.oooooooooo.',
-  'obbbbbbbbbbo',
-  'obhhbbbbbbbo',
-  'obhbbbbbbbbo',
-  'occccccccccc'.slice(0, 11) + 'o',
-  'obbbbbbbbbbo',
-  'obbbbwkbwkbo',
-  'obbbbwkbwkbo',
-  'obbbbbbbbbbo',
-  'obbbbbbbbBBo',
-  'oBBBBBBBBBBo',
-  '.oooooooooo.',
-];
-const BLINK = [...BODY];
-BLINK[6] = 'obbbbbbbbbbo';
-BLINK[7] = 'obbbbooboobo';
-const FEET = {
-  idle: ['..oo....oo..', '..oo....oo..'],
-  r0: ['.oo.....oo..', '.oo......oo.'],
-  r1: ['..oo...oo...', '..oo...oo...'],
-  r2: ['...oo....oo.', '..oo.....oo.'],
-  r3: ['..oo...oo...', '...oo..oo...'],
-  air: ['...oo..oo...', '............'],
-  slide: ['..oo....oo..', '............'],
+// ---------------- Bonequinho 2D (12x16): menino e menina
+const UPPER = {
+  male: [
+    '...ooooo....',
+    '..ohhhhho...',
+    '.ohhhhhhho..',
+    '.ohsssskso..',
+    '.ossssssso..',
+    '..ossssSo...',
+    '..occccco...',
+    '.occccccco..',
+    '.occccccco..',
+    '.osCCCCCso..',
+    '..odddddo...',
+    '..odDDDdo...',
+  ],
+  female: [
+    '...ooooo....',
+    '.rohhhhho...',
+    '.ohhhhhhho..',
+    '.ohsssskso..',
+    'ohhsssssso..',
+    'ohhossssSo..',
+    'ohhoccccco..',
+    '.ohccccccco.',
+    '.occccccco..',
+    '.osCCCCCso..',
+    '.odddddddo..',
+    'odDDDDDDDdo.',
+  ],
 };
+const LEGS = {
+  idle: ['...olo.olo..', '...olo.olo..', '...olo.olo..', '..obbo.obbo.'],
+  r0: ['..olo...olo.', '.olo.....olo', '.olo.....olo', '.obo.....obo'],
+  r1: ['...olo.olo..', '...olo.olo..', '....oloolo..', '...obboobbo.'],
+  r2: ['...olo.olo..', '..olo...olo.', '..olo....olo', '..obo....obo'],
+  r3: ['...olo.olo..', '...olo.olo..', '....oloolo..', '...obboobbo.'],
+  air: ['..olo.olo...', '..olo..olo..', '..obo...obo.', '............'],
+  slide: ['...olo.olo..', '...olo.olo..', '...olo.olo..', '..obbo.obbo.'],
+};
+const fit = (r) => (r + '............').slice(0, 12);
+const bodyOf = (skinId) => (skinId === 'skin_female' ? UPPER.female : UPPER.male);
+const blinkOf = (rows) => rows.map((r, i) => (i === 3 ? r.replace('k', 'o') : r));
 
 const heroCache = new Map();
 export function heroFrames(skinId) {
+  if (!ITEM_MAP[skinId] || ITEM_MAP[skinId].slot !== 'skin') skinId = 'skin_male';
   if (heroCache.has(skinId)) return heroCache.get(skinId);
-  const it = ITEM_MAP[skinId] || ITEM_MAP.skin_classic;
-  const pal = { ...it.pal };
+  const pal = { ...ITEM_MAP[skinId].pal };
+  const body = bodyOf(skinId);
   const frames = {};
-  for (const [name, feet] of Object.entries(FEET)) {
-    frames[name] = paint([...BODY, ...feet], pal);
-    frames[name + '_blink'] = paint([...BLINK, ...feet], pal);
+  for (const [name, legs] of Object.entries(LEGS)) {
+    frames[name] = paint([...body, ...legs].map(fit), pal);
+    frames[name + '_blink'] = paint([...blinkOf(body), ...legs].map(fit), pal);
   }
   const out = { r: frames, l: {}, pal };
   for (const k of Object.keys(frames)) out.l[k] = flip(frames[k]);
@@ -88,22 +105,24 @@ export function petSprite(kind) {
   return petCache.get(kind);
 }
 
-// ---------------- Avatares (rosto do herói ampliado)
+// ---------------- Avatares (rosto do bonequinho ampliado)
 const avCache = new Map();
 export function avatarURL(id, size = 64) {
   const key = id + ':' + size;
   if (avCache.has(key)) return avCache.get(key);
-  const [b, c] = AVATAR_COLORS[id] || AVATAR_COLORS.a1;
-  const pal = { o: '#140c24', b, B: shade(b, -0.25), h: shade(b, 0.45), c, w: '#ffffff', k: '#140c24' };
-  const spr = paint(BODY, pal);
+  const [shirt, bg] = AVATAR_COLORS[id] || AVATAR_COLORS.a1;
+  const n = Number(String(id).slice(1)) || 1;
+  const skin = n % 2 ? 'skin_male' : 'skin_female';
+  const pal = { ...ITEM_MAP[skin].pal, c: shirt, C: shade(shirt, -0.25) };
+  const spr = paint(bodyOf(skin).slice(0, 10).map(fit), pal);
   const cv = canvas(size, size);
   const g = cv.getContext('2d');
   g.imageSmoothingEnabled = false;
   const grd = g.createLinearGradient(0, 0, 0, size);
-  grd.addColorStop(0, shade(c, 0.3)); grd.addColorStop(1, shade(c, -0.35));
+  grd.addColorStop(0, shade(bg, 0.3)); grd.addColorStop(1, shade(bg, -0.35));
   g.fillStyle = grd; g.fillRect(0, 0, size, size);
-  const s = Math.floor(size / 16);
-  g.drawImage(spr, Math.round((size - 12 * s) / 2), Math.round((size - 12 * s) / 2 + s), 12 * s, 12 * s);
+  const s = Math.floor(size / 12);
+  g.drawImage(spr, Math.round((size - 12 * s) / 2) + s, size - 10 * s, 12 * s, 10 * s);
   const url = cv.toDataURL();
   avCache.set(key, url);
   return url;

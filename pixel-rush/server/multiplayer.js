@@ -215,7 +215,7 @@ export function createMultiplayer({ server, db, log = () => {} }) {
           const eq = JSON.parse(u.equipped || '{}');
           const inv = await db.all('SELECT item_id FROM inventory WHERE user_id=$1', [u.id]);
           ws.user = {
-            id: u.id, username: u.username, country: u.country, avatar: u.avatar, skin: eq.skin || 'skin_classic',
+            id: u.id, username: u.username, country: u.country, avatar: u.avatar, skin: eq.skin || 'skin_male',
             rating: u.race_rating, items: new Set(inv.map((r) => r.item_id)),
           };
           if (!online.has(u.id)) online.set(u.id, new Set());

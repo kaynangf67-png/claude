@@ -56,7 +56,7 @@ test('cadastro, login e perfil', async () => {
   const me = await api('/api/me', { token: t });
   assert.equal(me.data.user.username, 'Alice');
   assert.equal(me.data.user.country, 'BR');
-  assert.ok(me.data.inventory.includes('skin_classic'));
+  assert.ok(me.data.inventory.includes('skin_male') && me.data.inventory.includes('skin_female'));
   assert.equal((await api('/api/me')).status, 401);
 });
 
@@ -164,21 +164,21 @@ test('loja: comprar e equipar sem vantagem competitiva', async () => {
   const t = await register('Duda');
   const shop = await api('/api/shop', { token: t });
   assert.equal(shop.data.coins, 100);
-  let r = await api('/api/shop/buy', { method: 'POST', token: t, body: { itemId: 'skin_gold' } });
+  let r = await api('/api/shop/buy', { method: 'POST', token: t, body: { itemId: 'trail_rainbow' } });
   assert.equal(r.status, 402);
-  r = await api('/api/shop/buy', { method: 'POST', token: t, body: { itemId: 'skin_legend' } });
+  r = await api('/api/shop/buy', { method: 'POST', token: t, body: { itemId: 'frame_champion' } });
   assert.equal(r.status, 400);
-  r = await api('/api/equip', { method: 'POST', token: t, body: { slot: 'skin', itemId: 'skin_mint' } });
+  r = await api('/api/equip', { method: 'POST', token: t, body: { slot: 'trail', itemId: 'trail_ghost' } });
   assert.equal(r.status, 403);
   await app.db.run('UPDATE users SET coins=1000 WHERE username=$1', ['Duda']);
-  r = await api('/api/shop/buy', { method: 'POST', token: t, body: { itemId: 'skin_mint' } });
+  r = await api('/api/shop/buy', { method: 'POST', token: t, body: { itemId: 'trail_ghost' } });
   assert.equal(r.status, 200);
-  assert.equal(r.data.coins, 1000 - 150 + 30); // preço + conquista 'Estiloso'
+  assert.equal(r.data.coins, 1000 - 300 + 30); // preço + conquista 'Estiloso'
   assert.ok(r.data.achievements.some((a) => a.id === 'shopper'));
-  r = await api('/api/shop/buy', { method: 'POST', token: t, body: { itemId: 'skin_mint' } });
+  r = await api('/api/shop/buy', { method: 'POST', token: t, body: { itemId: 'trail_ghost' } });
   assert.equal(r.status, 409);
-  r = await api('/api/equip', { method: 'POST', token: t, body: { slot: 'skin', itemId: 'skin_mint' } });
-  assert.equal(r.data.equipped.skin, 'skin_mint');
+  r = await api('/api/equip', { method: 'POST', token: t, body: { slot: 'trail', itemId: 'trail_ghost' } });
+  assert.equal(r.data.equipped.trail, 'trail_ghost');
 });
 
 test('amigos: pedido e aceite', async () => {

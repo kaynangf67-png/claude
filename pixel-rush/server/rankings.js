@@ -18,7 +18,7 @@ export function clearRankingCache() { cache.clear(); }
 function pub(u) {
   let eq = {};
   try { eq = JSON.parse(u.equipped || '{}'); } catch { /* */ }
-  return { username: u.username, country: u.country, avatar: u.avatar, frame: eq.frame || 'frame_none', skin: eq.skin || 'skin_classic' };
+  return { username: u.username, country: u.country, avatar: u.avatar, frame: eq.frame || 'frame_none', skin: eq.skin || 'skin_male' };
 }
 
 const LIMIT = 100;

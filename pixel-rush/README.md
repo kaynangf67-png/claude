@@ -54,9 +54,13 @@ As tabelas são criadas automaticamente na primeira execução. Os testes també
 
 **Rankings** (`server/rankings.js`): TOP 100 mundial, Brasil, por país, por continente, semanal, mensal (a temporada), histórico (campeões das temporadas e recordes de todos os tempos), velocidade por fase, distância, tempo total da História, diário, evento e corridas. O TOP 3 aparece com troféus de ouro, prata e bronze na tela inicial e no ranking. O perfil mostra nome, avatar, país e bandeira, pontuação, recordes, fases concluídas, tempo total de jogo, posição mundial, medalhas, conquistas e histórico de resultados.
 
-**Temporadas** (`server/seasons.js`): cada mês é uma temporada. Quando ela acaba, o servidor distribui as recompensas por posição: troféus e medalhas, moedas, a moldura "Campeão Mundial" para o TOP 3, a skin "Lenda da Temporada" para o 1º lugar e a moldura "Elite" para o TOP 10. Uma linha de trava no banco garante que cada período só pague as recompensas uma vez.
+**Temporadas** (`server/seasons.js`): cada mês é uma temporada. Quando ela acaba, o servidor distribui as recompensas por posição: troféus e medalhas, moedas, a moldura "Campeão Mundial" para o TOP 3 e a moldura "Elite" para o TOP 10. Uma linha de trava no banco garante que cada período só pague as recompensas uma vez.
 
-**Loja e personalização**: skins, animações de vitória, efeitos de pulo, trilhas, mascotes, emotes e molduras de perfil. Tudo é cosmético e nada altera a física. As moedas vêm das fases, de recordes, do Modo Infinito, de corridas, de conquistas e das temporadas, com limite diário para evitar "farm". Há 21 conquistas.
+**Personagem**: bonequinho 2D em pixel art, com duas skins gratuitas (Menino e Menina), escolhidas no cadastro e trocadas no Cofre.
+
+**Interface**: a tela inicial mostra só os nomes no cantinho (Jogar, Evento, Ranking, Loja, Cofre, Perfil, Configurações); cada nome abre uma página própria.
+
+**Loja e Cofre**: na Loja ficam de vitória, efeitos de pulo, trilhas, mascotes, emotes e molduras de perfil; o Cofre mostra suas moedas e os itens que você tem. Tudo é cosmético e nada altera a física. As moedas vêm das fases, de recordes, do Modo Infinito, de corridas, de conquistas e das temporadas, com limite diário para evitar "farm". Há 21 conquistas.
 
 ## Proteção contra trapaças
 

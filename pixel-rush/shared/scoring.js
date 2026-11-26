@@ -31,7 +31,7 @@ export function runReward({ mode, firstClear, newBest, coins, distance, place })
 export const DAILY_COIN_CAP = 800;
 
 export const SEASON_REWARDS = [
-  { from: 1, to: 1, medal: 'season_gold', coins: 1500, items: ['frame_champion', 'skin_legend'], label: '1º lugar — Troféu de Ouro' },
+  { from: 1, to: 1, medal: 'season_gold', coins: 1500, items: ['frame_champion'], label: '1º lugar — Troféu de Ouro' },
   { from: 2, to: 2, medal: 'season_silver', coins: 1000, items: ['frame_champion'], label: '2º lugar — Troféu de Prata' },
   { from: 3, to: 3, medal: 'season_bronze', coins: 700, items: ['frame_champion'], label: '3º lugar — Troféu de Bronze' },
   { from: 4, to: 10, medal: 'season_top10', coins: 400, items: ['frame_top10'], label: 'Top 10' },

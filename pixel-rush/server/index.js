@@ -56,6 +56,8 @@ export async function createServer({ dbOptions, logger = console, rateLimits = p
     coinsCollected: u.coins_collected, runsTotal: u.runs_total, createdAt: u.created_at,
   });
 
+  const fixEquip = (eq) => { const out = { ...DEFAULT_EQUIPPED, ...eq }; for (const k of Object.keys(out)) if (!ITEM_MAP[out[k]]) out[k] = DEFAULT_EQUIPPED[k]; return out; };
+
   async function globalRank(u) {
     if (!u.total_score) return null;
     const r = await db.get('SELECT COUNT(*) AS n FROM users WHERE total_score > $1 AND banned=0', [u.total_score]);
@@ -71,6 +73,7 @@ export async function createServer({ dbOptions, logger = console, rateLimits = p
     const c = COUNTRY_MAP[country];
     if (!c) throw new GameError(400, 'Selecione um país válido.');
     const av = AVATARS.includes(avatar) ? avatar : 'a1';
+    const equipped = { ...DEFAULT_EQUIPPED, skin: body.skin === 'skin_female' ? 'skin_female' : 'skin_male' };
     const exists = await db.get('SELECT id FROM users WHERE username_lc=$1', [username.toLowerCase()]);
     if (exists) throw new GameError(409, 'Esse nome de usuário já existe.');
     const id = newId();
@@ -81,7 +84,7 @@ export async function createServer({ dbOptions, logger = console, rateLimits = p
         await q.run(
           `INSERT INTO users (id, username, username_lc, pass_hash, country, continent, avatar, created_at, last_seen, coins, equipped)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$8,$9,$10)`,
-          [id, username, username.toLowerCase(), ph, c.code, c.continent, av, now, 100, JSON.stringify(DEFAULT_EQUIPPED)]);
+          [id, username, username.toLowerCase(), ph, c.code, c.continent, av, now, 100, JSON.stringify(equipped)]);
         for (const it of DEFAULT_ITEMS) await q.run('INSERT INTO inventory (user_id, item_id, acquired_at) VALUES ($1,$2,$3)', [id, it, now]);
       });
     } catch (e) {
@@ -113,8 +116,8 @@ export async function createServer({ dbOptions, logger = console, rateLimits = p
     ]);
     await db.run('UPDATE users SET last_seen=$2 WHERE id=$1', [user.id, Date.now()]);
     return {
-      user: meUser(user), equipped: JSON.parse(user.equipped), prefs: JSON.parse(user.prefs || '{}'),
-      inventory: inv.map((r) => r.item_id), achievements: ach.map((a) => ({ id: a.ach_id, at: a.unlocked_at })),
+      user: meUser(user), equipped: fixEquip(JSON.parse(user.equipped)), prefs: JSON.parse(user.prefs || '{}'),
+      inventory: [...new Set([...DEFAULT_ITEMS, ...inv.map((r) => r.item_id)])].filter((id) => ITEM_MAP[id]), achievements: ach.map((a) => ({ id: a.ach_id, at: a.unlocked_at })),
       medals: medals.map((m) => ({ ...m, info: MEDALS[m.kind] })), progress,
       globalRank: await globalRank(user), records: await countRecords(db, user.id),
     };
@@ -224,7 +227,7 @@ export async function createServer({ dbOptions, logger = console, rateLimits = p
   // ---------------- loja e personalização
   route('GET', '/api/shop', async ({ user }) => {
     const inv = await db.all('SELECT item_id FROM inventory WHERE user_id=$1', [user.id]);
-    return { coins: user.coins, owned: inv.map((r) => r.item_id), equipped: JSON.parse(user.equipped), items: ITEMS };
+    return { coins: user.coins, owned: inv.map((r) => r.item_id), equipped: fixEquip(JSON.parse(user.equipped)), items: ITEMS };
   });
 
   route('POST', '/api/shop/buy', async ({ user, body }) => {
@@ -247,9 +250,10 @@ export async function createServer({ dbOptions, logger = console, rateLimits = p
   route('POST', '/api/equip', async ({ user, body }) => {
     const it = ITEM_MAP[body.itemId];
     if (!it || it.slot !== body.slot) throw new GameError(400, 'Item inválido');
-    const owned = await db.get('SELECT 1 AS x FROM inventory WHERE user_id=$1 AND item_id=$2', [user.id, it.id]);
+    const owned = it.price === 0 || await db.get('SELECT 1 AS x FROM inventory WHERE user_id=$1 AND item_id=$2', [user.id, it.id]);
     if (!owned) throw new GameError(403, 'Você não possui este item');
     const eq = { ...DEFAULT_EQUIPPED, ...JSON.parse(user.equipped) };
+    if (!ITEM_MAP[eq.skin]) eq.skin = DEFAULT_EQUIPPED.skin;
     eq[it.slot] = it.id;
     await db.run('UPDATE users SET equipped=$2 WHERE id=$1', [user.id, JSON.stringify(eq)]);
     clearRankingCache();

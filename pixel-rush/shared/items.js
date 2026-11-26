@@ -7,17 +7,9 @@ export const SLOTS = {
 const skin = (id, name, price, rarity, pal) => ({ id, slot: 'skin', name, price, rarity, pal });
 
 export const ITEMS = [
-  // --- skins (paleta do herói "Bit")
-  skin('skin_classic', 'Bit Clássico', 0, 'comum', { o: '#1a1030', b: '#ff5d73', B: '#c23a5a', h: '#ffb3c0', c: '#ffd23f', w: '#ffffff', k: '#1a1030' }),
-  skin('skin_mint', 'Menta', 150, 'comum', { o: '#0f2a24', b: '#4fe3b0', B: '#22a383', h: '#b9ffe8', c: '#ff6ab0', w: '#ffffff', k: '#0f2a24' }),
-  skin('skin_ocean', 'Oceano', 150, 'comum', { o: '#0b1838', b: '#3d8bff', B: '#2759c4', h: '#a9cbff', c: '#ffe066', w: '#ffffff', k: '#0b1838' }),
-  skin('skin_ninja', 'Ninja', 400, 'raro', { o: '#05050a', b: '#2b2d42', B: '#17182b', h: '#555a7a', c: '#e63946', w: '#ffffff', k: '#e63946' }),
-  skin('skin_robot', 'Robô', 400, 'raro', { o: '#1b1f24', b: '#b8c4d0', B: '#7d8a99', h: '#ffffff', c: '#3ee0ff', w: '#3ee0ff', k: '#003845' }),
-  skin('skin_lava', 'Magma', 700, 'épico', { o: '#2a0800', b: '#ff7a1a', B: '#c43c00', h: '#ffd166', c: '#2a0800', w: '#fff3b0', k: '#2a0800' }),
-  skin('skin_ice', 'Cristal de Gelo', 700, 'épico', { o: '#0d2b45', b: '#bdf3ff', B: '#7cc8e8', h: '#ffffff', c: '#6c63ff', w: '#ffffff', k: '#0d2b45' }),
-  skin('skin_ghost', 'Fantasma', 900, 'épico', { o: '#3b3355', b: '#efeaff', B: '#c6bde6', h: '#ffffff', c: '#9b8cff', w: '#3b3355', k: '#ffffff' }),
-  skin('skin_gold', 'Ouro Puro', 2500, 'lendário', { o: '#3a2600', b: '#ffd23f', B: '#d19a00', h: '#fff4b8', c: '#ff3d6e', w: '#ffffff', k: '#3a2600' }),
-  skin('skin_legend', 'Lenda da Temporada', null, 'exclusivo', { o: '#140026', b: '#8a2be2', B: '#5a189a', h: '#e0aaff', c: '#ffd23f', w: '#ffffff', k: '#140026' }),
+  // --- skins: bonequinho 2D (menino e menina)
+  skin('skin_male', 'Menino', 0, 'comum', { o: '#1a1030', h: '#3b2416', s: '#f1c27d', S: '#d9a066', k: '#1a1030', c: '#3d8bff', C: '#2759c4', d: '#2b2d42', D: '#17182b', l: '#2b2d42', b: '#5a3a1a' }),
+  skin('skin_female', 'Menina', 0, 'comum', { o: '#1a1030', h: '#7a3b1d', s: '#f6cda8', S: '#e0a982', k: '#1a1030', c: '#ff5d8f', C: '#c23a6a', d: '#ff5d8f', D: '#c23a6a', l: '#f6cda8', b: '#c23a6a', r: '#ffd23f' }),
 
   // --- animações de vitória
   { id: 'victory_basic', slot: 'victory', name: 'Pulinho', price: 0, rarity: 'comum', fx: 'hop' },
@@ -68,7 +60,7 @@ export const ITEMS = [
 export const ITEM_MAP = Object.fromEntries(ITEMS.map((i) => [i.id, i]));
 export const DEFAULT_ITEMS = ITEMS.filter((i) => i.price === 0).map((i) => i.id);
 export const DEFAULT_EQUIPPED = {
-  skin: 'skin_classic', victory: 'victory_basic', jump: 'jump_dust', trail: 'trail_none',
+  skin: 'skin_male', victory: 'victory_basic', jump: 'jump_dust', trail: 'trail_none',
   pet: 'pet_none', emote: 'emote_gg', frame: 'frame_none',
 };
 

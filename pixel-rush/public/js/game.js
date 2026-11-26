@@ -97,7 +97,7 @@ export class GameSession {
         if (who === 'pb' && this.ghosts.some((g) => g.username === ghost.username && g.timeMs === ghost.timeMs)) continue;
         this.ghosts.push({
           username: ghost.username, timeMs: ghost.timeMs, label: who === 'wr' ? `${label} ${ghost.username}` : label,
-          color, inputs: expandRle(ghost.inputs), sim: createSim(this.level), skin: 'skin_ghost',
+          color, inputs: expandRle(ghost.inputs), sim: createSim(this.level), skin: 'skin_male',
         });
       } catch { /* sem fantasma */ }
     }

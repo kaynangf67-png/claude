@@ -98,24 +98,16 @@ export class App {
     const screens = {
       auth: () => this.renderAuth(), home: () => this.renderHome(), play: () => this.renderPlay(), story: () => this.renderStory(rest[0]),
       competitive: () => this.renderCompetitive(), endless: () => this.renderEndless(), multiplayer: () => this.renderMultiplayer(),
-      ranking: () => this.renderRanking(rest[0]), customize: () => this.renderCustomize(rest[0]), shop: () => this.renderShop(rest[0]),
+      ranking: () => this.renderRanking(rest[0]), customize: () => this.renderVault(rest[0]), vault: () => this.renderVault(rest[0]), event: () => this.renderEvent(), shop: () => this.renderShop(rest[0]),
       profile: () => this.renderProfile(rest[0] ? decodeURIComponent(rest[0]) : null), settings: () => this.renderSettings(),
     };
+    document.body.classList.toggle('is-home', !screens[name] || name === 'home');
     (screens[name] || screens.home)();
     window.scrollTo(0, 0);
   }
 
   topbar(title, back = 'home') {
-    const u = this.me.user;
-    return `<header class="topbar">
-      ${title ? `<button class="btn small ghost back" data-go="${back}">◀ Voltar</button><div class="title">${esc(title)}</div>` : ''}
-      <button class="me-chip" data-go="profile">${avatar(u.avatar, this.me.equipped.frame, 'sm')}<div><b>${esc(u.username)} ${flag(u.country)}</b>
-        <small>${this.me.globalRank ? `#${num(this.me.globalRank)} mundial` : 'Sem ranking ainda'}</small></div></button>
-      <div class="spacer"></div>
-      <span class="pill online" id="online-pill">${this.onlineCount != null ? Math.max(this.onlineCount, this.live.connected ? 1 : 0) : "—"} online</span>
-      <span class="pill rank" title="Pontuação">${num(u.totalScore)} pts</span>
-      <span class="pill coins" title="Moedas" id="coin-pill">🪙 ${num(u.coins)}</span>
-    </header>`;
+    return `<header class="pagebar"><button class="link-back" data-go="${back}" aria-label="Voltar">◀</button><h1>${esc(title || '')}</h1></header>`;
   }
 
   updateTopbar() {
@@ -126,7 +118,7 @@ export class App {
   }
 
   mount(html, handlers = {}) {
-    this.ui.innerHTML = html + '<p class="footer">PIXEL RUSH · resultados validados pelo servidor · <span class="kbd">←</span><span class="kbd">→</span> mover · <span class="kbd">Espaço</span> pular · <span class="kbd">R</span> reiniciar · <span class="kbd">Esc</span> pausar</p>';
+    this.ui.innerHTML = html;
     this.ui.onclick = async (e) => {
       const el = e.target.closest('[data-go],[data-act]');
       if (!el) return;
@@ -163,6 +155,7 @@ export class App {
   renderAuth() {
     let mode = 'register';
     let av = AVATARS[Math.floor(Math.random() * AVATARS.length)];
+    let skin = 'skin_male';
     const guess = (navigator.language || 'pt-BR').split('-')[1] || 'BR';
     const draw = () => {
       this.ui.innerHTML = `<div class="auth">
@@ -178,6 +171,8 @@ export class App {
             ${mode === 'register' ? `
             <label for="f-country">País</label>
             <select id="f-country" name="country">${COUNTRIES.map((c) => `<option value="${c.code}" ${c.code === (COUNTRY_MAP[guess] ? guess : 'BR') ? 'selected' : ''}>${flagEmoji(c.code)} ${esc(c.name)}</option>`).join('')}</select>
+            <label>Personagem</label>
+            <div class="row" id="pick-skin"><button type="button" class="tab ${skin === 'skin_male' ? 'on' : ''}" data-skin="skin_male">Menino</button><button type="button" class="tab ${skin === 'skin_female' ? 'on' : ''}" data-skin="skin_female">Menina</button></div>
             <label>Avatar</label>
             <div class="avatars">${AVATARS.map((a) => `<button type="button" class="${a === av ? 'on' : ''}" data-av="${a}"><img src="${avatarURL(a, 64)}" alt="avatar ${a}"></button>`).join('')}</div>` : ''}
             <p class="err" id="auth-err"></p>
@@ -187,13 +182,14 @@ export class App {
       const lc = logoCanvas(); const logo = $('#logo'); logo.width = lc.width; logo.height = lc.height; logo.getContext('2d').drawImage(lc, 0, 0);
       logo.style.width = Math.min(560, lc.width * 2) + 'px';
       this.ui.querySelectorAll('[data-m]').forEach((b) => b.onclick = () => { mode = b.dataset.m; draw(); });
+      this.ui.querySelectorAll('[data-skin]').forEach((b) => b.onclick = () => { skin = b.dataset.skin; this.ui.querySelectorAll('[data-skin]').forEach((x) => x.classList.toggle('on', x === b)); });
       this.ui.querySelectorAll('[data-av]').forEach((b) => b.onclick = () => { av = b.dataset.av; this.ui.querySelectorAll('[data-av]').forEach((x) => x.classList.toggle('on', x === b)); });
       $('#auth-form').onsubmit = async (e) => {
         e.preventDefault();
         initAudio();
         const fd = new FormData(e.target);
         const body = { username: fd.get('username').trim(), password: fd.get('password') };
-        if (mode === 'register') { body.country = fd.get('country'); body.avatar = av; }
+        if (mode === 'register') { body.country = fd.get('country'); body.avatar = av; body.skin = skin; }
         const btn = e.target.querySelector('button[type=submit]');
         btn.disabled = true;
         try {
@@ -211,50 +207,28 @@ export class App {
   }
 
   // ------------------------------------------------------------ início
-  async renderHome() {
-    const u = this.me.user;
-    this.mount(`${this.topbar(null)}
-      <canvas class="logo" id="logo"></canvas>
-      <p class="tagline">Simples de aprender. Difícil de dominar. O mundo inteiro disputando o 1º lugar.</p>
-      <div class="banner" id="season-banner"><div class="big">🏁 Carregando temporada...</div></div>
-      <div class="home">
-        <div class="stack">
-          <canvas class="hero-preview" id="hero-demo"></canvas>
-          <nav class="menu" aria-label="Menu principal">
-            <button class="btn primary play" data-go="play">▶ Jogar</button>
-            <button class="btn gold" data-go="ranking">🏆 Ranking mundial</button>
-            <button class="btn cyan" data-go="customize">🎨 Personalizar</button>
-            <button class="btn green" data-go="shop">🛒 Loja</button>
-            <button class="btn" data-go="profile">👤 Perfil</button>
-            <button class="btn ghost" data-go="settings">⚙️ Configurações</button>
-            <button class="btn ghost" data-go="multiplayer">🌐 Multiplayer</button>
-          </nav>
-        </div>
-        <div class="stack">
-          <section class="card"><h3>🏆 Top 3 mundial</h3><div id="podium" class="loading">Carregando</div>
-            <div class="row center" style="margin-top:10px"><button class="btn small ghost" data-go="ranking">Ver TOP 100</button></div></section>
-          <section class="card" id="challenges"><h3>🌍 Eventos mundiais</h3><div class="loading">Carregando</div></section>
-        </div>
-      </div>`, { challenge: (b) => this.startMode(b.dataset.mode) });
+  renderHome() {
+    const items = [['play', 'Jogar'], ['event', 'Evento'], ['ranking', 'Ranking'], ['shop', 'Loja'], ['vault', 'Cofre'], ['profile', 'Perfil'], ['settings', 'Configurações']];
+    this.mount(`<canvas id="hero-demo" class="home-bg"></canvas>
+      <nav class="corner-menu" aria-label="Menu principal">
+        <canvas class="corner-logo" id="logo"></canvas>
+        ${items.map(([k, n]) => `<button class="menu-link" data-go="${k}">${n}</button>`).join('')}
+      </nav>
+      <div class="corner-user">${esc(this.me.user.username)}</div>`);
     const lc = logoCanvas(); const logo = $('#logo'); logo.width = lc.width; logo.height = lc.height; logo.getContext('2d').drawImage(lc, 0, 0);
-    logo.style.width = Math.min(620, lc.width * 2.2) + 'px';
-    this.views.push(new DemoView($('#hero-demo'), this.me.equipped, { theme: 1 + (Date.now() / 60000 | 0) % 4 }));
-    const [top, season, ch, monthly] = await Promise.all([
-      api('/api/top3').catch(() => ({ top3: [] })), api('/api/season').catch(() => null),
-      api('/api/challenges').catch(() => null), api('/api/rankings?type=monthly').catch(() => null),
-    ]);
-    if (!$('#podium')) return;
-    $('#podium').outerHTML = this.podium(top.top3, 'pts');
-    if (season) {
-      const my = monthly?.me?.rank ? `Sua posição na temporada: <b>#${monthly.me.rank}</b>` : 'Complete fases para entrar na disputa!';
-      $('#season-banner').innerHTML = `<div><div class="big">🏁 ${esc(season.name)}</div><div class="muted">${my} · Prêmios: troféus, moedas, molduras e skin exclusivas para o TOP 100</div></div>
-        <div class="spacer" style="flex:1"></div><div>Termina em <span class="countdown" data-countdown="${season.endsAt}">${countdown(season.endsAt)}</span></div>
-        <button class="btn small gold" data-go="ranking/monthly">Ver temporada</button>`;
-    }
-    if (ch) {
-      this.onlineCount = ch.online; this.updateTopbar();
-      $('#challenges').innerHTML = `<h3>🌍 Eventos mundiais</h3>${this.challengeCard('daily', ch.daily)}<hr style="border-color:var(--line);opacity:.4">${this.challengeCard('event', ch.event)}`;
-    }
+    this.views.push(new DemoView($('#hero-demo'), this.me.equipped, { theme: 1 }));
+  }
+
+  // ------------------------------------------------------------ evento
+  async renderEvent() {
+    this.mount(`${this.topbar('Evento')}<div id="ev" class="loading">Carregando</div>`, { challenge: (b) => this.startMode(b.dataset.mode) });
+    const [ch, season] = await Promise.all([api('/api/challenges').catch(() => null), api('/api/season').catch(() => null)]);
+    if (!$('#ev')) return;
+    $('#ev').className = 'stack page-narrow';
+    $('#ev').innerHTML = (ch ? `<section class="card">${this.challengeCard('event', ch.event)}</section><section class="card">${this.challengeCard('daily', ch.daily)}</section>` : '<p class="err">Não foi possível carregar os eventos.</p>')
+      + (season ? `<section class="card"><div class="challenge"><div class="t">🏁 ${esc(season.name)}</div>
+          <div>Termina em <span class="countdown" data-countdown="${season.endsAt}">${countdown(season.endsAt)}</span></div>
+          <div class="row"><button class="btn small ghost" data-go="ranking/monthly">Ranking da temporada</button></div></div></section>` : '');
   }
 
   challengeCard(kind, c) {
@@ -278,13 +252,8 @@ export class App {
 
   // ------------------------------------------------------------ modos
   renderPlay() {
-    this.mount(`${this.topbar('Jogar')}
-      <div class="grid g2">
-        <button class="card mode-card" data-go="story"><div class="ico">📖</div><h2>Modo História</h2><p>4 mundos, 20 fases, chefes e novos obstáculos a cada mundo. Checkpoints e recompensas.</p></button>
-        <button class="card mode-card" data-go="competitive"><div class="ico">⏱️</div><h2>Modo Competitivo</h2><p>Contra-relógio com fantasmas dos recordistas, Desafio Diário e Evento Mundial.</p></button>
-        <button class="card mode-card" data-go="endless"><div class="ico">♾️</div><h2>Modo Infinito</h2><p>Plataformas geradas sem fim, parede de energia que acelera. Quanto mais longe, mais pontos.</p></button>
-        <button class="card mode-card" data-go="multiplayer"><div class="ico">🌐</div><h2>Multiplayer</h2><p>Corridas em tempo real contra jogadores do mundo todo. Matchmaking, salas e convites.</p></button>
-      </div>`);
+    const items = [['story', 'História'], ['competitive', 'Competitivo'], ['endless', 'Infinito'], ['multiplayer', 'Multiplayer']];
+    this.mount(`${this.topbar('Jogar')}<nav class="name-list">${items.map(([k, n]) => `<button class="menu-link big" data-go="${k}">${n}</button>`).join('')}</nav>`);
   }
 
   async levels() {
@@ -344,7 +313,6 @@ export class App {
         </section>
         <section class="card"><h3>🌐 Corrida online</h3><p class="muted">Dispute em tempo real com até 4 jogadores. Vitórias valem rating no ranking de corridas.</p>
           <button class="btn cyan" data-go="multiplayer">Encontrar partida</button></section>
-        <section class="card" id="ch-box"><div class="loading">Carregando desafios</div></section>
         <section class="card"><h3>🥇 Recordes mundiais por fase</h3><div id="records" class="loading">Carregando</div></section>
       </div>`, {
       trial: () => {
@@ -355,10 +323,8 @@ export class App {
       },
       challenge: (b) => this.startMode(b.dataset.mode),
     });
-    const [ch, lv] = await Promise.all([api('/api/challenges').catch(() => null), this.levels().catch(() => null)]);
-    if (!$('#ch-box')) return;
-    if (ch) $('#ch-box').innerHTML = `<h3>🌍 Desafios mundiais</h3>${this.challengeCard('daily', ch.daily)}<hr style="border-color:var(--line);opacity:.4">${this.challengeCard('event', ch.event)}
-      <p class="muted" style="font-size:13px">Prêmios do evento: ${ch.event.rewards.map((r) => `${r.from === r.to ? r.from + 'º' : r.from + 'º–' + r.to + 'º'}: ${r.coins} moedas + ${MEDALS[r.medal].icon}`).join(' · ')}</p>`;
+    const lv = await this.levels().catch(() => null);
+    if (!$('#records')) return;
     if (lv) $('#records').outerHTML = `<table><thead><tr><th>Fase</th><th>Recorde</th><th>Jogador</th></tr></thead><tbody>${LEVEL_IDS.map((id) => {
       const r = lv.records[id];
       return `<tr><td>${id}</td><td class="mono">${r ? fmtTime(r.timeMs) : '—'}</td><td>${r ? `${flag(r.country)} ${esc(r.username)}` : '—'}</td></tr>`;
@@ -633,39 +599,37 @@ export class App {
     return `<div class="prev">${icons[it.slot]?.[it.fx] || '✨'}</div>`;
   }
 
-  async renderCustomize(slot = 'skin') {
+  // Cofre: moedas + itens que você tem (equipar)
+  async renderVault(slot = 'skin') {
     if (!SLOTS[slot]) slot = 'skin';
     const owned = new Set(this.me.inventory);
     const eq = this.me.equipped;
-    const list = ITEMS.filter((i) => i.slot === slot && owned.has(i.id));
-    this.mount(`${this.topbar('Personalizar')}
-      <div class="grid g2"><div><canvas class="hero-preview" id="cz-demo"></canvas></div>
-      <div class="card"><h3>Equipado</h3>${Object.entries(SLOTS).map(([k, n]) => `<div>${esc(n)}: <b>${esc(ITEM_MAP[eq[k]]?.name || '—')}</b></div>`).join('')}
-      <p class="muted" style="margin-top:10px">Itens cosméticos não alteram a física. Todos competem nas mesmas condições.</p>
-      <button class="btn green small" data-go="shop/${slot}">Comprar mais itens</button></div></div>
-      <div class="tabs" style="margin-top:14px">${Object.entries(SLOTS).map(([k, n]) => `<button class="tab ${k === slot ? 'on' : ''}" data-go="customize/${k}">${n}</button>`).join('')}</div>
-      <div class="items">${list.map((it) => `<div class="item r-${it.rarity} ${eq[slot] === it.id ? 'equipped' : ''}">${this.itemPreview(it)}
-        <div class="nm">${esc(it.name)}</div><div class="rar rar-${it.rarity}">${it.rarity}</div>
-        ${eq[slot] === it.id ? '<button class="btn small" disabled>Equipado</button>' : `<button class="btn small green" data-act="equip" data-id="${it.id}">Equipar</button>`}</div>`).join('')}</div>`, {
+    const list = ITEMS.filter((i) => i.slot === slot && (owned.has(i.id) || i.price === 0));
+    this.mount(`${this.topbar('Cofre')}
+      <div class="vault-head"><canvas class="hero-preview small" id="cz-demo"></canvas><div class="coins-big">🪙 ${num(this.me.user.coins)}</div></div>
+      <div class="tabs">${Object.entries(SLOTS).map(([k, n]) => `<button class="tab ${k === slot ? 'on' : ''}" data-go="vault/${k}">${n}</button>`).join('')}</div>
+      <div class="items">${list.map((it) => `<div class="item ${eq[slot] === it.id ? 'equipped' : ''}">${this.itemPreview(it)}
+        <div class="nm">${esc(it.name)}</div>
+        ${eq[slot] === it.id ? '<button class="btn small" disabled>Em uso</button>' : `<button class="btn small green" data-act="equip" data-id="${it.id}">Usar</button>`}</div>`).join('')}</div>`, {
       equip: async (b) => {
         const r = await api('/api/equip', { method: 'POST', body: { slot, itemId: b.dataset.id } });
         this.me.equipped = r.equipped;
-        this.renderCustomize(slot);
+        this.renderVault(slot);
       },
     });
-    this.views.push(new DemoView($('#cz-demo'), this.me.equipped, { theme: 2 }));
+    this.views.push(new DemoView($('#cz-demo'), this.me.equipped, { theme: 1 }));
   }
 
-  async renderShop(slot = 'skin') {
-    if (!SLOTS[slot]) slot = 'skin';
+  async renderShop(slot = 'victory') {
+    if (!SLOTS[slot] || slot === 'skin') slot = 'victory';
     const owned = new Set(this.me.inventory);
     const list = ITEMS.filter((i) => i.slot === slot && i.price !== 0);
     this.mount(`${this.topbar('Loja')}
-      <div class="banner"><div><div class="big">🛒 Loja de cosméticos</div><div class="muted">Ganhe moedas completando fases, batendo recordes, no Modo Infinito, em corridas, conquistas e recompensas de temporada. Nada aqui dá vantagem na competição.</div></div></div>
-      <div class="tabs">${Object.entries(SLOTS).map(([k, n]) => `<button class="tab ${k === slot ? 'on' : ''}" data-go="shop/${k}">${n}</button>`).join('')}</div>
+      <div class="coins-big">🪙 ${num(this.me.user.coins)}</div>
+      <div class="tabs">${Object.entries(SLOTS).filter(([k]) => k !== 'skin').map(([k, n]) => `<button class="tab ${k === slot ? 'on' : ''}" data-go="shop/${k}">${n}</button>`).join('')}</div>
       <div class="items">${list.map((it) => `<div class="item r-${it.rarity}">${this.itemPreview(it)}
         <div class="nm">${esc(it.name)}</div><div class="rar rar-${it.rarity}">${it.rarity}</div>
-        ${owned.has(it.id) ? `<button class="btn small" data-go="customize/${slot}">Você possui</button>`
+        ${owned.has(it.id) ? `<button class="btn small" data-go="vault/${slot}">Você possui</button>`
           : it.price == null ? '<div class="muted" style="font-size:12px">Exclusivo: recompensa de temporada</div>'
           : `<div class="price">🪙 ${num(it.price)}</div><button class="btn small gold" data-act="buy" data-id="${it.id}" ${this.me.user.coins < it.price ? 'disabled' : ''}>Comprar</button>`}
         ${['victory', 'jump', 'trail', 'pet', 'skin'].includes(slot) ? `<button class="btn small ghost" data-act="preview" data-id="${it.id}">Prévia</button>` : ''}</div>`).join('')}</div>`, {
