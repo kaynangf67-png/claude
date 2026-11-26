@@ -354,3 +354,16 @@ body.is-home { background: #000; overflow: hidden; }
 /* TOP 3 do ranking: nome dourado */
 .rank-row.r1 .who b, .rank-row.r2 .who b, .rank-row.r3 .who b,
 .rank-row.r1 .pos, .rank-row.r2 .pos, .rank-row.r3 .pos { color: #ffd23f !important; }
+
+/* TOP 3: dourado com brilho passando */
+.rank-row.r1 .who b, .rank-row.r2 .who b, .rank-row.r3 .who b,
+.rank-row.r1 .pos, .rank-row.r2 .pos, .rank-row.r3 .pos {
+  background: linear-gradient(100deg, #b8860b 0%, #ffd23f 30%, #fff8d6 45%, #ffd23f 60%, #b8860b 100%);
+  background-size: 250% 100%;
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent !important;
+  animation: brilho-ouro 2.2s linear infinite;
+}
+.rank-row.r1 .who b .flag, .rank-row.r2 .who b .flag, .rank-row.r3 .who b .flag { border-color: #ffd23f; }
+@keyframes brilho-ouro { from { background-position: 150% 0; } to { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { .rank-row .who b, .rank-row .pos { animation: none !important; } }
