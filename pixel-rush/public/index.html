@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#120d26">
+  <meta name="description" content="PIXEL RUSH — plataforma 2D em pixel art com ranking mundial validado pelo servidor.">
+  <title>PIXEL RUSH — Corrida Mundial</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <div id="bg-fx" aria-hidden="true"></div>
+  <main id="ui" aria-live="polite"></main>
+
+  <div id="game-wrap" aria-label="Jogo">
+    <canvas id="game" width="384" height="216"></canvas>
+    <button class="game-menu-btn" id="btn-pause" aria-label="Pausar">❚❚</button>
+    <div class="touch-controls" aria-hidden="true">
+      <div class="dpad">
+        <button data-touch="left">◀</button>
+        <button data-touch="right">▶</button>
+      </div>
+      <button class="jump" data-touch="jump">▲</button>
+    </div>
+    <div class="game-overlay"></div>
+  </div>
+
+  <div id="toasts" aria-live="assertive"></div>
+  <div id="modal" class="modal" hidden></div>
+
+  <noscript>O PIXEL RUSH precisa de JavaScript para funcionar.</noscript>
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>

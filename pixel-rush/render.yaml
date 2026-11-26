@@ -1,0 +1,16 @@
+# Deploy no Render (https://render.com): serviço web Node com WebSocket.
+# Defina DATABASE_URL (ex.: string de conexão do Postgres do Supabase) no painel.
+services:
+  - type: web
+    name: pixel-rush
+    runtime: node
+    buildCommand: npm ci --omit=dev
+    startCommand: node --no-warnings server/index.js
+    healthCheckPath: /api/status
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: TRUST_PROXY
+        value: "1"
+      - key: ADMIN_TOKEN
+        generateValue: true

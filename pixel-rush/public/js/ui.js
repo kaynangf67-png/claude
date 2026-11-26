@@ -1,0 +1,802 @@
+// Interface do PIXEL RUSH: telas, navegação e integração com a API.
+import { api, auth, Live } from './api.js';
+import { GameSession } from './game.js';
+import { DemoView } from './demo.js';
+import { avatarURL, heroFrames, petSprite } from './sprites.js';
+import { logoCanvas, trophyURL } from './art.js';
+import { initAudio, setVolumes, sfx } from './audio.js';
+import { fmtTime } from '/shared/constants.js';
+import { COUNTRIES, COUNTRY_MAP, CONTINENTS, flagEmoji } from '/shared/countries.js';
+import { ITEMS, ITEM_MAP, SLOTS, AVATARS } from '/shared/items.js';
+import { LEVEL_DEFS, WORLDS, LEVEL_IDS, levelMeta } from '/shared/levels.js';
+import { levelMedal, MEDALS } from '/shared/scoring.js';
+import { ACHIEVEMENTS } from '/shared/achievements.js';
+
+const $ = (sel, root = document) => root.querySelector(sel);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const num = (n) => Number(n || 0).toLocaleString('pt-BR');
+const flag = (c) => `<span class="flag" title="${esc(COUNTRY_MAP[c]?.name || c)}">${flagEmoji(c)}</span>`;
+const avatar = (id, frame = 'frame_none', cls = '') => `<img class="avatar ${cls} ${esc(ITEM_MAP[frame]?.css || 'frame-none')}" src="${avatarURL(id || 'a1', 64)}" alt="">`;
+const fmtDur = (ms) => { const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000); return h ? `${h}h ${m}min` : `${m}min ${Math.floor((ms % 60000) / 1000)}s`; };
+function countdown(ts) {
+  const d = Math.max(0, ts - Date.now());
+  const days = Math.floor(d / 86400000), h = Math.floor((d % 86400000) / 3600000), m = Math.floor((d % 3600000) / 60000), s = Math.floor((d % 60000) / 1000);
+  return (days ? `${days}d ` : '') + `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+function fmtValue(v, unit) {
+  if (v == null) return '—';
+  if (unit === 'time') return fmtTime(v);
+  if (unit === 'm') return `${num(v)} m`;
+  if (unit === 'rating') return `${num(v)}`;
+  return `${num(v)} pts`;
+}
+
+const RANK_TABS = [
+  ['world', 'Mundial'], ['brasil', 'Brasil'], ['country', 'País'], ['continent', 'Continentes'], ['weekly', 'Semanal'], ['monthly', 'Mensal'],
+  ['history', 'Histórico'], ['speed', 'Velocidade'], ['distance', 'Distância'], ['totaltime', 'Tempo total'],
+  ['daily', 'Diário'], ['event', 'Evento'], ['races', 'Corridas'],
+];
+
+export class App {
+  constructor() {
+    this.ui = $('#ui');
+    this.me = null;
+    this.game = null;
+    this.live = new Live();
+    this.settings = { music: 0.35, sfx: 0.6, shake: true, ghosts: true, touch: 'auto', storyGhosts: false, ...JSON.parse(localStorage.getItem('pixelrush.settings') || '{}') };
+    setVolumes(this.settings);
+    this.mp = { queued: false, size: 0, room: null };
+    this.timers = [];
+    this.views = [];
+    this.levelsCache = null;
+    document.addEventListener('pointerdown', () => initAudio(), { once: false });
+    window.addEventListener('hashchange', () => this.route());
+    $('#btn-pause').addEventListener('click', () => this.game?.togglePause());
+    setInterval(() => {
+      for (const el of document.querySelectorAll('[data-countdown]')) el.textContent = countdown(Number(el.dataset.countdown));
+    }, 1000);
+    this.bindLive();
+  }
+
+  isTouch() {
+    if (this.settings.touch === 'on') return true;
+    if (this.settings.touch === 'off') return false;
+    return matchMedia('(pointer: coarse)').matches;
+  }
+
+  saveSettings() {
+    localStorage.setItem('pixelrush.settings', JSON.stringify(this.settings));
+    setVolumes(this.settings);
+  }
+
+  async init() {
+    if (auth.token) {
+      try { await this.refreshMe(); this.live.connect(); }
+      catch { auth.token = null; }
+    }
+    this.route();
+  }
+
+  async refreshMe() {
+    this.me = await api('/api/me');
+    this.updateTopbar();
+    return this.me;
+  }
+
+  // ------------------------------------------------------------ navegação
+  go(path) { if (location.hash === '#/' + path) this.route(); else location.hash = '#/' + path; }
+  show(path) { this.go(path); }
+
+  route() {
+    if (this.game) return; // durante o jogo a interface fica por baixo
+    const [name, ...rest] = (location.hash.replace(/^#\/?/, '') || 'home').split('/');
+    for (const t of this.timers) clearInterval(t);
+    this.timers = [];
+    for (const v of this.views) v.stop();
+    this.views = [];
+    if (!this.me && name !== 'auth') return this.renderAuth();
+    const screens = {
+      auth: () => this.renderAuth(), home: () => this.renderHome(), play: () => this.renderPlay(), story: () => this.renderStory(rest[0]),
+      competitive: () => this.renderCompetitive(), endless: () => this.renderEndless(), multiplayer: () => this.renderMultiplayer(),
+      ranking: () => this.renderRanking(rest[0]), customize: () => this.renderCustomize(rest[0]), shop: () => this.renderShop(rest[0]),
+      profile: () => this.renderProfile(rest[0] ? decodeURIComponent(rest[0]) : null), settings: () => this.renderSettings(),
+    };
+    (screens[name] || screens.home)();
+    window.scrollTo(0, 0);
+  }
+
+  topbar(title, back = 'home') {
+    const u = this.me.user;
+    return `<header class="topbar">
+      ${title ? `<button class="btn small ghost back" data-go="${back}">◀ Voltar</button><div class="title">${esc(title)}</div>` : ''}
+      <button class="me-chip" data-go="profile">${avatar(u.avatar, this.me.equipped.frame, 'sm')}<div><b>${esc(u.username)} ${flag(u.country)}</b>
+        <small>${this.me.globalRank ? `#${num(this.me.globalRank)} mundial` : 'Sem ranking ainda'}</small></div></button>
+      <div class="spacer"></div>
+      <span class="pill online" id="online-pill">${this.onlineCount != null ? Math.max(this.onlineCount, this.live.connected ? 1 : 0) : "—"} online</span>
+      <span class="pill rank" title="Pontuação">${num(u.totalScore)} pts</span>
+      <span class="pill coins" title="Moedas" id="coin-pill">🪙 ${num(u.coins)}</span>
+    </header>`;
+  }
+
+  updateTopbar() {
+    const c = $('#coin-pill');
+    if (c && this.me) c.textContent = `🪙 ${num(this.me.user.coins)}`;
+    const o = $('#online-pill');
+    if (o && this.onlineCount != null) o.textContent = `${this.onlineCount} online`;
+  }
+
+  mount(html, handlers = {}) {
+    this.ui.innerHTML = html + '<p class="footer">PIXEL RUSH · resultados validados pelo servidor · <span class="kbd">←</span><span class="kbd">→</span> mover · <span class="kbd">Espaço</span> pular · <span class="kbd">R</span> reiniciar · <span class="kbd">Esc</span> pausar</p>';
+    this.ui.onclick = async (e) => {
+      const el = e.target.closest('[data-go],[data-act]');
+      if (!el) return;
+      sfx.click();
+      if (el.dataset.go) return this.go(el.dataset.go);
+      const fn = handlers[el.dataset.act];
+      if (fn) {
+        try { await fn(el, e); } catch (err) { this.toast(err.message, 'error'); }
+      }
+    };
+  }
+
+  toast(msg, type = 'info', actions = []) {
+    const el = document.createElement('div');
+    el.className = 'toast ' + type;
+    el.innerHTML = `<div>${msg}</div>${actions.length ? `<div class="row">${actions.map((a, i) => `<button class="btn small ${i ? '' : 'primary'}" data-i="${i}">${esc(a[0])}</button>`).join('')}</div>` : ''}`;
+    el.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => { actions[+b.dataset.i][1](); el.remove(); }));
+    $('#toasts').appendChild(el);
+    setTimeout(() => el.remove(), actions.length ? 15000 : 5000);
+    if (type === 'error') sfx.error();
+  }
+
+  modal(html, onBind) {
+    const m = $('#modal');
+    m.innerHTML = `<div class="panel">${html}</div>`;
+    m.hidden = false;
+    const close = () => { m.hidden = true; m.innerHTML = ''; };
+    m.onclick = (e) => { if (e.target === m || e.target.closest('[data-close]')) close(); };
+    onBind?.(m, close);
+    return close;
+  }
+
+  // ------------------------------------------------------------ autenticação
+  renderAuth() {
+    let mode = 'register';
+    let av = AVATARS[Math.floor(Math.random() * AVATARS.length)];
+    const guess = (navigator.language || 'pt-BR').split('-')[1] || 'BR';
+    const draw = () => {
+      this.ui.innerHTML = `<div class="auth">
+        <canvas class="logo" id="logo"></canvas>
+        <p class="tagline">Plataforma 2D de precisão. Simples de aprender, difícil de dominar. Dispute o topo do ranking mundial.</p>
+        <div class="card">
+          <div class="tabs"><button class="tab ${mode === 'register' ? 'on' : ''}" data-m="register">Criar conta</button><button class="tab ${mode === 'login' ? 'on' : ''}" data-m="login">Entrar</button></div>
+          <form id="auth-form" autocomplete="on">
+            <label for="f-user">Nome de usuário</label>
+            <input id="f-user" name="username" required minlength="3" maxlength="16" pattern="[A-Za-z0-9_]{3,16}" autocomplete="username" placeholder="ex.: Rafa_Speed">
+            <label for="f-pass">Senha</label>
+            <input id="f-pass" name="password" type="password" required minlength="6" maxlength="72" autocomplete="${mode === 'login' ? 'current-password' : 'new-password'}">
+            ${mode === 'register' ? `
+            <label for="f-country">País</label>
+            <select id="f-country" name="country">${COUNTRIES.map((c) => `<option value="${c.code}" ${c.code === (COUNTRY_MAP[guess] ? guess : 'BR') ? 'selected' : ''}>${flagEmoji(c.code)} ${esc(c.name)}</option>`).join('')}</select>
+            <label>Avatar</label>
+            <div class="avatars">${AVATARS.map((a) => `<button type="button" class="${a === av ? 'on' : ''}" data-av="${a}"><img src="${avatarURL(a, 64)}" alt="avatar ${a}"></button>`).join('')}</div>` : ''}
+            <p class="err" id="auth-err"></p>
+            <button class="btn primary block" type="submit">${mode === 'register' ? 'Criar conta e jogar' : 'Entrar'}</button>
+          </form>
+        </div></div>`;
+      const lc = logoCanvas(); const logo = $('#logo'); logo.width = lc.width; logo.height = lc.height; logo.getContext('2d').drawImage(lc, 0, 0);
+      logo.style.width = Math.min(560, lc.width * 2) + 'px';
+      this.ui.querySelectorAll('[data-m]').forEach((b) => b.onclick = () => { mode = b.dataset.m; draw(); });
+      this.ui.querySelectorAll('[data-av]').forEach((b) => b.onclick = () => { av = b.dataset.av; this.ui.querySelectorAll('[data-av]').forEach((x) => x.classList.toggle('on', x === b)); });
+      $('#auth-form').onsubmit = async (e) => {
+        e.preventDefault();
+        initAudio();
+        const fd = new FormData(e.target);
+        const body = { username: fd.get('username').trim(), password: fd.get('password') };
+        if (mode === 'register') { body.country = fd.get('country'); body.avatar = av; }
+        const btn = e.target.querySelector('button[type=submit]');
+        btn.disabled = true;
+        try {
+          const r = await api(`/api/auth/${mode}`, { method: 'POST', body });
+          auth.token = r.token;
+          await this.refreshMe();
+          this.live.connect();
+          sfx.checkpoint();
+          this.go('home');
+        } catch (err) { $('#auth-err').textContent = err.message; sfx.error(); }
+        finally { btn.disabled = false; }
+      };
+    };
+    draw();
+  }
+
+  // ------------------------------------------------------------ início
+  async renderHome() {
+    const u = this.me.user;
+    this.mount(`${this.topbar(null)}
+      <canvas class="logo" id="logo"></canvas>
+      <p class="tagline">Simples de aprender. Difícil de dominar. O mundo inteiro disputando o 1º lugar.</p>
+      <div class="banner" id="season-banner"><div class="big">🏁 Carregando temporada...</div></div>
+      <div class="home">
+        <div class="stack">
+          <canvas class="hero-preview" id="hero-demo"></canvas>
+          <nav class="menu" aria-label="Menu principal">
+            <button class="btn primary play" data-go="play">▶ Jogar</button>
+            <button class="btn gold" data-go="ranking">🏆 Ranking mundial</button>
+            <button class="btn cyan" data-go="customize">🎨 Personalizar</button>
+            <button class="btn green" data-go="shop">🛒 Loja</button>
+            <button class="btn" data-go="profile">👤 Perfil</button>
+            <button class="btn ghost" data-go="settings">⚙️ Configurações</button>
+            <button class="btn ghost" data-go="multiplayer">🌐 Multiplayer</button>
+          </nav>
+        </div>
+        <div class="stack">
+          <section class="card"><h3>🏆 Top 3 mundial</h3><div id="podium" class="loading">Carregando</div>
+            <div class="row center" style="margin-top:10px"><button class="btn small ghost" data-go="ranking">Ver TOP 100</button></div></section>
+          <section class="card" id="challenges"><h3>🌍 Eventos mundiais</h3><div class="loading">Carregando</div></section>
+        </div>
+      </div>`, { challenge: (b) => this.startMode(b.dataset.mode) });
+    const lc = logoCanvas(); const logo = $('#logo'); logo.width = lc.width; logo.height = lc.height; logo.getContext('2d').drawImage(lc, 0, 0);
+    logo.style.width = Math.min(620, lc.width * 2.2) + 'px';
+    this.views.push(new DemoView($('#hero-demo'), this.me.equipped, { theme: 1 + (Date.now() / 60000 | 0) % 4 }));
+    const [top, season, ch, monthly] = await Promise.all([
+      api('/api/top3').catch(() => ({ top3: [] })), api('/api/season').catch(() => null),
+      api('/api/challenges').catch(() => null), api('/api/rankings?type=monthly').catch(() => null),
+    ]);
+    if (!$('#podium')) return;
+    $('#podium').outerHTML = this.podium(top.top3, 'pts');
+    if (season) {
+      const my = monthly?.me?.rank ? `Sua posição na temporada: <b>#${monthly.me.rank}</b>` : 'Complete fases para entrar na disputa!';
+      $('#season-banner').innerHTML = `<div><div class="big">🏁 ${esc(season.name)}</div><div class="muted">${my} · Prêmios: troféus, moedas, molduras e skin exclusivas para o TOP 100</div></div>
+        <div class="spacer" style="flex:1"></div><div>Termina em <span class="countdown" data-countdown="${season.endsAt}">${countdown(season.endsAt)}</span></div>
+        <button class="btn small gold" data-go="ranking/monthly">Ver temporada</button>`;
+    }
+    if (ch) {
+      this.onlineCount = ch.online; this.updateTopbar();
+      $('#challenges').innerHTML = `<h3>🌍 Eventos mundiais</h3>${this.challengeCard('daily', ch.daily)}<hr style="border-color:var(--line);opacity:.4">${this.challengeCard('event', ch.event)}`;
+    }
+  }
+
+  challengeCard(kind, c) {
+    const name = kind === 'daily' ? '📅 Desafio Diário' : '🌍 Evento Mundial da Semana';
+    const desc = kind === 'daily' ? 'Mesmo percurso para todos os jogadores do mundo hoje.' : 'Percurso difícil e exclusivo da semana. TOP 3 ganha medalhas exclusivas.';
+    return `<div class="challenge"><div class="t">${name}</div><div class="muted">${desc}</div>
+      <div>Recorde: ${c.wr ? `<b>${fmtTime(c.wr.time_ms)}</b> por ${esc(c.wr.username)} ${flag(c.wr.country)}` : '<i>ninguém ainda — seja o primeiro!</i>'}</div>
+      <div>Seu melhor: <b>${c.myBest != null ? fmtTime(c.myBest) : '—'}</b> · ${num(c.players)} participantes · termina em <span class="countdown" data-countdown="${c.endsAt}">${countdown(c.endsAt)}</span></div>
+      <div class="row"><button class="btn small primary" data-act="challenge" data-mode="${kind}">Jogar</button>
+      <button class="btn small ghost" data-go="ranking/${kind}">Ranking</button></div></div>`;
+  }
+
+  podium(list, unit) {
+    const spot = (e, cls, kind) => e
+      ? `<div class="spot ${cls}" data-go="profile/${encodeURIComponent(e.username)}"><img class="trophy-svg" src="${trophyURL(kind)}" alt="troféu ${kind}" style="width:${cls === 'p1' ? 56 : 44}px;height:auto">
+          <div>${avatar(e.avatar, e.frame, 'md')}</div><div class="name">${esc(e.username)} ${flag(e.country)}</div>
+          <div class="base">${cls === 'p1' ? '1º' : cls === 'p2' ? '2º' : '3º'}<div class="val">${fmtValue(e.value, unit)}</div></div></div>`
+      : `<div class="spot ${cls} empty"><img class="trophy-svg" src="${trophyURL(kind)}" alt="" style="opacity:.35"><div class="name">—</div><div class="base">${cls === 'p1' ? '1º' : cls === 'p2' ? '2º' : '3º'}<div class="val">vago</div></div></div>`;
+    return `<div class="podium">${spot(list[1], 'p2', 'silver')}${spot(list[0], 'p1', 'gold')}${spot(list[2], 'p3', 'bronze')}</div>`;
+  }
+
+  // ------------------------------------------------------------ modos
+  renderPlay() {
+    this.mount(`${this.topbar('Jogar')}
+      <div class="grid g2">
+        <button class="card mode-card" data-go="story"><div class="ico">📖</div><h2>Modo História</h2><p>4 mundos, 20 fases, chefes e novos obstáculos a cada mundo. Checkpoints e recompensas.</p></button>
+        <button class="card mode-card" data-go="competitive"><div class="ico">⏱️</div><h2>Modo Competitivo</h2><p>Contra-relógio com fantasmas dos recordistas, Desafio Diário e Evento Mundial.</p></button>
+        <button class="card mode-card" data-go="endless"><div class="ico">♾️</div><h2>Modo Infinito</h2><p>Plataformas geradas sem fim, parede de energia que acelera. Quanto mais longe, mais pontos.</p></button>
+        <button class="card mode-card" data-go="multiplayer"><div class="ico">🌐</div><h2>Multiplayer</h2><p>Corridas em tempo real contra jogadores do mundo todo. Matchmaking, salas e convites.</p></button>
+      </div>`);
+  }
+
+  async levels() {
+    if (!this.levelsCache || Date.now() - this.levelsCache.at > 30000) this.levelsCache = { at: Date.now(), data: await api('/api/levels') };
+    return this.levelsCache.data;
+  }
+
+  unlocked(id) {
+    const i = LEVEL_IDS.indexOf(id);
+    return i === 0 || (this.me.progress[LEVEL_IDS[i - 1]]?.timeMs != null);
+  }
+
+  async renderStory() {
+    this.mount(`${this.topbar('Modo História', 'play')}
+      <div class="card" style="margin-bottom:14px"><label class="row" style="color:var(--text);margin:0"><input type="checkbox" id="story-ghosts" style="width:auto" ${this.settings.storyGhosts ? 'checked' : ''}>
+      Mostrar fantasmas (recorde mundial e seu melhor) durante as fases</label></div>
+      <div id="worlds" class="loading">Carregando fases</div>`);
+    $('#story-ghosts').onchange = (e) => { this.settings.storyGhosts = e.target.checked; this.saveSettings(); };
+    const data = await this.levels().catch(() => ({ records: {} }));
+    if (!$('#worlds')) return;
+    $('#worlds').className = 'stack';
+    $('#worlds').innerHTML = WORLDS.map((w) => {
+      const lv = LEVEL_DEFS.filter((d) => d.world === w.id);
+      const done = lv.filter((d) => this.me.progress[d.id]?.timeMs != null).length;
+      return `<section class="card"><div class="world-head"><span class="dot" style="background:${w.color}"></span><h2 style="margin:0">Mundo ${w.id}: ${esc(w.name)}</h2><span class="muted">${done}/${lv.length}</span></div>
+        <div class="levels">${lv.map((d) => {
+          const p = this.me.progress[d.id];
+          const lock = !this.unlocked(d.id);
+          const wr = data.records?.[d.id];
+          const medal = p?.timeMs != null ? levelMedal(d.par, p.timeMs) : null;
+          return `<button class="level ${lock ? 'locked' : ''} ${d.boss ? 'boss' : ''}" ${lock ? 'disabled' : ''} data-act="level" data-id="${d.id}">
+            <div class="num">${d.id}${d.boss ? ' 👑' : ''}</div><div class="nm">${esc(d.name)}</div>
+            <div class="meta">Par: ${d.par}s · Seu melhor: <b>${p?.timeMs != null ? fmtTime(p.timeMs) : '—'}</b><br>
+            Recorde: ${wr ? `${fmtTime(wr.timeMs)} ${flag(wr.country)} ${esc(wr.username)}` : '—'}</div>
+            ${medal ? `<span class="medal m-${medal}">${medal}</span>` : ''}</button>`;
+        }).join('')}</div></section>`;
+    }).join('');
+    this.ui.onclick = (e) => {
+      const b = e.target.closest('[data-act=level]');
+      if (b && !b.disabled) { sfx.click(); this.startLevel(b.dataset.id, { ghosts: this.settings.storyGhosts ? ['wr', 'pb'] : null, from: 'story' }); }
+      const g = e.target.closest('[data-go]');
+      if (g) this.go(g.dataset.go);
+    };
+  }
+
+  async renderCompetitive() {
+    const unlocked = LEVEL_IDS.filter((id) => this.unlocked(id));
+    this.mount(`${this.topbar('Modo Competitivo', 'play')}
+      <div class="grid g2">
+        <section class="card"><h3>⏱️ Contra-relógio</h3>
+          <p class="muted">Corra contra os fantasmas do recordista mundial e do seu melhor tempo. Mesmo percurso para todos.</p>
+          <label for="tt-level">Fase</label>
+          <select id="tt-level">${unlocked.map((id) => `<option value="${id}">${id} — ${esc(levelMeta(id).name)}</option>`).join('')}</select>
+          <div class="row" style="margin:10px 0"><label class="row" style="margin:0;color:var(--text)"><input type="checkbox" id="tt-wr" checked style="width:auto"> Fantasma do recorde mundial</label>
+          <label class="row" style="margin:0;color:var(--text)"><input type="checkbox" id="tt-pb" checked style="width:auto"> Meu melhor</label></div>
+          <button class="btn primary" data-act="trial">Correr</button>
+        </section>
+        <section class="card"><h3>🌐 Corrida online</h3><p class="muted">Dispute em tempo real com até 4 jogadores. Vitórias valem rating no ranking de corridas.</p>
+          <button class="btn cyan" data-go="multiplayer">Encontrar partida</button></section>
+        <section class="card" id="ch-box"><div class="loading">Carregando desafios</div></section>
+        <section class="card"><h3>🥇 Recordes mundiais por fase</h3><div id="records" class="loading">Carregando</div></section>
+      </div>`, {
+      trial: () => {
+        const ghosts = [];
+        if ($('#tt-wr').checked) ghosts.push('wr');
+        if ($('#tt-pb').checked) ghosts.push('pb');
+        this.startLevel($('#tt-level').value, { ghosts, from: 'competitive', title: 'CONTRA-RELÓGIO ' + $('#tt-level').value });
+      },
+      challenge: (b) => this.startMode(b.dataset.mode),
+    });
+    const [ch, lv] = await Promise.all([api('/api/challenges').catch(() => null), this.levels().catch(() => null)]);
+    if (!$('#ch-box')) return;
+    if (ch) $('#ch-box').innerHTML = `<h3>🌍 Desafios mundiais</h3>${this.challengeCard('daily', ch.daily)}<hr style="border-color:var(--line);opacity:.4">${this.challengeCard('event', ch.event)}
+      <p class="muted" style="font-size:13px">Prêmios do evento: ${ch.event.rewards.map((r) => `${r.from === r.to ? r.from + 'º' : r.from + 'º–' + r.to + 'º'}: ${r.coins} moedas + ${MEDALS[r.medal].icon}`).join(' · ')}</p>`;
+    if (lv) $('#records').outerHTML = `<table><thead><tr><th>Fase</th><th>Recorde</th><th>Jogador</th></tr></thead><tbody>${LEVEL_IDS.map((id) => {
+      const r = lv.records[id];
+      return `<tr><td>${id}</td><td class="mono">${r ? fmtTime(r.timeMs) : '—'}</td><td>${r ? `${flag(r.country)} ${esc(r.username)}` : '—'}</td></tr>`;
+    }).join('')}</tbody></table>`;
+  }
+
+  async renderEndless() {
+    this.mount(`${this.topbar('Modo Infinito', 'play')}
+      <div class="grid g2">
+        <section class="card"><h3>♾️ Corrida sem fim</h3>
+          <p>As plataformas são geradas enquanto você avança e ficam mais difíceis a cada trecho. Uma parede de energia te persegue e acelera com o tempo.</p>
+          <p>Uma vida só. Cada metro vale <b>3 pontos</b> no ranking mundial.</p>
+          <div class="stats"><div class="stat"><b>${num(this.me.user.endlessBest)} m</b><span>Seu recorde</span></div><div class="stat"><b id="wr-dist">—</b><span>Recorde mundial</span></div></div>
+          <div class="row" style="margin-top:14px"><button class="btn primary" data-act="go">▶ Começar</button><button class="btn ghost" data-go="ranking/distance">Ranking de distância</button></div>
+        </section>
+        <section class="card"><h3>🏃 Top 10 distância</h3><div id="dist" class="loading">Carregando</div></section>
+      </div>`, { go: () => this.startMode('endless') });
+    const r = await api('/api/rankings?type=distance').catch(() => null);
+    if (!r || !$('#dist')) return;
+    $('#wr-dist').textContent = r.entries[0] ? `${num(r.entries[0].value)} m` : '—';
+    $('#dist').outerHTML = this.rankList(r.entries.slice(0, 10), 'm', null);
+  }
+
+  startLevel(id, opts = {}) {
+    this.launch({ ...opts, mode: 'level', levelId: id, from: opts.from || 'story' });
+  }
+
+  startMode(mode) {
+    this.launch({ mode, from: mode === 'endless' ? 'endless' : 'competitive', title: mode === 'daily' ? 'DESAFIO DIÁRIO' : mode === 'event' ? 'EVENTO MUNDIAL' : null, ghosts: mode === 'endless' ? null : ['wr', 'pb'] });
+  }
+
+  launch(opts) {
+    initAudio();
+    if (this.game) this.game.destroy();
+    for (const v of this.views) v.stop();
+    this.views = [];
+    this.game = new GameSession(this, opts);
+    this.game.begin();
+  }
+
+  async afterGame(opts) {
+    this.game = null;
+    try { await this.refreshMe(); } catch { /* */ }
+    this.levelsCache = null;
+    const target = opts.race ? 'multiplayer' : (opts.from || 'home');
+    if (location.hash === '#/' + target) this.route(); else this.go(target);
+  }
+
+  onRunResult(res) {
+    if (res.coinsBalance != null && this.me) this.me.user.coins = res.coinsBalance;
+    this.refreshMe().catch(() => {});
+  }
+
+  // ------------------------------------------------------------ multiplayer
+  bindLive() {
+    const L = this.live;
+    L.on('hello', (m) => { this.onlineCount = m.online; this.updateTopbar(); });
+    L.on('pong', (m) => { this.onlineCount = m.online; this.updateTopbar(); });
+    L.on('queued', (m) => { this.mp.queued = true; this.mp.size = m.size; this.mp.waited = m.waited; this.refreshMp(); });
+    L.on('unqueued', () => { this.mp.queued = false; this.refreshMp(); });
+    L.on('matched', () => { this.mp.queued = false; this.toast('Partida encontrada! Preparando a corrida...'); });
+    L.on('room', (m) => { this.mp.room = m.code ? m : null; this.refreshMp(); });
+    L.on('error', (m) => this.toast(esc(m.msg), 'error'));
+    L.on('info', (m) => this.toast(esc(m.msg)));
+    L.on('invite', (m) => this.toast(`🎮 <b>${esc(m.from)}</b> convidou você para uma corrida (sala ${esc(m.code)})`, 'gold', [
+      ['Entrar', () => { L.send({ t: 'join', code: m.code }); if (!this.game) this.go('multiplayer'); }], ['Recusar', () => {}]]));
+    L.on('friend', (m) => this.toast(m.kind === 'request' ? `👋 <b>${esc(m.from)}</b> quer ser seu amigo` : `🤝 <b>${esc(m.from)}</b> aceitou seu pedido de amizade`, 'info',
+      m.kind === 'request' ? [['Aceitar', () => api('/api/friends/accept', { method: 'POST', body: { username: m.from } }).then(() => this.refreshMp(true))]] : []));
+    L.on('achievements', (m) => m.list.forEach((a) => this.toast(`🏅 Conquista: <b>${esc(a.name)}</b> (+${a.reward})`, 'gold')));
+    L.on('start', (m) => {
+      const room = this.mp.room;
+      const skins = {};
+      for (const p of room?.players || []) skins[p.username] = p.skin;
+      this.launch({ mode: 'race', from: 'multiplayer', race: { levelId: m.levelId, startAt: m.startAt, limitMs: m.limitMs, skins } });
+    });
+    setInterval(() => { if (this.me) this.live.send({ t: 'ping' }); }, 20000);
+  }
+
+  refreshMp(full = false) {
+    if (location.hash.startsWith('#/multiplayer') && !this.game) {
+      if (full) this.renderMultiplayer(); else this.renderRoomBox();
+    }
+  }
+
+  async renderMultiplayer() {
+    this.mount(`${this.topbar('Multiplayer', 'play')}
+      <div class="grid g2">
+        <section class="card" id="room-box"></section>
+        <section class="card"><h3>👥 Amigos</h3>
+          <form id="add-friend" class="row"><input name="u" placeholder="Nome de usuário" maxlength="16" style="flex:1"><button class="btn small cyan">Adicionar</button></form>
+          <div id="friends" class="loading" style="margin-top:10px">Carregando</div></section>
+      </div>
+      <section class="card" style="margin-top:14px"><h3>Como funciona</h3>
+        <p class="muted">Todos correm no mesmo percurso gerado para a sala. Cada jogador vê os outros como fantasmas em tempo real.
+        Ao cruzar a chegada, suas entradas são enviadas e o servidor re-simula a corrida para validar o tempo — a colocação usa o tempo validado.
+        Corridas encontradas pelo matchmaking valem rating no <a href="#/ranking/races">ranking de corridas</a>. Emotes: teclas <span class="kbd">1</span>–<span class="kbd">4</span>.</p></section>`);
+    this.renderRoomBox();
+    $('#add-friend').onsubmit = async (e) => {
+      e.preventDefault();
+      const u = e.target.u.value.trim();
+      if (!u) return;
+      try {
+        const r = await api('/api/friends/request', { method: 'POST', body: { username: u } });
+        this.toast(r.status === 'accepted' ? 'Agora vocês são amigos!' : 'Pedido de amizade enviado');
+        e.target.reset();
+        this.loadFriends();
+      } catch (err) { this.toast(err.message, 'error'); }
+    };
+    this.loadFriends();
+    this.timers.push(setInterval(() => this.loadFriends(), 15000));
+  }
+
+  async loadFriends() {
+    const box = $('#friends');
+    if (!box) return;
+    const f = await api('/api/friends').catch(() => null);
+    if (!f || !$('#friends')) return;
+    const row = (x, actions) => `<div class="room-player">${avatar(x.avatar, 'frame_none', 'sm')}<span class="dot-online ${x.online ? 'on' : ''}"></span>
+      <b data-go="profile/${encodeURIComponent(x.username)}" style="cursor:pointer">${esc(x.username)}</b> ${flag(x.country)}<span class="ready">${actions}</span></div>`;
+    box.className = 'room-players';
+    box.innerHTML = [
+      ...f.incoming.map((x) => row(x, `<button class="btn small green" data-fa="${esc(x.username)}">Aceitar</button>`)),
+      ...f.friends.map((x) => row(x, `${x.online && this.mp.room ? `<button class="btn small" data-inv="${esc(x.username)}">Convidar</button>` : x.online ? '<small class="muted">online</small>' : '<small class="muted">offline</small>'}
+        <button class="btn small ghost" data-fr="${esc(x.username)}" title="Remover">✕</button>`)),
+      ...f.outgoing.map((x) => row(x, '<small class="muted">pedido enviado</small>')),
+    ].join('') || '<p class="muted">Adicione amigos pelo nome de usuário para convidá-los para corridas.</p>';
+    box.querySelectorAll('[data-fa]').forEach((b) => b.onclick = async () => { await api('/api/friends/accept', { method: 'POST', body: { username: b.dataset.fa } }); this.loadFriends(); });
+    box.querySelectorAll('[data-fr]').forEach((b) => b.onclick = async () => { await api('/api/friends/remove', { method: 'POST', body: { username: b.dataset.fr } }); this.loadFriends(); });
+    box.querySelectorAll('[data-inv]').forEach((b) => b.onclick = () => this.live.send({ t: 'invite', username: b.dataset.inv }));
+  }
+
+  renderRoomBox() {
+    const box = $('#room-box');
+    if (!box) return;
+    const room = this.mp.room;
+    const me = this.me.user.username;
+    if (room) {
+      const isHost = room.host === me;
+      const mine = room.players.find((p) => p.username === me);
+      box.innerHTML = `<h3>${room.public ? '🎯 Partida encontrada' : '🔒 Sala privada'}</h3>
+        <div class="row"><span class="muted">Código:</span><span class="room-code">${esc(room.code)}</span><button class="btn small ghost" data-act="copy">Copiar</button></div>
+        <p class="muted">Compartilhe o código ou convide amigos online (até 4 jogadores).</p>
+        <div class="room-players">${room.players.map((p) => `<div class="room-player">${avatar(p.avatar, 'frame_none', 'sm')}<b>${esc(p.username)}</b> ${flag(p.country)}
+          <small class="muted">${num(p.rating)}</small>${p.username === room.host ? ' 👑' : ''}<span class="ready" style="color:${p.ready || p.username === room.host ? 'var(--green)' : 'var(--muted)'}">${p.username === room.host ? 'Anfitrião' : p.ready ? 'Pronto' : 'Aguardando'}</span></div>`).join('')}</div>
+        <div class="row" style="margin-top:12px">
+          ${isHost ? `<button class="btn primary" data-act="start">Iniciar corrida</button>` : `<button class="btn ${mine?.ready ? 'ghost' : 'green'}" data-act="ready">${mine?.ready ? 'Cancelar pronto' : 'Estou pronto!'}</button>`}
+          <button class="btn ghost" data-act="leave">Sair da sala</button></div>
+        ${room.state !== 'lobby' ? '<p class="muted">Corrida em andamento...</p>' : ''}`;
+    } else {
+      box.innerHTML = `<h3>🎯 Partida rápida</h3>
+        ${this.mp.queued ? `<p>Procurando adversários com rating parecido... <b>${this.mp.size}</b> na fila (${this.mp.waited || 0}s)</p><button class="btn ghost" data-act="unqueue">Cancelar busca</button>`
+          : `<p class="muted">O matchmaking junta 2 a 4 jogadores com rating parecido. Seu rating: <b>${num(this.me.user.raceRating)}</b> · ${num(this.me.user.raceWins)} vitórias em ${num(this.me.user.races)} corridas.</p>
+            <button class="btn primary" data-act="queue">Buscar partida</button>`}
+        <hr style="border-color:var(--line);opacity:.4;margin:16px 0">
+        <h3>🔒 Jogar com amigos</h3>
+        <div class="row"><button class="btn cyan" data-act="create">Criar sala privada</button></div>
+        <form id="join-form" class="row" style="margin-top:10px"><input name="code" placeholder="Código da sala" maxlength="5" style="flex:1;text-transform:uppercase"><button class="btn small">Entrar</button></form>`;
+      const jf = $('#join-form');
+      if (jf) jf.onsubmit = (e) => { e.preventDefault(); this.live.send({ t: 'join', code: e.target.code.value }); };
+    }
+    box.onclick = (e) => {
+      const b = e.target.closest('[data-act]');
+      if (!b) return;
+      sfx.click();
+      const a = b.dataset.act;
+      if (a === 'queue') this.live.send({ t: 'queue' });
+      if (a === 'unqueue') this.live.send({ t: 'unqueue' });
+      if (a === 'create') this.live.send({ t: 'create' });
+      if (a === 'leave') { this.live.send({ t: 'leave' }); this.mp.room = null; this.renderRoomBox(); }
+      if (a === 'start') this.live.send({ t: 'start' });
+      if (a === 'ready') this.live.send({ t: 'ready', v: !room.players.find((p) => p.username === me)?.ready });
+      if (a === 'copy') navigator.clipboard?.writeText(room.code).then(() => this.toast('Código copiado'));
+    };
+    this.loadFriends();
+  }
+
+  // ------------------------------------------------------------ ranking
+  async renderRanking(type = 'world') {
+    if (!RANK_TABS.some((t) => t[0] === type)) type = 'world';
+    const st = this.rankState || (this.rankState = { country: this.me.user.country, continent: this.me.user.continent, level: '1-1' });
+    this.mount(`${this.topbar('Ranking mundial')}
+      <div class="tabs" role="tablist">${RANK_TABS.map(([k, n]) => `<button class="tab ${k === type ? 'on' : ''}" data-go="ranking/${k}">${n}</button>`).join('')}</div>
+      <div class="filters" id="filters"></div>
+      <div id="rank-body" class="loading">Carregando ranking</div>`);
+    const f = $('#filters');
+    if (type === 'country') f.innerHTML = `<select id="sel-country">${COUNTRIES.map((c) => `<option value="${c.code}" ${c.code === st.country ? 'selected' : ''}>${flagEmoji(c.code)} ${esc(c.name)}</option>`).join('')}</select>`;
+    if (type === 'continent') f.innerHTML = `<select id="sel-cont">${Object.entries(CONTINENTS).map(([k, n]) => `<option value="${k}" ${k === st.continent ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>`;
+    if (type === 'speed') f.innerHTML = `<select id="sel-level">${LEVEL_IDS.map((id) => `<option value="${id}" ${id === st.level ? 'selected' : ''}>${id} — ${esc(levelMeta(id).name)}</option>`).join('')}</select>`;
+    f.onchange = (e) => {
+      if (e.target.id === 'sel-country') st.country = e.target.value;
+      if (e.target.id === 'sel-cont') st.continent = e.target.value;
+      if (e.target.id === 'sel-level') st.level = e.target.value;
+      this.loadRanking(type);
+    };
+    this.loadRanking(type);
+  }
+
+  async loadRanking(type) {
+    const st = this.rankState;
+    const q = new URLSearchParams({ type: type === 'brasil' ? 'country' : type });
+    if (type === 'brasil') q.set('country', 'BR');
+    if (type === 'country') q.set('country', st.country);
+    if (type === 'continent') q.set('continent', st.continent);
+    if (type === 'speed') q.set('level', st.level);
+    const body = $('#rank-body');
+    body.className = 'loading'; body.innerHTML = 'Carregando ranking';
+    let r;
+    try { r = await api('/api/rankings?' + q); } catch (e) { body.className = ''; body.innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
+    if (!$('#rank-body')) return;
+    body.className = '';
+    if (type === 'history') return this.renderHistory(body, r);
+    const head = {
+      world: 'TOP 100 jogadores do mundo por pontuação total', brasil: `TOP 100 — ${flagEmoji('BR')} Brasil`, country: `TOP 100 — ${flagEmoji(st.country)} ${esc(COUNTRY_MAP[st.country]?.name || '')}`,
+      continent: `TOP 100 — ${esc(CONTINENTS[st.continent])}`, weekly: 'Pontos conquistados nesta semana (reinicia toda segunda-feira, UTC)',
+      monthly: `Temporada ${esc(r.season || '')} — pontos do mês. Ao final: troféus, moedas e itens exclusivos`,
+      speed: `Menor tempo na fase ${esc(r.level)} — ${esc(levelMeta(r.level)?.name || '')}`, distance: 'Maior distância no Modo Infinito',
+      totaltime: 'Menor tempo somado em todas as fases da História (quem completou mais fases fica à frente)',
+      daily: 'Desafio Diário de hoje — menor tempo', event: 'Evento Mundial da semana — menor tempo', races: 'Rating das corridas online',
+    }[type];
+    const ends = r.endsAt ? ` · termina em <span class="countdown" data-countdown="${r.endsAt}">${countdown(r.endsAt)}</span>` : '';
+    body.innerHTML = `<p class="muted">${head}${ends}</p>
+      ${r.entries.length ? this.podium(r.entries.slice(0, 3), r.unit) : ''}
+      <div style="height:14px"></div>
+      ${r.entries.length ? this.rankList(r.entries, r.unit, r.me) : '<div class="empty-state card">Ninguém pontuou aqui ainda. Que tal ser o primeiro? 🚀</div>'}
+      ${r.me && !r.entries.some((e) => e.username === r.me.username) ? `<div class="me-sticky">${this.rankRow(r.me, r.unit, true)}</div>` : ''}`;
+  }
+
+  rankRow(e, unit, me) {
+    return `<div class="rank-row ${me ? 'me' : ''} ${e.rank && e.rank <= 3 ? 'r' + e.rank : ''}" data-go="profile/${encodeURIComponent(e.username)}">
+      <div class="pos">${e.rank ? (e.rank <= 3 ? ['🥇', '🥈', '🥉'][e.rank - 1] : '#' + e.rank) : '—'}</div>
+      ${avatar(e.avatar, e.frame)}
+      <div class="who"><b>${esc(e.username)} ${flag(e.country)}</b><small>${esc(COUNTRY_MAP[e.country]?.name || '')}${e.sub ? ' · ' + esc(e.sub) : ''}${me && !e.rank ? ' · você ainda não pontuou aqui' : ''}</small></div>
+      <div class="val">${fmtValue(e.value, unit)}</div></div>`;
+  }
+
+  rankList(entries, unit, me) {
+    if (!entries.length) return '<div class="empty-state">Sem registros ainda.</div>';
+    return `<div class="rank-list">${entries.map((e) => this.rankRow(e, unit, me && e.username === me.username)).join('')}</div>`;
+  }
+
+  renderHistory(body, r) {
+    const bySeason = {};
+    for (const c of r.champions) (bySeason[c.period] ||= []).push(c);
+    body.innerHTML = `<div class="grid g2">
+      <section class="card"><h3>👑 Lendas atuais (TOP 3 histórico)</h3>${this.podium(r.legends, 'pts')}</section>
+      <section class="card"><h3>🏆 Campeões das temporadas e eventos</h3>${Object.keys(bySeason).length ? Object.entries(bySeason).map(([per, list]) => `
+        <div style="margin-bottom:10px"><b>${esc(per.startsWith('event-') ? 'Evento ' + per.slice(6) : 'Temporada ' + per)}</b>
+        ${list.map((c) => `<div class="room-player" data-go="profile/${encodeURIComponent(c.username)}" style="cursor:pointer">${c.medal.icon} ${avatar(c.avatar, c.frame, 'sm')} <b>${esc(c.username)}</b> ${flag(c.country)} <small class="muted">${esc(c.medal.name)}</small></div>`).join('')}</div>`).join('')
+        : '<p class="muted">A primeira temporada ainda está em andamento. Os campeões aparecerão aqui para sempre.</p>'}</section>
+      <section class="card" style="grid-column:1/-1"><h3>⏱️ Recordes mundiais de todos os tempos</h3>
+        <table><thead><tr><th>Fase</th><th>Nome</th><th>Tempo</th><th>Recordista</th></tr></thead><tbody>
+        ${r.records.map((x) => `<tr><td>${x.level}</td><td>${esc(x.name)}</td><td class="mono">${x.value != null ? fmtTime(x.value) : '—'}</td><td>${x.username ? `${flag(x.country)} <a href="#/profile/${encodeURIComponent(x.username)}">${esc(x.username)}</a>` : '—'}</td></tr>`).join('')}
+        </tbody></table></section></div>`;
+  }
+
+  // ------------------------------------------------------------ personalização e loja
+  itemPreview(it) {
+    if (it.slot === 'skin') {
+      const c = document.createElement('canvas'); c.width = 12; c.height = 14;
+      c.getContext('2d').drawImage(heroFrames(it.id).r.idle, 0, 0);
+      return `<div class="prev"><img src="${c.toDataURL()}" style="height:70px;image-rendering:pixelated" alt=""></div>`;
+    }
+    if (it.slot === 'pet') {
+      const s = petSprite(it.sprite);
+      if (!s) return '<div class="prev">∅</div>';
+      const c = document.createElement('canvas'); c.width = 8; c.height = 8; c.getContext('2d').drawImage(s.r, 0, 0);
+      return `<div class="prev"><img src="${c.toDataURL()}" style="height:56px;image-rendering:pixelated" alt=""></div>`;
+    }
+    if (it.slot === 'frame') return `<div class="prev">${avatar(this.me.user.avatar, it.id, 'md')}</div>`;
+    if (it.slot === 'emote') return `<div class="prev"><span style="background:#fff;color:#1a1030;border-radius:8px;padding:4px 10px">${esc(it.text)}</span></div>`;
+    const icons = { victory: { hop: '🦘', spin: '🌀', confetti: '🎊', fireworks: '🎆', crown: '👑' }, jump: { dust: '💨', stars: '⭐', hearts: '💖', bolt: '⚡', rainbow: '🌈' }, trail: { null: '∅', ghost: '👻', fire: '🔥', neon: '💠', rainbow: '🌈' } };
+    return `<div class="prev">${icons[it.slot]?.[it.fx] || '✨'}</div>`;
+  }
+
+  async renderCustomize(slot = 'skin') {
+    if (!SLOTS[slot]) slot = 'skin';
+    const owned = new Set(this.me.inventory);
+    const eq = this.me.equipped;
+    const list = ITEMS.filter((i) => i.slot === slot && owned.has(i.id));
+    this.mount(`${this.topbar('Personalizar')}
+      <div class="grid g2"><div><canvas class="hero-preview" id="cz-demo"></canvas></div>
+      <div class="card"><h3>Equipado</h3>${Object.entries(SLOTS).map(([k, n]) => `<div>${esc(n)}: <b>${esc(ITEM_MAP[eq[k]]?.name || '—')}</b></div>`).join('')}
+      <p class="muted" style="margin-top:10px">Itens cosméticos não alteram a física. Todos competem nas mesmas condições.</p>
+      <button class="btn green small" data-go="shop/${slot}">Comprar mais itens</button></div></div>
+      <div class="tabs" style="margin-top:14px">${Object.entries(SLOTS).map(([k, n]) => `<button class="tab ${k === slot ? 'on' : ''}" data-go="customize/${k}">${n}</button>`).join('')}</div>
+      <div class="items">${list.map((it) => `<div class="item r-${it.rarity} ${eq[slot] === it.id ? 'equipped' : ''}">${this.itemPreview(it)}
+        <div class="nm">${esc(it.name)}</div><div class="rar rar-${it.rarity}">${it.rarity}</div>
+        ${eq[slot] === it.id ? '<button class="btn small" disabled>Equipado</button>' : `<button class="btn small green" data-act="equip" data-id="${it.id}">Equipar</button>`}</div>`).join('')}</div>`, {
+      equip: async (b) => {
+        const r = await api('/api/equip', { method: 'POST', body: { slot, itemId: b.dataset.id } });
+        this.me.equipped = r.equipped;
+        this.renderCustomize(slot);
+      },
+    });
+    this.views.push(new DemoView($('#cz-demo'), this.me.equipped, { theme: 2 }));
+  }
+
+  async renderShop(slot = 'skin') {
+    if (!SLOTS[slot]) slot = 'skin';
+    const owned = new Set(this.me.inventory);
+    const list = ITEMS.filter((i) => i.slot === slot && i.price !== 0);
+    this.mount(`${this.topbar('Loja')}
+      <div class="banner"><div><div class="big">🛒 Loja de cosméticos</div><div class="muted">Ganhe moedas completando fases, batendo recordes, no Modo Infinito, em corridas, conquistas e recompensas de temporada. Nada aqui dá vantagem na competição.</div></div></div>
+      <div class="tabs">${Object.entries(SLOTS).map(([k, n]) => `<button class="tab ${k === slot ? 'on' : ''}" data-go="shop/${k}">${n}</button>`).join('')}</div>
+      <div class="items">${list.map((it) => `<div class="item r-${it.rarity}">${this.itemPreview(it)}
+        <div class="nm">${esc(it.name)}</div><div class="rar rar-${it.rarity}">${it.rarity}</div>
+        ${owned.has(it.id) ? `<button class="btn small" data-go="customize/${slot}">Você possui</button>`
+          : it.price == null ? '<div class="muted" style="font-size:12px">Exclusivo: recompensa de temporada</div>'
+          : `<div class="price">🪙 ${num(it.price)}</div><button class="btn small gold" data-act="buy" data-id="${it.id}" ${this.me.user.coins < it.price ? 'disabled' : ''}>Comprar</button>`}
+        ${['victory', 'jump', 'trail', 'pet', 'skin'].includes(slot) ? `<button class="btn small ghost" data-act="preview" data-id="${it.id}">Prévia</button>` : ''}</div>`).join('')}</div>`, {
+      buy: async (b) => {
+        const it = ITEM_MAP[b.dataset.id];
+        b.disabled = true;
+        const r = await api('/api/shop/buy', { method: 'POST', body: { itemId: it.id } });
+        sfx.buy();
+        this.toast(`Você comprou <b>${esc(it.name)}</b>!`, 'gold', [['Equipar agora', async () => { await api('/api/equip', { method: 'POST', body: { slot: it.slot, itemId: it.id } }); await this.refreshMe(); }]]);
+        for (const a of r.achievements || []) this.toast(`🏅 Conquista: <b>${esc(a.name)}</b> (+${a.reward})`, 'gold');
+        await this.refreshMe();
+        this.renderShop(slot);
+      },
+      preview: (b) => {
+        const it = ITEM_MAP[b.dataset.id];
+        let view;
+        const close = this.modal(`<h2>${esc(it.name)}</h2><canvas class="hero-preview" id="pv"></canvas><div class="row center" style="margin-top:12px"><button class="btn" data-close>Fechar</button></div>`, (m) => {
+          view = new DemoView($('#pv', m), { ...this.me.equipped, [it.slot]: it.id }, { theme: 3, label: it.name });
+        });
+        const obs = new MutationObserver(() => { if ($('#modal').hidden) { view?.stop(); obs.disconnect(); } });
+        obs.observe($('#modal'), { attributes: true });
+        return close;
+      },
+    });
+  }
+
+  // ------------------------------------------------------------ perfil
+  async renderProfile(username) {
+    const own = !username || username.toLowerCase() === this.me.user.username.toLowerCase();
+    this.mount(`${this.topbar(own ? 'Meu perfil' : 'Perfil')}<div id="prof" class="loading">Carregando perfil</div>`);
+    let p;
+    try { p = await api('/api/profile/' + encodeURIComponent(username || this.me.user.username)); }
+    catch (e) { $('#prof').className = ''; $('#prof').innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
+    if (!$('#prof')) return;
+    const have = new Set(p.achievements);
+    const histRows = p.history.map((h) => `<tr><td>${new Date(h.finished_at).toLocaleString('pt-BR')}</td><td>${{ level: 'História', endless: 'Infinito', daily: 'Diário', event: 'Evento', race: 'Corrida' }[h.mode] || h.mode}</td>
+      <td>${esc(levelMeta(h.level_id)?.name || (h.mode === 'endless' ? '—' : h.level_id.replace(/-[A-Za-z0-9_-]{6}$/, '')))}</td>
+      <td class="mono">${h.mode === 'endless' ? num(h.distance) + ' m' : fmtTime(h.time_ms)}</td><td>${h.deaths ?? 0}</td><td class="mono">${h.score ? num(h.score) : '—'}</td></tr>`).join('');
+    $('#prof').className = 'stack';
+    $('#prof').innerHTML = `
+      <section class="card profile-head">${avatar(p.avatar, p.equipped.frame, 'lg')}
+        <div><h1>${esc(p.username)} ${flag(p.country)}</h1><div class="muted">${esc(COUNTRY_MAP[p.country]?.name || '')} · ${esc(CONTINENTS[p.continent] || '')} · membro desde ${new Date(p.createdAt).toLocaleDateString('pt-BR')}
+          ${p.online ? ' · <span style="color:var(--green)">● online</span>' : ''}</div>
+          <div class="row" style="margin-top:10px">${p.rank ? `<span class="pill rank">#${num(p.rank)} no mundo</span>` : '<span class="pill">Sem posição ainda</span>'}<span class="pill coins">${num(p.totalScore)} pts</span>
+          ${own ? '<button class="btn small ghost" data-act="edit">Editar avatar/país</button>' : `<button class="btn small cyan" data-act="friend">Adicionar amigo</button>`}</div></div></section>
+      <section class="card"><h3>Estatísticas</h3><div class="stats">
+        <div class="stat"><b>${p.rank ? '#' + num(p.rank) : '—'}</b><span>Posição mundial</span></div>
+        <div class="stat"><b>${num(p.totalScore)}</b><span>Pontuação</span></div>
+        <div class="stat"><b>${num(p.records)}</b><span>Recordes mundiais</span></div>
+        <div class="stat"><b>${num(p.levelsDone)}/${LEVEL_IDS.length}</b><span>Fases concluídas</span></div>
+        <div class="stat"><b>${fmtDur(p.playMs)}</b><span>Tempo total de jogo</span></div>
+        <div class="stat"><b>${num(p.endlessBest)} m</b><span>Recorde no Infinito</span></div>
+        <div class="stat"><b>${num(p.raceRating)}</b><span>Rating de corrida</span></div>
+        <div class="stat"><b>${num(p.raceWins)}/${num(p.races)}</b><span>Vitórias em corridas</span></div></div></section>
+      <section class="card"><h3>Medalhas exclusivas</h3><div class="medals">${p.medals.length ? p.medals.map((m) => `<span class="medal-chip" style="border-color:${m.info?.color}">${m.info?.icon} ${esc(m.info?.name)} <small class="muted">${esc(m.period)}${m.rank ? ' · #' + m.rank : ''}</small></span>`).join('') : '<span class="muted">Termine uma temporada no TOP 100 ou um Evento Mundial no TOP 25 para ganhar medalhas.</span>'}</div></section>
+      <section class="card"><h3>Conquistas (${have.size}/${ACHIEVEMENTS.length})</h3><div class="achs">${ACHIEVEMENTS.map((a) => `<div class="ach ${have.has(a.id) ? '' : 'locked'}"><span class="i">${have.has(a.id) ? '🏅' : '🔒'}</span><div><b>${esc(a.name)}</b><small>${esc(a.desc)} (+${a.reward})</small></div></div>`).join('')}</div></section>
+      <section class="card"><h3>Histórico de resultados</h3>${histRows ? `<div style="overflow:auto"><table><thead><tr><th>Quando</th><th>Modo</th><th>Fase</th><th>Resultado</th><th>Mortes</th><th>Pontos</th></tr></thead><tbody>${histRows}</tbody></table></div>` : '<p class="muted">Nenhum resultado ainda.</p>'}</section>`;
+    this.ui.onclick = async (e) => {
+      const g = e.target.closest('[data-go]');
+      if (g) return this.go(g.dataset.go);
+      const a = e.target.closest('[data-act]');
+      if (!a) return;
+      if (a.dataset.act === 'friend') {
+        try { const r = await api('/api/friends/request', { method: 'POST', body: { username: p.username } }); this.toast(r.status === 'accepted' ? 'Agora vocês são amigos!' : 'Pedido enviado'); }
+        catch (err) { this.toast(err.message, 'error'); }
+      }
+      if (a.dataset.act === 'edit') this.editProfile();
+    };
+  }
+
+  editProfile() {
+    let av = this.me.user.avatar;
+    this.modal(`<h2>Editar perfil</h2><label>Avatar</label><div class="avatars">${AVATARS.map((a) => `<button type="button" class="${a === av ? 'on' : ''}" data-av="${a}"><img src="${avatarURL(a, 64)}" alt=""></button>`).join('')}</div>
+      <label for="ed-country">País</label><select id="ed-country">${COUNTRIES.map((c) => `<option value="${c.code}" ${c.code === this.me.user.country ? 'selected' : ''}>${flagEmoji(c.code)} ${esc(c.name)}</option>`).join('')}</select>
+      <div class="row" style="margin-top:14px"><button class="btn primary" id="ed-save">Salvar</button><button class="btn ghost" data-close>Cancelar</button></div>`, (m, close) => {
+      m.querySelectorAll('[data-av]').forEach((b) => b.onclick = () => { av = b.dataset.av; m.querySelectorAll('[data-av]').forEach((x) => x.classList.toggle('on', x === b)); });
+      $('#ed-save', m).onclick = async () => {
+        try {
+          await api('/api/me', { method: 'PATCH', body: { avatar: av, country: $('#ed-country', m).value } });
+          await this.refreshMe();
+          close();
+          this.renderProfile();
+        } catch (e) { this.toast(e.message, 'error'); }
+      };
+    });
+  }
+
+  // ------------------------------------------------------------ configurações
+  renderSettings() {
+    const s = this.settings;
+    this.mount(`${this.topbar('Configurações')}
+      <div class="grid g2">
+        <section class="card"><h3>Áudio</h3>
+          <label for="st-music">Música: <span id="v-music">${Math.round(s.music * 100)}%</span></label><input id="st-music" type="range" min="0" max="1" step="0.05" value="${s.music}">
+          <label for="st-sfx">Efeitos: <span id="v-sfx">${Math.round(s.sfx * 100)}%</span></label><input id="st-sfx" type="range" min="0" max="1" step="0.05" value="${s.sfx}">
+        </section>
+        <section class="card"><h3>Jogo</h3>
+          <label class="row" style="color:var(--text)"><input type="checkbox" id="st-shake" style="width:auto" ${s.shake ? 'checked' : ''}> Tremor de tela</label>
+          <label class="row" style="color:var(--text)"><input type="checkbox" id="st-ghosts" style="width:auto" ${s.ghosts ? 'checked' : ''}> Mostrar fantasmas</label>
+          <label for="st-touch">Controles de toque</label>
+          <select id="st-touch"><option value="auto" ${s.touch === 'auto' ? 'selected' : ''}>Automático</option><option value="on" ${s.touch === 'on' ? 'selected' : ''}>Sempre mostrar</option><option value="off" ${s.touch === 'off' ? 'selected' : ''}>Ocultar</option></select>
+        </section>
+        <section class="card"><h3>Controles</h3>
+          <table><tbody>
+            <tr><td>Mover</td><td><span class="kbd">←</span> <span class="kbd">→</span> ou <span class="kbd">A</span> <span class="kbd">D</span> · analógico/D-pad</td></tr>
+            <tr><td>Pular</td><td><span class="kbd">Espaço</span> <span class="kbd">↑</span> <span class="kbd">W</span> <span class="kbd">Z</span> · botão A. Segure para pular mais alto.</td></tr>
+            <tr><td>Pulo na parede</td><td>Encoste na parede no ar e pule</td></tr>
+            <tr><td>Reinício rápido</td><td><span class="kbd">R</span> · botão Y/Select</td></tr>
+            <tr><td>Pausar</td><td><span class="kbd">Esc</span> <span class="kbd">P</span> · Start</td></tr>
+            <tr><td>Emotes (corrida)</td><td><span class="kbd">1</span>–<span class="kbd">4</span></td></tr>
+          </tbody></table></section>
+        <section class="card"><h3>Conta</h3><p>Conectado como <b>${esc(this.me.user.username)}</b>.</p>
+          <p class="muted">Seu progresso, itens e recordes ficam salvos no servidor e sincronizam em qualquer dispositivo.</p>
+          <button class="btn primary" data-act="logout">Sair da conta</button></section>
+      </div>`, {
+      logout: async () => {
+        await api('/api/auth/logout', { method: 'POST' }).catch(() => {});
+        auth.token = null; this.me = null; this.live.close();
+        this.go('auth');
+      },
+    });
+    const bind = (id, key, fmt) => {
+      const el = $('#' + id);
+      el.oninput = () => {
+        s[key] = el.type === 'checkbox' ? el.checked : el.type === 'range' ? Number(el.value) : el.value;
+        if (fmt) $(fmt).textContent = Math.round(s[key] * 100) + '%';
+        this.saveSettings();
+        api('/api/me', { method: 'PATCH', body: { prefs: s } }).catch(() => {});
+      };
+      el.onchange = el.oninput;
+    };
+    bind('st-music', 'music', '#v-music'); bind('st-sfx', 'sfx', '#v-sfx'); bind('st-shake', 'shake'); bind('st-ghosts', 'ghosts'); bind('st-touch', 'touch');
+  }
+}

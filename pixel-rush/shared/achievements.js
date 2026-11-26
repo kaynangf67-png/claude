@@ -1,0 +1,25 @@
+// Conquistas — avaliadas no servidor após cada resultado validado.
+export const ACHIEVEMENTS = [
+  { id: 'first_clear', name: 'Primeiro Passo', desc: 'Conclua sua primeira fase.', reward: 50, check: (s) => s.levelsDone >= 1 },
+  { id: 'world1', name: 'Senhor do Prado', desc: 'Conclua todas as fases do Prado Pixel.', reward: 150, check: (s) => s.worlds[1] },
+  { id: 'world2', name: 'Explorador de Cristal', desc: 'Conclua todas as fases das Cavernas de Cristal.', reward: 200, check: (s) => s.worlds[2] },
+  { id: 'world3', name: 'Alpinista Gelado', desc: 'Conclua todas as fases do Pico Gelado.', reward: 250, check: (s) => s.worlds[3] },
+  { id: 'world4', name: 'Domador de Dragões', desc: 'Derrote o Dragão de Magma.', reward: 400, check: (s) => s.worlds[4] },
+  { id: 'flawless', name: 'Sem Arranhões', desc: 'Conclua uma fase sem morrer.', reward: 40, check: (s) => s.flawless },
+  { id: 'under_par_5', name: 'Velocista', desc: 'Termine 5 fases abaixo do par (ouro).', reward: 150, check: (s) => s.underPar >= 5 },
+  { id: 'under_par_20', name: 'Speedrunner', desc: 'Termine todas as 20 fases abaixo do par.', reward: 800, check: (s) => s.underPar >= 20 },
+  { id: 'diamond_1', name: 'Diamante Bruto', desc: 'Conquiste uma medalha de diamante.', reward: 200, check: (s) => s.diamonds >= 1 },
+  { id: 'deaths_100', name: 'Persistente', desc: 'Morra 100 vezes. Faz parte!', reward: 60, check: (s) => s.deathsTotal >= 100 },
+  { id: 'endless_100', name: 'Maratonista', desc: 'Alcance 100 m no Modo Infinito.', reward: 60, check: (s) => s.endlessBest >= 100 },
+  { id: 'endless_500', name: 'Ultramaratonista', desc: 'Alcance 500 m no Modo Infinito.', reward: 200, check: (s) => s.endlessBest >= 500 },
+  { id: 'endless_1000', name: 'Imparável', desc: 'Alcance 1000 m no Modo Infinito.', reward: 500, check: (s) => s.endlessBest >= 1000 },
+  { id: 'coins_200', name: 'Colecionador', desc: 'Colete 200 moedas nas fases.', reward: 100, check: (s) => s.coinsCollected >= 200 },
+  { id: 'race_win', name: 'Primeira Vitória', desc: 'Vença uma corrida online.', reward: 100, check: (s) => s.raceWins >= 1 },
+  { id: 'race_10', name: 'Rei das Corridas', desc: 'Vença 10 corridas online.', reward: 400, check: (s) => s.raceWins >= 10 },
+  { id: 'daily', name: 'Rotina de Campeão', desc: 'Conclua um Desafio Diário.', reward: 50, check: (s) => s.dailyDone },
+  { id: 'event', name: 'Cidadão do Mundo', desc: 'Conclua um Evento Mundial.', reward: 80, check: (s) => s.eventDone },
+  { id: 'record', name: 'Recordista Mundial', desc: 'Tenha o recorde mundial de uma fase.', reward: 500, check: (s) => s.records >= 1 },
+  { id: 'top100', name: 'Elite Mundial', desc: 'Entre no TOP 100 mundial.', reward: 300, check: (s) => s.rank > 0 && s.rank <= 100 },
+  { id: 'shopper', name: 'Estiloso', desc: 'Compre um item na loja.', reward: 30, check: (s) => s.purchases >= 1 },
+];
+export const ACH_MAP = Object.fromEntries(ACHIEVEMENTS.map((a) => [a.id, a]));
