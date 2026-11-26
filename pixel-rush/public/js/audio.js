@@ -55,6 +55,7 @@ export const sfx = {
   coin: () => { tone({ f: 988, dur: 0.06, gain: 0.15 }); tone({ f: 1319, dur: 0.12, gain: 0.15, delay: 0.06 }); },
   spring: () => tone({ f: 200, f2: 900, type: 'triangle', dur: 0.2, gain: 0.3 }),
   die: () => faaa(),
+  trap: () => { tone({ f: 1400, f2: 500, dur: 0.12, gain: 0.16 }); tone({ f: 700, f2: 250, dur: 0.15, gain: 0.12, delay: 0.08 }); },
   checkpoint: () => [523, 659, 784].forEach((f, i) => tone({ f, dur: 0.1, gain: 0.15, delay: i * 0.07 })),
   finish: () => [523, 659, 784, 1047].forEach((f, i) => tone({ f, dur: 0.18, gain: 0.18, delay: i * 0.1 })),
   record: () => [784, 988, 1175, 1568, 1175, 1568].forEach((f, i) => tone({ f, dur: 0.14, gain: 0.16, delay: i * 0.09 })),

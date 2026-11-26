@@ -82,3 +82,23 @@ export const BOSSES = {
   yeti:    { name: 'Yeti Glacial',       hp: 4, w: 28, h: 30, speed: 1.3, jumpEvery: 100, jumpV: 7.8, shootEvery: 110, pattern: 'arc' },
   dragao:  { name: 'Dragão de Magma',    hp: 5, w: 30, h: 30, speed: 1.45, jumpEvery: 95,  jumpV: 8.0, shootEvery: 85,  pattern: 'spread' },
 };
+
+// ---------- armadilhas "trollagem" (disparam quando o jogador chega perto) ----------
+export const DROP_DELAY = 6;  // ticks entre o disparo e o bloco começar a cair
+// Bloco que cai: posição a partir do tick do disparo (null = ainda não disparou)
+export function dropRect(e, trig, t) {
+  const w = (e.w || 1) * TILE;
+  const x = e.x * TILE, y0 = e.y * TILE;
+  const max = (e.fall || 6) * TILE;
+  if (trig == null) return { x, y: y0, w, h: TILE, state: 'armed' };
+  const dt = t - trig - DROP_DELAY;
+  if (dt <= 0) return { x: x + ((t >> 1) % 2 ? 1 : -1), y: y0, w, h: TILE, state: 'shake' };
+  const off = Math.min(max, 0.3 * dt * dt);
+  return { x, y: y0 + off, w, h: TILE, state: off >= max ? 'landed' : 'falling' };
+}
+// Espinhos escondidos: retângulos que matam depois de disparados
+export function popRects(e) {
+  const out = [];
+  for (let i = 0; i < (e.n || 1); i++) out.push({ x: (e.x + i) * TILE + 2, y: e.y * TILE + 9, w: 12, h: 7 });
+  return out;
+}

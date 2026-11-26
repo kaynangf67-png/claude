@@ -40,6 +40,8 @@ As tabelas são criadas automaticamente na primeira execução. Os testes també
 - Checkpoints, morte com reinício quase instantâneo, `R` para recomeçar na hora (o token da próxima tentativa já fica pedido antes) e cronômetro com milissegundos.
 - Teclado, controle (Gamepad API) e controles de toque no celular.
 
+**Armadilhas "trollagem"**: blocos que despencam quando você passa por baixo, espinhos escondidos que saltam do chão quando você pula perto e chão falso que parece firme. Elas se rearmam a cada vida e também são simuladas pelo servidor (anti-trapaça continua valendo).
+
 **Fases** (`shared/levels.js`): "Jogar" começa direto na próxima fase ainda não concluída (numeradas de 0 a 19); 4 mundos com 5 fases cada (Prado Pixel, Cavernas de Cristal, Pico Gelado e Fortaleza de Magma). Cada mundo introduz obstáculos novos, e a 5ª fase é uma luta de chefe (Golem, Aranha, Yeti e o Dragão final), com padrões de ataque e uma 2ª fase mais agressiva. Uma fase só abre depois que a anterior foi concluída, e o servidor confere isso. Cada fase tem um tempo "par" e medalhas (bronze, prata, ouro e diamante).
 
 **Eventos** (página Evento)

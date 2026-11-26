@@ -4,6 +4,7 @@ import { TILE, PHYS, IN_LEFT, IN_RIGHT, IN_JUMP } from './constants.js';
 import { SOLID } from './level.js';
 import {
   platRect, sawPos, laserOn, laserRect, cannonBullets, rectsOverlap, circleRect, BOSSES,
+  dropRect, popRects,
 } from './entities.js';
 
 const PW = PHYS.pw, PH = PHYS.ph;
@@ -26,7 +27,7 @@ export function createSim(level) {
       face: 1, lock: 0, lockDir: 0, spring: false, ride: -1, dead: 0, slide: 0,
     },
     cp: { x: level.start.x, y: level.start.y }, cpKey: null,
-    deaths: 0, coinCount: 0, coins: {}, cr: {},
+    deaths: 0, coinCount: 0, coins: {}, cr: {}, tr: {},
     boss: level.boss ? newBoss(level.boss) : null,
     proj: [],
     finished: false, finishT: 0, over: false,
@@ -101,6 +102,7 @@ function respawn(sim) {
   p.x = s.cp.x; p.y = s.cp.y; p.vx = 0; p.vy = 0;
   p.onGround = false; p.coyote = 0; p.buf = 0; p.ride = -1; p.lock = 0; p.spring = false;
   s.cr = {};
+  s.tr = {}; // armadilhas se rearmam a cada vida
   s.proj = [];
   if (level.boss && s.boss && !s.boss.defeated) s.boss = newBoss(level.boss);
   s.ev.push('respawn');
@@ -305,6 +307,21 @@ export function step(sim, input) {
     } else if (e.t === 'cannon') {
       const bl = cannonBullets(e, t);
       for (const b of bl) if (rectsOverlap(hurt, b)) { kill(sim); return; }
+    } else if (e.t === 'drop' || e.t === 'pop') {
+      const cx = p.x + PW / 2;
+      const inRange = cx >= e.tx0 * TILE && cx < (e.tx1 + 1) * TILE;
+      if (s.tr[e.id] === undefined && inRange) {
+        if (e.t === 'drop' && p.y > e.y * TILE) { s.tr[e.id] = t; s.ev.push('trap'); }
+        if (e.t === 'pop' && (e.air === false || !p.onGround)) { s.tr[e.id] = t; s.ev.push('trap'); }
+      }
+      const trig = s.tr[e.id];
+      if (trig === undefined) continue;
+      if (e.t === 'drop') {
+        const r = dropRect(e, trig, t);
+        if (r.state === 'falling' && rectsOverlap(hurt, r)) { kill(sim); return; }
+      } else {
+        for (const r of popRects(e)) if (rectsOverlap(hurt, r)) { kill(sim); return; }
+      }
     }
   }
 

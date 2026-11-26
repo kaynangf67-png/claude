@@ -1,6 +1,6 @@
 // Construção de fases a partir de mapas ASCII.
 // Legenda: '#' bloco  'I' gelo  '-' plataforma atravessável  'X' bloco que desmorona
-// '^' 'v' '<' '>' espinhos (direção da ponta)  'S' mola  'o' moeda
+// '^' 'v' '<' '>' espinhos (direção da ponta)  'S' mola  'o' moeda  'F' chão falso (parece chão, mas cai)
 // 'C' checkpoint  'G' chegada  'P' início
 import { TILE } from './constants.js';
 
@@ -13,6 +13,9 @@ function bucketEnts(ents) {
     if (e.id == null) e.id = i;
     let minX = e.x, maxX = e.x;
     if (e.x2 != null) { minX = Math.min(e.x, e.x2); maxX = Math.max(e.x, e.x2) + (e.w || 1); }
+    if (e.n) maxX = Math.max(maxX, e.x + e.n);
+    if (e.tx0 != null) minX = Math.min(minX, e.tx0);
+    if (e.tx1 != null) maxX = Math.max(maxX, e.tx1 + 1);
     if (e.t === 'laser' || e.t === 'cannon') { minX -= (e.len || e.range || 0); maxX += (e.len || e.range || 0); }
     if (e.t === 'boss') { minX -= 64; maxX += 64; }
     const c0 = Math.floor((minX * TILE - 48) / CHUNK_PX);

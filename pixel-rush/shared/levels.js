@@ -44,6 +44,10 @@ const defs = [];
   m.ground(51, 60, 10).coins(55, 57, 8);
   m.ground(64, 80, 11).fill(68, 8, 72, 8, '-').coins(68, 72, 7);
   m.ground(81, 95, 12).set(92, 11, 'G');
+  // armadilhas: bloco que cai, espinhos que saltam no pouso e chão falso
+  m.ent({ t: 'drop', x: 14, y: 7, fall: 4, tx0: 12, tx1: 14 });
+  m.ent({ t: 'pop', x: 37, y: 10, n: 2, tx0: 33, tx1: 36 });
+  m.fill(76, 11, 77, 14, 'F');
   defs.push(m.def({ id: '1-1', world: 1, name: 'Primeiros Passos', par: 13 }));
 }
 { // 1-2 Espinhos Afiados
@@ -57,6 +61,9 @@ const defs = [];
   m.fill(64, 10, 65, 10).fill(69, 9, 70, 9).fill(74, 10, 75, 10).coins(69, 70, 7);
   m.ground(81, 101, 12).fill(86, 7, 90, 7, 'v').set(84, 11, 'C').fill(93, 11, 93, 11, '^');
   m.set(98, 11, 'G');
+  m.ent({ t: 'drop', x: 25, y: 7, fall: 4, tx0: 23, tx1: 25 });
+  m.ent({ t: 'pop', x: 53, y: 10, n: 1, tx0: 48, tx1: 52 });
+  m.fill(88, 12, 89, 14, 'F');
   defs.push(m.def({ id: '1-2', world: 1, name: 'Espinhos Afiados', par: 14 }));
 }
 { // 1-3 Molas e Nuvens
@@ -72,6 +79,8 @@ const defs = [];
   m.fill(55, 4, 57, 14).coins(55, 57, 2);
   m.ground(58, 79, 12).fill(62, 11, 63, 11, '^');
   m.set(74, 11, 'G');
+  m.ent({ t: 'pop', x: 70, y: 11, n: 2, tx0: 60, tx1: 66 });
+  m.ent({ t: 'drop', x: 33, y: 2, fall: 8, tx0: 31, tx1: 33 });
   defs.push(m.def({ id: '1-3', world: 1, name: 'Molas e Nuvens', par: 11 }));
 }
 { // 1-4 Plataformas Móveis
@@ -88,6 +97,8 @@ const defs = [];
   m.ground(61, 83, 12).fill(66, 11, 67, 11, '^').set(63, 11, 'C');
   m.fill(72, 11, 72, 11, '^');
   m.set(79, 11, 'G');
+  m.ent({ t: 'drop', x: 56, y: 2, fall: 4, tx0: 54, tx1: 56 });
+  m.fill(69, 12, 70, 14, 'F');
   defs.push(m.def({ id: '1-4', world: 1, name: 'Plataformas Móveis', par: 15 }));
 }
 { // 1-5 CHEFE: Golem de Musgo
@@ -142,6 +153,7 @@ const defs = [];
   m.ent({ t: 'saw', x: 68, y: 11, r: 7 });
   m.ent({ t: 'saw', x: 74, y: 8, x2: 74, y2: 11, p: 45, o: 0 });
   m.set(83, 11, 'G');
+  m.ent({ t: 'drop', x: 79, y: 7, fall: 4, tx0: 77, tx1: 79 });
   defs.push(m.def({ id: '2-3', world: 2, name: 'Serras Giratórias', par: 12 }));
 }
 { // 2-4 Profundezas
@@ -179,6 +191,8 @@ const defs = [];
   m.ground(46, 70, 12, '#', 'I').set(52, 11, '^').fill(58, 11, 59, 11, '^').set(64, 11, '^');
   m.fill(75, 10, 77, 10, '-').coins(75, 77, 8);
   m.ground(81, 95, 12).set(92, 11, 'G');
+  m.fill(40, 12, 41, 14, 'F');
+  m.ent({ t: 'drop', x: 88, y: 7, fall: 4, tx0: 86, tx1: 88 });
   defs.push(m.def({ id: '3-1', world: 3, name: 'Deslize', par: 13 }));
 }
 { // 3-2 Feixes de Laser
@@ -257,6 +271,8 @@ const defs = [];
   m.ent({ t: 'cannon', x: 75, y: 8, dir: 'l', range: 13, every: 80, speed: 2, o: 20 });
   m.ground(77, 91, 12).set(79, 11, 'C');
   m.set(88, 11, 'G');
+  m.ent({ t: 'pop', x: 38, y: 11, n: 2, tx0: 31, tx1: 37 });
+  m.ent({ t: 'drop', x: 85, y: 7, fall: 4, tx0: 83, tx1: 85 });
   defs.push(m.def({ id: '4-1', world: 4, name: 'Canhões', par: 13 }));
 }
 { // 4-2 Rio de Magma

@@ -1,13 +1,13 @@
 // Renderização do mundo em pixel art (384x216 ampliado sem suavização).
 import { TILE, VIEW_W, VIEW_H, PHYS } from '/shared/constants.js';
-import { platRect, sawPos, laserOn, laserWarn, laserRect, cannonBullets } from '/shared/entities.js';
+import { platRect, sawPos, laserOn, laserWarn, laserRect, cannonBullets, dropRect, popRects } from '/shared/entities.js';
 import { crumbleInfo } from '/shared/sim.js';
 import { ITEM_MAP } from '/shared/items.js';
 import { heroFrames, petSprite, tileSet, background, drawBoss, shade } from './sprites.js';
 import { drawText, drawTextCentered, textWidth } from './font.js';
 import { ditherCtx } from './mono.js';
 
-const SOLIDISH = { '#': 1, 'I': 1, 'X': 1 };
+const SOLIDISH = { '#': 1, 'I': 1, 'X': 1, 'F': 1 };
 
 export class Renderer {
   constructor(canvas) {
@@ -167,7 +167,7 @@ export class Renderer {
         const c = level.tileAt(tx, ty);
         if (c === '.') continue;
         const x = tx * TILE - ox, y = ty * TILE - oy;
-        if (c === '#') {
+        if (c === '#' || c === 'F') { // 'F' (chão falso) é desenhado igual ao chão de verdade
           if (tx < 0 || (isFinite(level.w) && tx >= level.w)) { g.drawImage(ts.mid[0], x, y); continue; }
           const above = level.tileAt(tx, ty - 1);
           const v = ((tx * 7 + ty * 13) & 3);
@@ -231,6 +231,11 @@ export class Renderer {
           g.fillStyle = 'rgba(255,61,110,0.5)';
           if (r.w > r.h) g.fillRect(r.x - ox, r.y + 2 - oy, r.w, 1); else g.fillRect(r.x + 2 - ox, r.y - oy, 1, r.h);
         }
+      } else if (e.t === 'drop') {
+        const r = dropRect(e, s.tr[e.id], t);
+        if (r.state !== 'landed') for (let i = 0; i < (e.w || 1); i++) g.drawImage(ts.mid[0], Math.round(r.x - ox) + i * TILE, Math.round(r.y - oy));
+      } else if (e.t === 'pop') {
+        if (s.tr[e.id] !== undefined) for (const r of popRects(e)) g.drawImage(ts['^'], r.x - 2 - ox, r.y - 9 - oy);
       } else if (e.t === 'cannon') {
         const x = e.x * TILE - ox, y = e.y * TILE - oy;
         g.drawImage(ts.block, x, y);

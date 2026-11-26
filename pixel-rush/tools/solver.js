@@ -15,7 +15,7 @@ const ACTIONS = [
 function fastClone(s) {
   return {
     ...s,
-    p: { ...s.p }, cp: s.cp, coins: { ...s.coins }, cr: { ...s.cr },
+    p: { ...s.p }, cp: s.cp, coins: { ...s.coins }, cr: { ...s.cr }, tr: { ...s.tr },
     boss: s.boss ? { ...s.boss } : null,
     proj: s.proj.map((q) => ({ ...q })), ev: [],
   };
