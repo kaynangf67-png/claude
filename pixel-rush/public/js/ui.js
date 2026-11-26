@@ -104,8 +104,8 @@ export class App {
     this.views = [];
     if (!this.me && name !== 'auth') return this.renderAuth();
     const screens = {
-      auth: () => this.renderAuth(), home: () => this.renderHome(), play: () => this.renderPlay(),
-      competitive: () => this.renderCompetitive(), endless: () => this.renderEndless(),
+      auth: () => this.renderAuth(), home: () => this.renderHome(),
+      endless: () => this.renderEndless(),
       ranking: () => this.renderRanking(rest[0]), customize: () => this.renderVault(rest[0]), vault: () => this.renderVault(rest[0]), event: () => this.renderEvent(), shop: () => this.renderShop(rest[0]),
       profile: () => this.renderProfile(rest[0] ? decodeURIComponent(rest[0]) : null), settings: () => this.renderSettings(),
     };
@@ -215,13 +215,16 @@ export class App {
 
   // ------------------------------------------------------------ início
   renderHome() {
-    const items = [['play', 'Jogar'], ['event', 'Evento'], ['ranking', 'Ranking'], ['shop', 'Loja'], ['vault', 'Cofre'], ['profile', 'Perfil'], ['settings', 'Configurações']];
+    const items = [['endless', 'Infinito'], ['event', 'Evento'], ['ranking', 'Ranking'], ['shop', 'Loja'], ['vault', 'Cofre'], ['profile', 'Perfil'], ['settings', 'Configurações']];
     this.mount(`<canvas class="home-title" id="logo" aria-label="Estresse"></canvas>
       <canvas class="home-dancer" id="dancer" aria-hidden="true"></canvas>
       <nav class="corner-menu" aria-label="Menu principal">
+        <button class="menu-link" data-act="play">Jogar</button>
         ${items.map(([k, n]) => `<button class="menu-link" data-go="${k}">${n}</button>`).join('')}
       </nav>
-      <div class="corner-user">${esc(this.me.user.username)}</div>`);
+      <div class="corner-user">${esc(this.me.user.username)}</div>`, {
+      play: () => this.startLevel(this.nextLevelId(), { from: 'home' }),
+    });
     const lc = logoCanvas(); const logo = $('#logo'); logo.width = lc.width; logo.height = lc.height; logo.getContext('2d').drawImage(lc, 0, 0);
     this.views.push(new DanceView($('#dancer'), this.me.equipped.skin || 'skin_male'));
   }
@@ -258,9 +261,9 @@ export class App {
   }
 
   // ------------------------------------------------------------ modos
-  renderPlay() {
-    const items = [['competitive', 'Competitivo'], ['endless', 'Infinito']];
-    this.mount(`${this.topbar('Jogar')}<nav class="name-list">${items.map(([k, n]) => `<button class="menu-link big" data-go="${k}">${n}</button>`).join('')}</nav>`);
+  // próxima fase a jogar: a primeira ainda não concluída
+  nextLevelId() {
+    return LEVEL_IDS.find((id) => this.me.progress[id]?.timeMs == null) || LEVEL_IDS[LEVEL_IDS.length - 1];
   }
 
   async levels() {
@@ -273,38 +276,8 @@ export class App {
     return i === 0 || (this.me.progress[LEVEL_IDS[i - 1]]?.timeMs != null);
   }
 
-  async renderCompetitive() {
-    const unlocked = LEVEL_IDS.filter((id) => this.unlocked(id));
-    this.mount(`${this.topbar('Modo Competitivo', 'play')}
-      <div class="grid g2">
-        <section class="card"><h3>⏱️ Contra-relógio</h3>
-          <p class="muted">Corra contra os fantasmas do recordista mundial e do seu melhor tempo. Mesmo percurso para todos.</p>
-          <label for="tt-level">Fase</label>
-          <select id="tt-level">${unlocked.map((id) => `<option value="${id}">Fase ${lvNum(id)} — ${esc(levelMeta(id).name)}</option>`).join('')}</select>
-          <div class="row" style="margin:10px 0"><label class="row" style="margin:0;color:var(--text)"><input type="checkbox" id="tt-wr" checked style="width:auto"> Fantasma do recorde mundial</label>
-          <label class="row" style="margin:0;color:var(--text)"><input type="checkbox" id="tt-pb" checked style="width:auto"> Meu melhor</label></div>
-          <button class="btn primary" data-act="trial">Correr</button>
-        </section>
-        <section class="card"><h3>🥇 Recordes mundiais por fase</h3><div id="records" class="loading">Carregando</div></section>
-      </div>`, {
-      trial: () => {
-        const ghosts = [];
-        if ($('#tt-wr').checked) ghosts.push('wr');
-        if ($('#tt-pb').checked) ghosts.push('pb');
-        this.startLevel($('#tt-level').value, { ghosts, from: 'competitive', title: 'Fase ' + lvNum($('#tt-level').value) });
-      },
-      challenge: (b) => this.startMode(b.dataset.mode),
-    });
-    const lv = await this.levels().catch(() => null);
-    if (!$('#records')) return;
-    if (lv) $('#records').outerHTML = `<table><thead><tr><th>Fase</th><th>Recorde</th><th>Jogador</th></tr></thead><tbody>${LEVEL_IDS.map((id) => {
-      const r = lv.records[id];
-      return `<tr><td>${lvNum(id)}</td><td class="mono">${r ? fmtTime(r.timeMs) : '—'}</td><td>${r ? `${flag(r.country)} ${esc(r.username)}` : '—'}</td></tr>`;
-    }).join('')}</tbody></table>`;
-  }
-
   async renderEndless() {
-    this.mount(`${this.topbar('Modo Infinito', 'play')}
+    this.mount(`${this.topbar('Modo Infinito')}
       <div class="grid g2">
         <section class="card"><h3>♾️ Corrida sem fim</h3>
           <p>As plataformas são geradas enquanto você avança e ficam mais difíceis a cada trecho. Uma parede de energia te persegue e acelera com o tempo.</p>
@@ -321,11 +294,11 @@ export class App {
   }
 
   startLevel(id, opts = {}) {
-    this.launch({ ...opts, mode: 'level', levelId: id, from: opts.from || 'competitive' });
+    this.launch({ ...opts, mode: 'level', levelId: id, from: opts.from || 'home' });
   }
 
   startMode(mode) {
-    this.launch({ mode, from: mode === 'endless' ? 'endless' : 'competitive', title: mode === 'daily' ? 'DESAFIO DIÁRIO' : mode === 'event' ? 'EVENTO MUNDIAL' : null, ghosts: mode === 'endless' ? null : ['wr', 'pb'] });
+    this.launch({ mode, from: mode === 'endless' ? 'endless' : 'event', title: mode === 'daily' ? 'DESAFIO DIÁRIO' : mode === 'event' ? 'EVENTO MUNDIAL' : null, ghosts: mode === 'endless' ? null : ['wr', 'pb'] });
   }
 
   launch(opts) {

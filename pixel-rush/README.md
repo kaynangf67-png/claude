@@ -40,10 +40,9 @@ As tabelas são criadas automaticamente na primeira execução. Os testes també
 - Checkpoints, morte com reinício quase instantâneo, `R` para recomeçar na hora (o token da próxima tentativa já fica pedido antes) e cronômetro com milissegundos.
 - Teclado, controle (Gamepad API) e controles de toque no celular.
 
-**Fases** (`shared/levels.js`, jogadas pelo Contra-relógio do Modo Competitivo): 4 mundos com 5 fases cada (Prado Pixel, Cavernas de Cristal, Pico Gelado e Fortaleza de Magma). Cada mundo introduz obstáculos novos, e a 5ª fase é uma luta de chefe (Golem, Aranha, Yeti e o Dragão final), com padrões de ataque e uma 2ª fase mais agressiva. Uma fase só abre depois que a anterior foi concluída, e o servidor confere isso. Cada fase tem um tempo "par" e medalhas (bronze, prata, ouro e diamante).
+**Fases** (`shared/levels.js`): "Jogar" começa direto na próxima fase ainda não concluída (numeradas de 0 a 19); 4 mundos com 5 fases cada (Prado Pixel, Cavernas de Cristal, Pico Gelado e Fortaleza de Magma). Cada mundo introduz obstáculos novos, e a 5ª fase é uma luta de chefe (Golem, Aranha, Yeti e o Dragão final), com padrões de ataque e uma 2ª fase mais agressiva. Uma fase só abre depois que a anterior foi concluída, e o servidor confere isso. Cada fase tem um tempo "par" e medalhas (bronze, prata, ouro e diamante).
 
-**Modo Competitivo**
-- Contra-relógio contra os fantasmas do recordista mundial e do seu próprio recorde. O fantasma é o replay real, re-simulado no seu navegador.
+**Eventos** (página Evento)
 - Desafio Diário: um percurso gerado por dia, igual para o mundo todo.
 - Evento Mundial semanal: um percurso difícil por semana. O TOP 25 recebe medalhas exclusivas e moedas.
 - Corridas online (veja Multiplayer).
