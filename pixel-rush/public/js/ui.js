@@ -104,7 +104,7 @@ export class App {
     this.views = [];
     if (!this.me && name !== 'auth') return this.renderAuth();
     const screens = {
-      auth: () => this.renderAuth(), home: () => this.renderHome(), play: () => this.renderPlay(), story: () => this.renderStory(rest[0]),
+      auth: () => this.renderAuth(), home: () => this.renderHome(), play: () => this.renderPlay(),
       competitive: () => this.renderCompetitive(), endless: () => this.renderEndless(), multiplayer: () => this.renderMultiplayer(),
       ranking: () => this.renderRanking(rest[0]), customize: () => this.renderVault(rest[0]), vault: () => this.renderVault(rest[0]), event: () => this.renderEvent(), shop: () => this.renderShop(rest[0]),
       profile: () => this.renderProfile(rest[0] ? decodeURIComponent(rest[0]) : null), settings: () => this.renderSettings(),
@@ -260,7 +260,7 @@ export class App {
 
   // ------------------------------------------------------------ modos
   renderPlay() {
-    const items = [['story', 'História'], ['competitive', 'Competitivo'], ['endless', 'Infinito'], ['multiplayer', 'Multiplayer']];
+    const items = [['competitive', 'Competitivo'], ['endless', 'Infinito'], ['multiplayer', 'Multiplayer']];
     this.mount(`${this.topbar('Jogar')}<nav class="name-list">${items.map(([k, n]) => `<button class="menu-link big" data-go="${k}">${n}</button>`).join('')}</nav>`);
   }
 
@@ -272,39 +272,6 @@ export class App {
   unlocked(id) {
     const i = LEVEL_IDS.indexOf(id);
     return i === 0 || (this.me.progress[LEVEL_IDS[i - 1]]?.timeMs != null);
-  }
-
-  async renderStory() {
-    this.mount(`${this.topbar('Modo História', 'play')}
-      <div class="card" style="margin-bottom:14px"><label class="row" style="color:var(--text);margin:0"><input type="checkbox" id="story-ghosts" style="width:auto" ${this.settings.storyGhosts ? 'checked' : ''}>
-      Mostrar fantasmas (recorde mundial e seu melhor) durante as fases</label></div>
-      <div id="worlds" class="loading">Carregando fases</div>`);
-    $('#story-ghosts').onchange = (e) => { this.settings.storyGhosts = e.target.checked; this.saveSettings(); };
-    const data = await this.levels().catch(() => ({ records: {} }));
-    if (!$('#worlds')) return;
-    $('#worlds').className = 'stack';
-    $('#worlds').innerHTML = WORLDS.map((w) => {
-      const lv = LEVEL_DEFS.filter((d) => d.world === w.id);
-      const done = lv.filter((d) => this.me.progress[d.id]?.timeMs != null).length;
-      return `<section class="card"><div class="world-head"><span class="dot" style="background:${w.color}"></span><h2 style="margin:0">Mundo ${w.id}: ${esc(w.name)}</h2><span class="muted">${done}/${lv.length}</span></div>
-        <div class="levels">${lv.map((d) => {
-          const p = this.me.progress[d.id];
-          const lock = !this.unlocked(d.id);
-          const wr = data.records?.[d.id];
-          const medal = p?.timeMs != null ? levelMedal(d.par, p.timeMs) : null;
-          return `<button class="level ${lock ? 'locked' : ''} ${d.boss ? 'boss' : ''}" ${lock ? 'disabled' : ''} data-act="level" data-id="${d.id}">
-            <div class="num">${lvNum(d.id)}</div><div class="nm">${esc(d.name)}</div>
-            <div class="meta">Par: ${d.par}s · Seu melhor: <b>${p?.timeMs != null ? fmtTime(p.timeMs) : '—'}</b><br>
-            Recorde: ${wr ? `${fmtTime(wr.timeMs)} ${flag(wr.country)} ${esc(wr.username)}` : '—'}</div>
-            ${medal ? `<span class="medal m-${medal}">${medal}</span>` : ''}</button>`;
-        }).join('')}</div></section>`;
-    }).join('');
-    this.ui.onclick = (e) => {
-      const b = e.target.closest('[data-act=level]');
-      if (b && !b.disabled) { sfx.click(); this.startLevel(b.dataset.id, { ghosts: this.settings.storyGhosts ? ['wr', 'pb'] : null, from: 'story' }); }
-      const g = e.target.closest('[data-go]');
-      if (g) this.go(g.dataset.go);
-    };
   }
 
   async renderCompetitive() {
@@ -357,7 +324,7 @@ export class App {
   }
 
   startLevel(id, opts = {}) {
-    this.launch({ ...opts, mode: 'level', levelId: id, from: opts.from || 'story' });
+    this.launch({ ...opts, mode: 'level', levelId: id, from: opts.from || 'competitive' });
   }
 
   startMode(mode) {
