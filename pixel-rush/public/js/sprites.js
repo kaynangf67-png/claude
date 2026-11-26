@@ -127,6 +127,23 @@ export function avatarURL(id, size = 64) {
   return url;
 }
 
+// Foto de perfil a partir do personagem escolhido (menino ou menina)
+export function skinAvatarURL(skinId, size = 64) {
+  if (!ITEM_MAP[skinId] || ITEM_MAP[skinId].slot !== 'skin') skinId = 'skin_male';
+  const key = 'skin:' + skinId + ':' + size;
+  if (avCache.has(key)) return avCache.get(key);
+  const spr = paint(bodyOf(skinId).slice(0, 10).map(fit), ITEM_MAP[skinId].pal);
+  const cv = canvas(size, size);
+  const g = cv.getContext('2d');
+  g.imageSmoothingEnabled = false;
+  g.fillStyle = '#000'; g.fillRect(0, 0, size, size);
+  const s = Math.floor(size / 12);
+  g.drawImage(spr, Math.round((size - 12 * s) / 2) + s, size - 10 * s, 12 * s, 10 * s);
+  const url = cv.toDataURL();
+  avCache.set(key, url);
+  return url;
+}
+
 export function shade(hex, amt) {
   const n = parseInt(hex.slice(1), 16);
   let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;

@@ -2,7 +2,7 @@
 import { api, auth, Live } from './api.js';
 import { GameSession } from './game.js';
 import { DemoView, DanceView } from './demo.js';
-import { avatarURL, heroFrames, petSprite } from './sprites.js';
+import { avatarURL, skinAvatarURL, heroFrames, petSprite } from './sprites.js';
 import { logoCanvas, trophyURL } from './art.js';
 import { ditherCanvas, noEmoji } from './mono.js';
 import { initAudio, setVolumes, sfx } from './audio.js';
@@ -18,7 +18,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const lvNum = (id) => LEVEL_IDS.indexOf(id);
 const num = (n) => Number(n || 0).toLocaleString('pt-BR');
 const flag = (c) => `<span class="flag" title="${esc(COUNTRY_MAP[c]?.name || c)}">${esc(c || '')}</span>`;
-const avatar = (id, frame = 'frame_none', cls = '') => `<img class="avatar ${cls} ${esc(ITEM_MAP[frame]?.css || 'frame-none')}" src="${avatarURL(id || 'a1', 64)}" alt="">`;
+const avatar = (id, frame = 'frame_none', cls = '', skin = null) => `<img class="avatar ${cls} ${esc(ITEM_MAP[frame]?.css || 'frame-none')}" src="${skin ? skinAvatarURL(skin, 64) : avatarURL(id || 'a1', 64)}" alt="">`;
 const fmtDur = (ms) => { const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000); return h ? `${h}h ${m}min` : `${m}min ${Math.floor((ms % 60000) / 1000)}s`; };
 function countdown(ts) {
   const d = Math.max(0, ts - Date.now());
@@ -254,7 +254,7 @@ export class App {
   podium(list, unit) {
     const spot = (e, cls, kind) => e
       ? `<div class="spot ${cls}" data-go="profile/${encodeURIComponent(e.username)}"><img class="trophy-svg" src="${trophyURL(kind)}" alt="troféu ${kind}" style="width:${cls === 'p1' ? 56 : 44}px;height:auto">
-          <div>${avatar(e.avatar, e.frame, 'md')}</div><div class="name">${esc(e.username)} ${flag(e.country)}</div>
+          <div>${avatar(e.avatar, e.frame, 'md', e.skin)}</div><div class="name">${esc(e.username)} ${flag(e.country)}</div>
           <div class="base">${cls === 'p1' ? '1º' : cls === 'p2' ? '2º' : '3º'}<div class="val">${fmtValue(e.value, unit)}</div></div></div>`
       : `<div class="spot ${cls} empty"><img class="trophy-svg" src="${trophyURL(kind)}" alt="" style="opacity:.35"><div class="name">—</div><div class="base">${cls === 'p1' ? '1º' : cls === 'p2' ? '2º' : '3º'}<div class="val">vago</div></div></div>`;
     return `<div class="podium">${spot(list[1], 'p2', 'silver')}${spot(list[0], 'p1', 'gold')}${spot(list[2], 'p3', 'bronze')}</div>`;
@@ -404,7 +404,7 @@ export class App {
   rankRow(e, unit, me) {
     return `<div class="rank-row ${me ? 'me' : ''} ${e.rank && e.rank <= 3 ? 'r' + e.rank : ''}" data-go="profile/${encodeURIComponent(e.username)}">
       <div class="pos">${e.rank ? (e.rank <= 3 ? e.rank + 'º' : '#' + e.rank) : '—'}</div>
-      ${avatar(e.avatar, e.frame)}
+      ${avatar(e.avatar, e.frame, '', e.skin)}
       <div class="who"><b>${esc(e.username)} ${flag(e.country)}</b><small>${esc(COUNTRY_MAP[e.country]?.name || '')}${e.sub ? ' · ' + esc(e.sub) : ''}${me && !e.rank ? ' · você ainda não pontuou aqui' : ''}</small></div>
       <div class="val">${fmtValue(e.value, unit)}</div></div>`;
   }
@@ -421,7 +421,7 @@ export class App {
       <section class="card"><h3>👑 Lendas atuais (TOP 3 histórico)</h3>${this.podium(r.legends, 'pts')}</section>
       <section class="card"><h3>🏆 Campeões das temporadas e eventos</h3>${Object.keys(bySeason).length ? Object.entries(bySeason).map(([per, list]) => `
         <div style="margin-bottom:10px"><b>${esc(per.startsWith('event-') ? 'Evento ' + per.slice(6) : 'Temporada ' + per)}</b>
-        ${list.map((c) => `<div class="room-player" data-go="profile/${encodeURIComponent(c.username)}" style="cursor:pointer">${c.medal.icon} ${avatar(c.avatar, c.frame, 'sm')} <b>${esc(c.username)}</b> ${flag(c.country)} <small class="muted">${esc(c.medal.name)}</small></div>`).join('')}</div>`).join('')
+        ${list.map((c) => `<div class="room-player" data-go="profile/${encodeURIComponent(c.username)}" style="cursor:pointer">${c.medal.icon} ${avatar(c.avatar, c.frame, 'sm', c.skin)} <b>${esc(c.username)}</b> ${flag(c.country)} <small class="muted">${esc(c.medal.name)}</small></div>`).join('')}</div>`).join('')
         : '<p class="muted">A primeira temporada ainda está em andamento. Os campeões aparecerão aqui para sempre.</p>'}</section>
       <section class="card" style="grid-column:1/-1"><h3>⏱️ Recordes mundiais de todos os tempos</h3>
         <table><thead><tr><th>Fase</th><th>Nome</th><th>Tempo</th><th>Recordista</th></tr></thead><tbody>
@@ -519,7 +519,7 @@ export class App {
       <td class="mono">${h.mode === 'endless' ? num(h.distance) + ' m' : fmtTime(h.time_ms)}</td><td>${h.deaths ?? 0}</td><td class="mono">${h.score ? num(h.score) : '—'}</td></tr>`).join('');
     $('#prof').className = 'stack';
     $('#prof').innerHTML = `
-      <section class="card profile-head">${avatar(p.avatar, p.equipped.frame, 'lg')}
+      <section class="card profile-head">${avatar(p.avatar, p.equipped.frame, 'lg', p.equipped.skin)}
         <div><h1>${esc(p.username)} ${flag(p.country)}</h1><div class="muted">${esc(COUNTRY_MAP[p.country]?.name || '')} · ${esc(CONTINENTS[p.continent] || '')} · membro desde ${new Date(p.createdAt).toLocaleDateString('pt-BR')}
           ${p.online ? ' · <span style="color:var(--green)">● online</span>' : ''}</div>
           <div class="row" style="margin-top:10px">${p.rank ? `<span class="pill rank">#${num(p.rank)} no mundo</span>` : '<span class="pill">Sem posição ainda</span>'}<span class="pill coins">${num(p.totalScore)} pts</span>
