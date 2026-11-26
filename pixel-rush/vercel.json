@@ -4,6 +4,7 @@
   "buildCommand": "mkdir -p public/shared && cp shared/*.js public/shared/",
   "outputDirectory": "public",
   "rewrites": [{ "source": "/api/(.*)", "destination": "/api/index" }],
+  "regions": ["gru1"],
   "functions": { "api/index.js": { "maxDuration": 30 } },
   "headers": [
     {

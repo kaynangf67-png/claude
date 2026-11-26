@@ -33,7 +33,7 @@ const SECURITY_HEADERS = {
 };
 
 export async function createServer({ dbOptions, logger = console, rateLimits = process.env.DISABLE_RATE_LIMITS !== '1', serverless = false } = {}) {
-  const db = await openDb(dbOptions);
+  const db = await openDb({ ...dbOptions, serverless });
   const log = (...a) => logger.error?.(...a);
   const rl = {
     auth: new RateLimiter(rateLimits ? 20 : 1e6, 15 * 60000),
@@ -376,7 +376,7 @@ export async function createServer({ dbOptions, logger = console, rateLimits = p
   }
 
   const handle = async (req, res) => {
-    if (serverless) maintenance();
+    if (serverless) await maintenance();
     const url = new URL(req.url, 'http://x');
     const ip = (process.env.TRUST_PROXY && String(req.headers['x-forwarded-for'] || '').split(',')[0].trim()) || req.socket.remoteAddress || '?';
     if (!url.pathname.startsWith('/api/')) {
@@ -413,13 +413,16 @@ export async function createServer({ dbOptions, logger = console, rateLimits = p
   // Em hospedagem serverless (Vercel) não há WebSocket nem timers: a manutenção
   // (fechar temporadas, limpar sessões) roda no máximo a cada 10 min durante as requisições.
   let lastMaint = 0;
-  function maintenance() {
+  async function maintenance() {
     const now = Date.now();
     if (now - lastMaint < 10 * 60000) return;
     lastMaint = now;
-    runFinalizers(db).catch((e) => log('finalizer', e));
-    db.run("DELETE FROM runs WHERE status='open' AND created_at < $1", [now - 6 * 3600000]).catch((e) => log('cleanup', e));
-    db.run('DELETE FROM sessions WHERE expires_at < $1', [now]).catch((e) => log('cleanup', e));
+    // aguardado (nada fica rodando "solto" depois da resposta, quando a função é congelada)
+    try {
+      await runFinalizers(db);
+      await db.run("DELETE FROM runs WHERE status='open' AND created_at < $1", [now - 6 * 3600000]);
+      await db.run('DELETE FROM sessions WHERE expires_at < $1', [now]);
+    } catch (e) { log('manutenção', e); }
   }
   if (serverless) {
     const mpStub = { isOnline: () => false, onlineCount: () => 0, notify() {}, refreshItems: async () => {}, close() {} };

@@ -151,12 +151,19 @@ async function openSqlite(file) {
   return db;
 }
 
-async function openPg(url) {
+async function openPg(url, { serverless = false } = {}) {
   const pg = (await import('pg')).default;
   pg.types.setTypeParser(20, (v) => parseInt(v, 10));     // int8
   pg.types.setTypeParser(1700, (v) => parseFloat(v));     // numeric (SUM)
   const ssl = /sslmode=require|supabase|neon\.tech/.test(url) ? { rejectUnauthorized: false } : undefined;
-  const pool = new pg.Pool({ connectionString: url, max: Number(process.env.PG_POOL || 10), ssl });
+  // Em serverless a função é congelada entre requisições e as conexões ociosas morrem:
+  // fecha conexões paradas rápido e põe limite de tempo em tudo para nunca travar.
+  const pool = new pg.Pool({
+    connectionString: url, max: Number(process.env.PG_POOL || 10), ssl,
+    idleTimeoutMillis: serverless ? 1000 : 30000, connectionTimeoutMillis: 10000,
+    query_timeout: 20000, keepAlive: true,
+  });
+  pool.on('error', () => { /* conexão ociosa caiu: o pool descarta e abre outra */ });
   const wrap = (c) => ({
     async all(sql, p = []) { return (await c.query(sql, p)).rows; },
     async get(sql, p = []) { return (await c.query(sql, p)).rows[0]; },
@@ -177,12 +184,13 @@ async function openPg(url) {
     },
     async close() { await pool.end(); },
   };
-  for (const s of SCHEMA) await pool.query(s);
-  await pool.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS state TEXT NOT NULL DEFAULT ''");
-  await pool.query('CREATE INDEX IF NOT EXISTS users_state ON users (state, total_score DESC)');
+  // uma única ida ao banco para garantir o schema (rápido na inicialização serverless)
+  await pool.query([...SCHEMA,
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS state TEXT NOT NULL DEFAULT ''",
+    'CREATE INDEX IF NOT EXISTS users_state ON users (state, total_score DESC)'].join(';\n'));
   return db;
 }
 
-export async function openDb({ url = process.env.DATABASE_URL, file = process.env.SQLITE_FILE || 'data/pixelrush.db' } = {}) {
-  return url ? openPg(url) : openSqlite(file);
+export async function openDb({ url = process.env.DATABASE_URL, file = process.env.SQLITE_FILE || 'data/pixelrush.db', serverless = false } = {}) {
+  return url ? openPg(url, { serverless }) : openSqlite(file);
 }
