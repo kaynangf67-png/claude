@@ -341,6 +341,13 @@ export async function createServer({ dbOptions, logger = console, rateLimits = p
 
   // ---------------- HTTP
   async function readBody(req) {
+    // No Vercel o corpo pode já vir lido (req.body); fora dele, lemos o stream.
+    if (serverless && req.body !== undefined && req.body !== null) {
+      const b = req.body;
+      if (Buffer.isBuffer(b)) { if (b.length > 4 * 1024 * 1024) throw new GameError(413, 'Corpo muito grande'); try { return b.length ? JSON.parse(b.toString('utf8')) : {}; } catch { throw new GameError(400, 'JSON inválido'); } }
+      if (typeof b === 'string') { try { return b ? JSON.parse(b) : {}; } catch { throw new GameError(400, 'JSON inválido'); } }
+      if (typeof b === 'object') return b;
+    }
     const chunks = [];
     let size = 0;
     for await (const c of req) {
