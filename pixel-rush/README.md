@@ -61,6 +61,10 @@ As tabelas são criadas automaticamente na primeira execução. Os testes també
 
 **Interface**: a tela inicial mostra o nome ESTRESSE grande no topo, o personagem dançando com a skin escolhida no centro e só os nomes do menu à esquerda (Jogar, Evento, Ranking, Loja, Cofre, Perfil, Configurações); cada nome abre uma página própria.
 
+**Duas moedas**: *moedas* (ganhas jogando) e *diamantes* (comprados com dinheiro pelo Mercado Pago — Pix ou cartão). Itens lendários custam diamantes; tudo continua só visual. O servidor só credita diamantes depois de confirmar o pagamento direto na API do Mercado Pago (valor conferido, crédito único por pedido). Para ativar: variável `MP_ACCESS_TOKEN` (token de produção do Mercado Pago) e, opcionalmente, `PUBLIC_URL`. `POST /api/admin/gems` (com `ADMIN_TOKEN`) credita diamantes manualmente.
+
+**Áudio**: trilha do menu e efeitos são sintetizados pelo próprio jogo (WebAudio), sem arquivos de terceiros; a morte toca um "FAAAA" de voz sintetizada.
+
 **Loja e Cofre**: na Loja ficam de vitória, efeitos de pulo, trilhas, mascotes, emotes e molduras de perfil; o Cofre mostra suas moedas e os itens que você tem. Tudo é cosmético e nada altera a física. As moedas vêm das fases, de recordes, do Modo Infinito, de corridas, de conquistas e das temporadas, com limite diário para evitar "farm". Há 21 conquistas.
 
 ## Proteção contra trapaças

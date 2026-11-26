@@ -29,6 +29,8 @@ async function register(username, country = 'BR') {
 }
 
 before(async () => {
+  process.env.MP_ACCESS_TOKEN = 'TESTE';
+  process.env.ADMIN_TOKEN = 'admin-teste';
   if (process.env.TEST_DATABASE_URL) { // banco de teste limpo a cada execução
     const pg = (await import('pg')).default;
     const c = new pg.Client({ connectionString: process.env.TEST_DATABASE_URL });
@@ -203,12 +205,54 @@ test('login como convidado e com Google (Supabase Auth)', async () => {
   assert.equal(pw.status, 401);
 });
 
+test('diamantes: compra pelo Mercado Pago creditada uma única vez e item lendário', async () => {
+  const t = await register('Rico', 'BR');
+  const realFetch = globalThis.fetch;
+  const pays = {};
+  globalThis.fetch = async (url, opts) => {
+    const u = String(url);
+    if (u.startsWith('https://api.mercadopago.com/checkout/preferences')) {
+      const b = JSON.parse(opts.body);
+      return new Response(JSON.stringify({ id: 'pref1', init_point: 'https://mp.test/pagar/' + b.external_reference }), { status: 201 });
+    }
+    const m = u.match(/api\.mercadopago\.com\/v1\/payments\/(\d+)/);
+    if (m) return new Response(JSON.stringify(pays[m[1]]), { status: 200 });
+    return realFetch(url, opts);
+  };
+  try {
+    const pk = await api('/api/payments/packs');
+    assert.equal(pk.data.enabled, true);
+    const c = await api('/api/payments/checkout', { method: 'POST', token: t, body: { pack: 'gems_310' } });
+    assert.equal(c.status, 200);
+    assert.match(c.data.url, /^https:\/\/mp\.test\/pagar\//);
+    // pagamento com valor errado não credita
+    pays['111'] = { status: 'approved', external_reference: c.data.order, transaction_amount: 1 };
+    await api('/api/payments/webhook?type=payment&data.id=111', { method: 'POST', body: {} });
+    let me = await api('/api/me', { token: t });
+    assert.equal(me.data.user.gems, 0);
+    // pagamento aprovado com o valor certo credita, e só uma vez
+    pays['222'] = { status: 'approved', external_reference: c.data.order, transaction_amount: 14.9 };
+    await api('/api/payments/webhook?type=payment&data.id=222', { method: 'POST', body: {} });
+    await api('/api/payments/webhook?type=payment&data.id=222', { method: 'POST', body: {} });
+    me = await api('/api/me', { token: t });
+    assert.equal(me.data.user.gems, 310);
+    const buy = await api('/api/shop/buy', { method: 'POST', token: t, body: { itemId: 'trail_rainbow' } });
+    assert.equal(buy.status, 200);
+    assert.equal(buy.data.gems, 160);
+    assert.equal(buy.data.coins, 100 + 30); // moedas intactas (+ conquista 'Estiloso')
+    const poor = await api('/api/shop/buy', { method: 'POST', token: t, body: { itemId: 'frame_diamond' } });
+    assert.equal(poor.status, 402);
+    const adm = await fetch(base + '/api/admin/gems', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Admin-Token': 'admin-teste' }, body: JSON.stringify({ username: 'Rico', amount: 100 }) });
+    assert.equal(adm.status, 200);
+  } finally { globalThis.fetch = realFetch; }
+});
+
 test('loja: comprar e equipar sem vantagem competitiva', async () => {
   const t = await register('Duda');
   const shop = await api('/api/shop', { token: t });
   assert.equal(shop.data.coins, 100);
   let r = await api('/api/shop/buy', { method: 'POST', token: t, body: { itemId: 'trail_rainbow' } });
-  assert.equal(r.status, 402);
+  assert.equal(r.status, 402); // custa diamantes
   r = await api('/api/shop/buy', { method: 'POST', token: t, body: { itemId: 'frame_champion' } });
   assert.equal(r.status, 400);
   r = await api('/api/equip', { method: 'POST', token: t, body: { slot: 'trail', itemId: 'trail_ghost' } });

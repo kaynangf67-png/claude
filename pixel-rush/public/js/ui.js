@@ -5,10 +5,10 @@ import { DemoView, DanceView } from './demo.js';
 import { avatarURL, skinAvatarURL, heroFrames, petSprite } from './sprites.js';
 import { logoCanvas, trophyURL, AnimatedTitle } from './art.js';
 import { ditherCanvas, noEmoji } from './mono.js';
-import { initAudio, setVolumes, sfx } from './audio.js';
+import { initAudio, setVolumes, sfx, playMusic, audioReady } from './audio.js';
 import { fmtTime } from '/shared/constants.js';
 import { COUNTRIES, COUNTRY_MAP, CONTINENTS, BR_STATES, flagEmoji } from '/shared/countries.js';
-import { ITEMS, ITEM_MAP, SLOTS, AVATARS } from '/shared/items.js';
+import { ITEMS, ITEM_MAP, SLOTS, AVATARS, GEM_PACKS } from '/shared/items.js';
 import { LEVEL_DEFS, WORLDS, LEVEL_IDS, levelMeta } from '/shared/levels.js';
 import { levelMedal, MEDALS } from '/shared/scoring.js';
 import { ACHIEVEMENTS } from '/shared/achievements.js';
@@ -16,6 +16,10 @@ import { ACHIEVEMENTS } from '/shared/achievements.js';
 const $ = (sel, root = document) => root.querySelector(sel);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const lvNum = (id) => LEVEL_IDS.indexOf(id);
+// ícones das duas moedas (SVG, não somem com o filtro de emojis)
+const COIN = '<svg class="cur-ico" viewBox="0 0 16 16" aria-label="moedas"><circle cx="8" cy="8" r="7" fill="#b8860b"/><circle cx="8" cy="8" r="5.6" fill="#ffd23f"/><rect x="7" y="4.5" width="2" height="7" rx="1" fill="#b8860b"/></svg>';
+const GEM = '<svg class="cur-ico" viewBox="0 0 16 16" aria-label="diamantes"><path d="M4 2h8l3 4-7 8-7-8z" fill="#3ee0ff"/><path d="M4 2l2 4h4l2-4M1 6h14M6 6l2 8 2-8" fill="none" stroke="#0b6f8a" stroke-width="1"/><path d="M5 3l1 2" stroke="#fff" stroke-width="1"/></svg>';
+const priceTag = (it) => `${it.cur === 'gem' ? GEM : COIN}<b>${Number(it.price).toLocaleString('pt-BR')}</b>`;
 const num = (n) => Number(n || 0).toLocaleString('pt-BR');
 const flag = (c) => (COUNTRY_MAP[c] ? `<img class="flag-img" src="/flags/${c.toLowerCase()}.svg" alt="${esc(COUNTRY_MAP[c].name)}" title="${esc(COUNTRY_MAP[c].name)}">` : '');
 const avatar = (id, frame = 'frame_none', cls = '', skin = null) => `<img class="avatar ${cls} ${esc(ITEM_MAP[frame]?.css || 'frame-none')}" src="${skin ? skinAvatarURL(skin, 64) : avatarURL(id || 'a1', 64)}" alt="">`;
@@ -96,7 +100,12 @@ export class App {
 
   route() {
     if (this.game) return; // durante o jogo a interface fica por baixo
-    const [name, ...rest] = (location.hash.replace(/^#\/?/, '') || 'home').split('/');
+    const [path, qs] = (location.hash.replace(/^#\/?/, '') || 'home').split('?');
+    const [name, ...rest] = path.split('/');
+    this.hashQuery = new URLSearchParams(qs || '');
+    const modal = document.getElementById('modal');
+    if (modal && !modal.hidden) { modal.hidden = true; modal.innerHTML = ''; } // janelas não ficam abertas entre páginas
+    this.menuMusic();
     for (const t of this.timers) clearInterval(t);
     this.timers = [];
     for (const v of this.views) v.stop();
@@ -111,6 +120,20 @@ export class App {
     document.body.classList.toggle('is-home', !screens[name] || name === 'home');
     (screens[name] || screens.home)();
     window.scrollTo(0, 0);
+  }
+
+  // trilha do menu (composição própria em chiptune); o navegador só libera som após um clique/tecla
+  menuMusic() {
+    if (!this.me) return;
+    if (audioReady()) { playMusic('menu'); return; }
+    if (this.musicArmed) return;
+    this.musicArmed = true;
+    const start = () => {
+      window.removeEventListener('pointerdown', start); window.removeEventListener('keydown', start);
+      initAudio();
+      if (!this.game) playMusic('menu');
+    };
+    window.addEventListener('pointerdown', start); window.addEventListener('keydown', start);
   }
 
   topbar(title, back = 'home') {
@@ -502,29 +525,84 @@ export class App {
     }
     if (it.slot === 'frame') return `<div class="prev">${avatar(this.me.user.avatar, it.id, 'md')}</div>`;
     if (it.slot === 'emote') return `<div class="prev"><span style="background:#fff;color:#1a1030;border-radius:8px;padding:4px 10px">${esc(it.text)}</span></div>`;
-    const icons = { victory: { hop: '🦘', spin: '🌀', confetti: '🎊', fireworks: '🎆', crown: '👑' }, jump: { dust: '💨', stars: '⭐', hearts: '💖', bolt: '⚡', rainbow: '🌈' }, trail: { null: '∅', ghost: '👻', fire: '🔥', neon: '💠', rainbow: '🌈' } };
-    return `<div class="prev">${icons[it.slot]?.[it.fx] || '✨'}</div>`;
+    // efeitos (vitória, pulo, trilha): o personagem + as cores do efeito
+    const c = document.createElement('canvas'); c.width = 12; c.height = 16;
+    c.getContext('2d').drawImage(heroFrames(this.me.equipped.skin).r.idle, 0, 0);
+    const cols = it.colors || { hop: ['#ffd23f'], spin: ['#ffffff', '#9a9a9a'], confetti: ['#ff595e', '#ffca3a', '#8ac926', '#1982c4'], fireworks: ['#ff3d6e', '#ffd23f', '#3ee0ff'], crown: ['#ffd23f', '#b8860b'], ghost: ['#efeaff', '#9b8cff'] }[it.fx] || [];
+    const sw = cols.map((col) => `<i style="background:${col}"></i>`).join('');
+    return `<div class="prev fx-prev"><img src="${c.toDataURL()}" style="height:56px;image-rendering:pixelated" alt=""><div class="swatches">${sw || '<span>sem efeito</span>'}</div></div>`;
   }
 
-  // Cofre: moedas + itens que você tem (equipar)
+  // Cofre: as duas carteiras (moedas e diamantes) + itens que você tem
   async renderVault(slot = 'skin') {
     if (!SLOTS[slot]) slot = 'skin';
     const owned = new Set(this.me.inventory);
     const eq = this.me.equipped;
+    const u = this.me.user;
     const list = ITEMS.filter((i) => i.slot === slot && (owned.has(i.id) || i.price === 0));
+    const pay = this.hashQuery?.get('pagamento');
     this.mount(`${this.topbar('Cofre')}
-      <div class="vault-head"><canvas class="hero-preview small" id="cz-demo"></canvas><div class="coins-big">${num(this.me.user.coins)} moedas</div></div>
+      <div class="vault">
+        <section class="vault-hero">
+          <canvas class="vault-dancer" id="vault-dancer" aria-label="Seu personagem"></canvas>
+          <div class="vault-equipped">${esc(ITEM_MAP[eq.skin]?.name || '')}</div>
+        </section>
+        <section class="wallets">
+          <div class="wallet">
+            <div class="wallet-ico">${COIN.replace('cur-ico', 'cur-ico big')}</div>
+            <div class="wallet-info"><b>${num(u.coins)}</b><span>Moedas</span><small>Ganhe jogando: fases, recordes e conquistas</small></div>
+            <button class="btn small" data-go="shop">Gastar na loja</button>
+          </div>
+          <div class="wallet gem">
+            <div class="wallet-ico">${GEM.replace('cur-ico', 'cur-ico big')}</div>
+            <div class="wallet-info"><b>${num(u.gems)}</b><span>Diamantes</span><small>Compre com dinheiro (Pix ou cartão)</small></div>
+            <button class="btn small primary" data-act="buy-gems">Comprar diamantes</button>
+          </div>
+        </section>
+      </div>
+      <h2 class="vault-sub">Seus itens</h2>
       <div class="tabs">${Object.entries(SLOTS).map(([k, n]) => `<button class="tab ${k === slot ? 'on' : ''}" data-go="vault/${k}">${n}</button>`).join('')}</div>
       <div class="items">${list.map((it) => `<div class="item ${eq[slot] === it.id ? 'equipped' : ''}">${this.itemPreview(it)}
         <div class="nm">${esc(it.name)}</div>
-        ${eq[slot] === it.id ? '<button class="btn small" disabled>Em uso</button>' : `<button class="btn small green" data-act="equip" data-id="${it.id}">Usar</button>`}</div>`).join('')}</div>`, {
+        ${eq[slot] === it.id ? '<button class="btn small" disabled>Em uso</button>' : `<button class="btn small green" data-act="equip" data-id="${it.id}">Usar</button>`}</div>`).join('')}
+        ${slot !== 'skin' ? `<button class="item item-more" data-go="shop/${slot}"><span>+</span><div class="nm">Mais na loja</div></button>` : ''}</div>`, {
       equip: async (b) => {
         const r = await api('/api/equip', { method: 'POST', body: { slot, itemId: b.dataset.id } });
         this.me.equipped = r.equipped;
         this.renderVault(slot);
       },
+      'buy-gems': () => this.gemStore(),
     });
-    this.views.push(new DemoView($('#cz-demo'), this.me.equipped, { theme: 1 }));
+    this.views.push(new DanceView($('#vault-dancer'), eq.skin || 'skin_male'));
+    if (pay === 'ok') { this.toast('Pagamento aprovado! Seus diamantes chegam em instantes.', 'gold'); setTimeout(() => this.refreshMe().then(() => { if (location.hash.startsWith('#/vault')) this.renderVault(slot); }), 4000); }
+    if (pay === 'pendente') this.toast('Pagamento em análise. Os diamantes entram assim que for aprovado.');
+    if (pay === 'falhou') this.toast('O pagamento não foi concluído.', 'error');
+    if (pay) history.replaceState(null, '', '#/vault');
+  }
+
+  // loja de diamantes (Mercado Pago)
+  async gemStore() {
+    let info = { enabled: false, packs: GEM_PACKS };
+    try { info = await api('/api/payments/packs'); } catch { /* usa a lista local */ }
+    const brl = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    this.modal(`<h2>Comprar diamantes</h2>
+      <p class="muted">Diamantes compram itens lendários na loja. São só visuais: não dão vantagem no jogo.</p>
+      <div class="gem-packs">${info.packs.map((p) => `<button class="gem-pack" data-pack="${p.id}">
+        <div class="gp-ico">${GEM.replace('cur-ico', 'cur-ico big')}</div><b>${num(p.gems)}</b>${p.bonus ? `<span class="gp-bonus">+${p.bonus}% bônus</span>` : '<span class="gp-bonus">&nbsp;</span>'}
+        <span class="gp-price">${brl(p.price)}</span></button>`).join('')}</div>
+      <p class="err" id="gem-err">${info.enabled ? '' : 'Os pagamentos ainda não foram ativados neste servidor.'}</p>
+      <p class="muted" style="font-size:12px">Pagamento processado pelo Mercado Pago (Pix ou cartão). Os diamantes entram na sua conta assim que o pagamento é aprovado.</p>
+      <div class="row center"><button class="btn ghost" data-close>Fechar</button></div>`, (m) => {
+      m.querySelectorAll('[data-pack]').forEach((b) => b.onclick = async () => {
+        const err = $('#gem-err', m);
+        if (!info.enabled) { err.textContent = 'Os pagamentos ainda não foram ativados neste servidor.'; sfx.error(); return; }
+        b.disabled = true;
+        try {
+          const r = await api('/api/payments/checkout', { method: 'POST', body: { pack: b.dataset.pack } });
+          location.href = r.url;
+        } catch (e) { err.textContent = e.message; b.disabled = false; }
+      });
+    });
   }
 
   async renderShop(slot = 'victory') {
@@ -532,14 +610,16 @@ export class App {
     const owned = new Set(this.me.inventory);
     const list = ITEMS.filter((i) => i.slot === slot && i.price !== 0);
     this.mount(`${this.topbar('Loja')}
-      <div class="coins-big">${num(this.me.user.coins)} moedas</div>
+      <div class="balances"><span class="balance">${COIN}<b>${num(this.me.user.coins)}</b></span><span class="balance">${GEM}<b>${num(this.me.user.gems)}</b></span>
+        <button class="btn small primary" data-act="buy-gems">Comprar diamantes</button></div>
       <div class="tabs">${Object.entries(SLOTS).filter(([k]) => k !== 'skin').map(([k, n]) => `<button class="tab ${k === slot ? 'on' : ''}" data-go="shop/${k}">${n}</button>`).join('')}</div>
       <div class="items">${list.map((it) => `<div class="item r-${it.rarity}">${this.itemPreview(it)}
         <div class="nm">${esc(it.name)}</div><div class="rar rar-${it.rarity}">${it.rarity}</div>
         ${owned.has(it.id) ? `<button class="btn small" data-go="vault/${slot}">Você possui</button>`
           : it.price == null ? '<div class="muted" style="font-size:12px">Exclusivo: recompensa de temporada</div>'
-          : `<div class="price">${num(it.price)} moedas</div><button class="btn small gold" data-act="buy" data-id="${it.id}" ${this.me.user.coins < it.price ? 'disabled' : ''}>Comprar</button>`}
+          : `<div class="price">${priceTag(it)}</div><button class="btn small gold" data-act="buy" data-id="${it.id}" ${(it.cur === 'gem' ? this.me.user.gems : this.me.user.coins) < it.price ? 'disabled' : ''}>Comprar</button>`}
         ${['victory', 'jump', 'trail', 'pet', 'skin'].includes(slot) ? `<button class="btn small ghost" data-act="preview" data-id="${it.id}">Prévia</button>` : ''}</div>`).join('')}</div>`, {
+      'buy-gems': () => this.gemStore(),
       buy: async (b) => {
         const it = ITEM_MAP[b.dataset.id];
         b.disabled = true;

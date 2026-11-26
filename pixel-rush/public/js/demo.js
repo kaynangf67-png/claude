@@ -97,7 +97,7 @@ export class DanceView {
     // pequeno "quique" entre os passos
     const sub = (this.t % 12) / 12;
     const bounce = dy ? Math.round(dy * Math.sin(sub * Math.PI)) : (sub < 0.2 ? 1 : 0);
-    g.fillStyle = '#000'; g.fillRect(0, 0, 32, 32);
+    g.clearRect(0, 0, 32, 32);
     if (bounce > 0) g.drawImage(img, 9, 15, 14, 15); // agachadinha no tempo da música
     else g.drawImage(img, 10, 14 + bounce, 12, 16);
   }

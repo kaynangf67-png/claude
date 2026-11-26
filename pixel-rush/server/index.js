@@ -15,7 +15,7 @@ import { getRanking, top3, clearRankingCache } from './rankings.js';
 import { runFinalizers, seasonInfo } from './seasons.js';
 import { createMultiplayer } from './multiplayer.js';
 import { COUNTRY_MAP, BR_STATES } from '../shared/countries.js';
-import { ITEMS, ITEM_MAP, DEFAULT_ITEMS, DEFAULT_EQUIPPED, AVATARS, SLOTS } from '../shared/items.js';
+import { ITEMS, ITEM_MAP, DEFAULT_ITEMS, DEFAULT_EQUIPPED, AVATARS, SLOTS, GEM_PACKS, GEM_PACK_MAP } from '../shared/items.js';
 import { LEVEL_DEFS, WORLDS } from '../shared/levels.js';
 import { dailyId, eventId, dailyRange, eventRange, EVENT_REWARDS, MEDALS } from '../shared/scoring.js';
 import { ACHIEVEMENTS } from '../shared/achievements.js';
@@ -53,7 +53,7 @@ export async function createServer({ dbOptions, logger = console, rateLimits = p
   };
 
   const meUser = (u) => ({
-    username: u.username, country: u.country, continent: u.continent, state: u.state || '', avatar: u.avatar, coins: u.coins,
+    username: u.username, country: u.country, continent: u.continent, state: u.state || '', avatar: u.avatar, coins: u.coins, gems: u.gems || 0,
     totalScore: u.total_score, levelsDone: u.levels_done, playMs: u.play_ms, endlessBest: u.endless_best,
     raceRating: u.race_rating, raceWins: u.race_wins, races: u.races, deathsTotal: u.deaths_total,
     coinsCollected: u.coins_collected, runsTotal: u.runs_total, createdAt: u.created_at,
@@ -327,12 +327,13 @@ export async function createServer({ dbOptions, logger = console, rateLimits = p
     const r = await db.tx(async (q) => {
       const owned = await q.get('SELECT 1 AS x FROM inventory WHERE user_id=$1 AND item_id=$2', [user.id, it.id]);
       if (owned) throw new GameError(409, 'Você já possui este item');
-      const upd = await q.run('UPDATE users SET coins = coins - $2, purchases = purchases + 1 WHERE id=$1 AND coins >= $2', [user.id, it.price]);
-      if (!upd.changes) throw new GameError(402, 'Moedas insuficientes');
+      const col = it.cur === 'gem' ? 'gems' : 'coins';
+      const upd = await q.run(`UPDATE users SET ${col} = ${col} - $2, purchases = purchases + 1 WHERE id=$1 AND ${col} >= $2`, [user.id, it.price]);
+      if (!upd.changes) throw new GameError(402, it.cur === 'gem' ? 'Diamantes insuficientes' : 'Moedas insuficientes');
       await q.run('INSERT INTO inventory (user_id, item_id, acquired_at) VALUES ($1,$2,$3)', [user.id, it.id, Date.now()]);
       const ach = await grantAchievements(q, user.id, {});
-      const u = await q.get('SELECT coins FROM users WHERE id=$1', [user.id]);
-      return { ok: true, coins: u.coins, achievements: ach };
+      const u = await q.get('SELECT coins, gems FROM users WHERE id=$1', [user.id]);
+      return { ok: true, coins: u.coins, gems: u.gems, achievements: ach };
     });
     await mp.refreshItems(user.id);
     return r;
@@ -409,6 +410,81 @@ export async function createServer({ dbOptions, logger = console, rateLimits = p
   });
 
   // moderação: banir/desbanir trapaceiros (replays de todos os recordes ficam disponíveis para revisão)
+  // ---------------- diamantes (pagamento pelo Mercado Pago: Pix e cartão)
+  const MP_TOKEN = process.env.MP_ACCESS_TOKEN || '';
+  const payments = { enabled: !!MP_TOKEN };
+  const siteOrigin = (req) => process.env.PUBLIC_URL || `${req.headers['x-forwarded-proto'] || 'http'}://${req.headers['x-forwarded-host'] || req.headers.host}`;
+
+  route('GET', '/api/payments/packs', async () => ({ enabled: payments.enabled, packs: GEM_PACKS }), { auth: false });
+
+  route('POST', '/api/payments/checkout', async ({ user, body, req }) => {
+    const pack = GEM_PACK_MAP[body.pack];
+    if (!pack) throw new GameError(400, 'Pacote inválido');
+    if (!payments.enabled) throw new GameError(503, 'A compra de diamantes ainda não foi ativada.');
+    const id = newId(16);
+    const cents = Math.round(pack.price * 100);
+    await db.run("INSERT INTO orders (id, user_id, pack, gems, amount_cents, status, created_at) VALUES ($1,$2,$3,$4,$5,'pending',$6)",
+      [id, user.id, pack.id, pack.gems, cents, Date.now()]);
+    const origin = siteOrigin(req);
+    const r = await fetch('https://api.mercadopago.com/checkout/preferences', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${MP_TOKEN}`, 'Content-Type': 'application/json', 'X-Idempotency-Key': id },
+      body: JSON.stringify({
+        items: [{ id: pack.id, title: `ESTRESSE — ${pack.gems} diamantes`, quantity: 1, currency_id: 'BRL', unit_price: pack.price }],
+        external_reference: id,
+        notification_url: `${origin}/api/payments/webhook`,
+        back_urls: { success: `${origin}/#/vault?pagamento=ok`, pending: `${origin}/#/vault?pagamento=pendente`, failure: `${origin}/#/vault?pagamento=falhou` },
+        auto_return: 'approved',
+      }),
+    });
+    const pref = await r.json().catch(() => ({}));
+    if (!r.ok || !pref.init_point) { log('mercadopago', r.status, pref); throw new GameError(502, 'Não foi possível abrir o pagamento. Tente de novo.'); }
+    await db.run('UPDATE orders SET provider_id=$2 WHERE id=$1', [id, String(pref.id || '')]);
+    return { url: pref.init_point, order: id };
+  });
+
+  // Credita os diamantes uma única vez, só depois de confirmar o pagamento com o próprio Mercado Pago.
+  async function creditOrder(orderId, providerPaymentId) {
+    return db.tx(async (q) => {
+      const o = await q.get('SELECT * FROM orders WHERE id=$1', [orderId]);
+      if (!o) return false;
+      const upd = await q.run("UPDATE orders SET status='paid', paid_at=$2, provider_id=$3 WHERE id=$1 AND status='pending'", [orderId, Date.now(), providerPaymentId]);
+      if (!upd.changes) return false;
+      await q.run('UPDATE users SET gems = gems + $2 WHERE id=$1', [o.user_id, o.gems]);
+      return true;
+    });
+  }
+
+  route('POST', '/api/payments/webhook', async ({ body, query }) => {
+    if (!payments.enabled) return { ok: true };
+    const pid = String(query['data.id'] || query.id || body?.data?.id || '');
+    const type = String(query.type || query.topic || body?.type || '');
+    if (!pid || !/^\d+$/.test(pid) || (type && type !== 'payment')) return { ok: true };
+    const r = await fetch(`https://api.mercadopago.com/v1/payments/${pid}`, { headers: { Authorization: `Bearer ${MP_TOKEN}` } });
+    if (!r.ok) return { ok: true };
+    const pay = await r.json();
+    if (pay.status !== 'approved' || !pay.external_reference) return { ok: true };
+    const o = await db.get('SELECT amount_cents FROM orders WHERE id=$1', [pay.external_reference]);
+    if (!o || Math.round(Number(pay.transaction_amount) * 100) !== Number(o.amount_cents)) return { ok: true };
+    await creditOrder(pay.external_reference, pid);
+    return { ok: true };
+  }, { auth: false });
+
+  route('GET', '/api/payments/orders', async ({ user }) => ({
+    orders: await db.all('SELECT id, pack, gems, amount_cents, status, created_at, paid_at FROM orders WHERE user_id=$1 ORDER BY created_at DESC LIMIT 20', [user.id]),
+  }));
+
+  route('POST', '/api/admin/gems', async ({ req, body }) => {
+    const want = process.env.ADMIN_TOKEN;
+    const got = String(req.headers['x-admin-token'] || '');
+    if (!want || got.length !== want.length || !timingSafeEqual(Buffer.from(got), Buffer.from(want))) throw new GameError(403, 'Proibido');
+    const n = Number(body.amount);
+    if (!Number.isInteger(n) || Math.abs(n) > 100000) throw new GameError(400, 'Quantidade inválida');
+    const r = await db.run('UPDATE users SET gems = gems + $2 WHERE username_lc=$1', [String(body.username || '').toLowerCase(), n]);
+    if (!r.changes) throw new GameError(404, 'Jogador não encontrado');
+    return { ok: true };
+  }, { auth: false });
+
   route('POST', '/api/admin/ban', async ({ req, body }) => {
     const want = process.env.ADMIN_TOKEN;
     const got = String(req.headers['x-admin-token'] || '');

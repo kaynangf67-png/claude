@@ -91,6 +91,11 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS periods (
     id TEXT PRIMARY KEY, kind TEXT NOT NULL, finalized_at BIGINT NOT NULL, winners TEXT
   )`,
+  `CREATE TABLE IF NOT EXISTS orders (
+    id TEXT PRIMARY KEY, user_id TEXT NOT NULL, pack TEXT NOT NULL, gems BIGINT NOT NULL, amount_cents BIGINT NOT NULL,
+    status TEXT NOT NULL, provider_id TEXT, created_at BIGINT NOT NULL, paid_at BIGINT
+  )`,
+  `CREATE INDEX IF NOT EXISTS orders_user ON orders (user_id, created_at DESC)`,
   `CREATE TABLE IF NOT EXISTS friends (
     user_id TEXT NOT NULL, friend_id TEXT NOT NULL, status TEXT NOT NULL, created_at BIGINT NOT NULL,
     PRIMARY KEY (user_id, friend_id)
@@ -148,6 +153,7 @@ async function openSqlite(file) {
   for (const s of SCHEMA) raw.exec(s);
   try { raw.exec("ALTER TABLE users ADD COLUMN state TEXT NOT NULL DEFAULT ''"); } catch { /* coluna já existe */ }
   try { raw.exec('ALTER TABLE users ADD COLUMN auth_sub TEXT'); } catch { /* coluna já existe */ }
+  try { raw.exec('ALTER TABLE users ADD COLUMN gems BIGINT NOT NULL DEFAULT 0'); } catch { /* coluna já existe */ }
   raw.exec('CREATE UNIQUE INDEX IF NOT EXISTS users_auth_sub ON users (auth_sub)');
   raw.exec('CREATE INDEX IF NOT EXISTS users_state ON users (state, total_score DESC)');
   return db;
@@ -190,6 +196,7 @@ async function openPg(url, { serverless = false } = {}) {
   await pool.query([...SCHEMA,
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS state TEXT NOT NULL DEFAULT ''",
     'ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_sub TEXT',
+    'ALTER TABLE users ADD COLUMN IF NOT EXISTS gems BIGINT NOT NULL DEFAULT 0',
     'CREATE UNIQUE INDEX IF NOT EXISTS users_auth_sub ON users (auth_sub)',
     'CREATE INDEX IF NOT EXISTS users_state ON users (state, total_score DESC)'].join(';\n'));
   return db;
