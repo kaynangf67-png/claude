@@ -113,8 +113,7 @@ export class App {
     if (!this.me && name !== 'auth') return this.renderAuth();
     const screens = {
       auth: () => this.renderAuth(), home: () => this.renderHome(),
-      endless: () => this.renderEndless(),
-      ranking: () => this.renderRanking(rest[0]), customize: () => this.renderVault(rest[0]), vault: () => this.renderVault(rest[0]), event: () => this.renderEvent(), shop: () => this.renderShop(rest[0]),
+      ranking: () => this.renderRanking(rest[0]), customize: () => this.renderVault(rest[0]), vault: () => this.renderVault(rest[0]), shop: () => this.renderShop(rest[0]),
       profile: () => this.renderProfile(rest[0] ? decodeURIComponent(rest[0]) : null), settings: () => this.renderSettings(),
     };
     document.body.classList.toggle('is-home', !screens[name] || name === 'home');
@@ -272,7 +271,7 @@ export class App {
 
   // ------------------------------------------------------------ início
   renderHome() {
-    const items = [['endless', 'Infinito'], ['event', 'Evento'], ['ranking', 'Ranking'], ['shop', 'Loja'], ['vault', 'Cofre'], ['profile', 'Perfil'], ['settings', 'Configurações']];
+    const items = [['shop', 'Loja'], ['vault', 'Cofre'], ['profile', 'Perfil'], ['ranking', 'Ranking'], ['settings', 'Configurações']];
     this.mount(`<canvas class="home-title" id="logo" aria-label="Estresse"></canvas>
       <canvas class="home-dancer" id="dancer" aria-hidden="true"></canvas>
       <button class="menu-link play-right" data-act="play">Jogar</button>
